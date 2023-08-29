@@ -1,0 +1,87 @@
+﻿<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="System.Runtime" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".cs" #>
+<#
+
+    var kinds = new (string Kind, string SyntaxNodeType, bool IsParameter, bool HasInner)[]
+    {
+        ("ConstructorDeclaration", "BaseMethodDeclarationSyntax", true, false),
+		("MethodDeclaration", "BaseMethodDeclarationSyntax", true, false),
+        ("DelegateDeclaration", "DelegateDeclarationSyntax", true, false),
+        ("IndexerDeclaration", "IndexerDeclarationSyntax", true, true),
+        ("InvocationExpression", "InvocationExpressionSyntax", false, false),
+        ("ObjectCreationExpression", "ObjectCreationExpressionSyntax", false, false),
+        ("ElementAccessExpression", "ElementAccessExpressionSyntax", false, true),
+        ("ElementBindingExpression", "ElementBindingExpressionSyntax", false, true),
+        ("Attribute", "AttributeSyntax", false, true),
+        ("AnonymousMethodExpression", "AnonymousMethodExpressionSyntax", true, false),
+        ("ParenthesizedLambdaExpression", "ParenthesizedLambdaExpressionSyntax", true, false),
+    };
+#>
+namespace RoslynCommonAnalyzers;
+
+<#
+int i = 1;
+foreach (var (kind, syntaxNodeType, isParameter, hasInner) in kinds)
+{
+    var code = $"RCGS{i:D4}";
+    var parameterType = isParameter ? "Parameter" : "Argument";
+    var className = $"{code}{parameterType}MustBeOnUniqueLinesCodeFixProvider";
+    var accessMethod = isParameter ? "ParameterList" : "ArgumentList";
+    var analyzerClassName = $"{code}{kind}{parameterType}MustBeOnUniqueLinesAnalyzer";
+#>
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(<#=className#>)), Shared]
+public class <#=className#> : CodeFixProvider
+{
+    public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(<#=analyzerClassName#>.DiagnosticId);
+
+    public sealed override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+
+    public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    {
+        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+
+        if (root is null)
+        {
+            return;
+        }
+
+        foreach (var diagnostic in context.Diagnostics)
+        {
+            var node = root.FindNode(diagnostic.Location.SourceSpan);
+
+            if (node is <#=syntaxNodeType#> syntaxNode)
+            {
+                // In this case there is no justification at all
+                context.RegisterCodeFix(
+                    CodeAction.Create(
+                        CodeFixResources.RCGS0001CodeFixTitle,
+                        token => Fix(context.Document, root, syntaxNode),
+                        nameof(<#=className#>) + "-Add"),
+                    diagnostic);
+                return;
+            }
+        }
+    }
+
+    private async Task<Document> Fix(Document document, SyntaxNode root, <#=syntaxNodeType#> node, CancellationToken cancellationToken)
+    {
+        // Produce a new solution that has all references to that type renamed, including the declaration.
+        var originalSolution = document.Project.Solution;
+        var optionSet = originalSolution.Workspace.Options;
+
+        var newNode = node.ConvertNodeIfAble(
+            node => node.<#=accessMethod#>.<#=parameterType#>s,
+            (node, parameters) => node.With<#=parameterType#>List(SyntaxFactory.<#=parameterType#>List(parameters).WithOpenParenToken(node.ParameterList.OpenParenToken.WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed))))
+                ?? node;
+
+    }
+}
+<#
+    i++;
+}
+#>

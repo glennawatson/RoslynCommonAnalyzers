@@ -6,24 +6,24 @@ using VerifyCS = RoslynCommonAnalyzers.Test.CSharpCodeFixVerifier<
     RoslynCommonAnalyzers.RCGS0001BaseMethodDeclarationsParametersMustBeOnUniqueLinesAnalyzer,
     RoslynCommonAnalyzers.RCGS0001ParametersMustBeOnUniqueLinesCodeFixProvider>;
 
-namespace RoslynCommonAnalyzers.Test
+namespace RoslynCommonAnalyzers.Test;
+
+[TestClass]
+public class RoslynCommonAnalyzersUnitTest
 {
-    [TestClass]
-    public class RoslynCommonAnalyzersUnitTest
+    //No diagnostics expected to show up
+    [TestMethod]
+    public async Task Empty()
     {
-        //No diagnostics expected to show up
-        [TestMethod]
-        public async Task Empty()
-        {
-            var test = @"";
+        var test = @"";
 
-            await VerifyCS.VerifyAnalyzerAsync(test);
-        }
+        await VerifyCS.VerifyAnalyzerAsync(test);
+    }
 
-        [TestMethod]
-        public async Task AllOnOneLine()
-        {
-            var test = @"
+    [TestMethod]
+    public async Task AllOnOneLine()
+    {
+        var test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -41,13 +41,13 @@ namespace RoslynCommonAnalyzers.Test
         }
     }";
 
-            await VerifyCS.VerifyAnalyzerAsync(test);
-        }
+        await VerifyCS.VerifyAnalyzerAsync(test);
+    }
 
-        [TestMethod]
-        public async Task DifferentLinesHalfSeparated()
-        {
-            var test = @"
+    [TestMethod]
+    public async Task DifferentLinesHalfSeparated()
+    {
+        var test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -66,13 +66,13 @@ namespace RoslynCommonAnalyzers.Test
         }
     }";
 
-            await VerifyCS.VerifyAnalyzerAsync(test, VerifyCS.Diagnostic("RCGS0001").WithSpan(13, 13, 16, 14));
-        }
+        await VerifyCS.VerifyAnalyzerAsync(test, VerifyCS.Diagnostic("RCGS0001").WithSpan(13, 13, 16, 14));
+    }
 
-        [TestMethod]
-        public async Task DifferentLinesSeparatedExceptFirst()
-        {
-            var test = @"
+    [TestMethod]
+    public async Task DifferentLinesSeparatedExceptFirst()
+    {
+        var test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -99,13 +99,13 @@ namespace RoslynCommonAnalyzers.Test
         }
     }";
 
-            await VerifyCS.VerifyAnalyzerAsync(test, VerifyCS.Diagnostic("RCGS0001").WithSpan(13, 13, 24, 14));
-        }
+        await VerifyCS.VerifyAnalyzerAsync(test, VerifyCS.Diagnostic("RCGS0001").WithSpan(13, 13, 24, 14));
+    }
 
-        [TestMethod]
-        public async Task DifferentLinesSeparated()
-        {
-            var test = @"
+    [TestMethod]
+    public async Task DifferentLinesSeparated()
+    {
+        var test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -133,14 +133,14 @@ namespace RoslynCommonAnalyzers.Test
         }
     }";
 
-            await VerifyCS.VerifyAnalyzerAsync(test);
-        }
+        await VerifyCS.VerifyAnalyzerAsync(test);
+    }
 
-        //Diagnostic and CodeFix both triggered and checked for
-        [TestMethod]
-        public async Task TestMethod2()
-        {
-            var test = @"
+    //Diagnostic and CodeFix both triggered and checked for
+    [TestMethod]
+    public async Task TestMethod2()
+    {
+        var test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -155,7 +155,7 @@ namespace RoslynCommonAnalyzers.Test
         }
     }";
 
-            var fixtest = @"
+        var fixtest = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -170,8 +170,7 @@ namespace RoslynCommonAnalyzers.Test
         }
     }";
 
-            var expected = VerifyCS.Diagnostic("RoslynCommonAnalyzers").WithLocation(0).WithArguments("TypeName");
-            await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
-        }
+        var expected = VerifyCS.Diagnostic("RoslynCommonAnalyzers").WithLocation(0).WithArguments("TypeName");
+        await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
     }
 }

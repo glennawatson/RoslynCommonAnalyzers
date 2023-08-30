@@ -1,4 +1,5 @@
 ﻿global using System.Collections.Immutable;
+global using System.Composition;
 
 global using Microsoft.CodeAnalysis;
 global using Microsoft.CodeAnalysis.CodeActions;

@@ -19,7 +19,6 @@
         (nameof(SyntaxKind.InvocationExpression), nameof(InvocationExpressionSyntax), false, false),
         (nameof(SyntaxKind.ObjectCreationExpression), nameof(ObjectCreationExpressionSyntax), false, false),
         (nameof(SyntaxKind.ElementAccessExpression), nameof(ElementAccessExpressionSyntax), false, true),
-        (nameof(SyntaxKind.ElementBindingExpression), nameof(ElementBindingExpressionSyntax), false, true),
         (nameof(SyntaxKind.Attribute), nameof(AttributeSyntax), false, true),
         (nameof(SyntaxKind.AnonymousMethodExpression), nameof(AnonymousMethodExpressionSyntax), true, false),
         (nameof(SyntaxKind.ParenthesizedLambdaExpression), nameof(ParenthesizedLambdaExpressionSyntax), true, false),

@@ -7,14 +7,15 @@
 		<GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
 		<LangVersion>latest</LangVersion>
 		<ImplicitUsings>enable</ImplicitUsings>
+		<NoWarn>$(NoWarn);SA1600;SA1601;CS1591</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <Compile Remove="ParametersMustBeOnUniqueLinesAnalyzerUnitTests.cs" />
+		<Compile Remove="ParametersMustBeOnUniqueLinesAnalyzerUnitTests.cs" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Include="ParametersMustBeOnUniqueLinesAnalyzerUnitTests.cs" />
+		<None Include="ParametersMustBeOnUniqueLinesAnalyzerUnitTests.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

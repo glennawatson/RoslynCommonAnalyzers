@@ -1,4 +1,8 @@
-﻿using System;
+﻿// Copyright (c) 2023 Glenn Watson. All rights reserved.
+// Glenn Watson licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,376 +29,409 @@ namespace ConsoleApplication1
     {");
     }
 
-    public ClassGeneratorBuilder MethodDeclaration(int parameterCount)
+    public void MethodDeclaration(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public void MyMethod({GenerateOneLineParameters(parameterCount)})
-        {{
-        }}");
-
-        return this;
+        _builder.Append(@"
+        public void MyMethod(").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@")
+        {
+        }");
     }
 
-    public ClassGeneratorBuilder MethodDeclarationJaggered(int parameterCount)
+    public (int StartLine, int StartColumn, int EndLine, int EndColumn) MethodDeclarationJaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public void MyMethod({GenerateJaggeredLineParameters(parameterCount)})
-        {{
-        }}");
+        _builder.Append(@"
+        public void MyMethod(").Append(GenerateJaggeredLineParameters(parameterCount)).AppendLine(@")
+        {
+        }");
 
-        return this;
+        return (13, 9, 16, 10);
     }
 
-    public ClassGeneratorBuilder MethodDeclarationStaggered(int parameterCount)
+    public void MethodDeclarationStaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public void MyMethod({GenerateStaggeredLineParameters(parameterCount)})
-        {{
-        }}");
-
-        return this;
+        _builder.Append(@"
+        public void MyMethod(").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(@")
+        {
+        }");
     }
 
-    public ClassGeneratorBuilder ConstructorDeclaration(int parameterCount)
+    public void ConstructorDeclaration(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public MyTestClass({GenerateOneLineParameters(parameterCount)})
-        {{
-        }}");
-
-        return this;
+        _builder.Append(@"
+        public MyTestClass(").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@")
+        {
+        }");
     }
 
-    public ClassGeneratorBuilder ConstructorDeclarationJaggered(int parameterCount)
+    public (int StartLine, int StartColumn, int EndLine, int EndColumn) ConstructorDeclarationJaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public MyTestClass({GenerateJaggeredLineParameters(parameterCount)})
-        {{
-        }}");
-
-        return this;
+        _builder.Append(@"
+        public MyTestClass(").Append(GenerateJaggeredLineParameters(parameterCount)).AppendLine(@")
+        {
+        }");
+        return (13, 9, 16, 10);
     }
 
-    public ClassGeneratorBuilder ConstructorDeclarationStaggered(int parameterCount)
+    public void ConstructorDeclarationStaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public MyTestClass({GenerateStaggeredLineParameters(parameterCount)})
-        {{
-        }}");
-
-        return this;
+        _builder.Append(@"
+        public MyTestClass(").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(@")
+        {
+        }");
     }
 
-    public ClassGeneratorBuilder DelegateDeclaration(int parameterCount)
+    public void DelegateDeclaration(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public delegate void DelegateDefinition({GenerateOneLineParameters(parameterCount)});");
-
-        return this;
+        _builder.Append(@"
+        public delegate void DelegateDefinition(").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@");");
     }
 
-    public ClassGeneratorBuilder DelegateDeclarationJaggered(int parameterCount)
+    public (int StartLine, int StartColumn, int EndLine, int EndColumn) DelegateDeclarationJaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public delegate void DelegateDefinition({GenerateJaggeredLineParameters(parameterCount)});");
+        var input = $@"
+        public delegate void DelegateDefinition({GenerateJaggeredLineParameters(parameterCount)});";
 
-        return this;
+        var splitLines = input.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+        var endColumn = splitLines[splitLines.Length - 1].Length + 1;
+        _builder.Append(input);
+        return (13, 9, 14, endColumn);
     }
 
-    public ClassGeneratorBuilder DelegateDeclarationStaggered(int parameterCount)
+    public void DelegateDeclarationStaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public delegate void DelegateDefinition({GenerateStaggeredLineParameters(parameterCount)});");
-
-        return this;
+        _builder.Append(@"
+        public delegate void DelegateDefinition(").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(@");");
     }
 
-    public ClassGeneratorBuilder AnonymousMethodExpression(int parameterCount)
+    public void AnonymousMethodExpression(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public delegate void DelegateDefinition({GenerateOneLineParameters(parameterCount)});
+        _builder.Append(@"
+        public delegate void DelegateDefinition(").Append(GenerateOneLineParameters(parameterCount)).Append(@");
         public void MyInnerMethod()
-        {{
-            DelegateDefinition action = delegate({GenerateOneLineParameters(parameterCount)})
-            {{
-            }};
-        }}");
-
-        return this;
+        {
+            DelegateDefinition action = delegate(").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@")
+            {
+            };
+        }");
     }
 
-    public ClassGeneratorBuilder AnonymousMethodExpressionJaggered(int parameterCount)
+    public (int StartLine, int StartColumn, int EndLine, int EndColumn) AnonymousMethodExpressionJaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public delegate void DelegateDefinition({GenerateOneLineParameters(parameterCount)});
+        var input = @$"            DelegateDefinition action = delegate({GenerateJaggeredLineParameters(parameterCount)})
+            {{
+            }};";
+
+        _builder.Append(@"
+        public delegate void DelegateDefinition(").Append(GenerateOneLineParameters(parameterCount)).Append(@");
         public void MyInnerMethod()
-        {{
-            DelegateDefinition action = delegate({GenerateJaggeredLineParameters(parameterCount)})
-            {{
-            }};
-        }}");
+        {
+").Append(input).AppendLine(@"
+        }");
 
-        return this;
+        var splitLines = input.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+        var endColumn = splitLines[splitLines.Length - 1].Length;
+        var startLine = 16;
+        var endLine = startLine + 3;
+        var startColumn = 41;
+
+        return (startLine, startColumn, endLine, endColumn);
     }
 
-    public ClassGeneratorBuilder AnonymousMethodExpressionStaggered(int parameterCount)
+    public void AnonymousMethodExpressionStaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public delegate void DelegateDefinition({GenerateOneLineParameters(parameterCount)});
+        _builder.Append(@"
+        public delegate void DelegateDefinition(").Append(GenerateOneLineParameters(parameterCount)).Append(@");
         public void MyInnerMethod()
-        {{
-            DelegateDefinition action = delegate({GenerateStaggeredLineParameters(parameterCount)})
-            {{
-            }};
-        }}");
-
-        return this;
+        {
+            DelegateDefinition action = delegate(").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(@")
+            {
+            };
+        }");
     }
 
-    public ClassGeneratorBuilder ParenthesizedLambdaExpression(int parameterCount)
+    public void ParenthesizedLambdaExpression(int parameterCount)
     {
-        _builder.AppendLine($@"
+        _builder.Append(@"
         public void MyInnerMethod()
-        {{
-            var action = ({GenerateOneLineParameters(parameterCount)}) =>
-            {{
-            }};
-        }}");
-
-        return this;
+        {
+            var action = (").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@") =>
+            {
+            };
+        }");
     }
 
-    public ClassGeneratorBuilder ParenthesizedLambdaExpressionJaggered(int parameterCount)
+    public (int StartLine, int StartColumn, int EndLine, int EndColumn) ParenthesizedLambdaExpressionJaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
+        var input = @$"            var action = ({GenerateJaggeredLineParameters(parameterCount)}) =>
+            {{
+            }};";
+
+        _builder.Append(@"
         public void MyInnerMethod()
-        {{
-            var action = ({GenerateJaggeredLineParameters(parameterCount)}) =>
-            {{
-            }};
-        }}");
+        {
+").Append(input).AppendLine(@"
+        }");
 
-        return this;
+        var splitLines = input.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+        var endColumn = splitLines[splitLines.Length - 1].Length;
+        var startLine = 15;
+        var endLine = startLine + 3;
+        var startColumn = 26;
+
+        return (startLine, startColumn, endLine, endColumn);
     }
 
-    public ClassGeneratorBuilder ParenthesizedLambdaExpressionStaggered(int parameterCount)
+    public void ParenthesizedLambdaExpressionStaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
+        _builder.Append(@"
         public void MyInnerMethod()
-        {{
-            var action = ({GenerateStaggeredLineParameters(parameterCount)}) =>
-            {{
-            }};
-        }}");
-
-        return this;
+        {
+            var action = (").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(@") =>
+            {
+            };
+        }");
     }
 
-    public ClassGeneratorBuilder IndexerDeclaration(int parameterCount)
+    public void IndexerDeclaration(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public int this[{GenerateOneLineParameters(parameterCount)}] => default;");
-
-        return this;
+        _builder.Append(@"
+        public int this[").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@"] => default;");
     }
 
-    public ClassGeneratorBuilder IndexerDeclarationJaggered(int parameterCount)
+    public (int StartLine, int StartColumn, int EndLine, int EndColumn) IndexerDeclarationJaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public int this[{GenerateStaggeredLineParameters(parameterCount)}] => default;");
+        var input = $@"
+        public int this[{GenerateJaggeredLineParameters(parameterCount)}] => default;";
 
-        return this;
+        var splitLines = input.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+        var endColumn = splitLines[splitLines.Length - 1].Length + 1;
+
+        _builder.AppendLine(input);
+
+        return (13, 9, 14, endColumn);
     }
 
-    public ClassGeneratorBuilder IndexerDeclarationStaggered(int parameterCount)
+    public void IndexerDeclarationStaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
-        public int this[{GenerateStaggeredLineParameters(parameterCount)}] => default;");
-
-        return this;
+        _builder.Append(@"
+        public int this[").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(@"] => default;");
     }
 
-    public ClassGeneratorBuilder InvocationExpression(int parameterCount)
+    public void InvocationExpression(int parameterCount)
     {
         MethodDeclaration(parameterCount);
-        _builder.AppendLine($@"
+        _builder.Append(@"
         public void MyInnerMethod()
-        {{
-            MyMethod({GenerateOneLineArguments(parameterCount)});
-        }}");
-
-        return this;
+        {
+            MyMethod(").Append(GenerateOneLineArguments(parameterCount)).AppendLine(@");
+        }");
     }
 
-    public ClassGeneratorBuilder InvocationExpressionJaggered(int parameterCount)
+    public (int StartLine, int StartColumn, int EndLine, int EndColumn) InvocationExpressionJaggered(int parameterCount)
     {
         MethodDeclaration(parameterCount);
-        _builder.AppendLine($@"
+        var jaggeredParameters = GenerateJaggeredLineArguments(parameterCount);
+        var input = $@"
         public void MyInnerMethod()
         {{
-            MyMethod({GenerateJaggeredLineArguments(parameterCount)});
-        }}");
+            MyMethod({jaggeredParameters});";
+        _builder.AppendLine(input)
+            .AppendLine("        }");
 
-        return this;
+        var splitLines = input.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+        var endColumn = splitLines[splitLines.Length - 1].Length;
+        var startLine = 19;
+        var endLine = startLine + 1;
+        var startColumn = 13;
+
+        return (startLine, startColumn, endLine, endColumn);
     }
 
-    public ClassGeneratorBuilder InvocationExpressionStaggered(int parameterCount)
+    public void InvocationExpressionStaggered(int parameterCount)
     {
         MethodDeclaration(parameterCount);
-        _builder.AppendLine($@"
+        _builder.Append(@"
         public void MyInnerMethod()
-        {{
-            MyMethod({GenerateStaggeredLineArguments(parameterCount)});
-        }}");
-
-        return this;
+        {
+            MyMethod(").Append(GenerateStaggeredLineArguments(parameterCount)).AppendLine(@");
+        }");
     }
 
-    public ClassGeneratorBuilder ObjectCreationExpression(int parameterCount)
+    public void ObjectCreationExpression(int parameterCount)
     {
-        _builder.AppendLine($@"
+        _builder.Append(@"
         public class MyInnerTest
-        {{
-            public MyInnerTest({GenerateOneLineParameters(parameterCount)})
-            {{
-            }}
-        }}
+        {
+            public MyInnerTest(").Append(GenerateOneLineParameters(parameterCount)).Append(@")
+            {
+            }
+        }
     
         public void MyInnerMethod()
-        {{
-            var myInnerTest = new MyInnerTest({GenerateOneLineArguments(parameterCount)});
-        }}");
-
-        return this;
+        {
+            var myInnerTest = new MyInnerTest(").Append(GenerateOneLineArguments(parameterCount)).AppendLine(@");
+        }");
     }
 
-    public ClassGeneratorBuilder ObjectCreationExpressionJaggered(int parameterCount)
+    public (int StartLine, int StartColumn, int EndLine, int EndColumn) ObjectCreationExpressionJaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
+        _builder.Append(@"
         public class MyInnerTest
-        {{
-            public MyInnerTest({GenerateOneLineParameters(parameterCount)})
-            {{
-            }}
-        }}
-    
+        {
+            public MyInnerTest(").Append(GenerateOneLineParameters(parameterCount)).Append(@")
+            {
+            }
+        }");
+        var jaggeredParameters = GenerateJaggeredLineArguments(parameterCount);
+        var input = $@"
         public void MyInnerMethod()
         {{
-            var myInnerTest = new MyInnerTest({GenerateJaggeredLineArguments(parameterCount)});
-        }}");
+            var myInnerTest = new MyInnerTest({jaggeredParameters});";
+        _builder.AppendLine(input)
+            .AppendLine("        }");
 
-        return this;
+        var splitLines = input.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+        var endColumn = splitLines[splitLines.Length - 1].Length;
+        var startLine = 21;
+        var endLine = startLine + 1;
+        var startColumn = 31;
+
+        return (startLine, startColumn, endLine, endColumn);
     }
 
-    public ClassGeneratorBuilder ObjectCreationExpressionStaggered(int parameterCount)
+    public void ObjectCreationExpressionStaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
+        _builder.Append(@"
         public class MyInnerTest
-        {{
-            public MyInnerTest({GenerateOneLineParameters(parameterCount)})
-            {{
-            }}
-        }}
+        {
+            public MyInnerTest(").Append(GenerateOneLineParameters(parameterCount)).Append(@")
+            {
+            }
+        }
     
         public void MyInnerMethod()
-        {{
-            var myInnerTest = new MyInnerTest({GenerateStaggeredLineArguments(parameterCount)});
-        }}");
-
-        return this;
+        {
+            var myInnerTest = new MyInnerTest(").Append(GenerateStaggeredLineArguments(parameterCount)).AppendLine(@");
+        }");
     }
 
-    public ClassGeneratorBuilder Attribute(int parameterCount)
+    public void Attribute(int parameterCount)
     {
-        _builder.AppendLine($@"
+        _builder.Append(@"
         public class MyInnerTestAttribute : System.Attribute
-        {{
-            public MyInnerTestAttribute({GenerateOneLineParameters(parameterCount)})
-            {{
-            }}
-        }}
+        {
+            public MyInnerTestAttribute(").Append(GenerateOneLineParameters(parameterCount)).Append(@")
+            {
+            }
+        }
     
-        [MyInnerTest({GenerateOneLineArguments(parameterCount)})]
+        [MyInnerTest(").Append(GenerateOneLineArguments(parameterCount)).AppendLine(@")]
         public void MyInnerMethod()
-        {{
-        }}");
-
-        return this;
+        {
+        }");
     }
 
-    public ClassGeneratorBuilder AttributeJaggered(int parameterCount)
+    public (int StartLine, int StartColumn, int EndLine, int EndColumn) AttributeJaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
+        var input = $@"        [MyInnerTest({GenerateJaggeredLineArguments(parameterCount)})]";
+
+        _builder.Append(@"
         public class MyInnerTestAttribute : System.Attribute
-        {{
-            public MyInnerTestAttribute({GenerateOneLineParameters(parameterCount)})
-            {{
-            }}
-        }}
+        {
+            public MyInnerTestAttribute(").Append(GenerateOneLineParameters(parameterCount)).Append(@")
+            {
+            }
+        }
     
-        [MyInnerTest({GenerateJaggeredLineArguments(parameterCount)})]
+        ").AppendLine(input).Append(@"
         public void MyInnerMethod()
-        {{
-        }}");
+        {
+        }");
 
-        return this;
+        var splitLines = input.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+        var endColumn = splitLines[splitLines.Length - 1].Length;
+        var startLine = 20;
+        var endLine = startLine + 1;
+        var startColumn = 18;
+
+        return (startLine, startColumn, endLine, endColumn);
     }
 
-    public ClassGeneratorBuilder AttributeStaggered(int parameterCount)
+    public void AttributeStaggered(int parameterCount)
     {
-        _builder.AppendLine($@"
+        _builder.Append(@"
         public class MyInnerTestAttribute : System.Attribute
-        {{
-            public MyInnerTestAttribute({GenerateOneLineParameters(parameterCount)})
-            {{
-            }}
-        }}
+        {
+            public MyInnerTestAttribute(").Append(GenerateOneLineParameters(parameterCount)).Append(@")
+            {
+            }
+        }
     
-        [MyInnerTest({GenerateStaggeredLineArguments(parameterCount)})]
+        [MyInnerTest(").Append(GenerateStaggeredLineArguments(parameterCount)).AppendLine(@")]
         public void MyInnerMethod()
-        {{
-        }}");
-
-        return this;
+        {
+        }");
     }
 
-    public ClassGeneratorBuilder ElementAccessExpression(int parameterCount)
+    public void ElementAccessExpression(int parameterCount)
     {
-        _builder.AppendLine($@"
+        _builder.Append(@"
         public void MyInnerMethod()
-        {{
-            var myArray = new int[{GenerateOneLineArguments(parameterCount)}];
-            myArray[{GenerateOneLineArguments(parameterCount)}] = 1;
-        }}");
-
-        return this;
+        {
+            var myArray = new int[").Append(GenerateOneLineArguments(parameterCount)).Append(@"];
+            myArray[").Append(GenerateOneLineArguments(parameterCount)).AppendLine(@"] = 1;
+        }");
     }
 
-    public ClassGeneratorBuilder ElementAccessExpressionJaggered(int parameterCount)
+    public (int StartLine, int StartColumn, int EndLine, int EndColumn) ElementAccessExpressionJaggered(int parameterCount)
+    {
+        var jaggeredParameters = GenerateJaggeredLineArguments(parameterCount);
+        var nonJaggeredParameters = GenerateOneLineArguments(parameterCount);
+        var input = $@"
+        public void MyInnerMethod()
+        {{
+            var myArray = new int[{nonJaggeredParameters}];
+            myArray[{jaggeredParameters}] = 1;";
+        _builder.AppendLine(input)
+            .AppendLine("        }");
+
+        var splitLines = input.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+        var endColumn = splitLines[splitLines.Length - 1].Length - 4;
+        var startLine = 16;
+        var endLine = startLine + 1;
+        var startColumn = 13;
+
+        return (startLine, startColumn, endLine, endColumn);
+
+        ////_builder.Append(@"
+        ////public void MyInnerMethod()
+        ////{
+        ////    var myArray = new int[").Append(GenerateOneLineArguments(parameterCount)).Append(@"];
+        ////    myArray[").Append(GenerateJaggeredLineArguments(parameterCount)).AppendLine(@"] = 1;
+        ////}");
+
+        ////return (13, 9, 14, 20);
+    }
+
+    public void ElementAccessExpressionStaggered(int parameterCount)
     {
         MethodDeclaration(parameterCount);
-        _builder.AppendLine($@"
+        _builder.Append(@"
         public void MyInnerMethod()
-        {{
-            var myArray = new int[{GenerateOneLineArguments(parameterCount)}];
-            myArray[{GenerateJaggeredLineArguments(parameterCount)}] = 1;
-        }}");
-
-        return this;
+        {
+            var myArray = new int[").Append(GenerateOneLineArguments(parameterCount)).Append(@"];
+            myArray[").Append(GenerateStaggeredLineArguments(parameterCount)).AppendLine(@"] = 1;
+        }");
     }
 
-    public ClassGeneratorBuilder ElementAccessExpressionStaggered(int parameterCount)
-    {
-        MethodDeclaration(parameterCount);
-        _builder.AppendLine($@"
-        public void MyInnerMethod()
-        {{
-            var myArray = new int[{GenerateOneLineArguments(parameterCount)}];
-            myArray[{GenerateStaggeredLineArguments(parameterCount)}] = 1;
-        }}");
-
-        return this;
-    }
     public string Generate()
     {
         _builder.AppendLine(@"    }
@@ -410,22 +447,23 @@ namespace ConsoleApplication1
 
     private static string GenerateJaggeredLineParameters(int parameterCount)
     {
-        int halfWayPoint = parameterCount / 2;
+        var halfWayPoint = parameterCount / 2;
+        var remainingCount = parameterCount - halfWayPoint;
 
         return $@"{string.Join(", ", Enumerable.Range(0, halfWayPoint).Select(i => $"int a{i}"))},
-            {string.Join(", ", Enumerable.Range(halfWayPoint + 1, parameterCount).Select(i => $"int a{i}"))}";
+            {string.Join(", ", Enumerable.Range(halfWayPoint + 1, remainingCount).Select(i => $"int a{i}"))}";
     }
 
     private static string GenerateStaggeredLineParameters(int parameterCount)
     {
         var stringBuilder = new StringBuilder();
 
-        for (int i = 0; i < parameterCount - 1; ++i)
+        for (var i = 0; i < parameterCount - 1; ++i)
         {
-            stringBuilder.Append("            ").Append("int ").Append("a").Append(i).AppendLine(",");
+            stringBuilder.Append("            ").Append("int ").Append('a').Append(i).AppendLine(",");
         }
 
-        stringBuilder.Append("           ").Append("int ").Append("a").Append(parameterCount - 1);
+        stringBuilder.Append("           ").Append("int ").Append('a').Append(parameterCount - 1);
 
         return stringBuilder.ToString();
     }
@@ -437,17 +475,18 @@ namespace ConsoleApplication1
 
     private static string GenerateJaggeredLineArguments(int parameterCount)
     {
-        int halfWayPoint = parameterCount / 2;
+        var halfWayPoint = parameterCount / 2;
+        var remainingCount = parameterCount - halfWayPoint;
 
         return $@"{string.Join(", ", Enumerable.Range(0, halfWayPoint).Select(i => $"{i}"))},
-            {string.Join(", ", Enumerable.Range(halfWayPoint + 1, parameterCount).Select(i => $"{i}"))}";
+            {string.Join(", ", Enumerable.Range(halfWayPoint + 1, remainingCount).Select(i => $"{i}"))}";
     }
 
     private static string GenerateStaggeredLineArguments(int parameterCount)
     {
         var stringBuilder = new StringBuilder();
 
-        for (int i = 0; i < parameterCount - 1; ++i)
+        for (var i = 0; i < parameterCount - 1; ++i)
         {
             stringBuilder.Append("            ").Append(i).AppendLine(",");
         }
@@ -456,5 +495,4 @@ namespace ConsoleApplication1
 
         return stringBuilder.ToString();
     }
-
 }

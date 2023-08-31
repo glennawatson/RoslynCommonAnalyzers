@@ -3,15 +3,24 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.7.34018.315
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoslynCommonAnalyzers", "RoslynCommonAnalyzers\RoslynCommonAnalyzers\RoslynCommonAnalyzers.csproj", "{558FAEDF-B5C1-42B9-86CC-85E92A0886C8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RoslynCommonAnalyzers", "RoslynCommonAnalyzers\RoslynCommonAnalyzers\RoslynCommonAnalyzers.csproj", "{558FAEDF-B5C1-42B9-86CC-85E92A0886C8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoslynCommonAnalyzers.CodeFixes", "RoslynCommonAnalyzers\RoslynCommonAnalyzers.CodeFixes\RoslynCommonAnalyzers.CodeFixes.csproj", "{0D3BBC63-D371-4D68-91F6-0968D9EE08C0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RoslynCommonAnalyzers.CodeFixes", "RoslynCommonAnalyzers\RoslynCommonAnalyzers.CodeFixes\RoslynCommonAnalyzers.CodeFixes.csproj", "{0D3BBC63-D371-4D68-91F6-0968D9EE08C0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoslynCommonAnalyzers.Package", "RoslynCommonAnalyzers\RoslynCommonAnalyzers.Package\RoslynCommonAnalyzers.Package.csproj", "{1C0301E8-BADF-4BDD-908C-3D279987C614}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RoslynCommonAnalyzers.Package", "RoslynCommonAnalyzers\RoslynCommonAnalyzers.Package\RoslynCommonAnalyzers.Package.csproj", "{1C0301E8-BADF-4BDD-908C-3D279987C614}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoslynCommonAnalyzers.Test", "RoslynCommonAnalyzers\RoslynCommonAnalyzers.Test\RoslynCommonAnalyzers.Test.csproj", "{A0791E1F-E7ED-4956-B807-39FD2CB892C1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RoslynCommonAnalyzers.Test", "RoslynCommonAnalyzers\RoslynCommonAnalyzers.Test\RoslynCommonAnalyzers.Test.csproj", "{A0791E1F-E7ED-4956-B807-39FD2CB892C1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoslynCommonAnalyzers.Vsix", "RoslynCommonAnalyzers\RoslynCommonAnalyzers.Vsix\RoslynCommonAnalyzers.Vsix.csproj", "{50967D34-D7A2-48C4-AB3E-501B292185E9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RoslynCommonAnalyzers.Vsix", "RoslynCommonAnalyzers\RoslynCommonAnalyzers.Vsix\RoslynCommonAnalyzers.Vsix.csproj", "{50967D34-D7A2-48C4-AB3E-501B292185E9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{3453FE6F-7D0D-49DE-845B-D939776FBF75}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		.gitignore = .gitignore
+		Directory.Build.props = Directory.Build.props
+		LICENSE = LICENSE
+		version.json = version.json
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -21,7 +21,16 @@
         ("ParenthesizedLambdaExpression", "ParenthesizedLambdaExpressionSyntax", true, "ParameterList", "OpenParen"),
     };
 #>
+// Copyright (c) 2023 Glenn Watson. All rights reserved.
+// Glenn Watson licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
 namespace RoslynCommonAnalyzers.Test;
+
+#pragma warning disable SA1402
+#pragma warning disable SA1649
+#pragma warning disable SA1507
+#pragma warning disable SA1518
 
 <#
 int i = 1;
@@ -37,7 +46,6 @@ foreach (var (kind, syntaxNodeType, isParameter, containerType, bracketSymbol) i
 using Verify<#=code#> = CSharpCodeFixVerifier<
     <#=analyzerClassName#>,
     <#=codeFixClassName#>>;
-
 <#
     i++;
 }
@@ -57,7 +65,7 @@ public class <#=className#>
     [TestMethod]
     public async Task Empty()
     {
-        var test = @"";
+        var test = string.Empty;
 
         await <#=verifyName#>.VerifyAnalyzerAsync(test);
     }
@@ -78,6 +86,24 @@ public class <#=className#>
         classGenerator.<#=kind#>(number);
         var test = classGenerator.Generate();
         await <#=verifyName#>.VerifyAnalyzerAsync(test);
+    }
+
+    [TestMethod]
+<#
+    for (int row = 1; row < 8; ++row)
+    {
+#>
+    [DataRow(<#=row + 1#>)]
+<#
+    }
+#>
+    public async Task InvalidJaggeredEntry(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        var (startLine, startColumn, endLine, endColumn) = classGenerator.<#=kind#>Jaggered(number);
+        var test = classGenerator.Generate();
+        await <#=verifyName#>.VerifyAnalyzerAsync(test, <#=verifyName#>.Diagnostic("<#=code#>").WithSpan(startLine, startColumn, endLine, endColumn));
     }
 }
 

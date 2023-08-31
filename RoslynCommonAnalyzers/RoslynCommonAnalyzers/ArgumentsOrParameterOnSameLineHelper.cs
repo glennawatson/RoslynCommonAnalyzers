@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Text;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Diagnostics;
-
-using Microsoft.CodeAnalysis;
+﻿// Copyright (c) 2023 Glenn Watson. All rights reserved.
+// Glenn Watson licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 namespace RoslynCommonAnalyzers;
 
@@ -13,13 +8,13 @@ internal static class ArgumentsOrParameterOnSameLineHelper
 {
     public static void HandleArgumentListSyntax(this in SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList, DiagnosticDescriptor rule)
     {
-        SeparatedSyntaxList<ArgumentSyntax> arguments = argumentList.Arguments;
+        var arguments = argumentList.Arguments;
         Analyze(context, arguments, rule);
     }
 
     public static void HandleArgumentListSyntax(this in SyntaxNodeAnalysisContext context, BracketedArgumentListSyntax argumentList, DiagnosticDescriptor rule)
     {
-        SeparatedSyntaxList<ArgumentSyntax> arguments = argumentList.Arguments;
+        var arguments = argumentList.Arguments;
         Analyze(context, arguments, rule);
     }
 
@@ -31,13 +26,13 @@ internal static class ArgumentsOrParameterOnSameLineHelper
 
     public static void HandleParameterListSyntax(this in SyntaxNodeAnalysisContext context, ParameterListSyntax parameterList, DiagnosticDescriptor rule)
     {
-        SeparatedSyntaxList<ParameterSyntax> parameters = parameterList.Parameters;
+        var parameters = parameterList.Parameters;
         Analyze(context, parameters, rule);
     }
 
     public static void HandleParameterListSyntax(this in SyntaxNodeAnalysisContext context, BracketedParameterListSyntax parameterList, DiagnosticDescriptor rule)
     {
-        SeparatedSyntaxList<ParameterSyntax> parameters = parameterList.Parameters;
+        var parameters = parameterList.Parameters;
         Analyze(context, parameters, rule);
     }
 

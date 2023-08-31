@@ -1,4 +1,8 @@
-﻿using System;
+﻿// Copyright (c) 2023 Glenn Watson. All rights reserved.
+// Glenn Watson licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
+using System;
 using System.Collections.Immutable;
 
 using Microsoft.CodeAnalysis;
@@ -9,6 +13,7 @@ namespace RoslynCommonAnalyzers.Test
     internal static class CSharpVerifierHelper
     {
         /// <summary>
+        /// Gets the nullable warnings.
         /// By default, the compiler reports diagnostics for nullable reference types at
         /// <see cref="DiagnosticSeverity.Warning"/>, and the analyzer test framework defaults to only validating
         /// diagnostics at <see cref="DiagnosticSeverity.Error"/>. This map contains all compiler diagnostic IDs

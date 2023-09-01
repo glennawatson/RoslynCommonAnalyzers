@@ -58,6 +58,9 @@ foreach (var (kind, syntaxNodeType, isParameter, containerType, bracketSymbol) i
     var code = $"RCGS{i:D4}";
     var className = $"{code}{kind}AnalyzersUnitTest";
     var verifyName = $"Verify{code}";
+    var parameterType = isParameter ? "Parameter" : "Argument";
+    var codeFixClassName = $"{code}{parameterType}MustBeOnUniqueLinesCodeFixProvider";
+    var analyzerClassName = $"{code}{kind}{parameterType}MustBeOnUniqueLinesAnalyzer";
 #>
 [TestClass]
 public class <#=className#>
@@ -99,11 +102,41 @@ public class <#=className#>
 #>
     public async Task InvalidJaggeredEntry(int number)
     {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        await <#=verifyName#>.VerifyAnalyzerAsync(test, <#=verifyName#>.Diagnostic("<#=code#>").WithSpan(startLine, startColumn, endLine, endColumn));
+    }
+
+    [TestMethod]
+<#
+    for (int row = 1; row < 8; ++row)
+    {
+#>
+    [DataRow(<#=row + 1#>)]
+<#
+    }
+#>
+    public async Task ValidCodeFix(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        var fixtest = GenerateStaggered(number);
+        var expected = <#=verifyName#>.Diagnostic("<#=code#>").WithSpan(startLine, startColumn, endLine, endColumn);
+        await <#=verifyName#>.VerifyCodeFixAsync(test, expected, fixtest);
+    }
+
+    private static (string Text, int StartLine, int StartColumn, int EndLine, int EndColumn) GenerateJaggered(int number)
+    {
         var classGenerator = new ClassGeneratorBuilder();
         classGenerator.Init();
         var (startLine, startColumn, endLine, endColumn) = classGenerator.<#=kind#>Jaggered(number);
-        var test = classGenerator.Generate();
-        await <#=verifyName#>.VerifyAnalyzerAsync(test, <#=verifyName#>.Diagnostic("<#=code#>").WithSpan(startLine, startColumn, endLine, endColumn));
+        return (classGenerator.Generate(), startLine, startColumn, endLine, endColumn);
+    }
+
+    private static string GenerateStaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.<#=kind#>Staggered(number);
+        return classGenerator.Generate();
     }
 }
 

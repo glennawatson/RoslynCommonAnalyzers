@@ -43,7 +43,7 @@ public class RCGS0001ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
-                        token => Fix(context.Document, root, syntaxNode, context.CancellationToken),
+                        token => Fix(context.Document, root, syntaxNode, token),
                         nameof(RCGS0001ParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
@@ -95,7 +95,7 @@ public class RCGS0002ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
-                        token => Fix(context.Document, root, syntaxNode, context.CancellationToken),
+                        token => Fix(context.Document, root, syntaxNode, token),
                         nameof(RCGS0002ParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
@@ -147,7 +147,7 @@ public class RCGS0003ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
-                        token => Fix(context.Document, root, syntaxNode, context.CancellationToken),
+                        token => Fix(context.Document, root, syntaxNode, token),
                         nameof(RCGS0003ParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
@@ -199,7 +199,7 @@ public class RCGS0004ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
-                        token => Fix(context.Document, root, syntaxNode, context.CancellationToken),
+                        token => Fix(context.Document, root, syntaxNode, token),
                         nameof(RCGS0004ParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
@@ -251,7 +251,7 @@ public class RCGS0005ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvide
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
-                        token => Fix(context.Document, root, syntaxNode, context.CancellationToken),
+                        token => Fix(context.Document, root, syntaxNode, token),
                         nameof(RCGS0005ArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
@@ -303,7 +303,7 @@ public class RCGS0006ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvide
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
-                        token => Fix(context.Document, root, syntaxNode, context.CancellationToken),
+                        token => Fix(context.Document, root, syntaxNode, token),
                         nameof(RCGS0006ArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
@@ -355,7 +355,7 @@ public class RCGS0007ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvide
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
-                        token => Fix(context.Document, root, syntaxNode, context.CancellationToken),
+                        token => Fix(context.Document, root, syntaxNode, token),
                         nameof(RCGS0007ArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
@@ -407,7 +407,7 @@ public class RCGS0008ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvide
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
-                        token => Fix(context.Document, root, syntaxNode, context.CancellationToken),
+                        token => Fix(context.Document, root, syntaxNode, token),
                         nameof(RCGS0008ArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
@@ -459,7 +459,7 @@ public class RCGS0009ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
-                        token => Fix(context.Document, root, syntaxNode, context.CancellationToken),
+                        token => Fix(context.Document, root, syntaxNode, token),
                         nameof(RCGS0009ParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
@@ -511,7 +511,7 @@ public class RCGS0010ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
-                        token => Fix(context.Document, root, syntaxNode, context.CancellationToken),
+                        token => Fix(context.Document, root, syntaxNode, token),
                         nameof(RCGS0010ParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;

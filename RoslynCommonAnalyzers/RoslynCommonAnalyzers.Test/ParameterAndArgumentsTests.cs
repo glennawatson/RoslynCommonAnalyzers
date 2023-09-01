@@ -89,11 +89,40 @@ public class RCGS0001ConstructorDeclarationAnalyzersUnitTest
     [DataRow(8)]
     public async Task InvalidJaggeredEntry(int number)
     {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        await VerifyRCGS0001.VerifyAnalyzerAsync(test, VerifyRCGS0001.Diagnostic("RCGS0001").WithSpan(startLine, startColumn, endLine, endColumn));
+    }
+
+    [TestMethod]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(4)]
+    [DataRow(5)]
+    [DataRow(6)]
+    [DataRow(7)]
+    [DataRow(8)]
+    public async Task ValidCodeFix(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        var fixtest = GenerateStaggered(number);
+        var expected = VerifyRCGS0001.Diagnostic("RCGS0001").WithSpan(startLine, startColumn, endLine, endColumn);
+        await VerifyRCGS0001.VerifyCodeFixAsync(test, expected, fixtest);
+    }
+
+    private static (string Text, int StartLine, int StartColumn, int EndLine, int EndColumn) GenerateJaggered(int number)
+    {
         var classGenerator = new ClassGeneratorBuilder();
         classGenerator.Init();
         var (startLine, startColumn, endLine, endColumn) = classGenerator.ConstructorDeclarationJaggered(number);
-        var test = classGenerator.Generate();
-        await VerifyRCGS0001.VerifyAnalyzerAsync(test, VerifyRCGS0001.Diagnostic("RCGS0001").WithSpan(startLine, startColumn, endLine, endColumn));
+        return (classGenerator.Generate(), startLine, startColumn, endLine, endColumn);
+    }
+
+    private static string GenerateStaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.ConstructorDeclarationStaggered(number);
+        return classGenerator.Generate();
     }
 }
 
@@ -136,11 +165,40 @@ public class RCGS0002MethodDeclarationAnalyzersUnitTest
     [DataRow(8)]
     public async Task InvalidJaggeredEntry(int number)
     {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        await VerifyRCGS0002.VerifyAnalyzerAsync(test, VerifyRCGS0002.Diagnostic("RCGS0002").WithSpan(startLine, startColumn, endLine, endColumn));
+    }
+
+    [TestMethod]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(4)]
+    [DataRow(5)]
+    [DataRow(6)]
+    [DataRow(7)]
+    [DataRow(8)]
+    public async Task ValidCodeFix(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        var fixtest = GenerateStaggered(number);
+        var expected = VerifyRCGS0002.Diagnostic("RCGS0002").WithSpan(startLine, startColumn, endLine, endColumn);
+        await VerifyRCGS0002.VerifyCodeFixAsync(test, expected, fixtest);
+    }
+
+    private static (string Text, int StartLine, int StartColumn, int EndLine, int EndColumn) GenerateJaggered(int number)
+    {
         var classGenerator = new ClassGeneratorBuilder();
         classGenerator.Init();
         var (startLine, startColumn, endLine, endColumn) = classGenerator.MethodDeclarationJaggered(number);
-        var test = classGenerator.Generate();
-        await VerifyRCGS0002.VerifyAnalyzerAsync(test, VerifyRCGS0002.Diagnostic("RCGS0002").WithSpan(startLine, startColumn, endLine, endColumn));
+        return (classGenerator.Generate(), startLine, startColumn, endLine, endColumn);
+    }
+
+    private static string GenerateStaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.MethodDeclarationStaggered(number);
+        return classGenerator.Generate();
     }
 }
 
@@ -183,11 +241,40 @@ public class RCGS0003DelegateDeclarationAnalyzersUnitTest
     [DataRow(8)]
     public async Task InvalidJaggeredEntry(int number)
     {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        await VerifyRCGS0003.VerifyAnalyzerAsync(test, VerifyRCGS0003.Diagnostic("RCGS0003").WithSpan(startLine, startColumn, endLine, endColumn));
+    }
+
+    [TestMethod]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(4)]
+    [DataRow(5)]
+    [DataRow(6)]
+    [DataRow(7)]
+    [DataRow(8)]
+    public async Task ValidCodeFix(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        var fixtest = GenerateStaggered(number);
+        var expected = VerifyRCGS0003.Diagnostic("RCGS0003").WithSpan(startLine, startColumn, endLine, endColumn);
+        await VerifyRCGS0003.VerifyCodeFixAsync(test, expected, fixtest);
+    }
+
+    private static (string Text, int StartLine, int StartColumn, int EndLine, int EndColumn) GenerateJaggered(int number)
+    {
         var classGenerator = new ClassGeneratorBuilder();
         classGenerator.Init();
         var (startLine, startColumn, endLine, endColumn) = classGenerator.DelegateDeclarationJaggered(number);
-        var test = classGenerator.Generate();
-        await VerifyRCGS0003.VerifyAnalyzerAsync(test, VerifyRCGS0003.Diagnostic("RCGS0003").WithSpan(startLine, startColumn, endLine, endColumn));
+        return (classGenerator.Generate(), startLine, startColumn, endLine, endColumn);
+    }
+
+    private static string GenerateStaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.DelegateDeclarationStaggered(number);
+        return classGenerator.Generate();
     }
 }
 
@@ -230,11 +317,40 @@ public class RCGS0004IndexerDeclarationAnalyzersUnitTest
     [DataRow(8)]
     public async Task InvalidJaggeredEntry(int number)
     {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        await VerifyRCGS0004.VerifyAnalyzerAsync(test, VerifyRCGS0004.Diagnostic("RCGS0004").WithSpan(startLine, startColumn, endLine, endColumn));
+    }
+
+    [TestMethod]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(4)]
+    [DataRow(5)]
+    [DataRow(6)]
+    [DataRow(7)]
+    [DataRow(8)]
+    public async Task ValidCodeFix(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        var fixtest = GenerateStaggered(number);
+        var expected = VerifyRCGS0004.Diagnostic("RCGS0004").WithSpan(startLine, startColumn, endLine, endColumn);
+        await VerifyRCGS0004.VerifyCodeFixAsync(test, expected, fixtest);
+    }
+
+    private static (string Text, int StartLine, int StartColumn, int EndLine, int EndColumn) GenerateJaggered(int number)
+    {
         var classGenerator = new ClassGeneratorBuilder();
         classGenerator.Init();
         var (startLine, startColumn, endLine, endColumn) = classGenerator.IndexerDeclarationJaggered(number);
-        var test = classGenerator.Generate();
-        await VerifyRCGS0004.VerifyAnalyzerAsync(test, VerifyRCGS0004.Diagnostic("RCGS0004").WithSpan(startLine, startColumn, endLine, endColumn));
+        return (classGenerator.Generate(), startLine, startColumn, endLine, endColumn);
+    }
+
+    private static string GenerateStaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.IndexerDeclarationStaggered(number);
+        return classGenerator.Generate();
     }
 }
 
@@ -277,11 +393,40 @@ public class RCGS0005InvocationExpressionAnalyzersUnitTest
     [DataRow(8)]
     public async Task InvalidJaggeredEntry(int number)
     {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        await VerifyRCGS0005.VerifyAnalyzerAsync(test, VerifyRCGS0005.Diagnostic("RCGS0005").WithSpan(startLine, startColumn, endLine, endColumn));
+    }
+
+    [TestMethod]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(4)]
+    [DataRow(5)]
+    [DataRow(6)]
+    [DataRow(7)]
+    [DataRow(8)]
+    public async Task ValidCodeFix(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        var fixtest = GenerateStaggered(number);
+        var expected = VerifyRCGS0005.Diagnostic("RCGS0005").WithSpan(startLine, startColumn, endLine, endColumn);
+        await VerifyRCGS0005.VerifyCodeFixAsync(test, expected, fixtest);
+    }
+
+    private static (string Text, int StartLine, int StartColumn, int EndLine, int EndColumn) GenerateJaggered(int number)
+    {
         var classGenerator = new ClassGeneratorBuilder();
         classGenerator.Init();
         var (startLine, startColumn, endLine, endColumn) = classGenerator.InvocationExpressionJaggered(number);
-        var test = classGenerator.Generate();
-        await VerifyRCGS0005.VerifyAnalyzerAsync(test, VerifyRCGS0005.Diagnostic("RCGS0005").WithSpan(startLine, startColumn, endLine, endColumn));
+        return (classGenerator.Generate(), startLine, startColumn, endLine, endColumn);
+    }
+
+    private static string GenerateStaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.InvocationExpressionStaggered(number);
+        return classGenerator.Generate();
     }
 }
 
@@ -324,11 +469,40 @@ public class RCGS0006ObjectCreationExpressionAnalyzersUnitTest
     [DataRow(8)]
     public async Task InvalidJaggeredEntry(int number)
     {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        await VerifyRCGS0006.VerifyAnalyzerAsync(test, VerifyRCGS0006.Diagnostic("RCGS0006").WithSpan(startLine, startColumn, endLine, endColumn));
+    }
+
+    [TestMethod]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(4)]
+    [DataRow(5)]
+    [DataRow(6)]
+    [DataRow(7)]
+    [DataRow(8)]
+    public async Task ValidCodeFix(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        var fixtest = GenerateStaggered(number);
+        var expected = VerifyRCGS0006.Diagnostic("RCGS0006").WithSpan(startLine, startColumn, endLine, endColumn);
+        await VerifyRCGS0006.VerifyCodeFixAsync(test, expected, fixtest);
+    }
+
+    private static (string Text, int StartLine, int StartColumn, int EndLine, int EndColumn) GenerateJaggered(int number)
+    {
         var classGenerator = new ClassGeneratorBuilder();
         classGenerator.Init();
         var (startLine, startColumn, endLine, endColumn) = classGenerator.ObjectCreationExpressionJaggered(number);
-        var test = classGenerator.Generate();
-        await VerifyRCGS0006.VerifyAnalyzerAsync(test, VerifyRCGS0006.Diagnostic("RCGS0006").WithSpan(startLine, startColumn, endLine, endColumn));
+        return (classGenerator.Generate(), startLine, startColumn, endLine, endColumn);
+    }
+
+    private static string GenerateStaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.ObjectCreationExpressionStaggered(number);
+        return classGenerator.Generate();
     }
 }
 
@@ -371,11 +545,40 @@ public class RCGS0007ElementAccessExpressionAnalyzersUnitTest
     [DataRow(8)]
     public async Task InvalidJaggeredEntry(int number)
     {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        await VerifyRCGS0007.VerifyAnalyzerAsync(test, VerifyRCGS0007.Diagnostic("RCGS0007").WithSpan(startLine, startColumn, endLine, endColumn));
+    }
+
+    [TestMethod]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(4)]
+    [DataRow(5)]
+    [DataRow(6)]
+    [DataRow(7)]
+    [DataRow(8)]
+    public async Task ValidCodeFix(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        var fixtest = GenerateStaggered(number);
+        var expected = VerifyRCGS0007.Diagnostic("RCGS0007").WithSpan(startLine, startColumn, endLine, endColumn);
+        await VerifyRCGS0007.VerifyCodeFixAsync(test, expected, fixtest);
+    }
+
+    private static (string Text, int StartLine, int StartColumn, int EndLine, int EndColumn) GenerateJaggered(int number)
+    {
         var classGenerator = new ClassGeneratorBuilder();
         classGenerator.Init();
         var (startLine, startColumn, endLine, endColumn) = classGenerator.ElementAccessExpressionJaggered(number);
-        var test = classGenerator.Generate();
-        await VerifyRCGS0007.VerifyAnalyzerAsync(test, VerifyRCGS0007.Diagnostic("RCGS0007").WithSpan(startLine, startColumn, endLine, endColumn));
+        return (classGenerator.Generate(), startLine, startColumn, endLine, endColumn);
+    }
+
+    private static string GenerateStaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.ElementAccessExpressionStaggered(number);
+        return classGenerator.Generate();
     }
 }
 
@@ -418,11 +621,40 @@ public class RCGS0008AttributeAnalyzersUnitTest
     [DataRow(8)]
     public async Task InvalidJaggeredEntry(int number)
     {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        await VerifyRCGS0008.VerifyAnalyzerAsync(test, VerifyRCGS0008.Diagnostic("RCGS0008").WithSpan(startLine, startColumn, endLine, endColumn));
+    }
+
+    [TestMethod]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(4)]
+    [DataRow(5)]
+    [DataRow(6)]
+    [DataRow(7)]
+    [DataRow(8)]
+    public async Task ValidCodeFix(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        var fixtest = GenerateStaggered(number);
+        var expected = VerifyRCGS0008.Diagnostic("RCGS0008").WithSpan(startLine, startColumn, endLine, endColumn);
+        await VerifyRCGS0008.VerifyCodeFixAsync(test, expected, fixtest);
+    }
+
+    private static (string Text, int StartLine, int StartColumn, int EndLine, int EndColumn) GenerateJaggered(int number)
+    {
         var classGenerator = new ClassGeneratorBuilder();
         classGenerator.Init();
         var (startLine, startColumn, endLine, endColumn) = classGenerator.AttributeJaggered(number);
-        var test = classGenerator.Generate();
-        await VerifyRCGS0008.VerifyAnalyzerAsync(test, VerifyRCGS0008.Diagnostic("RCGS0008").WithSpan(startLine, startColumn, endLine, endColumn));
+        return (classGenerator.Generate(), startLine, startColumn, endLine, endColumn);
+    }
+
+    private static string GenerateStaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.AttributeStaggered(number);
+        return classGenerator.Generate();
     }
 }
 
@@ -465,11 +697,40 @@ public class RCGS0009AnonymousMethodExpressionAnalyzersUnitTest
     [DataRow(8)]
     public async Task InvalidJaggeredEntry(int number)
     {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        await VerifyRCGS0009.VerifyAnalyzerAsync(test, VerifyRCGS0009.Diagnostic("RCGS0009").WithSpan(startLine, startColumn, endLine, endColumn));
+    }
+
+    [TestMethod]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(4)]
+    [DataRow(5)]
+    [DataRow(6)]
+    [DataRow(7)]
+    [DataRow(8)]
+    public async Task ValidCodeFix(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        var fixtest = GenerateStaggered(number);
+        var expected = VerifyRCGS0009.Diagnostic("RCGS0009").WithSpan(startLine, startColumn, endLine, endColumn);
+        await VerifyRCGS0009.VerifyCodeFixAsync(test, expected, fixtest);
+    }
+
+    private static (string Text, int StartLine, int StartColumn, int EndLine, int EndColumn) GenerateJaggered(int number)
+    {
         var classGenerator = new ClassGeneratorBuilder();
         classGenerator.Init();
         var (startLine, startColumn, endLine, endColumn) = classGenerator.AnonymousMethodExpressionJaggered(number);
-        var test = classGenerator.Generate();
-        await VerifyRCGS0009.VerifyAnalyzerAsync(test, VerifyRCGS0009.Diagnostic("RCGS0009").WithSpan(startLine, startColumn, endLine, endColumn));
+        return (classGenerator.Generate(), startLine, startColumn, endLine, endColumn);
+    }
+
+    private static string GenerateStaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.AnonymousMethodExpressionStaggered(number);
+        return classGenerator.Generate();
     }
 }
 
@@ -512,11 +773,40 @@ public class RCGS0010ParenthesizedLambdaExpressionAnalyzersUnitTest
     [DataRow(8)]
     public async Task InvalidJaggeredEntry(int number)
     {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        await VerifyRCGS0010.VerifyAnalyzerAsync(test, VerifyRCGS0010.Diagnostic("RCGS0010").WithSpan(startLine, startColumn, endLine, endColumn));
+    }
+
+    [TestMethod]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(4)]
+    [DataRow(5)]
+    [DataRow(6)]
+    [DataRow(7)]
+    [DataRow(8)]
+    public async Task ValidCodeFix(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        var fixtest = GenerateStaggered(number);
+        var expected = VerifyRCGS0010.Diagnostic("RCGS0010").WithSpan(startLine, startColumn, endLine, endColumn);
+        await VerifyRCGS0010.VerifyCodeFixAsync(test, expected, fixtest);
+    }
+
+    private static (string Text, int StartLine, int StartColumn, int EndLine, int EndColumn) GenerateJaggered(int number)
+    {
         var classGenerator = new ClassGeneratorBuilder();
         classGenerator.Init();
         var (startLine, startColumn, endLine, endColumn) = classGenerator.ParenthesizedLambdaExpressionJaggered(number);
-        var test = classGenerator.Generate();
-        await VerifyRCGS0010.VerifyAnalyzerAsync(test, VerifyRCGS0010.Diagnostic("RCGS0010").WithSpan(startLine, startColumn, endLine, endColumn));
+        return (classGenerator.Generate(), startLine, startColumn, endLine, endColumn);
+    }
+
+    private static string GenerateStaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.ParenthesizedLambdaExpressionStaggered(number);
+        return classGenerator.Generate();
     }
 }
 

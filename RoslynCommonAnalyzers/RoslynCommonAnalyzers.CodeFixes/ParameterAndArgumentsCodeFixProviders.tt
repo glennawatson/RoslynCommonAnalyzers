@@ -76,7 +76,7 @@ public class <#=className#> : CodeFixProvider
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
-                        token => Fix(context.Document, root, syntaxNode, context.CancellationToken),
+                        token => Fix(context.Document, root, syntaxNode, token),
                         nameof(<#=className#>) + "-Add"),
                     diagnostic);
                 return;

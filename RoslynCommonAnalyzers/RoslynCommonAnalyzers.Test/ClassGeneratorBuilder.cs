@@ -45,7 +45,7 @@ namespace ConsoleApplication1
 
     public void MethodDeclarationStaggered(int parameterCount)
     {
-        _builder.Append(@"
+        _builder.AppendLine(@"
         public void MyMethod(").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(@")
         {
         }");
@@ -79,25 +79,27 @@ namespace ConsoleApplication1
     public void DelegateDeclaration(int parameterCount)
     {
         _builder.Append(@"
-        public delegate void DelegateDefinition(").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@");");
+        public delegate void DelegateDefinition(").Append(GenerateOneLineParameters(parameterCount)).AppendLine(");");
     }
 
     public (int StartLine, int StartColumn, int EndLine, int EndColumn) DelegateDeclarationJaggered(int parameterCount)
     {
-        var input = $@"
-        public delegate void DelegateDefinition({GenerateJaggeredLineParameters(parameterCount)});";
+        var input = $"        public delegate void DelegateDefinition({GenerateJaggeredLineParameters(parameterCount)});";
 
         var splitLines = input.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
         var endColumn = splitLines[splitLines.Length - 1].Length + 1;
-        _builder.Append(input);
-        return (13, 9, 14, endColumn);
+        var startLine = 12;
+        var endLine = startLine + 1;
+        var startColumn = 9;
+
+        _builder.AppendLine(input);
+        return (startLine, startColumn, endLine, endColumn);
     }
 
     public void DelegateDeclarationStaggered(int parameterCount)
     {
-        _builder.Append(@"
-        public delegate void DelegateDefinition(").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(@");");
+        _builder.AppendLine("        public delegate void DelegateDefinition(").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(");");
     }
 
     public void AnonymousMethodExpression(int parameterCount)
@@ -138,7 +140,7 @@ namespace ConsoleApplication1
     public void AnonymousMethodExpressionStaggered(int parameterCount)
     {
         _builder.Append(@"
-        public delegate void DelegateDefinition(").Append(GenerateOneLineParameters(parameterCount)).Append(@");
+        public delegate void DelegateDefinition(").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@");
         public void MyInnerMethod()
         {
             DelegateDefinition action = delegate(").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(@")
@@ -194,7 +196,7 @@ namespace ConsoleApplication1
     public void IndexerDeclaration(int parameterCount)
     {
         _builder.Append(@"
-        public int this[").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@"] => default;");
+        public int this[").Append(GenerateOneLineParameters(parameterCount)).AppendLine("] => default;");
     }
 
     public (int StartLine, int StartColumn, int EndLine, int EndColumn) IndexerDeclarationJaggered(int parameterCount)
@@ -213,8 +215,8 @@ namespace ConsoleApplication1
 
     public void IndexerDeclarationStaggered(int parameterCount)
     {
-        _builder.Append(@"
-        public int this[").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(@"] => default;");
+        _builder.AppendLine(@"
+        public int this[").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine("] => default;");
     }
 
     public void InvocationExpression(int parameterCount)
@@ -251,10 +253,10 @@ namespace ConsoleApplication1
     public void InvocationExpressionStaggered(int parameterCount)
     {
         MethodDeclaration(parameterCount);
-        _builder.Append(@"
+        _builder.AppendLine(@"
         public void MyInnerMethod()
         {
-            MyMethod(").Append(GenerateStaggeredLineArguments(parameterCount)).AppendLine(@");
+            MyMethod(").Append(GenerateStaggeredLineArguments(parameterCount, 16)).AppendLine(@");
         }");
     }
 
@@ -279,7 +281,7 @@ namespace ConsoleApplication1
         _builder.Append(@"
         public class MyInnerTest
         {
-            public MyInnerTest(").Append(GenerateOneLineParameters(parameterCount)).Append(@")
+            public MyInnerTest(").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@")
             {
             }
         }");
@@ -306,14 +308,14 @@ namespace ConsoleApplication1
         _builder.Append(@"
         public class MyInnerTest
         {
-            public MyInnerTest(").Append(GenerateOneLineParameters(parameterCount)).Append(@")
+            public MyInnerTest(").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@")
             {
             }
         }
     
         public void MyInnerMethod()
         {
-            var myInnerTest = new MyInnerTest(").Append(GenerateStaggeredLineArguments(parameterCount)).AppendLine(@");
+            var myInnerTest = new MyInnerTest(").Append(GenerateStaggeredLineArguments(parameterCount, 16)).AppendLine(@");
         }");
     }
 
@@ -335,7 +337,7 @@ namespace ConsoleApplication1
 
     public (int StartLine, int StartColumn, int EndLine, int EndColumn) AttributeJaggered(int parameterCount)
     {
-        var input = $@"        [MyInnerTest({GenerateJaggeredLineArguments(parameterCount)})]";
+        var input = $"        [MyInnerTest({GenerateJaggeredLineArguments(parameterCount)})]";
 
         _builder.Append(@"
         public class MyInnerTestAttribute : System.Attribute
@@ -447,19 +449,21 @@ namespace ConsoleApplication1
         var remainingCount = parameterCount - halfWayPoint;
 
         return $@"{string.Join(", ", Enumerable.Range(0, halfWayPoint).Select(i => $"int a{i}"))},
-            {string.Join(", ", Enumerable.Range(halfWayPoint + 1, remainingCount).Select(i => $"int a{i}"))}";
+            {string.Join(", ", Enumerable.Range(halfWayPoint, remainingCount).Select(i => $"int a{i}"))}";
     }
 
     private static string GenerateStaggeredLineParameters(int parameterCount)
     {
         var stringBuilder = new StringBuilder();
 
+        var whitespace = new string(' ', 12);
+
         for (var i = 0; i < parameterCount - 1; ++i)
         {
-            stringBuilder.Append("            ").Append("int ").Append('a').Append(i).AppendLine(",");
+            stringBuilder.Append(whitespace).Append("int ").Append('a').Append(i).AppendLine(",");
         }
 
-        stringBuilder.Append("           ").Append("int ").Append('a').Append(parameterCount - 1);
+        stringBuilder.Append(whitespace).Append("int ").Append('a').Append(parameterCount - 1);
 
         return stringBuilder.ToString();
     }
@@ -475,19 +479,20 @@ namespace ConsoleApplication1
         var remainingCount = parameterCount - halfWayPoint;
 
         return $@"{string.Join(", ", Enumerable.Range(0, halfWayPoint).Select(i => $"{i}"))},
-            {string.Join(", ", Enumerable.Range(halfWayPoint + 1, remainingCount).Select(i => $"{i}"))}";
+            {string.Join(", ", Enumerable.Range(halfWayPoint, remainingCount).Select(i => $"{i}"))}";
     }
 
-    private static string GenerateStaggeredLineArguments(int parameterCount)
+    private static string GenerateStaggeredLineArguments(int parameterCount, int whitespaceCount = 12)
     {
         var stringBuilder = new StringBuilder();
+        var whitespace = new string(' ', whitespaceCount);
 
         for (var i = 0; i < parameterCount - 1; ++i)
         {
-            stringBuilder.Append("            ").Append(i).AppendLine(",");
+            stringBuilder.Append(whitespace).Append(i).AppendLine(",");
         }
 
-        stringBuilder.Append("           ").Append(parameterCount - 1);
+        stringBuilder.Append(whitespace).Append(parameterCount - 1);
 
         return stringBuilder.ToString();
     }

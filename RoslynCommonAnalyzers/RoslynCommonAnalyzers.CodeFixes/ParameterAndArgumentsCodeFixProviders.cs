@@ -13,9 +13,9 @@ namespace RoslynCommonAnalyzers;
 /// <summary>
 /// A code fix provider for the <see cref="RCGS0001ConstructorDeclarationParameterMustBeOnUniqueLinesAnalyzer"/> analyzer.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0001ParameterMustBeOnUniqueLinesCodeFixProvider))]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0001ConstructorDeclarationParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public class RCGS0001ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public class RCGS0001ConstructorDeclarationParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(RCGS0001ConstructorDeclarationParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId);
@@ -44,7 +44,7 @@ public class RCGS0001ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
                         token => Fix(context.Document, root, syntaxNode, token),
-                        nameof(RCGS0001ParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
+                        nameof(RCGS0001ConstructorDeclarationParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
             }
@@ -65,9 +65,9 @@ public class RCGS0001ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
 /// <summary>
 /// A code fix provider for the <see cref="RCGS0002MethodDeclarationParameterMustBeOnUniqueLinesAnalyzer"/> analyzer.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0002ParameterMustBeOnUniqueLinesCodeFixProvider))]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0002MethodDeclarationParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public class RCGS0002ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public class RCGS0002MethodDeclarationParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(RCGS0002MethodDeclarationParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId);
@@ -96,7 +96,7 @@ public class RCGS0002ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
                         token => Fix(context.Document, root, syntaxNode, token),
-                        nameof(RCGS0002ParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
+                        nameof(RCGS0002MethodDeclarationParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
             }
@@ -117,9 +117,9 @@ public class RCGS0002ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
 /// <summary>
 /// A code fix provider for the <see cref="RCGS0003DelegateDeclarationParameterMustBeOnUniqueLinesAnalyzer"/> analyzer.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0003ParameterMustBeOnUniqueLinesCodeFixProvider))]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0003DelegateDeclarationParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public class RCGS0003ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public class RCGS0003DelegateDeclarationParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(RCGS0003DelegateDeclarationParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId);
@@ -148,7 +148,7 @@ public class RCGS0003ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
                         token => Fix(context.Document, root, syntaxNode, token),
-                        nameof(RCGS0003ParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
+                        nameof(RCGS0003DelegateDeclarationParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
             }
@@ -169,9 +169,9 @@ public class RCGS0003ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
 /// <summary>
 /// A code fix provider for the <see cref="RCGS0004IndexerDeclarationParameterMustBeOnUniqueLinesAnalyzer"/> analyzer.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0004ParameterMustBeOnUniqueLinesCodeFixProvider))]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0004IndexerDeclarationParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public class RCGS0004ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public class RCGS0004IndexerDeclarationParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(RCGS0004IndexerDeclarationParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId);
@@ -200,7 +200,7 @@ public class RCGS0004ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
                         token => Fix(context.Document, root, syntaxNode, token),
-                        nameof(RCGS0004ParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
+                        nameof(RCGS0004IndexerDeclarationParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
             }
@@ -221,9 +221,9 @@ public class RCGS0004ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
 /// <summary>
 /// A code fix provider for the <see cref="RCGS0005InvocationExpressionArgumentMustBeOnUniqueLinesAnalyzer"/> analyzer.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0005ArgumentMustBeOnUniqueLinesCodeFixProvider))]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0005InvocationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public class RCGS0005ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public class RCGS0005InvocationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(RCGS0005InvocationExpressionArgumentMustBeOnUniqueLinesAnalyzer.DiagnosticId);
@@ -252,7 +252,7 @@ public class RCGS0005ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvide
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
                         token => Fix(context.Document, root, syntaxNode, token),
-                        nameof(RCGS0005ArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
+                        nameof(RCGS0005InvocationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
             }
@@ -273,9 +273,9 @@ public class RCGS0005ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvide
 /// <summary>
 /// A code fix provider for the <see cref="RCGS0006ObjectCreationExpressionArgumentMustBeOnUniqueLinesAnalyzer"/> analyzer.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0006ArgumentMustBeOnUniqueLinesCodeFixProvider))]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0006ObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public class RCGS0006ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public class RCGS0006ObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(RCGS0006ObjectCreationExpressionArgumentMustBeOnUniqueLinesAnalyzer.DiagnosticId);
@@ -304,7 +304,7 @@ public class RCGS0006ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvide
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
                         token => Fix(context.Document, root, syntaxNode, token),
-                        nameof(RCGS0006ArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
+                        nameof(RCGS0006ObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
             }
@@ -325,9 +325,9 @@ public class RCGS0006ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvide
 /// <summary>
 /// A code fix provider for the <see cref="RCGS0007ElementAccessExpressionArgumentMustBeOnUniqueLinesAnalyzer"/> analyzer.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0007ArgumentMustBeOnUniqueLinesCodeFixProvider))]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0007ElementAccessExpressionArgumentMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public class RCGS0007ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public class RCGS0007ElementAccessExpressionArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(RCGS0007ElementAccessExpressionArgumentMustBeOnUniqueLinesAnalyzer.DiagnosticId);
@@ -356,7 +356,7 @@ public class RCGS0007ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvide
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
                         token => Fix(context.Document, root, syntaxNode, token),
-                        nameof(RCGS0007ArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
+                        nameof(RCGS0007ElementAccessExpressionArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
             }
@@ -377,9 +377,9 @@ public class RCGS0007ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvide
 /// <summary>
 /// A code fix provider for the <see cref="RCGS0008AttributeArgumentMustBeOnUniqueLinesAnalyzer"/> analyzer.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0008ArgumentMustBeOnUniqueLinesCodeFixProvider))]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0008AttributeArgumentMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public class RCGS0008ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public class RCGS0008AttributeArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(RCGS0008AttributeArgumentMustBeOnUniqueLinesAnalyzer.DiagnosticId);
@@ -408,7 +408,7 @@ public class RCGS0008ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvide
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
                         token => Fix(context.Document, root, syntaxNode, token),
-                        nameof(RCGS0008ArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
+                        nameof(RCGS0008AttributeArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
             }
@@ -429,9 +429,9 @@ public class RCGS0008ArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvide
 /// <summary>
 /// A code fix provider for the <see cref="RCGS0009AnonymousMethodExpressionParameterMustBeOnUniqueLinesAnalyzer"/> analyzer.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0009ParameterMustBeOnUniqueLinesCodeFixProvider))]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0009AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public class RCGS0009ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public class RCGS0009AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(RCGS0009AnonymousMethodExpressionParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId);
@@ -460,7 +460,7 @@ public class RCGS0009ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
                         token => Fix(context.Document, root, syntaxNode, token),
-                        nameof(RCGS0009ParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
+                        nameof(RCGS0009AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
             }
@@ -481,9 +481,9 @@ public class RCGS0009ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
 /// <summary>
 /// A code fix provider for the <see cref="RCGS0010ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesAnalyzer"/> analyzer.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0010ParameterMustBeOnUniqueLinesCodeFixProvider))]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RCGS0010ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public class RCGS0010ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public class RCGS0010ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(RCGS0010ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId);
@@ -512,7 +512,7 @@ public class RCGS0010ParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvid
                     CodeAction.Create(
                         CodeFixResources.RCGS0001CodeFixTitle,
                         token => Fix(context.Document, root, syntaxNode, token),
-                        nameof(RCGS0010ParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
+                        nameof(RCGS0010ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
                     diagnostic);
                 return;
             }

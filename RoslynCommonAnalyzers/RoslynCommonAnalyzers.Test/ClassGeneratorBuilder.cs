@@ -143,7 +143,7 @@ namespace ConsoleApplication1
         public delegate void DelegateDefinition(").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@");
         public void MyInnerMethod()
         {
-            DelegateDefinition action = delegate(").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(@")
+            DelegateDefinition action = delegate (").Append(GenerateStaggeredLineParameters(parameterCount, 16)).AppendLine(@")
             {
             };
         }");
@@ -184,10 +184,10 @@ namespace ConsoleApplication1
 
     public void ParenthesizedLambdaExpressionStaggered(int parameterCount)
     {
-        _builder.Append(@"
+        _builder.AppendLine(@"
         public void MyInnerMethod()
         {
-            var action = (").Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine(@") =>
+            var action = (").Append(GenerateStaggeredLineParameters(parameterCount, 16)).AppendLine(@") =>
             {
             };
         }");
@@ -296,7 +296,7 @@ namespace ConsoleApplication1
         var splitLines = input.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
         var endColumn = splitLines[splitLines.Length - 1].Length;
-        var startLine = 21;
+        var startLine = 22;
         var endLine = startLine + 1;
         var startColumn = 31;
 
@@ -312,7 +312,7 @@ namespace ConsoleApplication1
             {
             }
         }
-    
+
         public void MyInnerMethod()
         {
             var myInnerTest = new MyInnerTest(").Append(GenerateStaggeredLineArguments(parameterCount, 16)).AppendLine(@");
@@ -347,7 +347,7 @@ namespace ConsoleApplication1
             }
         }
     
-        ").AppendLine(input).Append(@"
+").Append(input).AppendLine(@"
         public void MyInnerMethod()
         {
         }");
@@ -357,7 +357,7 @@ namespace ConsoleApplication1
         var endColumn = splitLines[splitLines.Length - 1].Length;
         var startLine = 20;
         var endLine = startLine + 1;
-        var startColumn = 18;
+        var startColumn = 10;
 
         return (startLine, startColumn, endLine, endColumn);
     }
@@ -367,7 +367,7 @@ namespace ConsoleApplication1
         _builder.Append(@"
         public class MyInnerTestAttribute : System.Attribute
         {
-            public MyInnerTestAttribute(").Append(GenerateOneLineParameters(parameterCount)).Append(@")
+            public MyInnerTestAttribute(").Append(GenerateOneLineParameters(parameterCount)).AppendLine(@")
             {
             }
         }
@@ -408,25 +408,15 @@ namespace ConsoleApplication1
         var startColumn = 13;
 
         return (startLine, startColumn, endLine, endColumn);
-
-        ////_builder.Append(@"
-        ////public void MyInnerMethod()
-        ////{
-        ////    var myArray = new int[").Append(GenerateOneLineArguments(parameterCount)).Append(@"];
-        ////    myArray[").Append(GenerateJaggeredLineArguments(parameterCount)).AppendLine(@"] = 1;
-        ////}");
-
-        ////return (13, 9, 14, 20);
     }
 
     public void ElementAccessExpressionStaggered(int parameterCount)
     {
-        MethodDeclaration(parameterCount);
         _builder.Append(@"
         public void MyInnerMethod()
         {
-            var myArray = new int[").Append(GenerateOneLineArguments(parameterCount)).Append(@"];
-            myArray[").Append(GenerateStaggeredLineArguments(parameterCount)).AppendLine(@"] = 1;
+            var myArray = new int[").Append(GenerateOneLineArguments(parameterCount)).AppendLine(@"];
+            myArray[").Append(GenerateStaggeredLineArguments(parameterCount, 16)).AppendLine(@"] = 1;
         }");
     }
 
@@ -452,11 +442,11 @@ namespace ConsoleApplication1
             {string.Join(", ", Enumerable.Range(halfWayPoint, remainingCount).Select(i => $"int a{i}"))}";
     }
 
-    private static string GenerateStaggeredLineParameters(int parameterCount)
+    private static string GenerateStaggeredLineParameters(int parameterCount, int whitespaceCount = 12)
     {
         var stringBuilder = new StringBuilder();
 
-        var whitespace = new string(' ', 12);
+        var whitespace = new string(' ', whitespaceCount);
 
         for (var i = 0; i < parameterCount - 1; ++i)
         {

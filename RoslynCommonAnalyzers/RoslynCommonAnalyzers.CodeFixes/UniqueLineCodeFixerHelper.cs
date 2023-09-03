@@ -39,6 +39,23 @@ internal static class UniqueLineCodeFixerHelper
 
     private static int GetLeadingSpaces(SyntaxNode? node)
     {
-        return node is null ? 0 : node.GetLocation().GetLineSpan().StartLinePosition.Character;
+        if (node is null)
+        {
+            return 0;
+        }
+
+        var tree = node.SyntaxTree;
+
+        if (tree is null)
+        {
+            return 0;
+        }
+
+        var lineSpan = node.GetLocation().GetLineSpan();
+        var startLine = tree.GetText().Lines[lineSpan.StartLinePosition.Line];
+
+        var lineText = startLine.ToString();
+
+        return lineText.TakeWhile(char.IsWhiteSpace).Count();
     }
 }

@@ -13,12 +13,19 @@ updates:
     code-analysis-other:
       patterns:
       - "Microsoft.CodeAnalysis*"
+      exclude-patterns:
+      - "Microsoft.CodeAnalysis"
+      - "Microsoft.CodeAnalysis.CSharp"
 
     microsoft:
       patterns:
       - "Microsoft*"
       - "System*"
       - "MSTest*"
+      # Define patterns to exclude dependencies from the group (based on
+      # dependency name)
+      exclude-patterns:
+      - "Microsoft.CodeAnalysis*"
   open-pull-requests-limit: 20
 - package-ecosystem: "github-actions"
   directory: "/"

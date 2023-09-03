@@ -4,13 +4,15 @@ updates:
   directory: "/"
   schedule:
     interval: weekly
-  patterns:
-  - "Microsoft.CodeAnalysis"
-  - "Microsoft.CodeAnalysis.CSharp"
-  - "Microsoft.CodeAnalysis*"
-  - "Microsoft*"
-  - "System*"
-  - "MSTest*"  
+  groups:
+    microsoft:
+      patterns:
+      - "Microsoft.CodeAnalysis"
+      - "Microsoft.CodeAnalysis.CSharp"
+      - "Microsoft.CodeAnalysis*"
+      - "Microsoft*"
+      - "System*"
+      - "MSTest*"
   open-pull-requests-limit: 20
 - package-ecosystem: "github-actions"
   directory: "/"

@@ -38,7 +38,7 @@ foreach (var (kind, syntaxNodeType, isParameter, containerType, bracketSymbol) i
 {
     var code = $"RCGS{i:D4}";
     var parameterType = isParameter ? "Parameter" : "Argument";
-    var className = $"{code}{parameterType}MustBeOnUniqueLinesCodeFixProvider";
+    var className = $"{code}{kind}{parameterType}MustBeOnUniqueLinesCodeFixProvider";
     var accessMethod = isParameter ? "ParameterList" : "ArgumentList";
     var analyzerClassName = $"{code}{kind}{parameterType}MustBeOnUniqueLinesAnalyzer";
 #>

@@ -12,43 +12,43 @@ namespace RoslynCommonAnalyzers.Test;
 
 using VerifyRCGS0001 = CSharpCodeFixVerifier<
     RCGS0001ConstructorDeclarationParameterMustBeOnUniqueLinesAnalyzer,
-    RCGS0001ParameterMustBeOnUniqueLinesCodeFixProvider>;
+    RCGS0001ConstructorDeclarationParameterMustBeOnUniqueLinesCodeFixProvider>;
 
 using VerifyRCGS0002 = CSharpCodeFixVerifier<
     RCGS0002MethodDeclarationParameterMustBeOnUniqueLinesAnalyzer,
-    RCGS0002ParameterMustBeOnUniqueLinesCodeFixProvider>;
+    RCGS0002MethodDeclarationParameterMustBeOnUniqueLinesCodeFixProvider>;
 
 using VerifyRCGS0003 = CSharpCodeFixVerifier<
     RCGS0003DelegateDeclarationParameterMustBeOnUniqueLinesAnalyzer,
-    RCGS0003ParameterMustBeOnUniqueLinesCodeFixProvider>;
+    RCGS0003DelegateDeclarationParameterMustBeOnUniqueLinesCodeFixProvider>;
 
 using VerifyRCGS0004 = CSharpCodeFixVerifier<
     RCGS0004IndexerDeclarationParameterMustBeOnUniqueLinesAnalyzer,
-    RCGS0004ParameterMustBeOnUniqueLinesCodeFixProvider>;
+    RCGS0004IndexerDeclarationParameterMustBeOnUniqueLinesCodeFixProvider>;
 
 using VerifyRCGS0005 = CSharpCodeFixVerifier<
     RCGS0005InvocationExpressionArgumentMustBeOnUniqueLinesAnalyzer,
-    RCGS0005ArgumentMustBeOnUniqueLinesCodeFixProvider>;
+    RCGS0005InvocationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider>;
 
 using VerifyRCGS0006 = CSharpCodeFixVerifier<
     RCGS0006ObjectCreationExpressionArgumentMustBeOnUniqueLinesAnalyzer,
-    RCGS0006ArgumentMustBeOnUniqueLinesCodeFixProvider>;
+    RCGS0006ObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider>;
 
 using VerifyRCGS0007 = CSharpCodeFixVerifier<
     RCGS0007ElementAccessExpressionArgumentMustBeOnUniqueLinesAnalyzer,
-    RCGS0007ArgumentMustBeOnUniqueLinesCodeFixProvider>;
+    RCGS0007ElementAccessExpressionArgumentMustBeOnUniqueLinesCodeFixProvider>;
 
 using VerifyRCGS0008 = CSharpCodeFixVerifier<
     RCGS0008AttributeArgumentMustBeOnUniqueLinesAnalyzer,
-    RCGS0008ArgumentMustBeOnUniqueLinesCodeFixProvider>;
+    RCGS0008AttributeArgumentMustBeOnUniqueLinesCodeFixProvider>;
 
 using VerifyRCGS0009 = CSharpCodeFixVerifier<
     RCGS0009AnonymousMethodExpressionParameterMustBeOnUniqueLinesAnalyzer,
-    RCGS0009ParameterMustBeOnUniqueLinesCodeFixProvider>;
+    RCGS0009AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider>;
 
 using VerifyRCGS0010 = CSharpCodeFixVerifier<
     RCGS0010ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesAnalyzer,
-    RCGS0010ParameterMustBeOnUniqueLinesCodeFixProvider>;
+    RCGS0010ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesCodeFixProvider>;
 
 [TestClass]
 public class RCGS0001ConstructorDeclarationAnalyzersUnitTest

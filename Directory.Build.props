@@ -5,7 +5,7 @@
     <Authors>Glenn Watson</Authors>
     <Copyright>Copyright (c) $([System.DateTime]::Now.ToString(yyyy)) Glenn Watson</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/glennawatson/GitSMimeSign/</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/glennawatson/RoslynCommonAnalyzers/</PackageProjectUrl>
     <PackageDescription>A set of analyzers for handling analyzers.</PackageDescription>
     <Owners>glennawatson</Owners>
     <PackageTags>analyzers;blazor</PackageTags>

@@ -5,11 +5,17 @@ updates:
   schedule:
     interval: weekly
   groups:
-    microsoft:
+    code-analysis-set:
       patterns:
       - "Microsoft.CodeAnalysis"
       - "Microsoft.CodeAnalysis.CSharp"
+
+    code-analysis-other:
+      patterns:
       - "Microsoft.CodeAnalysis*"
+
+    microsoft:
+      patterns:
       - "Microsoft*"
       - "System*"
       - "MSTest*"

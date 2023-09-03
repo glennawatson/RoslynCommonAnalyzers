@@ -9,6 +9,7 @@ updates:
       patterns:
       - "Microsoft.CodeAnalysis"
       - "Microsoft.CodeAnalysis.CSharp"
+      - "Microsoft.CodeAnalysis.CSharp.Workspaces"
 
     code-analysis-other:
       patterns:
@@ -16,6 +17,7 @@ updates:
       exclude-patterns:
       - "Microsoft.CodeAnalysis"
       - "Microsoft.CodeAnalysis.CSharp"
+      - "Microsoft.CodeAnalysis.CSharp.Workspaces"
 
     microsoft:
       patterns:

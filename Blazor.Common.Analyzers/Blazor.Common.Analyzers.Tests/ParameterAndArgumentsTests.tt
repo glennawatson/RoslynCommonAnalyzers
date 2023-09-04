@@ -1,0 +1,146 @@
+﻿<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="System.Runtime" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".cs" #>
+<#
+
+    var kinds = new (string Kind, string SyntaxNodeType, bool IsParameter, string TriviaContainerType, string BracketSymbol)[]
+    {
+        ("ConstructorDeclaration", "BaseMethodDeclarationSyntax", true, "ParameterList", "OpenParen"),
+		("MethodDeclaration", "BaseMethodDeclarationSyntax", true, "ParameterList", "OpenParen"),
+        ("DelegateDeclaration", "DelegateDeclarationSyntax", true, "ParameterList", "OpenParen"),
+        ("IndexerDeclaration", "IndexerDeclarationSyntax", true, "BracketedParameterList", "OpenBracket"),
+        ("InvocationExpression", "InvocationExpressionSyntax", false, "ArgumentList", "OpenParen"),
+        ("ObjectCreationExpression", "ObjectCreationExpressionSyntax", false, "ArgumentList", "OpenParen"),
+        ("ElementAccessExpression", "ElementAccessExpressionSyntax", false, "BracketedArgumentList", "OpenBracket"),
+        ("Attribute", "AttributeSyntax", false, "AttributeArgumentList", "OpenParen"),
+        ("AnonymousMethodExpression", "AnonymousMethodExpressionSyntax", true, "ParameterList", "OpenParen"),
+        ("ParenthesizedLambdaExpression", "ParenthesizedLambdaExpressionSyntax", true, "ParameterList", "OpenParen"),
+    };
+#>
+// Copyright (c) 2023 Glenn Watson. All rights reserved.
+// Glenn Watson licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
+namespace Blazor.Common.Analyzers.Test;
+
+#pragma warning disable SA1402
+#pragma warning disable SA1649
+#pragma warning disable SA1507
+#pragma warning disable SA1518
+
+<#
+int i = 1;
+foreach (var (kind, syntaxNodeType, isParameter, containerType, bracketSymbol) in kinds)
+{
+    var code = $"RCGS{i:D4}";
+    var parameterType = isParameter ? "Parameter" : "Argument";
+    var accessMethod = isParameter ? "ParameterList" : "ArgumentList";
+    var codeFixClassName = $"{code}{kind}{parameterType}MustBeOnUniqueLinesCodeFixProvider";
+    var analyzerClassName = $"{code}{kind}{parameterType}MustBeOnUniqueLinesAnalyzer";
+#>
+
+using Verify<#=code#> = CSharpCodeFixVerifier<
+    <#=analyzerClassName#>,
+    <#=codeFixClassName#>>;
+<#
+    i++;
+}
+#>
+
+<#
+i = 1;
+foreach (var (kind, syntaxNodeType, isParameter, containerType, bracketSymbol) in kinds)
+{
+    var code = $"RCGS{i:D4}";
+    var className = $"{code}{kind}AnalyzersUnitTest";
+    var verifyName = $"Verify{code}";
+    var parameterType = isParameter ? "Parameter" : "Argument";
+    var codeFixClassName = $"{code}{kind}{parameterType}MustBeOnUniqueLinesCodeFixProvider";
+    var analyzerClassName = $"{code}{kind}{parameterType}MustBeOnUniqueLinesAnalyzer";
+#>
+[TestClass]
+public class <#=className#>
+{
+    [TestMethod]
+    public async Task Empty()
+    {
+        var test = string.Empty;
+
+        await <#=verifyName#>.VerifyAnalyzerAsync(test);
+    }
+
+    [TestMethod]
+<#
+    for (int row = 0; row < 8; ++row)
+    {
+#>
+    [DataRow(<#=row + 1#>)]
+<#
+    }
+#>
+    public async Task ValidFlatEntry(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.<#=kind#>(number);
+        var test = classGenerator.Generate();
+        await <#=verifyName#>.VerifyAnalyzerAsync(test);
+    }
+
+    [TestMethod]
+<#
+    for (int row = 1; row < 8; ++row)
+    {
+#>
+    [DataRow(<#=row + 1#>)]
+<#
+    }
+#>
+    public async Task InvalidJaggeredEntry(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        await <#=verifyName#>.VerifyAnalyzerAsync(test, <#=verifyName#>.Diagnostic("<#=code#>").WithSpan(startLine, startColumn, endLine, endColumn));
+    }
+
+    [TestMethod]
+<#
+    for (int row = 1; row < 8; ++row)
+    {
+#>
+    [DataRow(<#=row + 1#>)]
+<#
+    }
+#>
+    public async Task ValidCodeFix(int number)
+    {
+        var (test, startLine, startColumn, endLine, endColumn) = GenerateJaggered(number);
+        var fixtest = GenerateStaggered(number);
+        var expected = <#=verifyName#>.Diagnostic("<#=code#>").WithSpan(startLine, startColumn, endLine, endColumn);
+        await <#=verifyName#>.VerifyCodeFixAsync(test, expected, fixtest);
+    }
+
+    private static (string Text, int StartLine, int StartColumn, int EndLine, int EndColumn) GenerateJaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        var (startLine, startColumn, endLine, endColumn) = classGenerator.<#=kind#>Jaggered(number);
+        return (classGenerator.Generate(), startLine, startColumn, endLine, endColumn);
+    }
+
+    private static string GenerateStaggered(int number)
+    {
+        var classGenerator = new ClassGeneratorBuilder();
+        classGenerator.Init();
+        classGenerator.<#=kind#>Staggered(number);
+        return classGenerator.Generate();
+    }
+}
+
+<#
+    i++;
+}
+#>

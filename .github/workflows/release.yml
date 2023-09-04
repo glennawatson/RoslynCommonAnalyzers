@@ -6,8 +6,10 @@ on:
 
 env:
   configuration: Release
-  productNamespacePrefix: "ReactiveMarbles"
 
+permissions:
+  contents: write
+  
 jobs:
   build:
     runs-on: windows-2022

@@ -58,7 +58,7 @@ jobs:
       shell: pwsh
       run: |
         $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.CODE_SIGN_KEY }}")
-        [IO.File]::WriteAllBytes("GitHubActionsWorkflow.txt", $pfx_cert_byte)
+        Set-Content -Path GitHubActionsWorkflow.txt -Value '${{ secrets.CODE_SIGN_KEY }}'
         certutil -decode GitHubActionsWorkflow.txt GitHubActionsWorkflow.pfx
         $secure_password = ConvertTo-SecureString ${{ secrets.CODE_SIGN_PASSWORD }} –asplaintext –force
         Import-PfxCertificate -FilePath GitHubActionsWorkflow.pfx -Password $secure_password -CertStoreLocation Cert:\CurrentUser\My

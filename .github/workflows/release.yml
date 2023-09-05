@@ -57,7 +57,6 @@ jobs:
     - name: Sign NuGet packages
       shell: pwsh
       run: |
-        $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.CODE_SIGN_KEY }}")
         Set-Content -Path GitHubActionsWorkflow.txt -Value '${{ secrets.CODE_SIGN_KEY }}'
         certutil -decode GitHubActionsWorkflow.txt GitHubActionsWorkflow.pfx
         $secure_password = ConvertTo-SecureString ${{ secrets.CODE_SIGN_PASSWORD }} –asplaintext –force

@@ -53,6 +53,17 @@ jobs:
     - name: Build MsBuild
       run: msbuild /t:build,pack /nowarn:MSB4011 /maxcpucount /p:NoPackageAnalysis=true /verbosity:minimal /p:Configuration=${{ env.configuration }}
       
+    # Decode the base 64 encoded pfx and save the Signing_Certificate
+    - name: Sign NuGet packages
+      shell: pwsh
+      run: |
+        $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.CODE_SIGN_KEY }}")
+        [IO.File]::WriteAllBytes("GitHubActionsWorkflow.txt", $pfx_cert_byte)
+        certutil -decode GitHubActionsWorkflow.txt GitHubActionsWorkflow.pfx
+        $secure_password = ConvertTo-SecureString ${{ secrets.CODE_SIGN_PASSWORD }} –asplaintext –force
+        Import-PfxCertificate -FilePath GitHubActionsWorkflow.pfx -Password $secure_password -CertStoreLocation Cert:\CurrentUser\My
+        nuget sign -Timestamper http://timestamp.digicert.com -CertificateFingerprint ${{ secrets.SIGN_CERTIFICATE_HASH }} **/*.nupkg 
+
     - name: Changelog
       uses: glennawatson/ChangeLog@v1.1
       id: changelog

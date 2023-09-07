@@ -41,7 +41,17 @@ public class RCGS0001ConstructorDeclarationParameterMustBeOnUniqueLinesAnalyzer 
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ConstructorDeclaration);
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context) => context.HandleParameterListSyntax(((BaseMethodDeclarationSyntax)context.Node).ParameterList, Rule);
+    private static void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        var node = context.Node as ConstructorDeclarationSyntax;
+
+        if (node is null)
+        {
+            return;
+        }
+
+        context.HandleParameterListSyntax(node.ParameterList, Rule);
+    }
 }
 
 /// <summary>
@@ -77,7 +87,17 @@ public class RCGS0002MethodDeclarationParameterMustBeOnUniqueLinesAnalyzer : Dia
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.MethodDeclaration);
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context) => context.HandleParameterListSyntax(((BaseMethodDeclarationSyntax)context.Node).ParameterList, Rule);
+    private static void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        var node = context.Node as MethodDeclarationSyntax;
+
+        if (node is null)
+        {
+            return;
+        }
+
+        context.HandleParameterListSyntax(node.ParameterList, Rule);
+    }
 }
 
 /// <summary>
@@ -113,7 +133,17 @@ public class RCGS0003DelegateDeclarationParameterMustBeOnUniqueLinesAnalyzer : D
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.DelegateDeclaration);
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context) => context.HandleParameterListSyntax(((DelegateDeclarationSyntax)context.Node).ParameterList, Rule);
+    private static void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        var node = context.Node as DelegateDeclarationSyntax;
+
+        if (node is null)
+        {
+            return;
+        }
+
+        context.HandleParameterListSyntax(node.ParameterList, Rule);
+    }
 }
 
 /// <summary>
@@ -149,7 +179,17 @@ public class RCGS0004IndexerDeclarationParameterMustBeOnUniqueLinesAnalyzer : Di
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.IndexerDeclaration);
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context) => context.HandleParameterListSyntax(((IndexerDeclarationSyntax)context.Node).ParameterList, Rule);
+    private static void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        var node = context.Node as IndexerDeclarationSyntax;
+
+        if (node is null)
+        {
+            return;
+        }
+
+        context.HandleParameterListSyntax(node.ParameterList, Rule);
+    }
 }
 
 /// <summary>
@@ -185,7 +225,17 @@ public class RCGS0005InvocationExpressionArgumentMustBeOnUniqueLinesAnalyzer : D
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.InvocationExpression);
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context) => context.HandleArgumentListSyntax(((InvocationExpressionSyntax)context.Node).ArgumentList, Rule);
+    private static void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        var node = context.Node as InvocationExpressionSyntax;
+
+        if (node is null)
+        {
+            return;
+        }
+
+        context.HandleArgumentListSyntax(node.ArgumentList, Rule);
+    }
 }
 
 /// <summary>
@@ -221,7 +271,17 @@ public class RCGS0006ObjectCreationExpressionArgumentMustBeOnUniqueLinesAnalyzer
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ObjectCreationExpression);
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context) => context.HandleArgumentListSyntax(((ObjectCreationExpressionSyntax)context.Node).ArgumentList, Rule);
+    private static void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        var node = context.Node as ObjectCreationExpressionSyntax;
+
+        if (node is null)
+        {
+            return;
+        }
+
+        context.HandleArgumentListSyntax(node.ArgumentList, Rule);
+    }
 }
 
 /// <summary>
@@ -257,7 +317,17 @@ public class RCGS0007ElementAccessExpressionArgumentMustBeOnUniqueLinesAnalyzer 
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ElementAccessExpression);
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context) => context.HandleArgumentListSyntax(((ElementAccessExpressionSyntax)context.Node).ArgumentList, Rule);
+    private static void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        var node = context.Node as ElementAccessExpressionSyntax;
+
+        if (node is null)
+        {
+            return;
+        }
+
+        context.HandleArgumentListSyntax(node.ArgumentList, Rule);
+    }
 }
 
 /// <summary>
@@ -293,7 +363,17 @@ public class RCGS0008AttributeArgumentMustBeOnUniqueLinesAnalyzer : DiagnosticAn
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.Attribute);
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context) => context.HandleArgumentListSyntax(((AttributeSyntax)context.Node).ArgumentList, Rule);
+    private static void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        var node = context.Node as AttributeSyntax;
+
+        if (node is null)
+        {
+            return;
+        }
+
+        context.HandleArgumentListSyntax(node.ArgumentList, Rule);
+    }
 }
 
 /// <summary>
@@ -329,7 +409,17 @@ public class RCGS0009AnonymousMethodExpressionParameterMustBeOnUniqueLinesAnalyz
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.AnonymousMethodExpression);
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context) => context.HandleParameterListSyntax(((AnonymousMethodExpressionSyntax)context.Node).ParameterList, Rule);
+    private static void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        var node = context.Node as AnonymousMethodExpressionSyntax;
+
+        if (node is null)
+        {
+            return;
+        }
+
+        context.HandleParameterListSyntax(node.ParameterList, Rule);
+    }
 }
 
 /// <summary>
@@ -365,6 +455,16 @@ public class RCGS0010ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesAn
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ParenthesizedLambdaExpression);
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context) => context.HandleParameterListSyntax(((ParenthesizedLambdaExpressionSyntax)context.Node).ParameterList, Rule);
+    private static void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        var node = context.Node as ParenthesizedLambdaExpressionSyntax;
+
+        if (node is null)
+        {
+            return;
+        }
+
+        context.HandleParameterListSyntax(node.ParameterList, Rule);
+    }
 }
 

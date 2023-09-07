@@ -12,8 +12,8 @@
 
     var kinds = new (string Kind, string SyntaxNodeType, bool IsParameter, bool HasInner)[]
     {
-        (nameof(SyntaxKind.ConstructorDeclaration), nameof(BaseMethodDeclarationSyntax), true, false),
-		(nameof(SyntaxKind.MethodDeclaration), nameof(BaseMethodDeclarationSyntax), true, false),
+        (nameof(SyntaxKind.ConstructorDeclaration), nameof(ConstructorDeclarationSyntax), true, false),
+		(nameof(SyntaxKind.MethodDeclaration), nameof(MethodDeclarationSyntax), true, false),
         (nameof(SyntaxKind.DelegateDeclaration), nameof(DelegateDeclarationSyntax), true, false),
         (nameof(SyntaxKind.IndexerDeclaration), nameof(IndexerDeclarationSyntax), true, true),
         (nameof(SyntaxKind.InvocationExpression), nameof(InvocationExpressionSyntax), false, false),
@@ -75,7 +75,17 @@ public class <#=code#><#=kind#><#=parameterType#>MustBeOnUniqueLinesAnalyzer : D
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.<#=kind#>);
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context) => context.Handle<#=parameterType#>ListSyntax(((<#=syntaxNodeType#>)context.Node).<#=accessMethod#>, Rule);
+    private static void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        var node = context.Node as <#=syntaxNodeType#>;
+
+        if (node is null)
+        {
+            return;
+        }
+
+        context.Handle<#=parameterType#>ListSyntax(node.<#=accessMethod#>, Rule);
+    }
 }
 
 <#

@@ -51,7 +51,7 @@ using VerifyRCGS0010 = CSharpCodeFixVerifier<
     RCGS0010ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesCodeFixProvider>;
 
 [TestClass]
-public class RCGS0001ConstructorDeclarationAnalyzersUnitTest
+public partial class RCGS0001ConstructorDeclarationAnalyzersUnitTest
 {
     [TestMethod]
     public async Task Empty()
@@ -127,7 +127,7 @@ public class RCGS0001ConstructorDeclarationAnalyzersUnitTest
 }
 
 [TestClass]
-public class RCGS0002MethodDeclarationAnalyzersUnitTest
+public partial class RCGS0002MethodDeclarationAnalyzersUnitTest
 {
     [TestMethod]
     public async Task Empty()
@@ -203,7 +203,7 @@ public class RCGS0002MethodDeclarationAnalyzersUnitTest
 }
 
 [TestClass]
-public class RCGS0003DelegateDeclarationAnalyzersUnitTest
+public partial class RCGS0003DelegateDeclarationAnalyzersUnitTest
 {
     [TestMethod]
     public async Task Empty()
@@ -279,7 +279,7 @@ public class RCGS0003DelegateDeclarationAnalyzersUnitTest
 }
 
 [TestClass]
-public class RCGS0004IndexerDeclarationAnalyzersUnitTest
+public partial class RCGS0004IndexerDeclarationAnalyzersUnitTest
 {
     [TestMethod]
     public async Task Empty()
@@ -355,7 +355,7 @@ public class RCGS0004IndexerDeclarationAnalyzersUnitTest
 }
 
 [TestClass]
-public class RCGS0005InvocationExpressionAnalyzersUnitTest
+public partial class RCGS0005InvocationExpressionAnalyzersUnitTest
 {
     [TestMethod]
     public async Task Empty()
@@ -431,7 +431,7 @@ public class RCGS0005InvocationExpressionAnalyzersUnitTest
 }
 
 [TestClass]
-public class RCGS0006ObjectCreationExpressionAnalyzersUnitTest
+public partial class RCGS0006ObjectCreationExpressionAnalyzersUnitTest
 {
     [TestMethod]
     public async Task Empty()
@@ -507,7 +507,7 @@ public class RCGS0006ObjectCreationExpressionAnalyzersUnitTest
 }
 
 [TestClass]
-public class RCGS0007ElementAccessExpressionAnalyzersUnitTest
+public partial class RCGS0007ElementAccessExpressionAnalyzersUnitTest
 {
     [TestMethod]
     public async Task Empty()
@@ -583,7 +583,7 @@ public class RCGS0007ElementAccessExpressionAnalyzersUnitTest
 }
 
 [TestClass]
-public class RCGS0008AttributeAnalyzersUnitTest
+public partial class RCGS0008AttributeAnalyzersUnitTest
 {
     [TestMethod]
     public async Task Empty()
@@ -659,7 +659,7 @@ public class RCGS0008AttributeAnalyzersUnitTest
 }
 
 [TestClass]
-public class RCGS0009AnonymousMethodExpressionAnalyzersUnitTest
+public partial class RCGS0009AnonymousMethodExpressionAnalyzersUnitTest
 {
     [TestMethod]
     public async Task Empty()
@@ -735,7 +735,7 @@ public class RCGS0009AnonymousMethodExpressionAnalyzersUnitTest
 }
 
 [TestClass]
-public class RCGS0010ParenthesizedLambdaExpressionAnalyzersUnitTest
+public partial class RCGS0010ParenthesizedLambdaExpressionAnalyzersUnitTest
 {
     [TestMethod]
     public async Task Empty()

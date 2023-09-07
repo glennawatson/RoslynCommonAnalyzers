@@ -14,7 +14,8 @@ internal static class ArgumentsOrParameterOnSameLineHelper
         }
 
         var arguments = argumentList.Arguments;
-        Analyze(context, arguments, rule);
+        var argumentsLine = argumentList.GetLocation().GetLineSpan().StartLinePosition.Line;
+        Analyze(context, argumentsLine, arguments, rule);
     }
 
     public static void HandleArgumentListSyntax(this in SyntaxNodeAnalysisContext context, BracketedArgumentListSyntax? argumentList, DiagnosticDescriptor rule)
@@ -25,7 +26,8 @@ internal static class ArgumentsOrParameterOnSameLineHelper
         }
 
         var arguments = argumentList.Arguments;
-        Analyze(context, arguments, rule);
+        var argumentsLine = argumentList.GetLocation().GetLineSpan().StartLinePosition.Line;
+        Analyze(context, argumentsLine, arguments, rule);
     }
 
     public static void HandleArgumentListSyntax(this in SyntaxNodeAnalysisContext context, AttributeArgumentListSyntax? argumentList, DiagnosticDescriptor rule)
@@ -36,7 +38,9 @@ internal static class ArgumentsOrParameterOnSameLineHelper
         }
 
         var arguments = argumentList.Arguments;
-        Analyze(context, arguments, rule);
+        var argumentsLine = argumentList.GetLocation().GetLineSpan().StartLinePosition.Line;
+
+        Analyze(context, argumentsLine, arguments, rule);
     }
 
     public static void HandleParameterListSyntax(this in SyntaxNodeAnalysisContext context, ParameterListSyntax? parameterList, DiagnosticDescriptor rule)
@@ -47,7 +51,9 @@ internal static class ArgumentsOrParameterOnSameLineHelper
         }
 
         var parameters = parameterList.Parameters;
-        Analyze(context, parameters, rule);
+        var paremeterLine = parameterList.GetLocation().GetLineSpan().StartLinePosition.Line;
+
+        Analyze(context, paremeterLine, parameters, rule);
     }
 
     public static void HandleParameterListSyntax(this in SyntaxNodeAnalysisContext context, BracketedParameterListSyntax? parameterList, DiagnosticDescriptor rule)
@@ -58,10 +64,12 @@ internal static class ArgumentsOrParameterOnSameLineHelper
         }
 
         var parameters = parameterList.Parameters;
-        Analyze(context, parameters, rule);
+        var paremeterLine = parameterList.GetLocation().GetLineSpan().StartLinePosition.Line;
+
+        Analyze(context, paremeterLine, parameters, rule);
     }
 
-    public static void Analyze<T>(in SyntaxNodeAnalysisContext context, in SeparatedSyntaxList<T> list, DiagnosticDescriptor rule)
+    public static void Analyze<T>(in SyntaxNodeAnalysisContext context, in int parameterLine, in SeparatedSyntaxList<T> list, DiagnosticDescriptor rule)
         where T : SyntaxNode
     {
         if (list.Count <= 1)
@@ -69,9 +77,8 @@ internal static class ArgumentsOrParameterOnSameLineHelper
             return;
         }
 
-        var nodeLine = context.Node.GetLocation().GetLineSpan().StartLinePosition.Line;
-        var diffChecker = new HashSet<int>() { nodeLine };
-        var lineNumbers = list.Select(x => x.GetLocation().GetLineSpan().StartLinePosition.Line);
+        var diffChecker = new HashSet<int>() { parameterLine };
+        var lineNumbers = list.Select(x => x.GetLocation().GetLineSpan().StartLinePosition.Line).ToList();
         diffChecker.UnionWith(lineNumbers);
 
         var allDifferent = diffChecker.Count == list.Count + 1;

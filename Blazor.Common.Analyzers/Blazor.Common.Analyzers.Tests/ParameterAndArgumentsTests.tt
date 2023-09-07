@@ -25,7 +25,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace Blazor.Common.Analyzers.Test;
+namespace Blazor.Common.Analyzers.Tests;
 
 #pragma warning disable SA1402
 #pragma warning disable SA1649
@@ -63,7 +63,7 @@ foreach (var (kind, syntaxNodeType, isParameter, containerType, bracketSymbol) i
     var analyzerClassName = $"{code}{kind}{parameterType}MustBeOnUniqueLinesAnalyzer";
 #>
 [TestClass]
-public class <#=className#>
+public partial class <#=className#>
 {
     [TestMethod]
     public async Task Empty()

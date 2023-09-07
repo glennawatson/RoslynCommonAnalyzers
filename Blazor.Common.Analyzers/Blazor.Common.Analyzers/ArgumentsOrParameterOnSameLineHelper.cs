@@ -6,32 +6,57 @@ namespace Blazor.Common.Analyzers;
 
 internal static class ArgumentsOrParameterOnSameLineHelper
 {
-    public static void HandleArgumentListSyntax(this in SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList, DiagnosticDescriptor rule)
+    public static void HandleArgumentListSyntax(this in SyntaxNodeAnalysisContext context, ArgumentListSyntax? argumentList, DiagnosticDescriptor rule)
     {
+        if (argumentList is null)
+        {
+            return;
+        }
+
         var arguments = argumentList.Arguments;
         Analyze(context, arguments, rule);
     }
 
-    public static void HandleArgumentListSyntax(this in SyntaxNodeAnalysisContext context, BracketedArgumentListSyntax argumentList, DiagnosticDescriptor rule)
+    public static void HandleArgumentListSyntax(this in SyntaxNodeAnalysisContext context, BracketedArgumentListSyntax? argumentList, DiagnosticDescriptor rule)
     {
+        if (argumentList is null)
+        {
+            return;
+        }
+
         var arguments = argumentList.Arguments;
         Analyze(context, arguments, rule);
     }
 
-    public static void HandleArgumentListSyntax(this in SyntaxNodeAnalysisContext context, AttributeArgumentListSyntax argumentList, DiagnosticDescriptor rule)
+    public static void HandleArgumentListSyntax(this in SyntaxNodeAnalysisContext context, AttributeArgumentListSyntax? argumentList, DiagnosticDescriptor rule)
     {
+        if (argumentList is null)
+        {
+            return;
+        }
+
         var arguments = argumentList.Arguments;
         Analyze(context, arguments, rule);
     }
 
-    public static void HandleParameterListSyntax(this in SyntaxNodeAnalysisContext context, ParameterListSyntax parameterList, DiagnosticDescriptor rule)
+    public static void HandleParameterListSyntax(this in SyntaxNodeAnalysisContext context, ParameterListSyntax? parameterList, DiagnosticDescriptor rule)
     {
+        if (parameterList is null)
+        {
+            return;
+        }
+
         var parameters = parameterList.Parameters;
         Analyze(context, parameters, rule);
     }
 
-    public static void HandleParameterListSyntax(this in SyntaxNodeAnalysisContext context, BracketedParameterListSyntax parameterList, DiagnosticDescriptor rule)
+    public static void HandleParameterListSyntax(this in SyntaxNodeAnalysisContext context, BracketedParameterListSyntax? parameterList, DiagnosticDescriptor rule)
     {
+        if (parameterList is null)
+        {
+            return;
+        }
+
         var parameters = parameterList.Parameters;
         Analyze(context, parameters, rule);
     }

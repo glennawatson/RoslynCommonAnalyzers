@@ -42,7 +42,7 @@ jobs:
         setAllVars: true
 
     - name: Install NuGet 
-      uses: nuget/setup-nuget@v1
+      uses: nuget/setup-nuget@v2
       with:
         nuget-api-key: ${{ secrets.NuGetAPIKey }}
         nuget-version: '6.x'

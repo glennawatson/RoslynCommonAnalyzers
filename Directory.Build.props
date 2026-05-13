@@ -63,6 +63,16 @@
     <PackageReference Include="NSubstitute" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(IsTestProject)' == 'true'">
+    <!-- Shared Microsoft.Testing.Platform code-coverage settings (exclusions for
+         generated code etc); copied next to each test assembly as
+         AssemblyName.testconfig.json so the test runner's coverage step uses it. -->
+    <None Include="$(MSBuildThisFileDirectory)testconfig.json" Condition="Exists('$(MSBuildThisFileDirectory)testconfig.json')">
+      <Link>$(AssemblyName).testconfig.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="\" Visible="false" />
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Visible="false" Condition="Exists('$(MSBuildThisFileDirectory)README.md')" />

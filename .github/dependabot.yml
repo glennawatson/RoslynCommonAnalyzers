@@ -12,22 +12,45 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 20
+    ignore:
+      # The Roslyn compiler API the analyzers are *built against* must stay on
+      # the 4.14.x line so the produced assemblies keep loading in Visual
+      # Studio 2022 17.14 / the SDK that ships it. Block the 5.x major.
+      # (Microsoft.CodeAnalysis.Analyzers — the RS* dev-time analyzer for our
+      # own source — is intentionally NOT listed here; it tracks latest.)
+      - dependency-name: "Microsoft.CodeAnalysis"
+        versions: [">=5.0.0"]
+      - dependency-name: "Microsoft.CodeAnalysis.Common"
+        versions: [">=5.0.0"]
+      - dependency-name: "Microsoft.CodeAnalysis.CSharp"
+        versions: [">=5.0.0"]
+      - dependency-name: "Microsoft.CodeAnalysis.CSharp.Workspaces"
+        versions: [">=5.0.0"]
+      - dependency-name: "Microsoft.CodeAnalysis.Workspaces.Common"
+        versions: [">=5.0.0"]
+      - dependency-name: "Microsoft.CodeAnalysis.VisualBasic"
+        versions: [">=5.0.0"]
+      - dependency-name: "Microsoft.CodeAnalysis.VisualBasic.Workspaces"
+        versions: [">=5.0.0"]
     groups:
       roslyn:
-        # The Microsoft.CodeAnalysis.* packages (compiler API + the analyzer
-        # testing harness) move in lock-step with the targeted VS/Roslyn
-        # version, so bump them together.
+        # The Roslyn compiler API + the analyzer-testing harness — versioned
+        # together with the targeted VS/Roslyn release (held at 4.14.x via the
+        # ignore rules above). Microsoft.CodeAnalysis.Analyzers is excluded so
+        # it can move independently with the other source-quality analyzers.
         patterns:
           - "Microsoft.CodeAnalysis"
           - "Microsoft.CodeAnalysis.*"
+        exclude-patterns:
+          - "Microsoft.CodeAnalysis.Analyzers"
       analyzers:
+        # Build-time source-quality analyzers — track latest.
         patterns:
+          - "Microsoft.CodeAnalysis.Analyzers"
           - "*.Analyzers"
           - "StyleCop.Analyzers"
           - "Roslynator.*"
           - "SonarAnalyzer.*"
-        exclude-patterns:
-          - "Microsoft.CodeAnalysis.Analyzers"
       versioning:
         patterns:
           - "MinVer"

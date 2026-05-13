@@ -1,37 +1,63 @@
+# Dependabot version updates.
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Group order matters — Dependabot assigns each package to the first group
+# whose patterns match, so narrower groups (roslyn, analyzers, test-stack)
+# come before the catch-all microsoft group.
+
 version: 2
 updates:
-- package-ecosystem: nuget
-  directory: "/"
-  schedule:
-    interval: weekly
-  groups:
-    code-analysis-set:
-      patterns:
-      - "Microsoft.CodeAnalysis"
-      - "Microsoft.CodeAnalysis.CSharp"
-      - "Microsoft.CodeAnalysis.CSharp.Workspaces"
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 20
+    groups:
+      roslyn:
+        # The Microsoft.CodeAnalysis.* packages (compiler API + the analyzer
+        # testing harness) move in lock-step with the targeted VS/Roslyn
+        # version, so bump them together.
+        patterns:
+          - "Microsoft.CodeAnalysis"
+          - "Microsoft.CodeAnalysis.*"
+      analyzers:
+        patterns:
+          - "*.Analyzers"
+          - "StyleCop.Analyzers"
+          - "Roslynator.*"
+          - "SonarAnalyzer.*"
+        exclude-patterns:
+          - "Microsoft.CodeAnalysis.Analyzers"
+      versioning:
+        patterns:
+          - "MinVer"
+      test-stack:
+        patterns:
+          - "TUnit*"
+          - "NSubstitute"
+          - "Microsoft.Testing.*"
+      microsoft:
+        # Catch-all for the rest of the Microsoft / System out-of-band packages.
+        patterns:
+          - "Microsoft.*"
+          - "System.*"
+        exclude-patterns:
+          - "Microsoft.CodeAnalysis.*"
 
-    code-analysis-other:
-      patterns:
-      - "Microsoft.CodeAnalysis*"
-      exclude-patterns:
-      - "Microsoft.CodeAnalysis"
-      - "Microsoft.CodeAnalysis.CSharp"
-      - "Microsoft.CodeAnalysis.CSharp.Workspaces"
-
-    microsoft:
-      patterns:
-      - "Microsoft*"
-      - "System*"
-      - "MSTest*"
-      # Define patterns to exclude dependencies from the group (based on
-      # dependency name)
-      exclude-patterns:
-      - "Microsoft.CodeAnalysis*"
-  open-pull-requests-limit: 20
-- package-ecosystem: "github-actions"
-  directory: "/"
-  schedule:
-    # Check for updates to GitHub Actions every weekday
-    interval: weekly  
-  open-pull-requests-limit: 20
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 20
+    groups:
+      core-actions:
+        patterns:
+          - "actions/*"
+          - "dotnet/*"
+          - "github/*"
+      release-actions:
+        # Release-only vendor actions land together so signing / publishing
+        # workflow changes stay in one PR.
+        patterns:
+          - "SSLcom/*"
+          - "NuGet/*"

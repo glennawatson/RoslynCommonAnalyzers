@@ -1,5 +1,5 @@
-﻿// Copyright (c) 2023 Glenn Watson. All rights reserved.
-// Glenn Watson licenses this file to you under the MIT license.
+﻿// Copyright (c) 2026 Glenn Watson and Contributors. All rights reserved.
+// Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
@@ -9,6 +9,9 @@ using Microsoft.CodeAnalysis.CSharp;
 
 namespace Blazor.Common.Analyzers.Tests;
 
+/// <summary>
+/// Provides shared helpers used when configuring C# analyzer and code fix tests.
+/// </summary>
 internal static class CSharpVerifierHelper
 {
     /// <summary>
@@ -21,17 +24,19 @@ internal static class CSharpVerifierHelper
     /// </summary>
     internal static ImmutableDictionary<string, ReportDiagnostic> NullableWarnings { get; } = GetNullableWarningsFromCompiler();
 
+    /// <summary>
+    /// Builds the map of nullable-related compiler diagnostic identifiers promoted to <see cref="ReportDiagnostic.Error"/>.
+    /// </summary>
+    /// <returns>A dictionary mapping nullable diagnostic identifiers to <see cref="ReportDiagnostic.Error"/>.</returns>
     private static ImmutableDictionary<string, ReportDiagnostic> GetNullableWarningsFromCompiler()
     {
-        string[] args = { "/warnaserror:nullable" };
+        string[] args = ["/warnaserror:nullable"];
         var commandLineArguments = CSharpCommandLineParser.Default.Parse(args, baseDirectory: Environment.CurrentDirectory, sdkDirectory: Environment.CurrentDirectory);
         var nullableWarnings = commandLineArguments.CompilationOptions.SpecificDiagnosticOptions;
 
         // Workaround for https://github.com/dotnet/roslyn/issues/41610
-        nullableWarnings = nullableWarnings
+        return nullableWarnings
             .SetItem("CS8632", ReportDiagnostic.Error)
             .SetItem("CS8669", ReportDiagnostic.Error);
-
-        return nullableWarnings;
     }
 }

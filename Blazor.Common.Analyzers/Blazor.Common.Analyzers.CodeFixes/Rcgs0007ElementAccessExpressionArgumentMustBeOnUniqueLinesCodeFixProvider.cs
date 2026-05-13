@@ -52,11 +52,12 @@ public sealed class Rcgs0007ElementAccessExpressionArgumentMustBeOnUniqueLinesCo
     /// <returns>A task producing the updated document.</returns>
     private static Task<Document> FixAsync(Document document, SyntaxNode root, ElementAccessExpressionSyntax node)
     {
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(
                           node => node.ArgumentList?.Arguments,
                           (node, parameters) => node.WithArgumentList(
                               SyntaxFactory.BracketedArgumentList(parameters)
-                                  .WithOpenBracketToken(node.ArgumentList!.OpenBracketToken.WithTrailingTrivia(SyntaxFactory.ElasticLineFeed))))
+                                  .WithOpenBracketToken(node.ArgumentList!.OpenBracketToken.WithTrailingTrivia(endOfLine))))
                       ?? node;
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
     }

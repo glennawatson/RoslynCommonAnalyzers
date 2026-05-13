@@ -52,11 +52,12 @@ public sealed class Rcgs0006ObjectCreationExpressionArgumentMustBeOnUniqueLinesC
     /// <returns>A task producing the updated document.</returns>
     private static Task<Document> FixAsync(Document document, SyntaxNode root, ObjectCreationExpressionSyntax node)
     {
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(
                           node => node.ArgumentList?.Arguments,
                           (node, parameters) => node.WithArgumentList(
                               SyntaxFactory.ArgumentList(parameters)
-                                  .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(SyntaxFactory.ElasticLineFeed))))
+                                  .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
                       ?? node;
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
     }

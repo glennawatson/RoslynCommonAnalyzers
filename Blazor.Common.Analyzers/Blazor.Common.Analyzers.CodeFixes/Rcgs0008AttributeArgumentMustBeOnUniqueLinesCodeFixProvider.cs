@@ -52,11 +52,12 @@ public sealed class Rcgs0008AttributeArgumentMustBeOnUniqueLinesCodeFixProvider 
     /// <returns>A task producing the updated document.</returns>
     private static Task<Document> FixAsync(Document document, SyntaxNode root, AttributeSyntax node)
     {
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(
                           node => node.ArgumentList?.Arguments,
                           (node, parameters) => node.WithArgumentList(
                               SyntaxFactory.AttributeArgumentList(parameters)
-                                  .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(SyntaxFactory.ElasticLineFeed))))
+                                  .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
                       ?? node;
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
     }

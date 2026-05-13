@@ -52,11 +52,12 @@ public sealed class Rcgs0004IndexerDeclarationParameterMustBeOnUniqueLinesCodeFi
     /// <returns>A task producing the updated document.</returns>
     private static Task<Document> FixAsync(Document document, SyntaxNode root, IndexerDeclarationSyntax node)
     {
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(
                           node => node.ParameterList?.Parameters,
                           (node, parameters) => node.WithParameterList(
                               SyntaxFactory.BracketedParameterList(parameters)
-                                  .WithOpenBracketToken(node.ParameterList!.OpenBracketToken.WithTrailingTrivia(SyntaxFactory.ElasticLineFeed))))
+                                  .WithOpenBracketToken(node.ParameterList!.OpenBracketToken.WithTrailingTrivia(endOfLine))))
                       ?? node;
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
     }

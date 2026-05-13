@@ -52,11 +52,12 @@ public sealed class Rcgs0014ImplicitObjectCreationExpressionArgumentMustBeOnUniq
     /// <returns>A task producing the updated document.</returns>
     private static Task<Document> FixAsync(Document document, SyntaxNode root, ImplicitObjectCreationExpressionSyntax node)
     {
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(
                           node => node.ArgumentList?.Arguments,
                           (node, parameters) => node.WithArgumentList(
                               SyntaxFactory.ArgumentList(parameters)
-                                  .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(SyntaxFactory.ElasticLineFeed))))
+                                  .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
                       ?? node;
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
     }

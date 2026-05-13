@@ -52,11 +52,12 @@ public sealed class Rcgs0009AnonymousMethodExpressionParameterMustBeOnUniqueLine
     /// <returns>A task producing the updated document.</returns>
     private static Task<Document> FixAsync(Document document, SyntaxNode root, AnonymousMethodExpressionSyntax node)
     {
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(
                           node => node.ParameterList?.Parameters,
                           (node, parameters) => node.WithParameterList(
                               SyntaxFactory.ParameterList(parameters)
-                                  .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(SyntaxFactory.ElasticLineFeed))))
+                                  .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
                       ?? node;
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
     }

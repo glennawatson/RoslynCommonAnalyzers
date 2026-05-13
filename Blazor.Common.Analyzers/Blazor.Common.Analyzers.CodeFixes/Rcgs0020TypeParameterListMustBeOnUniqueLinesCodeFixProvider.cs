@@ -52,11 +52,12 @@ public sealed class Rcgs0020TypeParameterListMustBeOnUniqueLinesCodeFixProvider 
     /// <returns>A task producing the updated document.</returns>
     private static Task<Document> FixAsync(Document document, SyntaxNode root, TypeParameterListSyntax node)
     {
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: false);
         var newList = UniqueLineCodeFixerHelper.SplitEntriesOntoOwnLines(node, node.Parameters);
         var newNode = newList is null
             ? node
             : SyntaxFactory.TypeParameterList(newList.Value)
-                .WithLessThanToken(node.LessThanToken.WithTrailingTrivia(SyntaxFactory.LineFeed))
+                .WithLessThanToken(node.LessThanToken.WithTrailingTrivia(endOfLine))
                 .WithGreaterThanToken(node.GreaterThanToken);
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
     }

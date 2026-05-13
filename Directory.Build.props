@@ -13,8 +13,9 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/glennawatson/RoslynCommonAnalyzers</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <PackageReleaseNotes>https://github.com/glennawatson/RoslynCommonAnalyzers/releases</PackageReleaseNotes>
-    <PackageTags>analyzers;roslyn;codefix;blazor;readability</PackageTags>
+    <PackageTags>analyzers;roslyn;codefix;blazor;readability;formatting;stylecop</PackageTags>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <RepositoryUrl>https://github.com/glennawatson/RoslynCommonAnalyzers</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -39,11 +40,17 @@
     <MinVerDefaultPreReleaseIdentifiers>alpha.0</MinVerDefaultPreReleaseIdentifiers>
     <MinVerMinimumMajorMinor>1.0</MinVerMinimumMajorMinor>
 
+    <!-- Nothing packs by default. Only the .Package project opts back in with
+         <IsPackable>true</IsPackable>; the analyzer/code-fix/test projects all
+         stay non-packable so a `dotnet pack` of the solution produces exactly
+         one .nupkg (Blazor.Common.Analyzers). -->
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+
     <IsTestProject>$(MSBuildProjectName.EndsWith('Tests'))</IsTestProject>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
-    <IsPackable>false</IsPackable>
     <OutputType>Exe</OutputType>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
     <TUnitImplicitUsings>true</TUnitImplicitUsings>
@@ -59,6 +66,7 @@
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="\" Visible="false" />
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Visible="false" Condition="Exists('$(MSBuildThisFileDirectory)README.md')" />
+    <None Include="$(MSBuildThisFileDirectory)icons\icon.png" Pack="true" PackagePath="\" Visible="false" Condition="Exists('$(MSBuildThisFileDirectory)icons\icon.png')" />
   </ItemGroup>
 
   <ItemGroup>

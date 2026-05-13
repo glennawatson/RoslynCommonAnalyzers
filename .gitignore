@@ -396,3 +396,7 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+Directory.Build.props
+README.md
+Blazor.Common.Analyzers/Blazor.Common.Analyzers.Package/Blazor.Common.Analyzers.Packages.csproj
+icons/icon.png

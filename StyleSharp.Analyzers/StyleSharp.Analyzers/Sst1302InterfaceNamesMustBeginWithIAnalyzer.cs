@@ -6,30 +6,13 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Analyzer that requires interface names to begin with the capital letter <c>I</c>
-/// (the .NET framework design convention), e.g. <c>ICustomer</c>.
+/// (the .NET framework design convention), e.g. <c>ICustomer</c> (SST1302).
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1302InterfaceNamesMustBeginWithIAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The unique diagnostic identifier for this analyzer.</summary>
-    internal const string DiagnosticId = "SST1302";
-
-    /// <summary>The category of the diagnostic.</summary>
-    private const string Category = "Naming";
-
-    /// <summary>The diagnostic descriptor for this analyzer.</summary>
-    private static readonly DiagnosticDescriptor Rule = new(
-        DiagnosticId,
-        "Interface names should begin with I",
-        "Interface name '{0}' should begin with 'I'",
-        Category,
-        DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
-        description: "Interface names should begin with the capital letter 'I' (for example, ICustomer).",
-        helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{DiagnosticId}.md");
-
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(Rule);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(NamingRules.InterfaceI);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -50,11 +33,12 @@ public sealed class Sst1302InterfaceNamesMustBeginWithIAnalyzer : DiagnosticAnal
         }
 
         var identifier = declaration.Identifier;
-        if (NamingHelper.BeginsWithCapitalI(identifier.ValueText))
+        var name = identifier.ValueText;
+        if (NamingHelper.BeginsWithCapitalI(name))
         {
             return;
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(Rule, identifier.GetLocation(), identifier.ValueText));
+        NamingDiagnostic.Report(context, NamingRules.InterfaceI, identifier, NamingHelper.SuggestPrefixed(name, 'I'));
     }
 }

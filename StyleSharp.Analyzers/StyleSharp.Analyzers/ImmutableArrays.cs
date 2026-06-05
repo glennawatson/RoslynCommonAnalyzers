@@ -29,4 +29,15 @@ internal static class ImmutableArrays
 #else
         => ImmutableArray.Create(item);
 #endif
+
+    /// <summary>Creates an immutable array from the supplied elements.</summary>
+    /// <typeparam name="T">The element type.</typeparam>
+    /// <param name="items">The elements.</param>
+    /// <returns>An immutable array containing <paramref name="items"/>.</returns>
+    public static ImmutableArray<T> Of<T>(params T[] items)
+#if ROSLYN_4_14_OR_GREATER
+        => [.. items];
+#else
+        => ImmutableArray.Create(items);
+#endif
 }

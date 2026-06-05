@@ -27,4 +27,13 @@ SST0019 | Readability | Warning | SST0019ConversionOperatorDeclarationParameterM
 SST0020 | Readability | Warning | SST0020TypeParameterListMustBeOnUniqueLinesAnalyzer
 SST0021 | Readability | Warning | SST0021TypeArgumentListMustBeOnUniqueLinesAnalyzer
 SST0022 | Readability | Warning | SST0022FunctionPointerParameterListMustBeOnUniqueLinesAnalyzer
+SST1300 | Naming | Warning | ElementNamingAnalyzer
 SST1302 | Naming | Warning | SST1302InterfaceNamesMustBeginWithIAnalyzer
+SST1303 | Naming | Warning | FieldNamingAnalyzer
+SST1304 | Naming | Warning | FieldNamingAnalyzer
+SST1307 | Naming | Warning | FieldNamingAnalyzer
+SST1309 | Naming | Warning | FieldNamingAnalyzer
+SST1311 | Naming | Warning | FieldNamingAnalyzer
+SST1312 | Naming | Warning | LocalVariableNamingAnalyzer
+SST1313 | Naming | Warning | ParameterNamingAnalyzer
+SST1314 | Naming | Warning | TypeParameterNamingAnalyzer

@@ -4,7 +4,7 @@
 
 using Verifysst1302 = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1302InterfaceNamesMustBeginWithIAnalyzer,
-    StyleSharp.Analyzers.Sst1302InterfaceNamesMustBeginWithICodeFixProvider>;
+    StyleSharp.Analyzers.NamingRenameCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

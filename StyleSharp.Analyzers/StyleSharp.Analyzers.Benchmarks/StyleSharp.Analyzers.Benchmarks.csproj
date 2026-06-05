@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+
+    <!--
+      This is a BenchmarkDotNet host, not shipped code. BDN requires public
+      classes with public instance benchmark methods and uses heavy reflection,
+      which is fundamentally incompatible with the production style/CA analyzer
+      stack. We therefore do NOT run those analyzers on the harness (the
+      analyzers simply don't apply here — no diagnostics are suppressed). The
+      shipped analyzer/code-fix/test projects keep the full strict stack.
+    -->
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);NETSDK1057</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Keep the production style analyzers off the benchmark host. -->
+    <PackageReference Remove="StyleCop.Analyzers" />
+    <PackageReference Remove="Roslynator.Analyzers" />
+    <PackageReference Remove="SonarAnalyzer.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\StyleSharp.Analyzers\StyleSharp.Analyzers.csproj" />
+  </ItemGroup>
+
+</Project>

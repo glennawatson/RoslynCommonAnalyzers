@@ -27,6 +27,10 @@
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
   </ItemGroup>
 
+  <ItemGroup Label="Benchmarks">
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
   <ItemGroup Label="Versioning">
     <PackageVersion Include="MinVer" Version="7.0.0" />
   </ItemGroup>

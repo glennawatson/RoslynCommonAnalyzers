@@ -39,3 +39,4 @@ SST1313 | Naming | Warning | ParameterNamingAnalyzer
 SST1314 | Naming | Warning | TypeParameterNamingAnalyzer
 SST1315 | Naming | Warning | UnionMemberNamingAnalyzer
 SST1316 | Naming | Warning | TupleElementNamingAnalyzer
+SST1653 | Documentation | Warning | SingleLineSummaryAnalyzer

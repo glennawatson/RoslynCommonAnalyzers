@@ -27,3 +27,4 @@ SST0019 | Readability | Warning | SST0019ConversionOperatorDeclarationParameterM
 SST0020 | Readability | Warning | SST0020TypeParameterListMustBeOnUniqueLinesAnalyzer
 SST0021 | Readability | Warning | SST0021TypeArgumentListMustBeOnUniqueLinesAnalyzer
 SST0022 | Readability | Warning | SST0022FunctionPointerParameterListMustBeOnUniqueLinesAnalyzer
+SST1302 | Naming | Warning | SST1302InterfaceNamesMustBeginWithIAnalyzer

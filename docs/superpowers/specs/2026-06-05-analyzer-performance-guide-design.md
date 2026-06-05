@@ -69,14 +69,26 @@ The guide is modeled on two references in the user's other repos:
   Avoid" conventions: no `ISymbol`/`SyntaxNode` in cached state, no LINQ in hot
   paths, manual loops, `ConditionalWeakTable<Compilation, T>` symbol caching.
 
+## In scope: optimize the real `Analyze<T>`
+
+The allocation-free `Analyze<T>` is **landed in the shipping analyzer**
+(`ArgumentsOrParameterOnSameLineHelper.cs`), not just used as a benchmark
+artifact. The rewrite must be **strictly behavior-preserving** — identical
+diagnostics for every input — and is proven so by:
+- the existing 22 analyzers' test suites staying green, and
+- the benchmark's before/after showing the allocation/time reduction.
+
+If any case makes a truly allocation-free rewrite impossible without changing
+behavior, STOP and raise it rather than altering diagnostics. The benchmark keeps
+both the `Baseline_HashSetLinq` and `Optimized_ManualScan` variants so the guide
+can show the delta even after the shipping code moves to the optimized form.
+
 ## Non-goals
 
 - No rename / rebrand (separate task).
 - No new analyzer rules, no StyleCop port, no C# 15 work.
-- No change to the *behavior* of the existing 22 analyzers. The optimized
-  `Analyze<T>` variant in the harness is a benchmark artifact for the
-  before/after comparison; whether to land the optimization in the shipping
-  analyzer is called out as a follow-up, not done here.
+- No change to the *observable behavior* (reported diagnostics) of the existing
+  22 analyzers — only the internal hot-path implementation is optimized.
 - No CI performance-regression gate yet (mentioned in the guide as future work).
 
 ## Deliverable 1 — `docs/PERFORMANCE.md`
@@ -194,9 +206,13 @@ header, exactly as NuSourceDocs does.
 3. Write the core-logic micro-benchmark (baseline + optimized) and capture
    numbers.
 4. Write the end-to-end `CompilationWithAnalyzers` benchmark and capture numbers.
-5. Write `docs/PERFORMANCE.md`, embedding the captured numbers and the worked
+5. **Land the optimized `Analyze<T>` into the shipping analyzer**
+   (`ArgumentsOrParameterOnSameLineHelper.cs`); run the full analyzer test suite
+   to confirm identical diagnostics; re-run the end-to-end benchmark to capture
+   the shipped improvement.
+6. Write `docs/PERFORMANCE.md`, embedding the captured numbers and the worked
    `Analyze<T>` before/after.
-6. Link `docs/PERFORMANCE.md` from `README.md` (and note the convention that
+7. Link `docs/PERFORMANCE.md` from `README.md` (and note the convention that
    future CLAUDE.md / contributor docs point to it).
 
 ## Testing & verification
@@ -207,13 +223,17 @@ header, exactly as NuSourceDocs does.
   numbers must show it, not just assert it).
 - `docs/PERFORMANCE.md` numbers match the generated report artifacts (no
   invented figures).
-- Existing solution build and the 22 analyzers' tests remain green (this task
-  does not modify shipping analyzer behavior).
+- Existing solution build and the 22 analyzers' tests remain green **after** the
+  optimized `Analyze<T>` lands — proving the rewrite changed implementation, not
+  reported diagnostics. If coverage gaps make behavior-preservation hard to
+  trust, add targeted tests for the edge cases the rewrite touches (single-item
+  lists, all-on-one-line, jagged, trailing separators).
 
 ## Open questions deferred to later tasks
 
 - ~~Final project/package name and diagnostic prefix~~ — **resolved: `StyleSharp`
   / `StyleSharp.Analyzers` / `SST` prefix.** Applying it across the existing
   projects/rules is still the rebrand task.
-- Whether to land the optimized `Analyze<T>` into the shipping analyzer.
+- ~~Whether to land the optimized `Analyze<T>` into the shipping analyzer~~ —
+  **resolved: yes, in scope for this task** (behavior-preserving).
 - CI performance-regression gating.

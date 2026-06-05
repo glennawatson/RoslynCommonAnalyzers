@@ -59,19 +59,60 @@ internal static class XmlDocumentationHelper
     public static bool IsInheritDoc(DocumentationCommentTriviaSyntax documentation)
         => HasElement(documentation, "inheritdoc");
 
-    /// <summary>Returns whether a <c>&lt;param name="..."&gt;</c> element documents <paramref name="parameterName"/>.</summary>
+    /// <summary>Returns the <c>&lt;param name="..."&gt;</c> element documenting <paramref name="parameterName"/>, or <see langword="null"/>.</summary>
     /// <param name="documentation">The documentation comment.</param>
     /// <param name="parameterName">The parameter name.</param>
-    /// <returns><see langword="true"/> when documented.</returns>
-    public static bool IsParameterDocumented(DocumentationCommentTriviaSyntax documentation, string parameterName)
-        => HasNamedElement(documentation, "param", parameterName);
+    /// <returns>The matching element, or <see langword="null"/>.</returns>
+    public static XmlNodeSyntax? FindParameterElement(DocumentationCommentTriviaSyntax documentation, string parameterName)
+        => FindNamedElement(documentation, "param", parameterName);
 
-    /// <summary>Returns whether a <c>&lt;typeparam name="..."&gt;</c> element documents <paramref name="typeParameterName"/>.</summary>
+    /// <summary>Returns the <c>&lt;typeparam name="..."&gt;</c> element documenting <paramref name="typeParameterName"/>, or <see langword="null"/>.</summary>
     /// <param name="documentation">The documentation comment.</param>
     /// <param name="typeParameterName">The type parameter name.</param>
-    /// <returns><see langword="true"/> when documented.</returns>
-    public static bool IsTypeParameterDocumented(DocumentationCommentTriviaSyntax documentation, string typeParameterName)
-        => HasNamedElement(documentation, "typeparam", typeParameterName);
+    /// <returns>The matching element, or <see langword="null"/>.</returns>
+    public static XmlNodeSyntax? FindTypeParameterElement(DocumentationCommentTriviaSyntax documentation, string typeParameterName)
+        => FindNamedElement(documentation, "typeparam", typeParameterName);
+
+    /// <summary>Returns the first element named <paramref name="elementName"/> whose name attribute equals <paramref name="nameAttribute"/>.</summary>
+    /// <param name="documentation">The documentation comment.</param>
+    /// <param name="elementName">The element name (e.g. <c>param</c>).</param>
+    /// <param name="nameAttribute">The required name attribute value.</param>
+    /// <returns>The matching node, or <see langword="null"/>.</returns>
+    public static XmlNodeSyntax? FindNamedElement(DocumentationCommentTriviaSyntax documentation, string elementName, string nameAttribute)
+    {
+        foreach (var node in documentation.Content)
+        {
+            if (GetElementName(node) == elementName && NameAttribute(node) == nameAttribute)
+            {
+                return node;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Returns the value of a node's <c>name</c> attribute, or <see langword="null"/>.</summary>
+    /// <param name="node">The element node.</param>
+    /// <returns>The name attribute value, or <see langword="null"/>.</returns>
+    public static string? NameAttribute(XmlNodeSyntax node)
+    {
+        var attributes = node switch
+        {
+            XmlElementSyntax element => element.StartTag.Attributes,
+            XmlEmptyElementSyntax element => element.Attributes,
+            _ => default,
+        };
+
+        foreach (var attribute in attributes)
+        {
+            if (attribute is XmlNameAttributeSyntax nameAttribute)
+            {
+                return nameAttribute.Identifier.Identifier.ValueText;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>Returns whether an element contains any non-whitespace text.</summary>
     /// <param name="node">The element node.</param>
@@ -294,46 +335,5 @@ internal static class XmlDocumentationHelper
         }
 
         return false;
-    }
-
-    /// <summary>Returns whether a named element (e.g. <c>param</c>) with the given name attribute exists.</summary>
-    /// <param name="documentation">The documentation comment.</param>
-    /// <param name="elementName">The element name.</param>
-    /// <param name="nameAttribute">The required <c>name</c> attribute value.</param>
-    /// <returns><see langword="true"/> when a matching element is present.</returns>
-    private static bool HasNamedElement(DocumentationCommentTriviaSyntax documentation, string elementName, string nameAttribute)
-    {
-        foreach (var node in documentation.Content)
-        {
-            if (GetElementName(node) == elementName && GetNameAttribute(node) == nameAttribute)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns the value of a node's <c>name</c> attribute, or <see langword="null"/>.</summary>
-    /// <param name="node">The element node.</param>
-    /// <returns>The name attribute value, or <see langword="null"/>.</returns>
-    private static string? GetNameAttribute(XmlNodeSyntax node)
-    {
-        var attributes = node switch
-        {
-            XmlElementSyntax element => element.StartTag.Attributes,
-            XmlEmptyElementSyntax element => element.Attributes,
-            _ => default,
-        };
-
-        foreach (var attribute in attributes)
-        {
-            if (attribute is XmlNameAttributeSyntax nameAttribute)
-            {
-                return nameAttribute.Identifier.Identifier.ValueText;
-            }
-        }
-
-        return null;
     }
 }

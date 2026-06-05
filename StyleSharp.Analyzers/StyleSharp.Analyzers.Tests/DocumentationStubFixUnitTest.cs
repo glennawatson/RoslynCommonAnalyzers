@@ -20,11 +20,13 @@ public class DocumentationStubFixUnitTest
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    public void M(int {|SST1611:value|}) { }\n}";
+
+        // The stub is a scaffold; the now-empty <param> raises SST1614 to be filled in.
         const string fixedSource = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    /// <param name=\"value\"></param>\n"
-            + "    public void M(int value) { }\n}";
+            + "    public void M(int {|SST1614:value|}) { }\n}";
 
         await Verify.VerifyCodeFixAsync(source, fixedSource);
     }
@@ -41,7 +43,7 @@ public class DocumentationStubFixUnitTest
         const string fixedSource = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Gets a value.</summary>\n"
-            + "    /// <returns></returns>\n"
+            + "    /// {|SST1616:<returns></returns>|}\n"
             + "    public int M() => 0;\n}";
 
         await Verify.VerifyCodeFixAsync(source, fixedSource);
@@ -60,7 +62,7 @@ public class DocumentationStubFixUnitTest
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    /// <typeparam name=\"T\"></typeparam>\n"
-            + "    public void M<T>() { }\n}";
+            + "    public void M<{|SST1622:T|}>() { }\n}";
 
         await Verify.VerifyCodeFixAsync(source, fixedSource);
     }

@@ -21,10 +21,18 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         DocumentationRules.EnumItemsMustBeDocumented,
         DocumentationRules.MustHaveSummary,
         DocumentationRules.SummaryMustHaveText,
+        DocumentationRules.NoDefaultSummary,
         DocumentationRules.ParametersMustBeDocumented,
+        DocumentationRules.ParameterDocumentationMustMatch,
+        DocumentationRules.ParameterDocumentationMustDeclareName,
+        DocumentationRules.ParameterDocumentationMustHaveText,
         DocumentationRules.ReturnValueMustBeDocumented,
+        DocumentationRules.ReturnDocumentationMustHaveText,
         DocumentationRules.VoidMustNotHaveReturn,
         DocumentationRules.TypeParametersMustBeDocumented,
+        DocumentationRules.TypeParameterDocumentationMustMatch,
+        DocumentationRules.TypeParameterDocumentationMustDeclareName,
+        DocumentationRules.TypeParameterDocumentationMustHaveText,
         DocumentationRules.PropertySummaryAccessors,
         DocumentationRules.ConstructorStandardText,
         DocumentationRules.TextMustEndWithPeriod);
@@ -156,7 +164,9 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
 
         CheckSummary(context, documentation, shape.NameToken, shape.SummaryRequirement);
         CheckParameters(context, documentation, shape.Parameters);
+        CheckParameterDocs(context, documentation, shape.Parameters);
         CheckTypeParameters(context, documentation, shape.TypeParameters);
+        CheckTypeParameterDocs(context, documentation, shape.TypeParameters);
         CheckReturns(context, documentation, shape.NameToken, shape.ReturnType);
         CheckTerminalPeriods(context, documentation);
     }
@@ -181,9 +191,18 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (requirement is not { } required
-            || summary is not XmlElementSyntax element
-            || XmlDocumentationHelper.LeadingTextStartsWith(element, required.Text.AsSpan()))
+        if (summary is not XmlElementSyntax element)
+        {
+            return;
+        }
+
+        if (XmlDocumentationHelper.LeadingTextStartsWith(element, "Summary description here".AsSpan()))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.NoDefaultSummary, element.GetLocation(), nameToken.ValueText));
+            return;
+        }
+
+        if (requirement is not { } required || XmlDocumentationHelper.LeadingTextStartsWith(element, required.Text.AsSpan()))
         {
             return;
         }
@@ -200,13 +219,67 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         foreach (var parameter in parameters)
         {
             var name = parameter.Identifier.ValueText;
-            if (name.Length == 0 || XmlDocumentationHelper.IsParameterDocumented(documentation, name))
+            if (name.Length == 0)
             {
                 continue;
             }
 
-            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ParametersMustBeDocumented, parameter.Identifier.GetLocation(), name));
+            var element = XmlDocumentationHelper.FindParameterElement(documentation, name);
+            if (element is null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ParametersMustBeDocumented, parameter.Identifier.GetLocation(), name));
+                continue;
+            }
+
+            if (!XmlDocumentationHelper.HasText(element))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ParameterDocumentationMustHaveText, parameter.Identifier.GetLocation(), name));
+            }
         }
+    }
+
+    /// <summary>Reports <c>&lt;param&gt;</c> elements that lack a name (SST1613) or name a non-existent parameter (SST1612).</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="documentation">The documentation comment.</param>
+    /// <param name="parameters">The member's parameters.</param>
+    private static void CheckParameterDocs(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation, in SeparatedSyntaxList<ParameterSyntax> parameters)
+    {
+        foreach (var node in documentation.Content)
+        {
+            if (XmlDocumentationHelper.GetElementName(node) != "param")
+            {
+                continue;
+            }
+
+            var name = XmlDocumentationHelper.NameAttribute(node);
+            if (name is null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ParameterDocumentationMustDeclareName, node.GetLocation()));
+                continue;
+            }
+
+            if (!ContainsName(parameters, name))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ParameterDocumentationMustMatch, node.GetLocation(), name));
+            }
+        }
+    }
+
+    /// <summary>Returns whether <paramref name="parameters"/> contains a parameter named <paramref name="name"/>.</summary>
+    /// <param name="parameters">The parameters.</param>
+    /// <param name="name">The name to find.</param>
+    /// <returns><see langword="true"/> when present.</returns>
+    private static bool ContainsName(in SeparatedSyntaxList<ParameterSyntax> parameters, string name)
+    {
+        foreach (var parameter in parameters)
+        {
+            if (parameter.Identifier.ValueText == name)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reports type parameters that lack a matching <c>&lt;typeparam&gt;</c> element.</summary>
@@ -218,13 +291,67 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         foreach (var typeParameter in typeParameters)
         {
             var name = typeParameter.Identifier.ValueText;
-            if (name.Length == 0 || XmlDocumentationHelper.IsTypeParameterDocumented(documentation, name))
+            if (name.Length == 0)
             {
                 continue;
             }
 
-            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParametersMustBeDocumented, typeParameter.Identifier.GetLocation(), name));
+            var element = XmlDocumentationHelper.FindTypeParameterElement(documentation, name);
+            if (element is null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParametersMustBeDocumented, typeParameter.Identifier.GetLocation(), name));
+                continue;
+            }
+
+            if (!XmlDocumentationHelper.HasText(element))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParameterDocumentationMustHaveText, typeParameter.Identifier.GetLocation(), name));
+            }
         }
+    }
+
+    /// <summary>Reports <c>&lt;typeparam&gt;</c> elements that lack a name (SST1621) or name a non-existent type parameter (SST1620).</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="documentation">The documentation comment.</param>
+    /// <param name="typeParameters">The member's type parameters.</param>
+    private static void CheckTypeParameterDocs(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation, in SeparatedSyntaxList<TypeParameterSyntax> typeParameters)
+    {
+        foreach (var node in documentation.Content)
+        {
+            if (XmlDocumentationHelper.GetElementName(node) != "typeparam")
+            {
+                continue;
+            }
+
+            var name = XmlDocumentationHelper.NameAttribute(node);
+            if (name is null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParameterDocumentationMustDeclareName, node.GetLocation()));
+                continue;
+            }
+
+            if (!ContainsTypeName(typeParameters, name))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParameterDocumentationMustMatch, node.GetLocation(), name));
+            }
+        }
+    }
+
+    /// <summary>Returns whether <paramref name="typeParameters"/> contains a type parameter named <paramref name="name"/>.</summary>
+    /// <param name="typeParameters">The type parameters.</param>
+    /// <param name="name">The name to find.</param>
+    /// <returns><see langword="true"/> when present.</returns>
+    private static bool ContainsTypeName(in SeparatedSyntaxList<TypeParameterSyntax> typeParameters, string name)
+    {
+        foreach (var typeParameter in typeParameters)
+        {
+            if (typeParameter.Identifier.ValueText == name)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reports a missing <c>&lt;returns&gt;</c> for a non-void member, or a present one for a void member.</summary>
@@ -240,20 +367,31 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         }
 
         var isVoid = returnType is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
-        var hasReturns = XmlDocumentationHelper.HasElement(documentation, "returns");
+        var returns = XmlDocumentationHelper.FindElement(documentation, "returns");
 
-        if (isVoid && hasReturns)
+        if (isVoid && returns is not null)
         {
             context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.VoidMustNotHaveReturn, nameToken.GetLocation(), nameToken.ValueText));
             return;
         }
 
-        if (isVoid || hasReturns)
+        if (isVoid)
         {
             return;
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ReturnValueMustBeDocumented, nameToken.GetLocation(), nameToken.ValueText));
+        if (returns is null)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ReturnValueMustBeDocumented, nameToken.GetLocation(), nameToken.ValueText));
+            return;
+        }
+
+        if (XmlDocumentationHelper.HasText(returns))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ReturnDocumentationMustHaveText, returns.GetLocation()));
     }
 
     /// <summary>Reports prose elements (summary, returns, remarks, value) whose text lacks terminal punctuation.</summary>

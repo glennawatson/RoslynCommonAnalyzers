@@ -37,12 +37,68 @@ internal static class DocumentationRules
         "The <summary> for '{0}' should not be empty",
         "A <summary> element should contain descriptive text.");
 
+    /// <summary>SST1608 — documentation should not use the default placeholder summary.</summary>
+    public static readonly DiagnosticDescriptor NoDefaultSummary = Create(
+        "SST1608",
+        "Documentation should not use placeholder text",
+        "The <summary> for '{0}' still contains placeholder text",
+        "A summary should describe the element rather than keep the generated placeholder text.");
+
     /// <summary>SST1611 — parameters should be documented.</summary>
     public static readonly DiagnosticDescriptor ParametersMustBeDocumented = Create(
         "SST1611",
         "Parameters should be documented",
         "Parameter '{0}' should have a <param> documentation element",
         "Each parameter of a documented member has a matching <param> element.");
+
+    /// <summary>SST1612 — parameter documentation should match the parameters.</summary>
+    public static readonly DiagnosticDescriptor ParameterDocumentationMustMatch = Create(
+        "SST1612",
+        "Parameter documentation should match the parameters",
+        "<param name=\"{0}\"> does not match any parameter",
+        "Each <param> element refers to a real parameter of the member.");
+
+    /// <summary>SST1613 — parameter documentation should declare a name.</summary>
+    public static readonly DiagnosticDescriptor ParameterDocumentationMustDeclareName = Create(
+        "SST1613",
+        "Parameter documentation should declare the parameter name",
+        "A <param> element should have a name attribute",
+        "Each <param> element has a name attribute identifying the parameter it documents.");
+
+    /// <summary>SST1614 — parameter documentation should have text.</summary>
+    public static readonly DiagnosticDescriptor ParameterDocumentationMustHaveText = Create(
+        "SST1614",
+        "Parameter documentation should have text",
+        "The <param> element for '{0}' should not be empty",
+        "A <param> element contains descriptive text.");
+
+    /// <summary>SST1616 — return value documentation should have text.</summary>
+    public static readonly DiagnosticDescriptor ReturnDocumentationMustHaveText = Create(
+        "SST1616",
+        "Return value documentation should have text",
+        "The <returns> element should not be empty",
+        "A <returns> element contains descriptive text.");
+
+    /// <summary>SST1620 — type parameter documentation should match the type parameters.</summary>
+    public static readonly DiagnosticDescriptor TypeParameterDocumentationMustMatch = Create(
+        "SST1620",
+        "Type parameter documentation should match the type parameters",
+        "<typeparam name=\"{0}\"> does not match any type parameter",
+        "Each <typeparam> element refers to a real type parameter of the member.");
+
+    /// <summary>SST1621 — type parameter documentation should declare a name.</summary>
+    public static readonly DiagnosticDescriptor TypeParameterDocumentationMustDeclareName = Create(
+        "SST1621",
+        "Type parameter documentation should declare the type parameter name",
+        "A <typeparam> element should have a name attribute",
+        "Each <typeparam> element has a name attribute identifying the type parameter it documents.");
+
+    /// <summary>SST1622 — type parameter documentation should have text.</summary>
+    public static readonly DiagnosticDescriptor TypeParameterDocumentationMustHaveText = Create(
+        "SST1622",
+        "Type parameter documentation should have text",
+        "The <typeparam> element for '{0}' should not be empty",
+        "A <typeparam> element contains descriptive text.");
 
     /// <summary>SST1615 — the return value should be documented.</summary>
     public static readonly DiagnosticDescriptor ReturnValueMustBeDocumented = Create(

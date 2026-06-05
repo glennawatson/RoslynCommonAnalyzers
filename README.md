@@ -98,10 +98,10 @@ Each rule has a documentation page under [`docs/rules`](docs/rules); the
 | [SST0021](docs/rules/SST0021.md) | Generic type-argument lists — `Foo<int, string>` |
 | [SST0022](docs/rules/SST0022.md) | Function-pointer parameter lists — `delegate*<int, string, void>` |
 
-## Configuring severity
+## Configuring
 
-These are formatting/readability conventions, so tune them per project in
-`.editorconfig`:
+StyleSharp is configured entirely through **`.editorconfig`** — there is no
+`stylecop.json`-style file. Severity is set the standard way:
 
 ```ini
 # bump everything to a build error
@@ -110,7 +110,19 @@ dotnet_diagnostic.SST0001.severity = error
 dotnet_diagnostic.SST0007.severity = none
 ```
 
-Prefer `.editorconfig` over scattering `#pragma warning disable` / `[SuppressMessage]`.
+Rules that expose options read them from `.editorconfig` too, following the .NET
+CA-analyzer convention (`stylesharp.<option>` general, `stylesharp.<RuleId>.<option>`
+rule-specific):
+
+```ini
+[*.cs]
+stylesharp.tuple_element_naming = pascal_case   # SST1316
+stylesharp.union_member_naming = pascal_case    # SST1315
+```
+
+See **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** for the full list and the
+rationale for using `.editorconfig` over a separate JSON file. Prefer
+`.editorconfig` over scattering `#pragma warning disable` / `[SuppressMessage]`.
 
 ## How it works
 

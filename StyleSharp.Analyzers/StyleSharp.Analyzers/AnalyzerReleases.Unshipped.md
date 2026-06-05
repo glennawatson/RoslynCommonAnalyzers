@@ -37,3 +37,5 @@ SST1311 | Naming | Warning | FieldNamingAnalyzer
 SST1312 | Naming | Warning | LocalVariableNamingAnalyzer
 SST1313 | Naming | Warning | ParameterNamingAnalyzer
 SST1314 | Naming | Warning | TypeParameterNamingAnalyzer
+SST1315 | Naming | Warning | UnionMemberNamingAnalyzer
+SST1316 | Naming | Warning | TupleElementNamingAnalyzer

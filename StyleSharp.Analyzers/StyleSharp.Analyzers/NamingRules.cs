@@ -81,6 +81,20 @@ internal static class NamingRules
         "Type parameter '{0}' should begin with 'T'",
         "Type parameters begin with the capital letter 'T' (for example, TKey).");
 
+    /// <summary>SST1315 — union member names should use the configured casing (default PascalCase).</summary>
+    public static readonly DiagnosticDescriptor UnionMember = Create(
+        "SST1315",
+        "Union member names should match the configured casing",
+        "Union member '{0}' should match the configured casing convention",
+        "Union types and their cases follow the configured casing (default PascalCase); set 'stylesharp_union_member_naming' in .editorconfig to override.");
+
+    /// <summary>SST1316 — tuple element names should use the configured casing (default PascalCase).</summary>
+    public static readonly DiagnosticDescriptor TupleElement = Create(
+        "SST1316",
+        "Tuple element names should match the configured casing",
+        "Tuple element '{0}' should match the configured casing convention",
+        "Tuple element names follow the configured casing (default PascalCase); set 'stylesharp_tuple_element_naming' in .editorconfig to override.");
+
     /// <summary>Every fixable naming id, for the shared rename code fix.</summary>
     public static readonly ImmutableArray<string> AllFixableIds = ImmutableArrays.Of(
         "SST1300",
@@ -92,7 +106,8 @@ internal static class NamingRules
         "SST1311",
         "SST1312",
         "SST1313",
-        "SST1314");
+        "SST1314",
+        "SST1315");
 
     /// <summary>Creates a Warning-severity Naming descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

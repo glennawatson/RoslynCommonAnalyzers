@@ -1,0 +1,95 @@
+# CLAUDE.md
+
+Guidance for working in this repository (StyleSharp.Analyzers — Roslyn analyzers
+and code fixes). The published NuGet package is `StyleSharp.Analyzers`; the GitHub
+repo is `RoslynCommonAnalyzers`.
+
+## Build & test
+
+```bash
+# Build / test the floor (Roslyn 4.8) — the default slot
+dotnet build StyleSharp.Analyzers.sln -c Release
+dotnet test  --project StyleSharp.Analyzers/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release
+
+# Build a specific Roslyn slot
+dotnet build StyleSharp.Analyzers/StyleSharp.Analyzers.CodeFixes/StyleSharp.Analyzers.CodeFixes.csproj -c Release -p:RoslynVersion=roslyn5.3
+
+# Pack (builds every slot, emits one nupkg with all analyzers/dotnet/<slot>/cs folders)
+dotnet pack StyleSharp.Analyzers/StyleSharp.Analyzers.Package/StyleSharp.Analyzers.Packages.csproj -c Release
+
+# Benchmarks
+dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*"
+```
+
+Tests use **TUnit** (Microsoft Testing Platform) and the
+`Microsoft.CodeAnalysis.Testing` verifiers with `{|SSTxxxx:name|}` markup.
+
+## Conventions (follow these)
+
+- **No suppressions.** Never use `#pragma warning disable`, `<NoWarn>`,
+  `[SuppressMessage]`, or `.editorconfig` severity downgrades to silence a rule —
+  fix the underlying issue. The repo builds its own source with StyleCop +
+  Roslynator + SonarAnalyzer under `TreatWarningsAsErrors`. (The benchmark host is
+  the only project that opts out of the production analyzers, because
+  BenchmarkDotNet is fundamentally incompatible with them — that is project
+  scoping, not a suppression.)
+
+- **Performance / allocations first.** Analyzer callbacks run on every keystroke.
+  Keep the no-diagnostic path allocation-free; compute suggested names only after
+  a violation is found. See **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)**.
+
+- **Static helpers, not base classes.** Shared logic lives in `internal static`
+  helper classes operating on the passed-in model (`NamingHelper`,
+  `ArgumentsOrParameterOnSameLineHelper`, `FieldClassification`,
+  `NamingConventions`). No abstract analyzer base classes.
+
+- **One shared code fix per family.** Naming rules all use
+  `NamingRenameCodeFixProvider`; analyzers stash the suggested name in the
+  diagnostic's `Properties[NamingDiagnostic.NewNameKey]`. Add new fixable naming
+  ids to `NamingRules.AllFixableIds`.
+
+- **Configuration is `.editorconfig` only — never a JSON file.** Options are read
+  from the compiler's `AnalyzerConfigOptionsProvider` (no direct file I/O), using
+  the CA-analyzer key convention: `stylesharp.<option>` (general) and
+  `stylesharp.<RuleId>.<option>` (rule-specific override). See
+  **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**.
+
+- **Records on netstandard2.0** are enabled via `Polyfills/IsExternalInit.cs`
+  (`#if !NET`), so value types are `readonly record struct` instead of
+  hand-written `IEquatable<T>`.
+
+## Multi-Roslyn targeting
+
+The analyzer + code-fix assemblies build once per Roslyn **slot** and pack under
+`analyzers/dotnet/<slot>/cs` so the SDK auto-loads the highest slot `<=` the host
+compiler's `CompilerApiVersion`:
+
+| Slot | Roslyn | Host |
+| --- | --- | --- |
+| `roslyn4.8` | 4.8.0 (floor) | .NET 8 SDK / VS 17.8 (C# 12) and .NET 9 |
+| `roslyn4.14` | 4.14.0 | .NET 10 SDK / VS 17.14 (C# 14) |
+| `roslyn5.3` | 5.3.0 | .NET 11 line (C# 15) |
+
+Slot wiring lives in `Directory.Build.props` (`RoslynVersion` → package version +
+`ROSLYN_*_OR_GREATER` constants + segregated `bin`/`obj`). Keep these assemblies
+`netstandard2.0` (RS1041). Funnel all `ImmutableArray` creation through
+`ImmutableArrays.Of(...)` — the 4.8 floor can't bind collection expressions for
+`ImmutableArray` while 4.14+ requires them.
+
+**For new C# 15 syntax** (union types, etc.) the current Roslyn does not yet
+expose the syntax, so prefer **version-tolerant structural detection** — probe a
+well-known type/interface/attribute by name (e.g. the `IUnion` marker in
+`UnionMemberNamingAnalyzer`, mirroring `SourceDocParserLib`) — and gate the whole
+rule on the marker being present so it costs nothing otherwise. Use real 5.x APIs
+behind `#if ROSLYN_5_OR_GREATER` only when structural probing won't do.
+
+## Diagnostic id scheme
+
+- `SST00xx` — the original list-layout / readability rules.
+- `SST13xx` — naming rules, mirroring StyleCop's `SA13xx` numbers for
+  discoverability, but **adapted to .NET runtime conventions** (e.g. SST1309
+  requires private fields to be `_camelCase`, inverting SA1309).
+
+Adding a rule: descriptor in `NamingRules` (or inline), an analyzer, tests, a
+`docs/rules/SST####.md` page, and a row in `AnalyzerReleases.Unshipped.md`
+(RS2000). Configurable options go in `.editorconfig` and `docs/CONFIGURATION.md`.

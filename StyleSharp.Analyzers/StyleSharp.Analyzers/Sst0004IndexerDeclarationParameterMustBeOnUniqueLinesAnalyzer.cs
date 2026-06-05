@@ -37,7 +37,7 @@ public sealed class Sst0004IndexerDeclarationParameterMustBeOnUniqueLinesAnalyze
         helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{DiagnosticId}.md");
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(Rule);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

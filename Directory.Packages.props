@@ -10,15 +10,16 @@
       Microsoft.CodeAnalysis.Analyzers is the dev-time analyzer (RS* rules) that
       checks *our* analyzer source — safe to track the latest.
       Microsoft.CodeAnalysis.CSharp / .Workspaces / .VisualBasic are the compiler
-      API the analyzers are *built against* and must stay on the 4.14.x line so
-      they keep loading in Visual Studio 2022 17.14 / the .NET SDK that ships it.
-      Dependabot is told (in .github/dependabot.yml) not to bump those past 4.x.
+      API we build against. Their version is the per-slot
+      $(MicrosoftCodeAnalysisVersion) set in Directory.Build.props (roslyn4.8 /
+      roslyn4.14 / roslyn5.3; 4.14.0 for non-component projects). Pinning them to
+      that property keeps central transitive pinning consistent within each slot.
     -->
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.VisualBasic" Version="4.14.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="4.14.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="$(MicrosoftCodeAnalysisVersion)" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="$(MicrosoftCodeAnalysisVersion)" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.VisualBasic" Version="$(MicrosoftCodeAnalysisVersion)" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="$(MicrosoftCodeAnalysisVersion)" />
   </ItemGroup>
 
   <ItemGroup Label="Analyzers">

@@ -12,7 +12,7 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst0013StructDeclarationParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds => [Sst0013StructDeclarationParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId];
+    public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(Sst0013StructDeclarationParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;

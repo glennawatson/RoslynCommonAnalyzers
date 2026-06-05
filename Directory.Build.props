@@ -50,6 +50,59 @@
     <IsTestProject>$(MSBuildProjectName.EndsWith('Tests'))</IsTestProject>
   </PropertyGroup>
 
+  <!--
+    Multi-Roslyn targeting. The analyzer + code-fix assemblies are built once per
+    Roslyn "slot" and packaged under analyzers/dotnet/<slot>/cs so the SDK loads
+    the highest slot <= the host compiler's Roslyn version (CompilerApiVersion).
+      roslyn4.8  = floor: .NET 8 SDK / VS 17.8 (C# 12), and .NET 9 (Roslyn 4.13).
+      roslyn4.14 = .NET 10 SDK / VS 17.14 (C# 14).
+      roslyn5.3  = .NET 11 line (C# 15: union types, etc.).
+    Pick a slot with -p:RoslynVersion=roslyn5.3; the default below is the floor.
+    Prefer version-tolerant detection (probe well-known type/interface/attribute
+    names structurally, e.g. SourceDocParserLib's IUnion check) so one build
+    recognizes new constructs on any host; gate genuinely 5.x-only syntax APIs
+    behind ROSLYN_5_OR_GREATER. Keep these assemblies netstandard2.0 (RS1041).
+  -->
+  <PropertyGroup>
+    <IsRoslynComponentProject Condition="'$(MSBuildProjectName)' == 'StyleSharp.Analyzers' Or '$(MSBuildProjectName)' == 'StyleSharp.Analyzers.CodeFixes'">true</IsRoslynComponentProject>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsRoslynComponentProject)' == 'true'">
+    <RoslynVersion Condition="'$(RoslynVersion)' == ''">roslyn4.8</RoslynVersion>
+    <!-- Segregate per-slot output AND intermediates so building several slots in
+         one invocation (e.g. during pack) doesn't share obj/ — otherwise one
+         slot's compiled constants leak into another's reference set. -->
+    <BaseOutputPath>bin/$(RoslynVersion)/</BaseOutputPath>
+    <BaseIntermediateOutputPath>obj/$(RoslynVersion)/</BaseIntermediateOutputPath>
+    <!-- The default item globs only exclude the *current* slot's bin/obj; exclude
+         every slot's so a build doesn't pull a sibling slot's generated
+         AssemblyInfo.cs (CS0579 duplicate attributes). -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)/obj/**;$(MSBuildProjectDirectory)/bin/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsRoslynComponentProject)' == 'true' And '$(RoslynVersion)' == 'roslyn4.8'">
+    <MicrosoftCodeAnalysisVersion>4.8.0</MicrosoftCodeAnalysisVersion>
+    <DefineConstants>$(DefineConstants);ROSLYN_4_8_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsRoslynComponentProject)' == 'true' And '$(RoslynVersion)' == 'roslyn4.14'">
+    <MicrosoftCodeAnalysisVersion>4.14.0</MicrosoftCodeAnalysisVersion>
+    <DefineConstants>$(DefineConstants);ROSLYN_4_8_OR_GREATER;ROSLYN_4_14_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsRoslynComponentProject)' == 'true' And '$(RoslynVersion)' == 'roslyn5.3'">
+    <MicrosoftCodeAnalysisVersion>5.3.0</MicrosoftCodeAnalysisVersion>
+    <DefineConstants>$(DefineConstants);ROSLYN_4_8_OR_GREATER;ROSLYN_4_14_OR_GREATER;ROSLYN_5_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Non-component projects (tests, benchmarks, package) pin Roslyn here. This
+       value drives the central Microsoft.CodeAnalysis.* versions in
+       Directory.Packages.props, so per-slot builds stay internally consistent
+       under central transitive pinning. -->
+  <PropertyGroup>
+    <MicrosoftCodeAnalysisVersion Condition="'$(MicrosoftCodeAnalysisVersion)' == ''">4.14.0</MicrosoftCodeAnalysisVersion>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
     <OutputType>Exe</OutputType>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>

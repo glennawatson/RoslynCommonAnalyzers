@@ -63,7 +63,7 @@ jobs:
                     dotnet tool update dotnet-sonarscanner --tool-path "${{ runner.temp }}/sonar-scanner"
 
             -   name: Restore
-                run: dotnet restore Blazor.Common.Analyzers.sln
+                run: dotnet restore StyleSharp.Analyzers.sln
 
             -   name: Begin Sonar analysis
                 env:
@@ -81,10 +81,10 @@ jobs:
                       /d:sonar.test.exclusions="**/*.Tests/**"
 
             -   name: Build
-                run: dotnet build Blazor.Common.Analyzers.sln --no-restore --configuration Release
+                run: dotnet build StyleSharp.Analyzers.sln --no-restore --configuration Release
 
             -   name: Test with MTP coverage
-                run: dotnet test --solution Blazor.Common.Analyzers.sln --configuration Release --no-restore -- --coverage --coverage-output-format xml --coverage-output sonar-coverage.xml
+                run: dotnet test --solution StyleSharp.Analyzers.sln --configuration Release --no-restore -- --coverage --coverage-output-format xml --coverage-output sonar-coverage.xml
 
             -   name: End Sonar analysis
                 env:

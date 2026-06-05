@@ -15,7 +15,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReleaseNotes>https://github.com/glennawatson/RoslynCommonAnalyzers/releases</PackageReleaseNotes>
-    <PackageTags>analyzers;roslyn;codefix;blazor;readability;formatting;stylecop</PackageTags>
+    <PackageTags>analyzers;roslyn;codefix;stylesharp;readability;formatting;stylecop</PackageTags>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <RepositoryUrl>https://github.com/glennawatson/RoslynCommonAnalyzers</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -43,7 +43,7 @@
     <!-- Nothing packs by default. Only the .Package project opts back in with
          <IsPackable>true</IsPackable>; the analyzer/code-fix/test projects all
          stay non-packable so a `dotnet pack` of the solution produces exactly
-         one .nupkg (Blazor.Common.Analyzers). -->
+         one .nupkg (StyleSharp.Analyzers). -->
     <IsPackable>false</IsPackable>
     <IsPublishable>false</IsPublishable>
 

@@ -36,7 +36,7 @@ public sealed class ConstructorSummaryCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var standardSummary = DocumentationConventions.ConstructorStandardSummary(type.Identifier.ValueText);
+            var standardSummary = DocumentationConventions.ConstructorStandardSummary(type);
 
             context.RegisterCodeFix(
                 CodeAction.Create(

@@ -59,20 +59,30 @@ public sealed class FileNameAnalyzer : DiagnosticAnalyzer
 
         var slash = filePath!.LastIndexOfAny(['/', '\\']);
         var name = slash >= 0 ? filePath.Substring(slash + 1) : filePath;
-        var dot = name.IndexOf('.');
-        return dot >= 0 ? name.Substring(0, dot) : name;
+
+        // Cut at the extension/suffix ('.'), or a generic-arity marker ('{T}' or backtick).
+        var cut = name.IndexOfAny(['.', '{', '`']);
+        return cut >= 0 ? name.Substring(0, cut) : name;
     }
 
-    /// <summary>Finds the identifier of the first type declaration in the file.</summary>
+    /// <summary>Finds the identifier of the first non-partial type declaration in the file.</summary>
     /// <param name="root">The compilation unit.</param>
     /// <param name="identifier">The first type's identifier when found.</param>
-    /// <returns><see langword="true"/> when a type declaration exists.</returns>
+    /// <returns><see langword="true"/> when a non-partial type declaration exists.</returns>
     private static bool TryGetFirstTypeIdentifier(SyntaxNode root, out SyntaxToken identifier)
     {
+        identifier = default;
+
         foreach (var node in root.DescendantNodes())
         {
             if (node is BaseTypeDeclarationSyntax type)
             {
+                // A partial type may legitimately live in any number of files.
+                if (type.Modifiers.Any(SyntaxKind.PartialKeyword))
+                {
+                    return false;
+                }
+
                 identifier = type.Identifier;
                 return true;
             }
@@ -84,7 +94,6 @@ public sealed class FileNameAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        identifier = default;
         return false;
     }
 }

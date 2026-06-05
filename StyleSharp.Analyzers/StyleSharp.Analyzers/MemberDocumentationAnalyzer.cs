@@ -86,14 +86,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             DocumentationRules.ElementsMustBeDocumented,
             SummaryRequirement: null),
 
-        BaseTypeDeclarationSyntax type => new MemberDoc(
-            type.Identifier,
-            default,
-            TypeParametersOf((type as TypeDeclarationSyntax)?.TypeParameterList),
-            ReturnType: null,
-            type.Modifiers.Any(SyntaxKind.PartialKeyword),
-            DocumentationRules.ElementsMustBeDocumented,
-            SummaryRequirement: null),
+        BaseTypeDeclarationSyntax type => DescribeType(type),
 
         MethodDeclarationSyntax method => new MemberDoc(
             method.Identifier,
@@ -142,6 +135,22 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
 
         _ => null,
     };
+
+    /// <summary>Describes a type declaration, including any primary-constructor / positional-record parameters.</summary>
+    /// <param name="type">The type declaration.</param>
+    /// <returns>The member shape.</returns>
+    private static MemberDoc DescribeType(BaseTypeDeclarationSyntax type)
+    {
+        var declaration = type as TypeDeclarationSyntax;
+        return new MemberDoc(
+            type.Identifier,
+            declaration?.ParameterList?.Parameters ?? default,
+            TypeParametersOf(declaration?.TypeParameterList),
+            ReturnType: null,
+            type.Modifiers.Any(SyntaxKind.PartialKeyword),
+            DocumentationRules.ElementsMustBeDocumented,
+            SummaryRequirement: null);
+    }
 
     /// <summary>Returns the standard-text requirement for a non-static constructor, or <see langword="null"/>.</summary>
     /// <param name="constructor">The constructor declaration.</param>
@@ -196,14 +205,22 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!XmlDocumentationHelper.HasText(summary))
+        if (summary is not XmlElementSyntax element)
         {
+            // A self-closing <summary/> has no content.
             context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.SummaryMustHaveText, nameToken.GetLocation(), nameToken.ValueText));
             return;
         }
 
-        if (summary is not XmlElementSyntax element)
+        // A <summary> containing <inheritdoc> takes its content from the base member.
+        if (XmlDocumentationHelper.ContainsInheritDoc(element))
         {
+            return;
+        }
+
+        if (!XmlDocumentationHelper.HasText(element))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.SummaryMustHaveText, nameToken.GetLocation(), nameToken.ValueText));
             return;
         }
 
@@ -377,7 +394,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var isVoid = returnType is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
+        var isVoid = IsVoidLike(returnType);
         var returns = XmlDocumentationHelper.FindElement(documentation, "returns");
 
         if (isVoid && returns is not null)
@@ -431,6 +448,27 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         => explicitInterface is not null
             || modifiers.Any(SyntaxKind.OverrideKeyword)
             || modifiers.Any(SyntaxKind.PartialKeyword);
+
+    /// <summary>Returns whether a return type is void or a non-generic Task/ValueTask (the async equivalent of void).</summary>
+    /// <param name="returnType">The return type.</param>
+    /// <returns><see langword="true"/> when the type carries no documentable return value.</returns>
+    private static bool IsVoidLike(TypeSyntax returnType)
+    {
+        if (returnType is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword))
+        {
+            return true;
+        }
+
+        // Only the non-generic (IdentifierName) forms are void-like; Task<T>/ValueTask<T> return a value.
+        var name = returnType switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            QualifiedNameSyntax { Right: IdentifierNameSyntax right } => right.Identifier.ValueText,
+            _ => null,
+        };
+
+        return name is "Task" or "ValueTask";
+    }
 
     /// <summary>Returns the type parameters of an optional type parameter list.</summary>
     /// <param name="list">The type parameter list, or <see langword="null"/>.</param>

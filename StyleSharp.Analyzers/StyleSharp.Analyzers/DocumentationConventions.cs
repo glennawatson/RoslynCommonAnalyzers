@@ -51,15 +51,25 @@ internal static class DocumentationConventions
         return hasSet ? "Sets " : "Gets ";
     }
 
-    /// <summary>Returns the standard constructor summary text referencing <paramref name="typeName"/>.</summary>
-    /// <param name="typeName">The simple name of the declaring type.</param>
+    /// <summary>Returns the standard constructor summary text referencing <paramref name="type"/>.</summary>
+    /// <param name="type">The declaring type.</param>
     /// <returns>The standard summary inner text.</returns>
-    public static string ConstructorStandardSummary(string typeName)
-        => ConstructorStandardPrefix + "<see cref=\"" + typeName + "\"/> class.";
+    public static string ConstructorStandardSummary(TypeDeclarationSyntax type)
+        => ConstructorStandardPrefix + Reference(type);
 
-    /// <summary>Returns the standard destructor summary text referencing <paramref name="typeName"/>.</summary>
-    /// <param name="typeName">The simple name of the declaring type.</param>
+    /// <summary>Returns the standard destructor summary text referencing <paramref name="type"/>.</summary>
+    /// <param name="type">The declaring type.</param>
     /// <returns>The standard summary inner text.</returns>
-    public static string DestructorStandardSummary(string typeName)
-        => DestructorStandardPrefix + "<see cref=\"" + typeName + "\"/> class.";
+    public static string DestructorStandardSummary(TypeDeclarationSyntax type)
+        => DestructorStandardPrefix + Reference(type);
+
+    /// <summary>Builds the <c>&lt;see cref="Type"/&gt; class.</c> / <c>struct.</c> reference for a type.</summary>
+    /// <param name="type">The declaring type.</param>
+    /// <returns>The reference text.</returns>
+    private static string Reference(TypeDeclarationSyntax type)
+    {
+        var isStruct = type is StructDeclarationSyntax
+            || (type is RecordDeclarationSyntax record && record.ClassOrStructKeyword.IsKind(SyntaxKind.StructKeyword));
+        return "<see cref=\"" + type.Identifier.ValueText + "\"/> " + (isStruct ? "struct." : "class.");
+    }
 }

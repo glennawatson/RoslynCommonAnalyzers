@@ -36,7 +36,7 @@ public sealed class DestructorSummaryCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var standardSummary = DocumentationConventions.DestructorStandardSummary(type.Identifier.ValueText);
+            var standardSummary = DocumentationConventions.DestructorStandardSummary(type);
 
             context.RegisterCodeFix(
                 CodeAction.Create(

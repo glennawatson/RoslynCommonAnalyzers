@@ -59,6 +59,22 @@ internal static class XmlDocumentationHelper
     public static bool IsInheritDoc(DocumentationCommentTriviaSyntax documentation)
         => HasElement(documentation, "inheritdoc");
 
+    /// <summary>Returns whether an element contains a nested <c>&lt;inheritdoc&gt;</c> (so its content is inherited).</summary>
+    /// <param name="element">The element to scan.</param>
+    /// <returns><see langword="true"/> when an inheritdoc descendant is present.</returns>
+    public static bool ContainsInheritDoc(XmlNodeSyntax element)
+    {
+        foreach (var descendant in element.DescendantNodes())
+        {
+            if (descendant is XmlNodeSyntax node && GetElementName(node) == "inheritdoc")
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Returns the <c>&lt;param name="..."&gt;</c> element documenting <paramref name="parameterName"/>, or <see langword="null"/>.</summary>
     /// <param name="documentation">The documentation comment.</param>
     /// <param name="parameterName">The parameter name.</param>
@@ -156,25 +172,15 @@ internal static class XmlDocumentationHelper
     {
         insertPosition = -1;
 
-        XmlNodeSyntax? lastSignificant = null;
-        foreach (var node in element.Content)
+        // The element ends with an inline element (e.g. <see/>): no trailing period expected.
+        if (LastSignificantContent(element) is not XmlTextSyntax lastText
+            || !TryGetTrailingCharacters(lastText, out var last, out var secondLast, out var position))
         {
-            if (node is XmlTextSyntax text)
-            {
-                if (ContainsNonWhitespace(text))
-                {
-                    lastSignificant = text;
-                }
-            }
-            else
-            {
-                lastSignificant = node;
-            }
+            return false;
         }
 
-        if (lastSignificant is not XmlTextSyntax lastText
-            || !TryGetLastTextCharacter(lastText, out var character, out var position)
-            || IsTerminalPunctuation(character))
+        // Accept terminal punctuation, optionally tucked inside a closing quote/paren ('text."', '(text.)').
+        if (IsTerminalPunctuation(last) || (IsClosingDelimiter(last) && IsTerminalPunctuation(secondLast)))
         {
             return false;
         }
@@ -312,6 +318,67 @@ internal static class XmlDocumentationHelper
     /// <returns><see langword="true"/> for terminal punctuation.</returns>
     private static bool IsTerminalPunctuation(char character)
         => character is '.' or '!' or '?' or ':' or ';';
+
+    /// <summary>Returns whether a character is a closing quote or bracket.</summary>
+    /// <param name="character">The character.</param>
+    /// <returns><see langword="true"/> for a closing delimiter.</returns>
+    private static bool IsClosingDelimiter(char character)
+        => character is '"' or '\'' or ')' or ']' or '”' or '’';
+
+    /// <summary>Returns the last content node of an element that has significant (non-whitespace) text or is an inline element.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>The last significant content node, or <see langword="null"/>.</returns>
+    private static XmlNodeSyntax? LastSignificantContent(XmlElementSyntax element)
+    {
+        XmlNodeSyntax? lastSignificant = null;
+        foreach (var node in element.Content)
+        {
+            if (node is not XmlTextSyntax text)
+            {
+                lastSignificant = node;
+            }
+            else if (ContainsNonWhitespace(text))
+            {
+                lastSignificant = text;
+            }
+        }
+
+        return lastSignificant;
+    }
+
+    /// <summary>Returns the last two non-whitespace characters (and the last one's position) of a text node.</summary>
+    /// <param name="node">The text node.</param>
+    /// <param name="last">The last non-whitespace character.</param>
+    /// <param name="secondLast">The character before it.</param>
+    /// <param name="position">The absolute source position of the last character.</param>
+    /// <returns><see langword="true"/> when the node has text.</returns>
+    private static bool TryGetTrailingCharacters(XmlNodeSyntax node, out char last, out char secondLast, out int position)
+    {
+        last = '\0';
+        secondLast = '\0';
+        position = -1;
+
+        foreach (var token in node.DescendantTokens())
+        {
+            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+            {
+                continue;
+            }
+
+            var text = token.ValueText;
+            for (var i = 0; i < text.Length; i++)
+            {
+                if (!char.IsWhiteSpace(text[i]))
+                {
+                    secondLast = last;
+                    last = text[i];
+                    position = token.SpanStart + i;
+                }
+            }
+        }
+
+        return position >= 0;
+    }
 
     /// <summary>Returns whether a node contains any non-whitespace text.</summary>
     /// <param name="node">The node.</param>

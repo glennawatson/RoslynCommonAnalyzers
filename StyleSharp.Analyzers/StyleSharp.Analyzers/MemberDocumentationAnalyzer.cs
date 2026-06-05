@@ -35,6 +35,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         DocumentationRules.TypeParameterDocumentationMustHaveText,
         DocumentationRules.PropertySummaryAccessors,
         DocumentationRules.ConstructorStandardText,
+        DocumentationRules.DestructorStandardText,
         DocumentationRules.TextMustEndWithPeriod);
 
     /// <inheritdoc/>
@@ -54,6 +55,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             SyntaxKind.DelegateDeclaration,
             SyntaxKind.MethodDeclaration,
             SyntaxKind.ConstructorDeclaration,
+            SyntaxKind.DestructorDeclaration,
             SyntaxKind.PropertyDeclaration,
             SyntaxKind.EnumMemberDeclaration);
     }
@@ -110,6 +112,15 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             SkipCoverage: false,
             DocumentationRules.ElementsMustBeDocumented,
             ConstructorRequirement(constructor)),
+
+        DestructorDeclarationSyntax destructor => new MemberDoc(
+            destructor.Identifier,
+            default,
+            default,
+            ReturnType: null,
+            SkipCoverage: false,
+            DocumentationRules.ElementsMustBeDocumented,
+            new SummaryPrefix(DocumentationConventions.DestructorStandardPrefix, DocumentationRules.DestructorStandardText)),
 
         PropertyDeclarationSyntax property => new MemberDoc(
             property.Identifier,

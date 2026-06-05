@@ -13,7 +13,14 @@ internal static class DocumentationConventions
     /// <summary>The required leading text of a constructor summary.</summary>
     public const string ConstructorStandardPrefix = "Initializes a new instance of the ";
 
-    /// <summary>Returns the expected leading text for a property summary based on its accessors.</summary>
+    /// <summary>The required leading text of a destructor summary.</summary>
+    public const string DestructorStandardPrefix = "Finalizes an instance of the ";
+
+    /// <summary>
+    /// Returns the expected leading text for a property summary based on its accessors.
+    /// A setter with its own (more restrictive) access modifier is treated as not
+    /// externally settable, so the summary reads "Gets " (folding in SA1624).
+    /// </summary>
     /// <param name="property">The property declaration.</param>
     /// <returns>"Gets ", "Sets ", or "Gets or sets " (with a trailing space).</returns>
     public static string PropertyAccessorPrefix(PropertyDeclarationSyntax property)
@@ -29,7 +36,7 @@ internal static class DocumentationConventions
                 {
                     hasGet = true;
                 }
-                else if (accessor.Keyword.IsKind(SyntaxKind.SetKeyword) || accessor.Keyword.IsKind(SyntaxKind.InitKeyword))
+                else if ((accessor.Keyword.IsKind(SyntaxKind.SetKeyword) || accessor.Keyword.IsKind(SyntaxKind.InitKeyword)) && accessor.Modifiers.Count == 0)
                 {
                     hasSet = true;
                 }
@@ -49,4 +56,10 @@ internal static class DocumentationConventions
     /// <returns>The standard summary inner text.</returns>
     public static string ConstructorStandardSummary(string typeName)
         => ConstructorStandardPrefix + "<see cref=\"" + typeName + "\"/> class.";
+
+    /// <summary>Returns the standard destructor summary text referencing <paramref name="typeName"/>.</summary>
+    /// <param name="typeName">The simple name of the declaring type.</param>
+    /// <returns>The standard summary inner text.</returns>
+    public static string DestructorStandardSummary(string typeName)
+        => DestructorStandardPrefix + "<see cref=\"" + typeName + "\"/> class.";
 }

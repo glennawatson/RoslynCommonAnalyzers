@@ -5,6 +5,9 @@
 using VerifyConstructor = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MemberDocumentationAnalyzer,
     StyleSharp.Analyzers.ConstructorSummaryCodeFixProvider>;
+using VerifyDestructor = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
+    StyleSharp.Analyzers.MemberDocumentationAnalyzer,
+    StyleSharp.Analyzers.DestructorSummaryCodeFixProvider>;
 using VerifyProperty = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MemberDocumentationAnalyzer,
     StyleSharp.Analyzers.PropertySummaryCodeFixProvider>;
@@ -72,5 +75,35 @@ public class DocumentationSummaryTextUnitTest
             + "    public C() { }\n}";
 
         await VerifyConstructor.VerifyCodeFixAsync(source, fixedSource);
+    }
+
+    /// <summary>Verifies a constructor-style destructor summary is accepted.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ValidDestructorAsync()
+    {
+        const string source = "/// <summary>A container.</summary>\n"
+            + "public class C\n{\n"
+            + "    /// <summary>Finalizes an instance of the <see cref=\"C\"/> class.</summary>\n"
+            + "    ~C() { }\n}";
+
+        await VerifyDestructor.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>Verifies a destructor summary is reported and rewritten to the standard text (SST1643).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DestructorStandardTextAsync()
+    {
+        const string source = "/// <summary>A container.</summary>\n"
+            + "public class C\n{\n"
+            + "    /// {|SST1643:<summary>Cleans up.</summary>|}\n"
+            + "    ~C() { }\n}";
+        const string fixedSource = "/// <summary>A container.</summary>\n"
+            + "public class C\n{\n"
+            + "    /// <summary>Finalizes an instance of the <see cref=\"C\"/> class.</summary>\n"
+            + "    ~C() { }\n}";
+
+        await VerifyDestructor.VerifyCodeFixAsync(source, fixedSource);
     }
 }

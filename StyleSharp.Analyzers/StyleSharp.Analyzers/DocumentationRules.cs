@@ -135,12 +135,26 @@ internal static class DocumentationRules
         "Constructor summary should begin with 'Initializes a new instance of the <see cref=\"...\"/> class.'",
         "A constructor's summary begins with the standard 'Initializes a new instance of the <see cref=\"Type\"/> class.' text.");
 
+    /// <summary>SST1649 — the file name should match the first type name.</summary>
+    public static readonly DiagnosticDescriptor FileNameMatchesType = Create(
+        "SST1649",
+        "File name should match the first type name",
+        "File name should match the first type '{0}'",
+        "A file is named after the first type it declares (ignoring generic arity and any '.suffix' before the extension).");
+
     /// <summary>SST1633 — files should begin with the configured header.</summary>
     public static readonly DiagnosticDescriptor FileHeader = Create(
         "SST1633",
         "File should have a header",
         "File should begin with the header configured by 'file_header_template'",
         "When 'file_header_template' is set in .editorconfig, every file begins with the rendered header comment.");
+
+    /// <summary>SST1643 — destructor summaries should begin with the standard text.</summary>
+    public static readonly DiagnosticDescriptor DestructorStandardText = Create(
+        "SST1643",
+        "Destructor summary should begin with the standard text",
+        "Destructor summary should begin with 'Finalizes an instance of the <see cref=\"...\"/> class.'",
+        "A destructor's summary begins with the standard 'Finalizes an instance of the <see cref=\"Type\"/> class.' text.");
 
     /// <summary>SST1629 — documentation text should end with a period.</summary>
     public static readonly DiagnosticDescriptor TextMustEndWithPeriod = Create(

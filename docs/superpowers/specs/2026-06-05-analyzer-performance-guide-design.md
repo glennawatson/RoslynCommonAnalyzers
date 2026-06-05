@@ -8,16 +8,21 @@ foundation: a written guide plus a seed benchmark harness.
 
 ## Naming note (important)
 
-The project rebrand is **not yet decided**. `SharpStyle` was rejected because
-the package `SharpStyles` already exists on NuGet with non-trivial downloads.
-**This task introduces no new brand name.** The guide is written
-name-neutrally: it refers to "the project" / "the analyzer package" generically,
-and where examples need real identifiers it uses the *current* ones
-(`Blazor.Common.Analyzers`, diagnostic prefix `RCGS`) with an explicit note that
-all names are provisional and will change in the dedicated rebrand task. The
-seed benchmark project follows the current repo naming
-(`Blazor.Common.Analyzers.Benchmarks`) so no soon-to-change brand is baked in; it
-will be renamed wholesale alongside everything else during the rebrand.
+The brand is **locked: `StyleSharp`** — package id `StyleSharp.Analyzers`, root
+namespace `StyleSharp`, diagnostic prefix `SST` (so `SST0001`…). Confirmed clear
+on NuGet (no `StyleSharp` / `StyleSharp.Analyzers` id registered) and GitHub (no
+repo of that name). (`SharpStyle` was rejected earlier because `SharpStyles`
+already exists on NuGet.)
+
+The **full rebrand is still a separate later task** — this task does **not**
+rename the existing `.csproj`/namespaces or re-prefix the 22 shipping `RCGS`
+rules. Within this task:
+- `docs/PERFORMANCE.md` is written in `StyleSharp`/`SST` terms as forward-looking
+  governance. Where it shows *existing* code it uses the real current identifiers
+  (`Blazor.Common.Analyzers`, `RCGS0005`) and notes they are pre-rebrand.
+- The **new** seed benchmark project is born under the locked brand as
+  `StyleSharp.Analyzers.Benchmarks`. It references the still-old-named analyzer
+  project until the rebrand task renames the rest.
 
 ## Problem & motivation
 
@@ -135,8 +140,8 @@ A single Markdown document. Section outline:
 
 ## Deliverable 2 — Seed benchmark harness
 
-A new project, `Blazor.Common.Analyzers.Benchmarks` (provisional name, per the
-naming note), added to the solution.
+A new project, `StyleSharp.Analyzers.Benchmarks` (the locked brand; references the
+still-old-named analyzer project until the rebrand), added to the solution.
 
 **Project conventions** (mirroring the NuSourceDocs benchmark csproj):
 - `Microsoft.NET.Sdk`, `OutputType=Exe`, a current `net*` TFM (the analyzer
@@ -177,7 +182,7 @@ header, exactly as NuSourceDocs does.
 | Unit | Purpose | Depends on |
 |---|---|---|
 | `docs/PERFORMANCE.md` | Human-facing doctrine + checklist + anti-patterns | references the harness for numbers |
-| `Blazor.Common.Analyzers.Benchmarks` (project) | Runnable proof + reusable benchmark pattern | BenchmarkDotNet, analyzer project, Roslyn |
+| `StyleSharp.Analyzers.Benchmarks` (project) | Runnable proof + reusable benchmark pattern | BenchmarkDotNet, analyzer project, Roslyn |
 | Core-logic benchmark | Before/after of `Analyze<T>` | parsed `SeparatedSyntaxList` |
 | End-to-end benchmark | Realistic full-compilation cost | `CompilationWithAnalyzers` |
 
@@ -207,6 +212,8 @@ header, exactly as NuSourceDocs does.
 
 ## Open questions deferred to later tasks
 
-- Final project/package name and diagnostic prefix (rebrand task).
+- ~~Final project/package name and diagnostic prefix~~ — **resolved: `StyleSharp`
+  / `StyleSharp.Analyzers` / `SST` prefix.** Applying it across the existing
+  projects/rules is still the rebrand task.
 - Whether to land the optimized `Analyze<T>` into the shipping analyzer.
 - CI performance-regression gating.

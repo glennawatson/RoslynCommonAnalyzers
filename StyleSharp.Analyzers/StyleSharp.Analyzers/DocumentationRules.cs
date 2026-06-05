@@ -65,6 +65,20 @@ internal static class DocumentationRules
         "Type parameter '{0}' should have a <typeparam> documentation element",
         "Each generic type parameter of a documented member has a matching <typeparam> element.");
 
+    /// <summary>SST1623 — property summaries should describe their accessors ("Gets", "Sets", "Gets or sets").</summary>
+    public static readonly DiagnosticDescriptor PropertySummaryAccessors = Create(
+        "SST1623",
+        "Property summary should describe its accessors",
+        "Property summary should start with '{0}'",
+        "A property's summary begins with 'Gets', 'Sets', or 'Gets or sets' to match its accessors.");
+
+    /// <summary>SST1642 — constructor summaries should begin with the standard text.</summary>
+    public static readonly DiagnosticDescriptor ConstructorStandardText = Create(
+        "SST1642",
+        "Constructor summary should begin with the standard text",
+        "Constructor summary should begin with 'Initializes a new instance of the <see cref=\"...\"/> class.'",
+        "A constructor's summary begins with the standard 'Initializes a new instance of the <see cref=\"Type\"/> class.' text.");
+
     /// <summary>SST1629 — documentation text should end with a period.</summary>
     public static readonly DiagnosticDescriptor TextMustEndWithPeriod = Create(
         "SST1629",

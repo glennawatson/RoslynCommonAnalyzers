@@ -25,6 +25,8 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         DocumentationRules.ReturnValueMustBeDocumented,
         DocumentationRules.VoidMustNotHaveReturn,
         DocumentationRules.TypeParametersMustBeDocumented,
+        DocumentationRules.PropertySummaryAccessors,
+        DocumentationRules.ConstructorStandardText,
         DocumentationRules.TextMustEndWithPeriod);
 
     /// <inheritdoc/>
@@ -71,7 +73,8 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             TypeParametersOf(@delegate.TypeParameterList),
             @delegate.ReturnType,
             SkipCoverage: false,
-            DocumentationRules.ElementsMustBeDocumented),
+            DocumentationRules.ElementsMustBeDocumented,
+            SummaryRequirement: null),
 
         BaseTypeDeclarationSyntax type => new MemberDoc(
             type.Identifier,
@@ -79,7 +82,8 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             TypeParametersOf((type as TypeDeclarationSyntax)?.TypeParameterList),
             ReturnType: null,
             type.Modifiers.Any(SyntaxKind.PartialKeyword),
-            DocumentationRules.ElementsMustBeDocumented),
+            DocumentationRules.ElementsMustBeDocumented,
+            SummaryRequirement: null),
 
         MethodDeclarationSyntax method => new MemberDoc(
             method.Identifier,
@@ -87,7 +91,8 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             TypeParametersOf(method.TypeParameterList),
             method.ReturnType,
             Skips(method.Modifiers, method.ExplicitInterfaceSpecifier),
-            DocumentationRules.ElementsMustBeDocumented),
+            DocumentationRules.ElementsMustBeDocumented,
+            SummaryRequirement: null),
 
         ConstructorDeclarationSyntax constructor => new MemberDoc(
             constructor.Identifier,
@@ -95,7 +100,8 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             default,
             ReturnType: null,
             SkipCoverage: false,
-            DocumentationRules.ElementsMustBeDocumented),
+            DocumentationRules.ElementsMustBeDocumented,
+            ConstructorRequirement(constructor)),
 
         PropertyDeclarationSyntax property => new MemberDoc(
             property.Identifier,
@@ -103,7 +109,8 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             default,
             ReturnType: null,
             Skips(property.Modifiers, property.ExplicitInterfaceSpecifier),
-            DocumentationRules.ElementsMustBeDocumented),
+            DocumentationRules.ElementsMustBeDocumented,
+            new SummaryPrefix(DocumentationConventions.PropertyAccessorPrefix(property), DocumentationRules.PropertySummaryAccessors)),
 
         EnumMemberDeclarationSyntax enumMember => new MemberDoc(
             enumMember.Identifier,
@@ -111,10 +118,19 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             default,
             ReturnType: null,
             SkipCoverage: false,
-            DocumentationRules.EnumItemsMustBeDocumented),
+            DocumentationRules.EnumItemsMustBeDocumented,
+            SummaryRequirement: null),
 
         _ => null,
     };
+
+    /// <summary>Returns the standard-text requirement for a non-static constructor, or <see langword="null"/>.</summary>
+    /// <param name="constructor">The constructor declaration.</param>
+    /// <returns>The summary requirement, or <see langword="null"/>.</returns>
+    private static SummaryPrefix? ConstructorRequirement(ConstructorDeclarationSyntax constructor)
+        => constructor.Modifiers.Any(SyntaxKind.StaticKeyword)
+            ? null
+            : new SummaryPrefix(DocumentationConventions.ConstructorStandardPrefix, DocumentationRules.ConstructorStandardText);
 
     /// <summary>Runs every applicable documentation check for one member.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -138,18 +154,19 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        CheckSummary(context, documentation, shape.NameToken);
+        CheckSummary(context, documentation, shape.NameToken, shape.SummaryRequirement);
         CheckParameters(context, documentation, shape.Parameters);
         CheckTypeParameters(context, documentation, shape.TypeParameters);
         CheckReturns(context, documentation, shape.NameToken, shape.ReturnType);
         CheckTerminalPeriods(context, documentation);
     }
 
-    /// <summary>Reports a missing or empty summary.</summary>
+    /// <summary>Reports a missing or empty summary, or one that does not follow its required leading-text convention.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="documentation">The documentation comment.</param>
     /// <param name="nameToken">The member's identifier.</param>
-    private static void CheckSummary(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation, SyntaxToken nameToken)
+    /// <param name="requirement">A required leading-text convention, or <see langword="null"/>.</param>
+    private static void CheckSummary(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation, SyntaxToken nameToken, SummaryPrefix? requirement)
     {
         var summary = XmlDocumentationHelper.FindElement(documentation, "summary");
         if (summary is null)
@@ -158,12 +175,20 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (XmlDocumentationHelper.HasText(summary))
+        if (!XmlDocumentationHelper.HasText(summary))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.SummaryMustHaveText, nameToken.GetLocation(), nameToken.ValueText));
+            return;
+        }
+
+        if (requirement is not { } required
+            || summary is not XmlElementSyntax element
+            || XmlDocumentationHelper.LeadingTextStartsWith(element, required.Text.AsSpan()))
         {
             return;
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.SummaryMustHaveText, nameToken.GetLocation(), nameToken.ValueText));
+        context.ReportDiagnostic(Diagnostic.Create(required.Rule, element.GetLocation(), required.Text));
     }
 
     /// <summary>Reports parameters that lack a matching <c>&lt;param&gt;</c> element.</summary>
@@ -277,11 +302,18 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="ReturnType">The member's return type, or <see langword="null"/> when it has none.</param>
     /// <param name="SkipCoverage">Whether the "must be documented" rule is skipped (override / partial / explicit interface).</param>
     /// <param name="MissingDocRule">The rule to report when an exposed member has no documentation.</param>
+    /// <param name="SummaryRequirement">A required leading-text convention for the summary, or <see langword="null"/>.</param>
     private readonly record struct MemberDoc(
         SyntaxToken NameToken,
         SeparatedSyntaxList<ParameterSyntax> Parameters,
         SeparatedSyntaxList<TypeParameterSyntax> TypeParameters,
         TypeSyntax? ReturnType,
         bool SkipCoverage,
-        DiagnosticDescriptor MissingDocRule);
+        DiagnosticDescriptor MissingDocRule,
+        SummaryPrefix? SummaryRequirement);
+
+    /// <summary>A required leading-text convention for a summary (e.g. "Gets or sets ").</summary>
+    /// <param name="Text">The expected leading text.</param>
+    /// <param name="Rule">The rule reported when the summary does not start with the text.</param>
+    private readonly record struct SummaryPrefix(string Text, DiagnosticDescriptor Rule);
 }

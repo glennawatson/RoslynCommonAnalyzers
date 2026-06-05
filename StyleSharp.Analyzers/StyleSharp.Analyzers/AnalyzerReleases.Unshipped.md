@@ -47,5 +47,7 @@ SST1611 | Documentation | Warning | MemberDocumentationAnalyzer
 SST1615 | Documentation | Warning | MemberDocumentationAnalyzer
 SST1617 | Documentation | Warning | MemberDocumentationAnalyzer
 SST1618 | Documentation | Warning | MemberDocumentationAnalyzer
+SST1623 | Documentation | Warning | MemberDocumentationAnalyzer
 SST1629 | Documentation | Warning | MemberDocumentationAnalyzer
+SST1642 | Documentation | Warning | MemberDocumentationAnalyzer
 SST1653 | Documentation | Warning | SingleLineSummaryAnalyzer

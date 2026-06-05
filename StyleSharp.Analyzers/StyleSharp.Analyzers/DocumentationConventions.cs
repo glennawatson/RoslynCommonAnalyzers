@@ -1,0 +1,52 @@
+// Copyright (c) 2026 Glenn Watson and Contributors. All rights reserved.
+// Glenn Watson and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
+namespace StyleSharp.Analyzers;
+
+/// <summary>
+/// The standard documentation phrasing conventions shared by the analyzer and its
+/// code fixes (property accessor prefixes and the constructor summary text).
+/// </summary>
+internal static class DocumentationConventions
+{
+    /// <summary>The required leading text of a constructor summary.</summary>
+    public const string ConstructorStandardPrefix = "Initializes a new instance of the ";
+
+    /// <summary>Returns the expected leading text for a property summary based on its accessors.</summary>
+    /// <param name="property">The property declaration.</param>
+    /// <returns>"Gets ", "Sets ", or "Gets or sets " (with a trailing space).</returns>
+    public static string PropertyAccessorPrefix(PropertyDeclarationSyntax property)
+    {
+        var hasGet = property.ExpressionBody is not null;
+        var hasSet = false;
+
+        if (property.AccessorList is { } accessorList)
+        {
+            foreach (var accessor in accessorList.Accessors)
+            {
+                if (accessor.Keyword.IsKind(SyntaxKind.GetKeyword))
+                {
+                    hasGet = true;
+                }
+                else if (accessor.Keyword.IsKind(SyntaxKind.SetKeyword) || accessor.Keyword.IsKind(SyntaxKind.InitKeyword))
+                {
+                    hasSet = true;
+                }
+            }
+        }
+
+        if (hasGet && hasSet)
+        {
+            return "Gets or sets ";
+        }
+
+        return hasSet ? "Sets " : "Gets ";
+    }
+
+    /// <summary>Returns the standard constructor summary text referencing <paramref name="typeName"/>.</summary>
+    /// <param name="typeName">The simple name of the declaring type.</param>
+    /// <returns>The standard summary inner text.</returns>
+    public static string ConstructorStandardSummary(string typeName)
+        => ConstructorStandardPrefix + "<see cref=\"" + typeName + "\"/> class.";
+}

@@ -175,6 +175,87 @@ internal static class XmlDocumentationHelper
         return position >= 0;
     }
 
+    /// <summary>
+    /// Returns whether an element's leading prose begins with <paramref name="expected"/>.
+    /// The comparison runs over the existing <c>ValueText</c> via a span (no
+    /// substring is allocated); an element whose first significant content is an
+    /// inline element rather than text returns <see langword="false"/>.
+    /// </summary>
+    /// <param name="element">The prose element.</param>
+    /// <param name="expected">The expected leading text.</param>
+    /// <returns><see langword="true"/> when the leading text matches.</returns>
+    public static bool LeadingTextStartsWith(XmlElementSyntax element, ReadOnlySpan<char> expected)
+    {
+        foreach (var node in element.Content)
+        {
+            if (node is not XmlTextSyntax)
+            {
+                // First significant content is an inline element, not text.
+                return false;
+            }
+
+            foreach (var token in node.DescendantTokens())
+            {
+                if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+                {
+                    continue;
+                }
+
+                var value = token.ValueText.AsSpan();
+                var start = 0;
+                while (start < value.Length && char.IsWhiteSpace(value[start]))
+                {
+                    start++;
+                }
+
+                if (start < value.Length)
+                {
+                    return value.Slice(start).StartsWith(expected, StringComparison.Ordinal);
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Finds the first non-whitespace text character of an element and its absolute position.</summary>
+    /// <param name="element">The element to scan.</param>
+    /// <param name="character">The first non-whitespace character when found.</param>
+    /// <param name="position">The absolute source position of that character when found.</param>
+    /// <returns><see langword="true"/> when the element has text.</returns>
+    public static bool TryGetFirstTextCharacter(XmlElementSyntax element, out char character, out int position)
+    {
+        character = '\0';
+        position = -1;
+
+        foreach (var token in element.DescendantTokens())
+        {
+            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+            {
+                continue;
+            }
+
+            var text = token.ValueText;
+            for (var i = 0; i < text.Length; i++)
+            {
+                if (!char.IsWhiteSpace(text[i]))
+                {
+                    character = text[i];
+                    position = token.SpanStart + i;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns the member declaration a documentation node belongs to (hopping out of the structured trivia).</summary>
+    /// <param name="nodeInDocumentation">A node inside a documentation comment.</param>
+    /// <returns>The documented member declaration, or <see langword="null"/>.</returns>
+    public static SyntaxNode? DocumentedMember(SyntaxNode nodeInDocumentation)
+        => nodeInDocumentation.FirstAncestorOrSelf<DocumentationCommentTriviaSyntax>()?.ParentTrivia.Token.Parent;
+
     /// <summary>Returns the local name of an XML element or empty element, or <see langword="null"/> for other nodes.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The element's local name, or <see langword="null"/>.</returns>

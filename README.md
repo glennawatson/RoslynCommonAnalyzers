@@ -151,6 +151,10 @@ matching `…CodeFixProvider.cs`, a `Sst####…AnalyzersUnitTest.cs` (markup-bas
 `CSharpCodeFixVerifier` tests), a `docs/rules/SST####.md` page, and a row in
 `AnalyzerReleases.Unshipped.md`.
 
+Performance is a first-class requirement: read the **[performance
+guide](docs/PERFORMANCE.md)** before writing or reviewing a rule, and benchmark
+with `StyleSharp.Analyzers.Benchmarks`.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

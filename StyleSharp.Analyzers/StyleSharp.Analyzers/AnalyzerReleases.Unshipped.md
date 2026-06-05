@@ -49,5 +49,6 @@ SST1617 | Documentation | Warning | MemberDocumentationAnalyzer
 SST1618 | Documentation | Warning | MemberDocumentationAnalyzer
 SST1623 | Documentation | Warning | MemberDocumentationAnalyzer
 SST1629 | Documentation | Warning | MemberDocumentationAnalyzer
+SST1633 | Documentation | Warning | FileHeaderAnalyzer
 SST1642 | Documentation | Warning | MemberDocumentationAnalyzer
 SST1653 | Documentation | Warning | SingleLineSummaryAnalyzer

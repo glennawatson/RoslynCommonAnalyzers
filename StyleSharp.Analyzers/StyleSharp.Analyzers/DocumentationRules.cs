@@ -79,6 +79,13 @@ internal static class DocumentationRules
         "Constructor summary should begin with 'Initializes a new instance of the <see cref=\"...\"/> class.'",
         "A constructor's summary begins with the standard 'Initializes a new instance of the <see cref=\"Type\"/> class.' text.");
 
+    /// <summary>SST1633 — files should begin with the configured header.</summary>
+    public static readonly DiagnosticDescriptor FileHeader = Create(
+        "SST1633",
+        "File should have a header",
+        "File should begin with the header configured by 'file_header_template'",
+        "When 'file_header_template' is set in .editorconfig, every file begins with the rendered header comment.");
+
     /// <summary>SST1629 — documentation text should end with a period.</summary>
     public static readonly DiagnosticDescriptor TextMustEndWithPeriod = Create(
         "SST1629",

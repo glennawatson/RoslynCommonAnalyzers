@@ -196,3 +196,5 @@ SST1101 | Readability | Disabled | PrefixLocalCallsWithThisAnalyzer
 SST1137 | Readability | Warning | ElementIndentationAnalyzer
 SST1700 | Extensions | Warning | ExtensionBlockAnalyzer
 SST1701 | Extensions | Warning | ExtensionBlockAnalyzer
+SST1702 | Extensions | Warning | ExtensionBlockAnalyzer
+SST1703 | Extensions | Disabled | PreferExtensionBlockAnalyzer

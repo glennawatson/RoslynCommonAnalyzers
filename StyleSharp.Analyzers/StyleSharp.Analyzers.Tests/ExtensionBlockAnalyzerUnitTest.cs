@@ -44,6 +44,28 @@ public class ExtensionBlockAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies an extension block separated from the others by a member is reported (SST1702).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SeparatedExtensionBlockReportedAsync()
+        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+            """
+            public static class Ext
+            {
+                extension(string text)
+                {
+                    public bool IsEmpty => text.Length == 0;
+                }
+
+                public static int Helper() => 0;
+
+                {|SST1702:extension|}(int value)
+                {
+                    public bool IsZero => value == 0;
+                }
+            }
+            """);
+
     /// <summary>Verifies non-empty blocks with distinct receiver types are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

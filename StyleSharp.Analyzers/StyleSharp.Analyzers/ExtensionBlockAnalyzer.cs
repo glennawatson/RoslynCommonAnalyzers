@@ -6,10 +6,11 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Reports issues with C# 14 extension blocks declared in a class: an empty extension block
-/// (SST1700) and a second extension block that repeats an earlier block's receiver type (SST1701).
-/// The class members are walked once with an inner look-back over earlier members, so no
-/// intermediate collection is allocated; classes with no extension blocks pay only the membership
-/// test. On the Roslyn 4.8 floor the syntax cannot occur, so nothing is reported.
+/// (SST1700), a second extension block that repeats an earlier block's receiver type (SST1701), and
+/// extension blocks separated by other members (SST1702). The class members are walked once with an
+/// inner look-back over earlier members, so no intermediate collection is allocated; classes with no
+/// extension blocks pay only the membership test. On the Roslyn 4.8 floor the syntax cannot occur,
+/// so nothing is reported.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
@@ -17,7 +18,8 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
         ExtensionRules.EmptyExtensionBlock,
-        ExtensionRules.CombineExtensionBlocks);
+        ExtensionRules.CombineExtensionBlocks,
+        ExtensionRules.GroupExtensionBlocks);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -33,12 +35,25 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var members = ((ClassDeclarationSyntax)context.Node).Members;
+
+        // 'sawExtension' records that a block has been seen; 'groupEnded' that a non-extension member
+        // has since interrupted the run — a later extension block is then no longer contiguous.
+        var sawExtension = false;
+        var groupEnded = false;
         for (var index = 0; index < members.Count; index++)
         {
             if (members[index] is not TypeDeclarationSyntax block || !ExtensionBlockHelper.IsExtensionBlock(block))
             {
+                groupEnded |= sawExtension;
                 continue;
             }
+
+            if (groupEnded)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(ExtensionRules.GroupExtensionBlocks, block.GetFirstToken().GetLocation()));
+            }
+
+            sawExtension = true;
 
             if (block.Members.Count == 0)
             {

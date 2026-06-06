@@ -255,6 +255,13 @@ internal static class ReadabilityRules
         "Refer to the tuple element as '{0}' rather than '{1}'",
         "A named tuple element is accessed by its name rather than the positional 'ItemN' field.");
 
+    /// <summary>SST1143 — a boolean expression is compared to a <c>true</c>/<c>false</c> literal (StyleSharp original).</summary>
+    public static readonly DiagnosticDescriptor NoBooleanLiteralComparison = Create(
+        "SST1143",
+        "Do not compare to a boolean literal",
+        "Remove the redundant comparison to '{0}'",
+        "A boolean expression is used directly rather than compared to the 'true' or 'false' literal.");
+
     /// <summary>Creates a Warning-severity Readability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

@@ -115,6 +115,13 @@ internal static class MaintainabilityRules
         "Name the elements of this tuple type",
         "A tuple type that appears in a member signature names each element so callers do not depend on positional 'ItemN' access.");
 
+    /// <summary>SST1416 — a public member is declared in a type that is not externally visible (StyleSharp original; opt-in).</summary>
+    public static readonly DiagnosticDescriptor NoPublicOnInternalType = CreateOptIn(
+        "SST1416",
+        "Do not declare public members in a non-public type",
+        "Member '{0}' is public but its type is not externally visible; declare it internal",
+        "A public member of a type that is not externally visible is misleading — its effective accessibility is limited by the type. Off by default — public-on-internal is a common habit.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

@@ -199,6 +199,7 @@ SST1141 | Readability | Warning | UseTupleSyntaxAnalyzer
 SST1142 | Readability | Warning | TupleElementNameAnalyzer
 SST1414 | Maintainability | Warning | TupleSignatureNamingAnalyzer
 SST1143 | Readability | Warning | BooleanLiteralComparisonAnalyzer
+SST1416 | Maintainability | Disabled | NoPublicOnInternalTypeAnalyzer
 SST1700 | Extensions | Warning | ExtensionBlockAnalyzer
 SST1701 | Extensions | Warning | ExtensionBlockAnalyzer
 SST1702 | Extensions | Warning | ExtensionBlockAnalyzer

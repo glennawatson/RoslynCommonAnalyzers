@@ -241,6 +241,20 @@ internal static class ReadabilityRules
         "Use the literal suffix '{0}' instead of a cast",
         "A typed numeric literal uses a suffix ('1L', '2.0f') rather than a cast applied to an untyped literal.");
 
+    /// <summary>SST1141 — an explicit <c>ValueTuple&lt;...&gt;</c> is used where tuple syntax would do (mirrors SA1141).</summary>
+    public static readonly DiagnosticDescriptor UseTupleSyntax = Create(
+        "SST1141",
+        "Use tuple syntax",
+        "Use tuple syntax instead of the ValueTuple<...> type",
+        "A value tuple type is written with the language tuple syntax '(T1, T2)' rather than the underlying ValueTuple<...> type.");
+
+    /// <summary>SST1142 — a tuple element is accessed by <c>ItemN</c> where it has a name (mirrors SA1142).</summary>
+    public static readonly DiagnosticDescriptor ReferToTupleElementByName = Create(
+        "SST1142",
+        "Refer to tuple elements by name",
+        "Refer to the tuple element as '{0}' rather than '{1}'",
+        "A named tuple element is accessed by its name rather than the positional 'ItemN' field.");
+
     /// <summary>Creates a Warning-severity Readability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

@@ -194,6 +194,9 @@ SST1115 | Readability | Warning | ParameterListLayoutAnalyzer
 SST1118 | Readability | Disabled | ParameterListLayoutAnalyzer
 SST1101 | Readability | Disabled | PrefixLocalCallsWithThisAnalyzer
 SST1137 | Readability | Warning | ElementIndentationAnalyzer
+SST1141 | Readability | Warning | UseTupleSyntaxAnalyzer
+SST1142 | Readability | Warning | TupleElementNameAnalyzer
+SST1414 | Maintainability | Warning | TupleSignatureNamingAnalyzer
 SST1700 | Extensions | Warning | ExtensionBlockAnalyzer
 SST1701 | Extensions | Warning | ExtensionBlockAnalyzer
 SST1702 | Extensions | Warning | ExtensionBlockAnalyzer

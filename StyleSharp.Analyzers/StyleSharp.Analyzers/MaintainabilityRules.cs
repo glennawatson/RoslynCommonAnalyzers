@@ -108,6 +108,13 @@ internal static class MaintainabilityRules
         "This file should be saved as UTF-8 without a byte order mark",
         "Source files are stored as UTF-8 without a byte order mark. Off by default — enable either this or SST1412, not both.");
 
+    /// <summary>SST1414 — a tuple type in a member signature has an unnamed element (mirrors SA1414).</summary>
+    public static readonly DiagnosticDescriptor TupleSignatureElementNames = Create(
+        "SST1414",
+        "Tuple types in signatures should have element names",
+        "Name the elements of this tuple type",
+        "A tuple type that appears in a member signature names each element so callers do not depend on positional 'ItemN' access.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

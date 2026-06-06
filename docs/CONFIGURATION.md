@@ -33,6 +33,14 @@ Every rule's severity is set the standard way:
 dotnet_diagnostic.SST1309.severity = warning   # error | warning | suggestion | silent | none
 ```
 
+## Recommended preset
+
+[`recommended.editorconfig`](../recommended.editorconfig) at the repository root is
+a ready-to-use preset listing every rule grouped by category, with the opt-in
+(disabled-by-default) rules commented out so you can switch them on individually.
+Copy it in — or merge its `[*.cs]` block into your existing `.editorconfig` — as a
+starting point, then tune severities to taste.
+
 ## Rule options
 
 Some rules expose options. Current options:

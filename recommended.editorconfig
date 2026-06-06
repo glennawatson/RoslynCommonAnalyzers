@@ -1,0 +1,260 @@
+# StyleSharp.Analyzers — recommended .editorconfig preset
+#
+# Drop this in (or merge it into) the .editorconfig at your repository root to adopt
+# the StyleSharp rule set with sensible defaults. Every rule below is already enabled
+# by default at Warning severity — listing them explicitly just gives you a single
+# place to tune severities (warning / suggestion / error / none) per rule.
+#
+# Lines that are commented out are the OPT-IN rules: off by default because they are
+# opinionated or situational. Uncomment one to turn it on. See docs/CONFIGURATION.md
+# and docs/rules/SSTxxxx.md for what each rule does.
+#
+# Configurable options (uncomment and adjust):
+# stylesharp.tuple_element_naming = pascal_case            # SST1316
+# stylesharp.union_member_naming = pascal_case             # SST1315
+# stylesharp.record_parameter_naming = pascal_case         # SST1801
+# stylesharp.conditional_operator_placement = leading      # SST1145
+# stylesharp.summary_single_line_max_length = 100          # SST1653
+# stylesharp.namespace_root = MyCompany.MyProduct          # SST1417 (also reads MSBuild RootNamespace)
+
+[*.cs]
+
+# Concurrency
+dotnet_diagnostic.SST1900.severity = warning
+dotnet_diagnostic.SST1901.severity = warning
+# dotnet_diagnostic.SST1902.severity = warning   # opt-in
+
+# Documentation
+dotnet_diagnostic.SST1600.severity = warning
+dotnet_diagnostic.SST1601.severity = warning
+dotnet_diagnostic.SST1602.severity = warning
+dotnet_diagnostic.SST1604.severity = warning
+# dotnet_diagnostic.SST1605.severity = warning   # opt-in
+dotnet_diagnostic.SST1606.severity = warning
+# dotnet_diagnostic.SST1607.severity = warning   # opt-in
+dotnet_diagnostic.SST1608.severity = warning
+# dotnet_diagnostic.SST1609.severity = warning   # opt-in
+# dotnet_diagnostic.SST1610.severity = warning   # opt-in
+dotnet_diagnostic.SST1611.severity = warning
+dotnet_diagnostic.SST1612.severity = warning
+dotnet_diagnostic.SST1613.severity = warning
+dotnet_diagnostic.SST1614.severity = warning
+dotnet_diagnostic.SST1615.severity = warning
+dotnet_diagnostic.SST1616.severity = warning
+dotnet_diagnostic.SST1617.severity = warning
+dotnet_diagnostic.SST1618.severity = warning
+# dotnet_diagnostic.SST1619.severity = warning   # opt-in
+dotnet_diagnostic.SST1620.severity = warning
+dotnet_diagnostic.SST1621.severity = warning
+dotnet_diagnostic.SST1622.severity = warning
+dotnet_diagnostic.SST1623.severity = warning
+dotnet_diagnostic.SST1625.severity = warning
+dotnet_diagnostic.SST1626.severity = warning
+# dotnet_diagnostic.SST1628.severity = warning   # opt-in
+dotnet_diagnostic.SST1629.severity = warning
+# dotnet_diagnostic.SST1630.severity = warning   # opt-in
+# dotnet_diagnostic.SST1631.severity = warning   # opt-in
+# dotnet_diagnostic.SST1632.severity = warning   # opt-in
+dotnet_diagnostic.SST1633.severity = warning
+dotnet_diagnostic.SST1642.severity = warning
+dotnet_diagnostic.SST1643.severity = warning
+dotnet_diagnostic.SST1648.severity = warning
+dotnet_diagnostic.SST1649.severity = warning
+dotnet_diagnostic.SST1651.severity = warning
+dotnet_diagnostic.SST1653.severity = warning
+
+# Extensions
+dotnet_diagnostic.SST1700.severity = warning
+dotnet_diagnostic.SST1701.severity = warning
+dotnet_diagnostic.SST1702.severity = warning
+# dotnet_diagnostic.SST1703.severity = warning   # opt-in
+dotnet_diagnostic.SST1704.severity = warning
+dotnet_diagnostic.SST1705.severity = warning
+dotnet_diagnostic.SST1706.severity = warning
+# dotnet_diagnostic.SST1707.severity = warning   # opt-in
+
+# Layout
+dotnet_diagnostic.SST1500.severity = warning
+dotnet_diagnostic.SST1501.severity = warning
+dotnet_diagnostic.SST1502.severity = warning
+dotnet_diagnostic.SST1503.severity = warning
+dotnet_diagnostic.SST1504.severity = warning
+dotnet_diagnostic.SST1505.severity = warning
+dotnet_diagnostic.SST1506.severity = warning
+dotnet_diagnostic.SST1507.severity = warning
+dotnet_diagnostic.SST1508.severity = warning
+dotnet_diagnostic.SST1509.severity = warning
+dotnet_diagnostic.SST1510.severity = warning
+dotnet_diagnostic.SST1511.severity = warning
+dotnet_diagnostic.SST1512.severity = warning
+dotnet_diagnostic.SST1513.severity = warning
+dotnet_diagnostic.SST1514.severity = warning
+dotnet_diagnostic.SST1515.severity = warning
+dotnet_diagnostic.SST1516.severity = warning
+dotnet_diagnostic.SST1517.severity = warning
+dotnet_diagnostic.SST1518.severity = warning
+dotnet_diagnostic.SST1519.severity = warning
+dotnet_diagnostic.SST1520.severity = warning
+
+# Maintainability
+dotnet_diagnostic.SST1400.severity = warning
+dotnet_diagnostic.SST1401.severity = warning
+dotnet_diagnostic.SST1402.severity = warning
+dotnet_diagnostic.SST1403.severity = warning
+dotnet_diagnostic.SST1404.severity = warning
+dotnet_diagnostic.SST1405.severity = warning
+dotnet_diagnostic.SST1406.severity = warning
+dotnet_diagnostic.SST1407.severity = warning
+dotnet_diagnostic.SST1408.severity = warning
+dotnet_diagnostic.SST1410.severity = warning
+dotnet_diagnostic.SST1411.severity = warning
+# dotnet_diagnostic.SST1412.severity = warning   # opt-in
+dotnet_diagnostic.SST1413.severity = warning
+dotnet_diagnostic.SST1414.severity = warning
+dotnet_diagnostic.SST1415.severity = warning
+# dotnet_diagnostic.SST1416.severity = warning   # opt-in
+# dotnet_diagnostic.SST1417.severity = warning   # opt-in
+dotnet_diagnostic.SST1418.severity = warning
+# dotnet_diagnostic.SST1450.severity = warning   # opt-in
+
+# Modernization
+dotnet_diagnostic.SST2000.severity = warning
+# dotnet_diagnostic.SST2001.severity = warning   # opt-in
+# dotnet_diagnostic.SST2002.severity = warning   # opt-in
+
+# Naming
+dotnet_diagnostic.SST1300.severity = warning
+dotnet_diagnostic.SST1302.severity = warning
+dotnet_diagnostic.SST1303.severity = warning
+dotnet_diagnostic.SST1304.severity = warning
+# dotnet_diagnostic.SST1305.severity = warning   # opt-in
+# dotnet_diagnostic.SST1306.severity = warning   # opt-in
+dotnet_diagnostic.SST1307.severity = warning
+# dotnet_diagnostic.SST1308.severity = warning   # opt-in
+dotnet_diagnostic.SST1309.severity = warning
+# dotnet_diagnostic.SST1310.severity = warning   # opt-in
+dotnet_diagnostic.SST1311.severity = warning
+dotnet_diagnostic.SST1312.severity = warning
+dotnet_diagnostic.SST1313.severity = warning
+dotnet_diagnostic.SST1314.severity = warning
+dotnet_diagnostic.SST1315.severity = warning
+dotnet_diagnostic.SST1316.severity = warning
+
+# Ordering
+dotnet_diagnostic.SST1200.severity = warning
+dotnet_diagnostic.SST1201.severity = warning
+dotnet_diagnostic.SST1202.severity = warning
+dotnet_diagnostic.SST1203.severity = warning
+dotnet_diagnostic.SST1204.severity = warning
+dotnet_diagnostic.SST1205.severity = warning
+dotnet_diagnostic.SST1206.severity = warning
+dotnet_diagnostic.SST1207.severity = warning
+dotnet_diagnostic.SST1208.severity = warning
+dotnet_diagnostic.SST1209.severity = warning
+dotnet_diagnostic.SST1210.severity = warning
+dotnet_diagnostic.SST1211.severity = warning
+dotnet_diagnostic.SST1212.severity = warning
+dotnet_diagnostic.SST1213.severity = warning
+dotnet_diagnostic.SST1214.severity = warning
+dotnet_diagnostic.SST1215.severity = warning
+dotnet_diagnostic.SST1216.severity = warning
+dotnet_diagnostic.SST1217.severity = warning
+
+# Readability
+dotnet_diagnostic.SST1100.severity = warning
+# dotnet_diagnostic.SST1101.severity = warning   # opt-in
+dotnet_diagnostic.SST1102.severity = warning
+dotnet_diagnostic.SST1103.severity = warning
+dotnet_diagnostic.SST1104.severity = warning
+dotnet_diagnostic.SST1105.severity = warning
+dotnet_diagnostic.SST1106.severity = warning
+dotnet_diagnostic.SST1107.severity = warning
+dotnet_diagnostic.SST1110.severity = warning
+dotnet_diagnostic.SST1111.severity = warning
+dotnet_diagnostic.SST1112.severity = warning
+dotnet_diagnostic.SST1113.severity = warning
+dotnet_diagnostic.SST1114.severity = warning
+dotnet_diagnostic.SST1115.severity = warning
+# dotnet_diagnostic.SST1118.severity = warning   # opt-in
+dotnet_diagnostic.SST1120.severity = warning
+# dotnet_diagnostic.SST1121.severity = warning   # opt-in
+dotnet_diagnostic.SST1122.severity = warning
+dotnet_diagnostic.SST1123.severity = warning
+dotnet_diagnostic.SST1124.severity = warning
+dotnet_diagnostic.SST1125.severity = warning
+dotnet_diagnostic.SST1127.severity = warning
+dotnet_diagnostic.SST1128.severity = warning
+dotnet_diagnostic.SST1129.severity = warning
+dotnet_diagnostic.SST1130.severity = warning
+dotnet_diagnostic.SST1131.severity = warning
+dotnet_diagnostic.SST1132.severity = warning
+dotnet_diagnostic.SST1133.severity = warning
+dotnet_diagnostic.SST1134.severity = warning
+dotnet_diagnostic.SST1135.severity = warning
+dotnet_diagnostic.SST1136.severity = warning
+dotnet_diagnostic.SST1137.severity = warning
+dotnet_diagnostic.SST1139.severity = warning
+dotnet_diagnostic.SST1141.severity = warning
+dotnet_diagnostic.SST1142.severity = warning
+dotnet_diagnostic.SST1143.severity = warning
+# dotnet_diagnostic.SST1144.severity = warning   # opt-in
+dotnet_diagnostic.SST1145.severity = warning
+dotnet_diagnostic.SST1150.severity = warning
+dotnet_diagnostic.SST1151.severity = warning
+dotnet_diagnostic.SST1152.severity = warning
+dotnet_diagnostic.SST1153.severity = warning
+dotnet_diagnostic.SST1154.severity = warning
+dotnet_diagnostic.SST1155.severity = warning
+dotnet_diagnostic.SST1156.severity = warning
+dotnet_diagnostic.SST1157.severity = warning
+dotnet_diagnostic.SST1158.severity = warning
+dotnet_diagnostic.SST1159.severity = warning
+dotnet_diagnostic.SST1160.severity = warning
+dotnet_diagnostic.SST1161.severity = warning
+dotnet_diagnostic.SST1162.severity = warning
+dotnet_diagnostic.SST1163.severity = warning
+dotnet_diagnostic.SST1164.severity = warning
+dotnet_diagnostic.SST1165.severity = warning
+dotnet_diagnostic.SST1166.severity = warning
+dotnet_diagnostic.SST1167.severity = warning
+dotnet_diagnostic.SST1168.severity = warning
+dotnet_diagnostic.SST1169.severity = warning
+dotnet_diagnostic.SST1170.severity = warning
+dotnet_diagnostic.SST1171.severity = warning
+
+# Records
+# dotnet_diagnostic.SST1800.severity = warning   # opt-in
+dotnet_diagnostic.SST1801.severity = warning
+dotnet_diagnostic.SST1802.severity = warning
+dotnet_diagnostic.SST1803.severity = warning
+
+# Spacing
+dotnet_diagnostic.SST1000.severity = warning
+dotnet_diagnostic.SST1001.severity = warning
+dotnet_diagnostic.SST1002.severity = warning
+dotnet_diagnostic.SST1003.severity = warning
+dotnet_diagnostic.SST1004.severity = warning
+dotnet_diagnostic.SST1005.severity = warning
+dotnet_diagnostic.SST1006.severity = warning
+dotnet_diagnostic.SST1007.severity = warning
+dotnet_diagnostic.SST1008.severity = warning
+dotnet_diagnostic.SST1009.severity = warning
+# dotnet_diagnostic.SST1010.severity = warning   # opt-in
+dotnet_diagnostic.SST1011.severity = warning
+dotnet_diagnostic.SST1012.severity = warning
+dotnet_diagnostic.SST1013.severity = warning
+dotnet_diagnostic.SST1014.severity = warning
+dotnet_diagnostic.SST1015.severity = warning
+dotnet_diagnostic.SST1016.severity = warning
+dotnet_diagnostic.SST1017.severity = warning
+dotnet_diagnostic.SST1018.severity = warning
+dotnet_diagnostic.SST1019.severity = warning
+dotnet_diagnostic.SST1020.severity = warning
+dotnet_diagnostic.SST1021.severity = warning
+dotnet_diagnostic.SST1022.severity = warning
+# dotnet_diagnostic.SST1023.severity = warning   # opt-in
+dotnet_diagnostic.SST1024.severity = warning
+dotnet_diagnostic.SST1025.severity = warning
+dotnet_diagnostic.SST1026.severity = warning
+dotnet_diagnostic.SST1027.severity = warning
+dotnet_diagnostic.SST1028.severity = warning

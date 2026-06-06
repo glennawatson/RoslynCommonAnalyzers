@@ -7,18 +7,20 @@ repo is `RoslynCommonAnalyzers`.
 ## Build & test
 
 ```bash
+# Run from src/
+
 # Build / test the floor (Roslyn 4.8) — the default slot
 dotnet build StyleSharp.Analyzers.slnx -c Release
-dotnet test  --project StyleSharp.Analyzers/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release
+dotnet test  --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release
 
 # Build a specific Roslyn slot
-dotnet build StyleSharp.Analyzers/StyleSharp.Analyzers.CodeFixes/StyleSharp.Analyzers.CodeFixes.csproj -c Release -p:RoslynVersion=roslyn5.3
+dotnet build StyleSharp.Analyzers.CodeFixes/StyleSharp.Analyzers.CodeFixes.csproj -c Release -p:RoslynVersion=roslyn5.3
 
 # Pack (builds every slot, emits one nupkg with all analyzers/dotnet/<slot>/cs folders)
-dotnet pack StyleSharp.Analyzers/StyleSharp.Analyzers.Package/StyleSharp.Analyzers.Packages.csproj -c Release
+dotnet pack StyleSharp.Analyzers.Package/StyleSharp.Analyzers.Packages.csproj -c Release
 
 # Benchmarks
-dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*"
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*"
 ```
 
 Tests use **TUnit** (Microsoft Testing Platform) and the
@@ -29,14 +31,22 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
 - **No suppressions.** Never use `#pragma warning disable`, `<NoWarn>`,
   `[SuppressMessage]`, or `.editorconfig` severity downgrades to silence a rule —
   fix the underlying issue. The repo builds its own source with StyleCop +
-  Roslynator + SonarAnalyzer under `TreatWarningsAsErrors`. (The benchmark host is
-  the only project that opts out of the production analyzers, because
-  BenchmarkDotNet is fundamentally incompatible with them — that is project
-  scoping, not a suppression.)
+  Roslynator + SonarAnalyzer under `TreatWarningsAsErrors`, including the
+  benchmark project.
+
+- **Repo layout:** repo metadata stays at the repository root, but build entry
+  points live under `src/`. Run `dotnet` commands from `src/`; projects are
+  grouped under `src/`, `tests/`, `benchmarks/`, and `tools/` inside that folder.
 
 - **Performance / allocations first.** Analyzer callbacks run on every keystroke.
   Keep the no-diagnostic path allocation-free; compute suggested names only after
   a violation is found. See **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)**.
+
+- **No LINQ in production code.** Do not use LINQ anywhere under
+  `src/StyleSharp.Analyzers/` or `src/StyleSharp.Analyzers.CodeFixes/`.
+  Even seemingly small query expressions add iterator, closure, and collection
+  overhead that is too expensive on analyzer hot paths. Use explicit `for` /
+  `foreach` loops and a few locals instead.
 
 - **Static helpers, not base classes.** Shared logic lives in `internal static`
   helper classes operating on the passed-in model (`NamingHelper`,
@@ -70,7 +80,7 @@ compiler's `CompilerApiVersion`:
 | `roslyn4.14` | 4.14.0 | .NET 10 SDK / VS 17.14 (C# 14) |
 | `roslyn5.3` | 5.3.0 | .NET 11 line (C# 15) |
 
-Slot wiring lives in `Directory.Build.props` (`RoslynVersion` → package version +
+Slot wiring lives in `src/Directory.Build.props` (`RoslynVersion` → package version +
 `ROSLYN_*_OR_GREATER` constants + segregated `bin`/`obj`). Keep these assemblies
 `netstandard2.0` (RS1041). Funnel all `ImmutableArray` creation through
 `ImmutableArrays.Of(...)` — the 4.8 floor can't bind collection expressions for

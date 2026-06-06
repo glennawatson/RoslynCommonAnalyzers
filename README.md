@@ -139,14 +139,15 @@ The solution follows the standard analyzer layout:
 
 | Project | Purpose |
 | --- | --- |
-| `StyleSharp.Analyzers` | the `DiagnosticAnalyzer`s (`netstandard2.0`) |
-| `StyleSharp.Analyzers.CodeFixes` | the `CodeFixProvider`s (`netstandard2.0`) |
-| `StyleSharp.Analyzers.Package` | packs the two above into the `StyleSharp.Analyzers` NuGet package |
-| `StyleSharp.Analyzers.Tests` | TUnit tests using `Microsoft.CodeAnalysis.Testing` |
+| `src/StyleSharp.Analyzers` | the `DiagnosticAnalyzer`s (`netstandard2.0`) |
+| `src/StyleSharp.Analyzers.CodeFixes` | the `CodeFixProvider`s (`netstandard2.0`) |
+| `src/StyleSharp.Analyzers.Package` | packs the two above into the `StyleSharp.Analyzers` NuGet package |
+| `src/tests/StyleSharp.Analyzers.Tests` | TUnit tests using `Microsoft.CodeAnalysis.Testing` |
 
 ## Building and testing
 
 ```bash
+# run from src/
 dotnet restore StyleSharp.Analyzers.slnx
 dotnet build StyleSharp.Analyzers.slnx --configuration Release
 dotnet test --solution StyleSharp.Analyzers.slnx --configuration Release
@@ -165,7 +166,7 @@ matching `…CodeFixProvider.cs`, a `Sst####…AnalyzersUnitTest.cs` (markup-bas
 
 Performance is a first-class requirement: read the **[performance
 guide](docs/PERFORMANCE.md)** before writing or reviewing a rule, and benchmark
-with `StyleSharp.Analyzers.Benchmarks`.
+with `src/benchmarks/StyleSharp.Analyzers.Benchmarks`.
 
 ## License
 

@@ -24,31 +24,41 @@ This document describes *approaches*. Concrete measurements are not pinned here
 4. **Syntax before semantics.** A syntactic check is far cheaper than a semantic
    one. Decide with syntax alone whenever possible; reach for the semantic model
    only when syntax genuinely cannot answer the question.
-5. **Measure, don't guess.** Every performance claim is backed by a benchmark.
+5. **No LINQ in production code.** Treat LINQ as banned in
+   `src/StyleSharp.Analyzers/` and `src/StyleSharp.Analyzers.CodeFixes/`.
+   Iterator state machines, delegate captures, and convenience materialization
+   are too easy to hide in code review and too expensive to pay on hot paths.
+6. **Measure, don't guess.** Every performance claim is backed by a benchmark.
 
 ## Measure first
 
-The harness is `StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks`
+The harness is `src/benchmarks/StyleSharp.Analyzers.Benchmarks`
 (BenchmarkDotNet, `[MemoryDiagnoser]`, `ShortRun`, default out-of-process toolchain).
 
 ```bash
+# Run from src/
+
 # Everything
-dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*"
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*"
 
 # Just the core line-scan micro-benchmark, or just the end-to-end throughput
-dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*LineScan*"
-dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*Throughput*"
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*LineScan*"
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*Throughput*"
 
 # Hot-path micro-benchmarks for the most common analyzer pipelines
-dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathBenchmarks*"
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathBenchmarks*"
 
 # Opt-in EventPipe profiling for allocation and CPU hot spots
-dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathProfiledAllocBenchmarks*"
-dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathProfiledCpuBenchmarks*"
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathProfiledAllocBenchmarks*"
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathProfiledCpuBenchmarks*"
 
 # Target a single hot path when you want one trace per analyzer/path
-dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*TupleElementName_Clean*"
-dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*Spacing_Violating*"
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*TupleElementName_Clean*"
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*Spacing_Violating*"
+
+# Isolate one analyzer family end-to-end when the combined hot-path suite is too broad
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*TupleElementNameBenchmarks*"
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*UseNameofBenchmarks*"
 ```
 
 Two complementary lenses:
@@ -58,6 +68,10 @@ Two complementary lenses:
 - **Hot-path micro** (`HotPathBenchmarks`) — focused clean/violating corpora for
   the hottest analyzer pipelines (`SpacingAnalyzer`, tuple element access,
   `UseNameofAnalyzer`, `ArgumentGuardAnalyzer`, and the shared jagged-list helper).
+- **Single-analyzer hot suites** (`TupleElementNameBenchmarks`,
+  `UseNameofBenchmarks`) — full `CompilationWithAnalyzers` runs for the specific
+  hot analyzer families whose internal fast paths are already covered by
+  `HotPathBenchmarks`.
 - **End-to-end** (`AnalyzerThroughputBenchmarks`) — the analyzers run over a real
   compilation through `CompilationWithAnalyzers`. This is the realistic
   "what the IDE/build pays" figure and the surface for hunting bottlenecks.
@@ -86,6 +100,21 @@ Recommended loop:
    and inspect the hottest frames before changing code.
 4. Make the smallest change that removes work from the clean path.
 5. Re-run the same benchmark/filter to confirm the improvement.
+
+When you want a quick terminal summary instead of opening Speedscope manually,
+use the local trace filter:
+
+```bash
+# Newest matching EventPipe export under BenchmarkDotNet.Artifacts/
+dotnet run --project tools/TraceFocus -- --pattern "ExtensionBlockProfiledCpuBenchmarks.ExtensionBlock_Violating(Nodes_ 1000)"
+
+# Explicit file, plus a narrower analyzer-specific include
+dotnet run --project tools/TraceFocus -- --file "BenchmarkDotNet.Artifacts/StyleSharp.Analyzers.Benchmarks.ParameterListLayoutProfiledCpuBenchmarks.ParameterListLayout_Violating(Nodes_ 1000)-20260606-212946.speedscope.json" --include "ParameterListLayoutAnalyzer"
+```
+
+`TraceFocus` reads BenchmarkDotNet's `*.speedscope.json` output directly,
+filters out the default BenchmarkDotNet / threading / analyzer-driver noise,
+and prints the remaining hot frames plus the hottest analyzer-visible stacks.
 
 When a benchmark isn't granular enough, ask the compiler itself:
 
@@ -129,8 +158,9 @@ environment is meaningless.
 
 This is where rules are won or lost. Inside a callback:
 
-- **No LINQ.** `Select`/`Where`/`ToList` allocate closures and collections on
-  every node. Use a manual `for`/`foreach`.
+- **No LINQ in production analyzer/code-fix code.** `Select`/`Where`/`ToList` and
+  similar operators are banned in `src/StyleSharp.Analyzers/` and
+  `src/StyleSharp.Analyzers.CodeFixes/`. Use a manual `for`/`foreach`.
 - **No per-node collections.** No `HashSet`, `List`, arrays, or `StringBuilder`
   allocated per node. Decide with a couple of locals.
 - **Use struct enumerators.** `SeparatedSyntaxList<T>`, `SyntaxList<T>`,
@@ -211,7 +241,7 @@ Code fixes run on demand, so they're far less hot than analyzers — but still:
 
 | Anti-pattern | Why it hurts | Do instead |
 |---|---|---|
-| LINQ in a callback | Closure + collection allocation per node | Manual `for`/`foreach` |
+| LINQ in production code | Iterator/closure/materialization overhead hidden in hot paths | Manual `for`/`foreach` |
 | `HashSet`/`List` per node | Heap allocation per node | A few local variables / single pass |
 | `.ToList()` on a `SeparatedSyntaxList` | Throws away the struct enumerator | `foreach` the list directly |
 | `GetLocation()` per item | Allocates a `Location` each call | `tree.GetLineSpan(node.Span)`; locate only when reporting |

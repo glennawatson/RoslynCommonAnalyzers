@@ -63,9 +63,11 @@ jobs:
                     dotnet tool update dotnet-sonarscanner --tool-path "${{ runner.temp }}/sonar-scanner"
 
             -   name: Restore
+                working-directory: src
                 run: dotnet restore StyleSharp.Analyzers.slnx
 
             -   name: Begin Sonar analysis
+                working-directory: src
                 env:
                     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
                 run: |
@@ -81,12 +83,15 @@ jobs:
                       /d:sonar.test.exclusions="**/*.Tests/**"
 
             -   name: Build
+                working-directory: src
                 run: dotnet build StyleSharp.Analyzers.slnx --no-restore --configuration Release
 
             -   name: Test with MTP coverage
+                working-directory: src
                 run: dotnet test --solution StyleSharp.Analyzers.slnx --configuration Release --no-restore -- --coverage --coverage-output-format xml --coverage-output sonar-coverage.xml
 
             -   name: End Sonar analysis
+                working-directory: src
                 env:
                     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
                 run: |

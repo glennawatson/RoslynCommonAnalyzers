@@ -1,0 +1,28 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="..\.editorconfig" />
+    <File Path="..\.gitignore" />
+    <File Path="..\CLAUDE.md" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="..\LICENSE" />
+    <File Path="..\README.md" />
+    <File Path="..\stylecop.json" />
+    <File Path="testconfig.json" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="StyleSharp.Analyzers/StyleSharp.Analyzers.csproj" />
+    <Project Path="StyleSharp.Analyzers.CodeFixes/StyleSharp.Analyzers.CodeFixes.csproj" />
+    <Project Path="StyleSharp.Analyzers.Package/StyleSharp.Analyzers.Packages.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/StyleSharp.Analyzers.Benchmarks/StyleSharp.Analyzers.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/TraceFocus/TraceFocus.csproj" />
+  </Folder>
+</Solution>

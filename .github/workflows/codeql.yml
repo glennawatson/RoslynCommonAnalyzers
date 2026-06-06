@@ -50,9 +50,11 @@ jobs:
                     queries: security-extended
 
             -   name: Restore
+                working-directory: src
                 run: dotnet restore StyleSharp.Analyzers.slnx
 
             -   name: Build
+                working-directory: src
                 run: dotnet build StyleSharp.Analyzers.slnx --no-restore --configuration Release
 
             -   name: Perform CodeQL analysis

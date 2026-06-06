@@ -399,3 +399,6 @@ FodyWeavers.xsd
 
 # Claude Code
 .claude/
+
+# Local implementation planning notes (not for check-in)
+todo_docs/

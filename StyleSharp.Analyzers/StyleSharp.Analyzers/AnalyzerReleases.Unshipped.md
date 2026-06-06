@@ -216,6 +216,7 @@ SST1419 | Maintainability | Warning | RedundantModifierAnalyzer
 SST1420 | Maintainability | Warning | TrivialAutoPropertyAnalyzer
 SST1422 | Maintainability | Disabled | PrivateFieldUsedAsLocalAnalyzer
 SST1424 | Maintainability | Disabled | FieldShouldBeReadonlyAnalyzer
+SST1425 | Maintainability | Warning | PrimaryConstructorParameterMutationAnalyzer
 SST1421 | Maintainability | Warning | WriteOnlyPropertyAnalyzer
 SST1423 | Maintainability | Warning | TooManySwitchLabelsAnalyzer
 SST1700 | Extensions | Warning | ExtensionBlockAnalyzer

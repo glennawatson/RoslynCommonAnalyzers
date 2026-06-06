@@ -185,6 +185,13 @@ internal static class MaintainabilityRules
         "Make field '{0}' readonly",
         "A private instance field assigned only by its initializer or constructors is declared readonly. Off by default to avoid overlap with IDE0044.");
 
+    /// <summary>SST1425 — a class/struct primary-constructor parameter is reassigned after capture.</summary>
+    public static readonly DiagnosticDescriptor NoReassignedPrimaryConstructorParameter = Create(
+        "SST1425",
+        "Do not reassign captured primary-constructor parameters",
+        "Do not reassign the captured primary-constructor parameter '{0}'",
+        "Reassigning a class or struct primary-constructor parameter mutates its hidden captured field, which is surprising. Use a separate local or explicit field instead.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

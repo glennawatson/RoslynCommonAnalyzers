@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="StyleSharp.Analyzers.CodeFixes" />
+    <InternalsVisibleTo Include="StyleSharp.Analyzers.Benchmarks" />
   </ItemGroup>
 
   <ItemGroup>

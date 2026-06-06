@@ -48,6 +48,43 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         });
     }
 
+    /// <summary>Returns whether an <c>if</c> statement matches any supported throw-helper pattern.</summary>
+    /// <param name="ifStatement">The candidate if statement.</param>
+    /// <param name="helpers">The guard helpers available in this scenario.</param>
+    /// <returns><see langword="true"/> when the analyzer would report a diagnostic.</returns>
+    internal static bool WouldReportForBenchmark(IfStatementSyntax ifStatement, in GuardHelpers helpers)
+    {
+        if ((helpers.ThrowIfNull && ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out _))
+            || (helpers.ThrowIfDisposed && !IsStaticContext(ifStatement) && ThrowGuardPatterns.TryMatchObjectDisposed(ifStatement, out _)))
+        {
+            return true;
+        }
+
+        return (ThrowGuardPatterns.TryMatchRangeGuard(ifStatement, out var rangeMatch) && helpers.Range.Contains(rangeMatch.Helper))
+            || (ThrowGuardPatterns.TryMatchStringGuard(ifStatement, out var guardMethod, out _) && IsStringGuardHelperAvailable(helpers, guardMethod!));
+    }
+
+    /// <summary>Creates a helper set that enables every guard pattern currently supported by the analyzer.</summary>
+    /// <returns>A helper set suitable for hot-path benchmarks.</returns>
+    internal static GuardHelpers CreateBenchmarkHelpers()
+        => new(
+            ThrowIfNull: true,
+            ThrowIfNullOrEmpty: true,
+            ThrowIfNullOrWhiteSpace: true,
+            ThrowIfDisposed: true,
+            Range:
+            [
+                "ThrowIfNegative",
+                "ThrowIfNegativeOrZero",
+                "ThrowIfZero",
+                "ThrowIfGreaterThan",
+                "ThrowIfGreaterThanOrEqual",
+                "ThrowIfLessThan",
+                "ThrowIfLessThanOrEqual",
+                "ThrowIfEqual",
+                "ThrowIfNotEqual",
+            ]);
+
     /// <summary>Reports the applicable guard-helper suggestion for one if statement.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="helpers">The guard helpers available in this compilation.</param>
@@ -117,6 +154,13 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(rule, ifStatement.GetLocation(), checkedExpression.ToString()));
     }
 
+    /// <summary>Returns whether the matching string-guard helper is available.</summary>
+    /// <param name="helpers">The guard helpers available in this scenario.</param>
+    /// <param name="guardMethod">The matched guard method name.</param>
+    /// <returns><see langword="true"/> when the corresponding helper exists.</returns>
+    private static bool IsStringGuardHelperAvailable(in GuardHelpers helpers, string guardMethod)
+        => guardMethod == ThrowGuardPatterns.IsNullOrEmpty ? helpers.ThrowIfNullOrEmpty : helpers.ThrowIfNullOrWhiteSpace;
+
     /// <summary>Returns whether a type has a static method with the given name.</summary>
     /// <param name="compilation">The compilation to resolve the type in.</param>
     /// <param name="typeMetadataName">The metadata name of the declaring type.</param>
@@ -176,7 +220,7 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
     /// <param name="ThrowIfNullOrWhiteSpace">Whether <c>ArgumentException.ThrowIfNullOrWhiteSpace</c> exists.</param>
     /// <param name="ThrowIfDisposed">Whether <c>ObjectDisposedException.ThrowIf</c> exists.</param>
     /// <param name="Range">The available <c>ArgumentOutOfRangeException</c> helper names.</param>
-    private readonly record struct GuardHelpers(
+    internal readonly record struct GuardHelpers(
         bool ThrowIfNull,
         bool ThrowIfNullOrEmpty,
         bool ThrowIfNullOrWhiteSpace,

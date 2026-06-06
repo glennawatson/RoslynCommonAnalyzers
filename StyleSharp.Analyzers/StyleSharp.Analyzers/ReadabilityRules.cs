@@ -252,7 +252,7 @@ internal static class ReadabilityRules
     public static readonly DiagnosticDescriptor ReferToTupleElementByName = Create(
         "SST1142",
         "Refer to tuple elements by name",
-        "Refer to the tuple element as '{0}' rather than '{1}'",
+        "Refer to the tuple element as '{0}'",
         "A named tuple element is accessed by its name rather than the positional 'ItemN' field.");
 
     /// <summary>SST1143 — a boolean expression is compared to a <c>true</c>/<c>false</c> literal (StyleSharp original).</summary>

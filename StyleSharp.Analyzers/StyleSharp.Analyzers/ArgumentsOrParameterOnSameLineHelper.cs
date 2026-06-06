@@ -144,16 +144,34 @@ internal static class ArgumentsOrParameterOnSameLineHelper
     public static void Analyze<T>(in SyntaxNodeAnalysisContext context, SyntaxNode listNode, in SeparatedSyntaxList<T> list, DiagnosticDescriptor rule)
         where T : SyntaxNode
     {
+        if (!ReportsJaggedLayout(listNode, list))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(rule, context.Node.GetLocation()));
+    }
+
+    /// <summary>
+    /// Returns whether the items in the list are laid out jaggedly (some share a line while others wrap).
+    /// </summary>
+    /// <typeparam name="T">The type of syntax node contained in the list.</typeparam>
+    /// <param name="listNode">The node owning the items; its opening delimiter anchors the first line.</param>
+    /// <param name="list">The separated list of arguments or parameters.</param>
+    /// <returns><see langword="true"/> when the list layout is jagged.</returns>
+    internal static bool ReportsJaggedLayout<T>(SyntaxNode listNode, in SeparatedSyntaxList<T> list)
+        where T : SyntaxNode
+    {
         var count = list.Count;
         if (count <= 1)
         {
-            return;
+            return false;
         }
 
         var tree = listNode.SyntaxTree;
         if (tree is null)
         {
-            return;
+            return false;
         }
 
         // Anchor line = the list's opening delimiter. Start lines are
@@ -162,9 +180,9 @@ internal static class ArgumentsOrParameterOnSameLineHelper
         var sawShared = false;
         var sawSeparated = false;
 
-        foreach (var item in list)
+        for (var i = 0; i < count; i++)
         {
-            var line = tree.GetLineSpan(item.Span).StartLinePosition.Line;
+            var line = tree.GetLineSpan(list[i].Span).StartLinePosition.Line;
             if (line == previousLine)
             {
                 sawShared = true;
@@ -178,11 +196,12 @@ internal static class ArgumentsOrParameterOnSameLineHelper
             // the verdict cannot change after this, so report once and stop.
             if (sawShared && sawSeparated)
             {
-                context.ReportDiagnostic(Diagnostic.Create(rule, context.Node.GetLocation()));
-                return;
+                return true;
             }
 
             previousLine = line;
         }
+
+        return false;
     }
 }

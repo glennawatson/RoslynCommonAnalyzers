@@ -12,9 +12,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class TupleElementNameAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The diagnostic property key holding the tuple element's name.</summary>
-    internal const string NameKey = "Name";
-
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ReadabilityRules.ReferToTupleElementByName);
 
@@ -27,35 +24,47 @@ public sealed class TupleElementNameAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.SimpleMemberAccessExpression);
     }
 
+    /// <summary>Returns the named tuple element that should replace an <c>ItemN</c> access.</summary>
+    /// <param name="access">The candidate member access.</param>
+    /// <param name="semanticModel">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <param name="name">The tuple element's preferred name when matched.</param>
+    /// <returns><see langword="true"/> when the access should be rewritten.</returns>
+    internal static bool TryGetReplacementName(
+        MemberAccessExpressionSyntax access,
+        SemanticModel semanticModel,
+        CancellationToken cancellationToken,
+        out string? name)
+    {
+        name = null;
+        if (access.Name is not IdentifierNameSyntax identifier
+            || !TupleHelpers.TryGetItemPosition(identifier.Identifier.ValueText, out var position)
+            || semanticModel.GetTypeInfo(access.Expression, cancellationToken).Type is not INamedTypeSymbol { IsTupleType: true } tuple)
+        {
+            return false;
+        }
+
+        var elements = tuple.TupleElements;
+        if (position > elements.Length)
+        {
+            return false;
+        }
+
+        name = elements[position - 1].Name;
+        return !string.IsNullOrEmpty(name) && name != identifier.Identifier.ValueText;
+    }
+
     /// <summary>Reports SST1142 when a tuple's named element is accessed through its ItemN field.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
         if (access.Name is not IdentifierNameSyntax identifier
-            || !TupleHelpers.TryGetItemPosition(identifier.Identifier.ValueText, out var position))
+            || !TryGetReplacementName(access, context.SemanticModel, context.CancellationToken, out var name))
         {
             return;
         }
 
-        if (context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type is not INamedTypeSymbol { IsTupleType: true } tuple)
-        {
-            return;
-        }
-
-        var elements = tuple.TupleElements;
-        if (position > elements.Length)
-        {
-            return;
-        }
-
-        var name = elements[position - 1].Name;
-        if (string.IsNullOrEmpty(name) || name == identifier.Identifier.ValueText)
-        {
-            return;
-        }
-
-        var properties = ImmutableDictionary<string, string?>.Empty.Add(NameKey, name);
-        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.ReferToTupleElementByName, identifier.GetLocation(), properties, name, identifier.Identifier.ValueText));
+        context.ReportDiagnostic(DiagnosticHelper.Create(ReadabilityRules.ReferToTupleElementByName, identifier.GetLocation(), name!));
     }
 }

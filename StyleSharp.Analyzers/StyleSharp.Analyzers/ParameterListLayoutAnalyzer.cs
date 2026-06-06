@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Generic;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -24,26 +23,6 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
         SyntaxKind.ArgumentList,
         SyntaxKind.BracketedArgumentList,
         SyntaxKind.AttributeArgumentList);
-
-    /// <summary>The argument expression kinds that conventionally span multiple lines (exempt from SST1118).</summary>
-    private static readonly HashSet<SyntaxKind> MultiLineFriendlyKinds =
-    [
-        SyntaxKind.SimpleLambdaExpression,
-        SyntaxKind.ParenthesizedLambdaExpression,
-        SyntaxKind.AnonymousMethodExpression,
-        SyntaxKind.AnonymousObjectCreationExpression,
-        SyntaxKind.ObjectCreationExpression,
-        SyntaxKind.ImplicitObjectCreationExpression,
-        SyntaxKind.ArrayCreationExpression,
-        SyntaxKind.ImplicitArrayCreationExpression,
-        SyntaxKind.ComplexElementInitializerExpression,
-        SyntaxKind.ObjectInitializerExpression,
-        SyntaxKind.CollectionInitializerExpression,
-        SyntaxKind.ArrayInitializerExpression,
-        SyntaxKind.SwitchExpression,
-        SyntaxKind.QueryExpression,
-        SyntaxKind.InterpolatedStringExpression,
-    ];
 
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
@@ -218,8 +197,46 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
             _ => null,
         };
 
-        return expression is null || MultiLineFriendlyKinds.Contains(expression.Kind());
+        return expression is null || IsMultiLineFriendlyKind(expression.Kind());
     }
+
+    /// <summary>Returns whether an expression kind is conventionally allowed to span multiple lines in an argument list.</summary>
+    /// <param name="kind">The expression kind.</param>
+    /// <returns><see langword="true"/> when the kind is exempt from SST1118.</returns>
+    private static bool IsMultiLineFriendlyKind(SyntaxKind kind)
+        => IsLambdaOrAnonymousKind(kind)
+            || IsCreationOrInitializerKind(kind)
+            || IsOtherMultiLineFriendlyKind(kind);
+
+    /// <summary>Returns whether the kind is a lambda or anonymous-form expression that commonly spans multiple lines.</summary>
+    /// <param name="kind">The expression kind.</param>
+    /// <returns><see langword="true"/> when exempt.</returns>
+    private static bool IsLambdaOrAnonymousKind(SyntaxKind kind)
+        => kind is SyntaxKind.SimpleLambdaExpression
+            or SyntaxKind.ParenthesizedLambdaExpression
+            or SyntaxKind.AnonymousMethodExpression
+            or SyntaxKind.AnonymousObjectCreationExpression;
+
+    /// <summary>Returns whether the kind is an object/array creation or initializer that commonly spans multiple lines.</summary>
+    /// <param name="kind">The expression kind.</param>
+    /// <returns><see langword="true"/> when exempt.</returns>
+    private static bool IsCreationOrInitializerKind(SyntaxKind kind)
+        => kind is SyntaxKind.ObjectCreationExpression
+            or SyntaxKind.ImplicitObjectCreationExpression
+            or SyntaxKind.ArrayCreationExpression
+            or SyntaxKind.ImplicitArrayCreationExpression
+            or SyntaxKind.ComplexElementInitializerExpression
+            or SyntaxKind.ObjectInitializerExpression
+            or SyntaxKind.CollectionInitializerExpression
+            or SyntaxKind.ArrayInitializerExpression;
+
+    /// <summary>Returns whether the kind is another multi-line-friendly expression form.</summary>
+    /// <param name="kind">The expression kind.</param>
+    /// <returns><see langword="true"/> when exempt.</returns>
+    private static bool IsOtherMultiLineFriendlyKind(SyntaxKind kind)
+        => kind is SyntaxKind.SwitchExpression
+            or SyntaxKind.QueryExpression
+            or SyntaxKind.InterpolatedStringExpression;
 
     /// <summary>Extracts the opening and closing bracket tokens of a parameter or argument list.</summary>
     /// <param name="node">The list node.</param>

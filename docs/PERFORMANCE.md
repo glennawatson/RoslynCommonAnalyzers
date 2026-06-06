@@ -29,7 +29,7 @@ This document describes *approaches*. Concrete measurements are not pinned here
 ## Measure first
 
 The harness is `StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks`
-(BenchmarkDotNet, `[MemoryDiagnoser]`, `ShortRun`, in-process toolchain).
+(BenchmarkDotNet, `[MemoryDiagnoser]`, `ShortRun`, default out-of-process toolchain).
 
 ```bash
 # Everything
@@ -38,15 +38,54 @@ dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchm
 # Just the core line-scan micro-benchmark, or just the end-to-end throughput
 dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*LineScan*"
 dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*Throughput*"
+
+# Hot-path micro-benchmarks for the most common analyzer pipelines
+dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathBenchmarks*"
+
+# Opt-in EventPipe profiling for allocation and CPU hot spots
+dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathProfiledAllocBenchmarks*"
+dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathProfiledCpuBenchmarks*"
+
+# Target a single hot path when you want one trace per analyzer/path
+dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*TupleElementName_Clean*"
+dotnet run -c Release --project StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks -- --filter "*Spacing_Violating*"
 ```
 
 Two complementary lenses:
 
 - **Micro** (`LineScanBenchmarks`) — the decision logic in isolation. Use it to
   prove a rewrite is allocation-free and faster than what it replaced.
+- **Hot-path micro** (`HotPathBenchmarks`) — focused clean/violating corpora for
+  the hottest analyzer pipelines (`SpacingAnalyzer`, tuple element access,
+  `UseNameofAnalyzer`, `ArgumentGuardAnalyzer`, and the shared jagged-list helper).
 - **End-to-end** (`AnalyzerThroughputBenchmarks`) — the analyzers run over a real
   compilation through `CompilationWithAnalyzers`. This is the realistic
   "what the IDE/build pays" figure and the surface for hunting bottlenecks.
+- **EventPipe** (`HotPathProfiledAllocBenchmarks` / `HotPathProfiledCpuBenchmarks`) —
+  opt-in allocation and CPU sampling runs for terminal-driven hotspot hunting.
+  Each hot analyzer family exposes both clean and violating paths so you can
+  profile the common path first, then isolate the report path separately.
+
+### EventPipe workflow
+
+Use the profiled hot-path suites when a rule is known to do semantic work,
+token scans, or other non-trivial analysis:
+
+- `LineScan_*` — shared jagged-list helper used by the SST115x family.
+- `TupleElementName_*` — `TupleElementNameAnalyzer` name-rewrite detection.
+- `UseNameof_*` — `UseNameofAnalyzer` constructor-argument scanning.
+- `ArgumentGuard_*` — `ArgumentGuardAnalyzer` throw-helper matching.
+- `Spacing_*` — `SpacingAnalyzer` token-walk over a synthetic compilation.
+
+Recommended loop:
+
+1. Run `HotPathBenchmarks` first to see which hot path is slow or allocates.
+2. Re-run the matching `HotPathProfiledAllocBenchmarks` or
+   `HotPathProfiledCpuBenchmarks` method with a narrow `--filter`.
+3. Open the exported `.speedscope.json` trace from `BenchmarkDotNet.Artifacts/`
+   and inspect the hottest frames before changing code.
+4. Make the smallest change that removes work from the clean path.
+5. Re-run the same benchmark/filter to confirm the improvement.
 
 When a benchmark isn't granular enough, ask the compiler itself:
 

@@ -36,6 +36,18 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>The width of the documentation comment exterior ('///').</summary>
     private const int DocExteriorLength = 3;
 
+    /// <summary>Cached diagnostic properties for fixes that insert a space after the token.</summary>
+    private static readonly ImmutableDictionary<string, string?> AddAfterProperties = ImmutableDictionary<string, string?>.Empty.Add(ActionKey, AddAfter);
+
+    /// <summary>Cached diagnostic properties for fixes that insert a space before the token.</summary>
+    private static readonly ImmutableDictionary<string, string?> AddBeforeProperties = ImmutableDictionary<string, string?>.Empty.Add(ActionKey, AddBefore);
+
+    /// <summary>Cached diagnostic properties for fixes that remove whitespace after the token.</summary>
+    private static readonly ImmutableDictionary<string, string?> RemoveAfterProperties = ImmutableDictionary<string, string?>.Empty.Add(ActionKey, RemoveAfter);
+
+    /// <summary>Cached diagnostic properties for fixes that remove whitespace before the token.</summary>
+    private static readonly ImmutableDictionary<string, string?> RemoveBeforeProperties = ImmutableDictionary<string, string?>.Empty.Add(ActionKey, RemoveBefore);
+
     /// <summary>The whitespace separation between two adjacent tokens.</summary>
     private enum Separation
     {
@@ -564,8 +576,8 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="action">The fix action to stash.</param>
     private static void Report(SyntaxTreeAnalysisContext context, DiagnosticDescriptor rule, SyntaxToken token, string action)
     {
-        var properties = ImmutableDictionary<string, string?>.Empty.Add(ActionKey, action);
-        context.ReportDiagnostic(Diagnostic.Create(rule, token.GetLocation(), properties));
+        var properties = ActionProperties(action);
+        context.ReportDiagnostic(DiagnosticHelper.Create(rule, token.GetLocation(), properties));
     }
 
     /// <summary>Reports a spacing diagnostic on a text span, stashing the fix action.</summary>
@@ -575,9 +587,20 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="action">The fix action to stash.</param>
     private static void ReportSpan(SyntaxTreeAnalysisContext context, DiagnosticDescriptor rule, TextSpan span, string action)
     {
-        var properties = ImmutableDictionary<string, string?>.Empty.Add(ActionKey, action);
-        context.ReportDiagnostic(Diagnostic.Create(rule, Location.Create(context.Tree, span), properties));
+        var properties = ActionProperties(action);
+        context.ReportDiagnostic(DiagnosticHelper.Create(rule, context.Tree, span, properties));
     }
+
+    /// <summary>Returns the cached diagnostic property bag for the requested spacing fix action.</summary>
+    /// <param name="action">The fix action to stash in the diagnostic.</param>
+    /// <returns>The cached diagnostic properties.</returns>
+    private static ImmutableDictionary<string, string?> ActionProperties(string action) => action switch
+    {
+        AddAfter => AddAfterProperties,
+        AddBefore => AddBeforeProperties,
+        RemoveAfter => RemoveAfterProperties,
+        _ => RemoveBeforeProperties,
+    };
 
     /// <summary>Returns the whitespace separation between two adjacent tokens.</summary>
     /// <param name="previous">The earlier token.</param>
@@ -670,13 +693,13 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
         var endsLine = (index + 1 < list.Count && list[index + 1].IsKind(SyntaxKind.EndOfLineTrivia)) || span.End == text.Length;
         if (endsLine)
         {
-            context.ReportDiagnostic(Diagnostic.Create(SpacingRules.NoTrailingWhitespace, Location.Create(context.Tree, span)));
+            context.ReportDiagnostic(DiagnosticHelper.Create(SpacingRules.NoTrailingWhitespace, context.Tree, span));
             return;
         }
 
         if (ContainsTab(text, span))
         {
-            context.ReportDiagnostic(Diagnostic.Create(SpacingRules.UseSpacesNotTabs, Location.Create(context.Tree, span)));
+            context.ReportDiagnostic(DiagnosticHelper.Create(SpacingRules.UseSpacesNotTabs, context.Tree, span));
             return;
         }
 
@@ -685,7 +708,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(SpacingRules.MultipleWhitespace, Location.Create(context.Tree, span)));
+        context.ReportDiagnostic(DiagnosticHelper.Create(SpacingRules.MultipleWhitespace, context.Tree, span));
     }
 
     /// <summary>Reports a single-line comment that does not begin with a single space.</summary>
@@ -706,7 +729,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(SpacingRules.CommentBeginsWithSpace, Location.Create(context.Tree, trivia.Span)));
+        context.ReportDiagnostic(DiagnosticHelper.Create(SpacingRules.CommentBeginsWithSpace, context.Tree, trivia.Span));
     }
 
     /// <summary>Reports each documentation line whose text abuts the '///' with no separating space.</summary>

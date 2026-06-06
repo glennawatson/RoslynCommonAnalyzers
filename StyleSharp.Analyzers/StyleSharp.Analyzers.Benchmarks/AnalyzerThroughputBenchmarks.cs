@@ -32,7 +32,7 @@ public class AnalyzerThroughputBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        var tree = CSharpSyntaxTree.ParseText(SourceCorpus.Generate(Types));
+        var tree = CSharpSyntaxTree.ParseText(AnalyzerThroughputSource.Generate(Types));
         _compilation = CSharpCompilation.Create(
             "Bench",
             new[] { tree },

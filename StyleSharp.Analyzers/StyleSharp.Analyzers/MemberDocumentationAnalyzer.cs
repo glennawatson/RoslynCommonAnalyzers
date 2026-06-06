@@ -148,7 +148,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             declaration?.ParameterList?.Parameters ?? default,
             TypeParametersOf(declaration?.TypeParameterList),
             ReturnType: null,
-            type.Modifiers.Any(SyntaxKind.PartialKeyword),
+            ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword),
             DocumentationRules.ElementsMustBeDocumented,
             SummaryRequirement: null);
     }
@@ -157,7 +157,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="constructor">The constructor declaration.</param>
     /// <returns>The summary requirement, or <see langword="null"/>.</returns>
     private static SummaryPrefix? ConstructorRequirement(ConstructorDeclarationSyntax constructor)
-        => constructor.Modifiers.Any(SyntaxKind.StaticKeyword)
+        => ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword)
             ? null
             : new SummaryPrefix(DocumentationConventions.ConstructorStandardPrefix, DocumentationRules.ConstructorStandardText);
 
@@ -466,8 +466,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when coverage should be skipped.</returns>
     private static bool Skips(SyntaxTokenList modifiers, ExplicitInterfaceSpecifierSyntax? explicitInterface)
         => explicitInterface is not null
-            || modifiers.Any(SyntaxKind.OverrideKeyword)
-            || modifiers.Any(SyntaxKind.PartialKeyword);
+            || ModifierListHelper.ContainsEither(modifiers, SyntaxKind.OverrideKeyword, SyntaxKind.PartialKeyword);
 
     /// <summary>Returns whether a return type is void or a non-generic Task/ValueTask (the async equivalent of void).</summary>
     /// <param name="returnType">The return type.</param>

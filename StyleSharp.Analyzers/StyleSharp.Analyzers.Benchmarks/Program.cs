@@ -6,13 +6,11 @@ using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Diagnosers;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
-using BenchmarkDotNet.Toolchains.InProcess.Emit;
 
-// Run in-process (InProcessEmitToolchain) so the harness does not have to spin up
-// a child build against a preview SDK; ShortRun keeps the sweep quick while
-// MemoryDiagnoser gives the allocation columns we care about.
+// Use ShortRun for quick iteration while keeping the default out-of-process
+// toolchain so EventPipe-based profilers can attach to dedicated benchmark runs.
 var config = DefaultConfig.Instance
-    .AddJob(Job.ShortRun.WithToolchain(InProcessEmitToolchain.Instance))
+    .AddJob(Job.ShortRun)
     .AddDiagnoser(MemoryDiagnoser.Default);
 
 BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, config);

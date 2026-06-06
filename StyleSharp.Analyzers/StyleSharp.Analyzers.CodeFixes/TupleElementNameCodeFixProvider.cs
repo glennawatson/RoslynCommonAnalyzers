@@ -19,15 +19,18 @@ public sealed class TupleElementNameCodeFixProvider : CodeFixProvider
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
+        var semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root is null || semanticModel is null)
         {
             return;
         }
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (!diagnostic.Properties.TryGetValue(TupleElementNameAnalyzer.NameKey, out var name) || string.IsNullOrEmpty(name)
-                || root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IdentifierNameSyntax>() is not { } identifier)
+            if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<IdentifierNameSyntax>() is not { } identifier
+                || identifier.Parent is not MemberAccessExpressionSyntax access
+                || !TupleElementNameAnalyzer.TryGetReplacementName(access, semanticModel, context.CancellationToken, out var name)
+                || string.IsNullOrEmpty(name))
             {
                 continue;
             }

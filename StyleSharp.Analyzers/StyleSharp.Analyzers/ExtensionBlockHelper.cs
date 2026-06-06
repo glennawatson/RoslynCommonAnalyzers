@@ -36,5 +36,5 @@ internal static class ExtensionBlockHelper
     public static bool IsClassicExtensionMethod(MemberDeclarationSyntax member)
         => member is MethodDeclarationSyntax method
             && method.ParameterList.Parameters.Count > 0
-            && method.ParameterList.Parameters[0].Modifiers.Any(SyntaxKind.ThisKeyword);
+            && ModifierListHelper.Contains(method.ParameterList.Parameters[0].Modifiers, SyntaxKind.ThisKeyword);
 }

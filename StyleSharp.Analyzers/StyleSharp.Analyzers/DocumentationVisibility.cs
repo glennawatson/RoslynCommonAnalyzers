@@ -43,7 +43,7 @@ internal static class DocumentationVisibility
     /// <param name="modifiers">The modifiers.</param>
     /// <returns><see langword="true"/> when exposed.</returns>
     private static bool ExposesMembers(SyntaxTokenList modifiers)
-        => modifiers.Any(SyntaxKind.PublicKeyword) || modifiers.Any(SyntaxKind.ProtectedKeyword);
+        => ModifierListHelper.ContainsEither(modifiers, SyntaxKind.PublicKeyword, SyntaxKind.ProtectedKeyword);
 
     /// <summary>Returns whether the member's own modifiers expose it (accounting for interface/enum defaults).</summary>
     /// <param name="member">The member declaration.</param>
@@ -63,7 +63,7 @@ internal static class DocumentationVisibility
         // Interface members are implicitly public unless explicitly private.
         if (member.Parent is InterfaceDeclarationSyntax)
         {
-            return !declaration.Modifiers.Any(SyntaxKind.PrivateKeyword);
+            return !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PrivateKeyword);
         }
 
         return ExposesMembers(declaration.Modifiers);

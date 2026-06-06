@@ -129,6 +129,13 @@ internal static class MaintainabilityRules
         "Parenthesize this expression to make its precedence with '??' explicit",
         "A binary expression used as an operand of the '??' operator is parenthesized so the precedence is explicit.");
 
+    /// <summary>SST1417 — a namespace does not match the file's folder structure (StyleSharp original; opt-in).</summary>
+    public static readonly DiagnosticDescriptor NamespaceMatchesFolder = CreateOptIn(
+        "SST1417",
+        "Namespace should match the folder structure",
+        "Namespace '{0}' does not match the folder structure; expected '{1}'",
+        "A type's namespace mirrors the file's folder path under the project root. Off by default — set 'stylesharp.namespace_root' in .editorconfig to override the root namespace.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

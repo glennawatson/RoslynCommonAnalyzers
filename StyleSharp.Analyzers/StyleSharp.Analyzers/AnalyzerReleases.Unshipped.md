@@ -201,6 +201,7 @@ SST1414 | Maintainability | Warning | TupleSignatureNamingAnalyzer
 SST1143 | Readability | Warning | BooleanLiteralComparisonAnalyzer
 SST1416 | Maintainability | Disabled | NoPublicOnInternalTypeAnalyzer
 SST1418 | Maintainability | Warning | NullCoalescingPrecedenceAnalyzer
+SST1417 | Maintainability | Disabled | NamespaceFolderAnalyzer
 SST1700 | Extensions | Warning | ExtensionBlockAnalyzer
 SST1701 | Extensions | Warning | ExtensionBlockAnalyzer
 SST1702 | Extensions | Warning | ExtensionBlockAnalyzer

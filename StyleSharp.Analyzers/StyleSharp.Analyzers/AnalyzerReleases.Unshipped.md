@@ -55,6 +55,7 @@ SST1202 | Ordering | Warning | MemberOrderingAnalyzer
 SST1203 | Ordering | Warning | MemberOrderingAnalyzer
 SST1204 | Ordering | Warning | MemberOrderingAnalyzer
 SST1214 | Ordering | Warning | MemberOrderingAnalyzer
+SST1215 | Ordering | Warning | MemberOrderingAnalyzer
 SST1600 | Documentation | Warning | MemberDocumentationAnalyzer
 SST1602 | Documentation | Warning | MemberDocumentationAnalyzer
 SST1604 | Documentation | Warning | MemberDocumentationAnalyzer

@@ -5,7 +5,7 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Moves an out-of-order member to its correct ordered position (SST1201–SST1214).
+/// Moves an out-of-order member to its correct ordered position (SST1201–SST1215).
 /// The member is relocated just after the last sibling of an equal-or-earlier rank,
 /// carrying its own trivia. The fix is only offered when the file has no conditional
 /// (<c>#if</c>/<c>#elif</c>/<c>#else</c>/<c>#endif</c>) directives, which could move
@@ -21,7 +21,8 @@ public sealed class MemberOrderingCodeFixProvider : CodeFixProvider
         OrderingRules.OrderByAccess.Id,
         OrderingRules.ConstantsBeforeFields.Id,
         OrderingRules.StaticBeforeInstance.Id,
-        OrderingRules.ReadonlyBeforeNonReadonly.Id);
+        OrderingRules.ReadonlyBeforeNonReadonly.Id,
+        OrderingRules.InstanceReadonlyBeforeNonReadonly.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;

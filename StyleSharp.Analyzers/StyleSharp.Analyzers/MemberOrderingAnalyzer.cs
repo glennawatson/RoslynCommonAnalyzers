@@ -26,7 +26,8 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
         OrderingRules.OrderByAccess,
         OrderingRules.ConstantsBeforeFields,
         OrderingRules.StaticBeforeInstance,
-        OrderingRules.ReadonlyBeforeNonReadonly);
+        OrderingRules.ReadonlyBeforeNonReadonly,
+        OrderingRules.InstanceReadonlyBeforeNonReadonly);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

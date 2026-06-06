@@ -208,7 +208,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
             var prior = select(previous);
             if (mine != prior)
             {
-                return mine < prior ? rule : null;
+                return mine < prior ? ReadonlyAwareRule(rule) : null;
             }
         }
 
@@ -266,6 +266,14 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <returns>The kind rank.</returns>
     private static int KindRank(MemberDeclarationSyntax member)
         => KindRanks.TryGetValue(member.Kind(), out var rank) ? rank : NoKind;
+
+    /// <summary>Routes a readonly-ordering violation to the instance variant (SST1215) for instance fields.</summary>
+    /// <param name="rule">The rule for the violated dimension.</param>
+    /// <returns>SST1215 for an instance readonly violation, otherwise <paramref name="rule"/>.</returns>
+    private DiagnosticDescriptor ReadonlyAwareRule(DiagnosticDescriptor rule)
+        => ReferenceEquals(rule, OrderingRules.ReadonlyBeforeNonReadonly) && Static == 1
+            ? OrderingRules.InstanceReadonlyBeforeNonReadonly
+            : rule;
 
     /// <summary>Computes the accessibility rank from a member's modifiers.</summary>
     /// <param name="modifiers">The member modifiers.</param>

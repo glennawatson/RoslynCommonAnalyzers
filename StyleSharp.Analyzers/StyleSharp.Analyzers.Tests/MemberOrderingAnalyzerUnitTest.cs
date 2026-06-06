@@ -91,18 +91,35 @@ public class MemberOrderingAnalyzerUnitTest
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
-    /// <summary>Verifies a readonly field after a non-readonly field of the same accessibility is reported (SST1214) and moved up.</summary>
+    /// <summary>Verifies an instance readonly field after a non-readonly field of the same accessibility is reported (SST1215) and moved up.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task ReadonlyAfterMutableAsync()
+    public async Task InstanceReadonlyAfterMutableAsync()
     {
         const string Source = "public class C\n{\n"
             + "    private int _mutable;\n"
-            + "    private readonly int {|SST1214:_value|};\n"
+            + "    private readonly int {|SST1215:_value|};\n"
             + "}";
         const string FixedSource = "public class C\n{\n"
             + "    private readonly int _value;\n"
             + "    private int _mutable;\n"
+            + "}";
+
+        await Verify.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a static readonly field after a static non-readonly field is reported (SST1214) and moved up.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task StaticReadonlyAfterMutableAsync()
+    {
+        const string Source = "public class C\n{\n"
+            + "    private static int _mutable;\n"
+            + "    private static readonly int {|SST1214:_value|};\n"
+            + "}";
+        const string FixedSource = "public class C\n{\n"
+            + "    private static readonly int _value;\n"
+            + "    private static int _mutable;\n"
             + "}";
 
         await Verify.VerifyCodeFixAsync(Source, FixedSource);

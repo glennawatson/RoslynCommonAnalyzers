@@ -39,12 +39,19 @@ internal static class OrderingRules
         "Static member '{0}' should appear before the instance members",
         "Static members appear before instance members of the same kind and accessibility.");
 
-    /// <summary>SST1214 — readonly fields should appear before non-readonly fields.</summary>
+    /// <summary>SST1214 — static readonly fields should appear before static non-readonly fields.</summary>
     public static readonly DiagnosticDescriptor ReadonlyBeforeNonReadonly = Create(
         "SST1214",
-        "Readonly fields should appear before non-readonly fields",
-        "Readonly field '{0}' should appear before the non-readonly fields",
-        "Readonly fields appear before non-readonly fields of the same accessibility.");
+        "Static readonly fields should appear before static non-readonly fields",
+        "Static readonly field '{0}' should appear before the static non-readonly fields",
+        "Static readonly fields appear before static non-readonly fields of the same accessibility.");
+
+    /// <summary>SST1215 — instance readonly fields should appear before instance non-readonly fields (mirrors SA1215).</summary>
+    public static readonly DiagnosticDescriptor InstanceReadonlyBeforeNonReadonly = Create(
+        "SST1215",
+        "Instance readonly fields should appear before instance non-readonly fields",
+        "Instance readonly field '{0}' should appear before the instance non-readonly fields",
+        "Instance readonly fields appear before instance non-readonly fields of the same accessibility.");
 
     /// <summary>SST1200 — using directives should be placed outside the namespace.</summary>
     public static readonly DiagnosticDescriptor UsingDirectivesPlacement = Create(

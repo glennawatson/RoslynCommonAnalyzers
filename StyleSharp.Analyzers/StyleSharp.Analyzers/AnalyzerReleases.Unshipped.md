@@ -194,3 +194,5 @@ SST1115 | Readability | Warning | ParameterListLayoutAnalyzer
 SST1118 | Readability | Disabled | ParameterListLayoutAnalyzer
 SST1101 | Readability | Disabled | PrefixLocalCallsWithThisAnalyzer
 SST1137 | Readability | Warning | ElementIndentationAnalyzer
+SST1700 | Extensions | Warning | ExtensionBlockAnalyzer
+SST1701 | Extensions | Warning | ExtensionBlockAnalyzer

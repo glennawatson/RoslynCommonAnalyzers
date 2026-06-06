@@ -262,6 +262,13 @@ internal static class ReadabilityRules
         "Remove the redundant comparison to '{0}'",
         "A boolean expression is used directly rather than compared to the 'true' or 'false' literal.");
 
+    /// <summary>SST1144 — stacked case labels could be combined into one <c>or</c> pattern (StyleSharp original; opt-in).</summary>
+    public static readonly DiagnosticDescriptor PreferOrPattern = CreateOptIn(
+        "SST1144",
+        "Combine case labels with an or-pattern",
+        "Combine these case labels into a single 'or' pattern",
+        "Stacked case labels are combined into one 'case A or B:' pattern (C# 9+). Off by default — stacked labels are a common, valid style.");
+
     /// <summary>Creates a Warning-severity Readability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

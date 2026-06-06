@@ -112,15 +112,24 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
             context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.EmptyExtensionBlock, block.SyntaxTree, extensionKeyword.Span));
         }
 
-        if (ExtensionBlockHelper.IsBroadReceiver(receiverType, out var broadReceiverText))
+        string? receiver;
+        if (ExtensionBlockHelper.TryClassifyReceiverShape(receiverType, out var classifiedReceiver))
+        {
+            receiver = classifiedReceiver!;
+            ReportBroadReceiver(context, block, extensionKeyword, receiver);
+        }
+        else if (ExtensionBlockHelper.IsBroadReceiver(receiverType, out var broadReceiverText))
         {
             context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.BroadExtensionReceiver, block.SyntaxTree, extensionKeyword.Span, broadReceiverText));
+            receiver = broadReceiverText;
         }
-
-        var receiver = ExtensionBlockHelper.ReceiverTypeText(receiverType);
-        if (receiver is null)
+        else
         {
-            return;
+            receiver = ExtensionBlockHelper.ReceiverTypeText(receiverType);
+            if (receiver is null)
+            {
+                return;
+            }
         }
 
         ReportOutOfOrderReceiver(context, block, extensionKeyword, receiver, previousReceiver);
@@ -133,6 +142,26 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         ReportDuplicateReceiver(context, block, extensionKeyword, receiver, seenReceivers);
         previousReceiver = receiver;
         extensionCount++;
+    }
+
+    /// <summary>Reports SST1706 for broad receiver texts that can be detected on the simple fast path.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="block">The extension block.</param>
+    /// <param name="extensionKeyword">The block's extension keyword.</param>
+    /// <param name="receiver">The simple receiver text.</param>
+    private static void ReportBroadReceiver(
+        SyntaxNodeAnalysisContext context,
+        TypeDeclarationSyntax block,
+        SyntaxToken extensionKeyword,
+        string receiver)
+    {
+        if (!string.Equals(receiver, "object", StringComparison.Ordinal)
+            && !string.Equals(receiver, "dynamic", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.BroadExtensionReceiver, block.SyntaxTree, extensionKeyword.Span, receiver));
     }
 
     /// <summary>Reports SST1707 when the current receiver sorts before the previous receiver.</summary>

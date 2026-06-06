@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using TUnit.Assertions;
+
 using VerifyRecord = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.RecordAnalyzer>;
 
@@ -53,4 +55,23 @@ public class RecordAnalyzerUnitTest
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies the specialized PascalCase fast path accepts compliant positional parameter names.</summary>
+    /// <param name="name">The candidate positional parameter name.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    [Arguments("Value")]
+    [Arguments("X")]
+    public async Task PascalCaseFastPathAcceptsCompliantNames(string name)
+        => await Assert.That(RecordAnalyzer.IsPascalCaseFastPathCompliant(name)).IsTrue();
+
+    /// <summary>Verifies the specialized PascalCase fast path rejects non-compliant positional parameter names.</summary>
+    /// <param name="name">The candidate positional parameter name.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("value")]
+    [Arguments("1Value")]
+    public async Task PascalCaseFastPathRejectsNonCompliantNames(string name)
+        => await Assert.That(RecordAnalyzer.IsPascalCaseFastPathCompliant(name)).IsFalse();
 }

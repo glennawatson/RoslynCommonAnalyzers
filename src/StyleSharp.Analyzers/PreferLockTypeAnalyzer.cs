@@ -46,6 +46,15 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
         });
     }
 
+    /// <summary>Returns whether a field declaration could be an object lock candidate using syntax-only checks.</summary>
+    /// <param name="field">The field declaration.</param>
+    /// <returns><see langword="true"/> when the field is worth further candidate analysis.</returns>
+    internal static bool CouldBeCandidateLockField(FieldDeclarationSyntax field)
+        => IsObjectType(field.Declaration.Type)
+            && HasPrivateReadonlyModifiers(field.Modifiers)
+            && field.Declaration.Variables is [var only]
+            && only.Initializer is not null;
+
     /// <summary>Reports SST1900 when a type contains a dedicated object lock that could be a Lock.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeType(SyntaxNodeAnalysisContext context)
@@ -85,18 +94,21 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the field is a candidate lock object.</returns>
     private static bool IsCandidateLockField(FieldDeclarationSyntax field, out VariableDeclaratorSyntax? variable)
     {
-        variable = null;
-        if (!IsObjectType(field.Declaration.Type)
-            || !HasPrivateReadonlyModifiers(field.Modifiers)
-            || field.Declaration.Variables is not [var only]
-            || only.Initializer is not { Value: { } initializer }
-            || !IsParameterlessNew(initializer))
+        if (!CouldBeCandidateLockField(field))
         {
+            variable = null;
             return false;
         }
 
-        variable = only;
-        return true;
+        variable = field.Declaration.Variables[0];
+        var initializer = variable.Initializer!.Value;
+        if (IsParameterlessNew(initializer))
+        {
+            return true;
+        }
+
+        variable = null;
+        return false;
     }
 
     /// <summary>Returns whether an initializer is <c>new()</c> or <c>new object()</c> with no arguments.</summary>

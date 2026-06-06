@@ -2,7 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Testing;
+
+using TUnit.Assertions;
 
 using VerifyLock = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.PreferLockTypeAnalyzer,
@@ -159,6 +163,29 @@ public class PreferLockTypeAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a System.Threading.Lock field is rejected by the syntax-only candidate fast path.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SyntaxOnlyCandidateCheckRejectsLockTypeField()
+    {
+        var field = ParseField("private readonly System.Threading.Lock _gate = new();");
+
+        await Assert.That(PreferLockTypeAnalyzer.CouldBeCandidateLockField(field)).IsFalse();
+    }
+
+    /// <summary>Verifies object spellings still flow through the syntax-only candidate fast path.</summary>
+    /// <param name="source">The field declaration source.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    [Arguments("private readonly object _gate = new();")]
+    [Arguments("private readonly System.Object _gate = new();")]
+    public async Task SyntaxOnlyCandidateCheckKeepsObjectSpellings(string source)
+    {
+        var field = ParseField(source);
+
+        await Assert.That(PreferLockTypeAnalyzer.CouldBeCandidateLockField(field)).IsTrue();
+    }
+
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies (where the Lock type exists).</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected fixed source.</param>
@@ -174,4 +201,13 @@ public class PreferLockTypeAnalyzerUnitTest
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Parses a single field declaration for helper-level fast-path tests.</summary>
+    /// <param name="source">The field declaration source.</param>
+    /// <returns>The parsed field declaration.</returns>
+    private static FieldDeclarationSyntax ParseField(string source)
+        => (FieldDeclarationSyntax)SyntaxFactory.ParseCompilationUnit("public class C { " + source + " }")
+            .Members[0]
+            .ChildNodes()
+            .Single();
 }

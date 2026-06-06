@@ -2,6 +2,10 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+
+using TUnit.Assertions;
+
 using VerifyExtensionBlock = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.ExtensionBlockAnalyzer>;
 
@@ -152,4 +156,28 @@ public class ExtensionBlockAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies simple receiver types can be classified without allocating receiver text.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReceiverShapeFastPathClassifiesPredefinedTypes()
+    {
+        var receiverType = SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword));
+
+        await Assert.That(ExtensionBlockHelper.TryClassifyReceiverShape(receiverType, out var shape)).IsTrue();
+        await Assert.That(shape).IsEqualTo("string");
+    }
+
+    /// <summary>Verifies unsupported receiver shapes fall back to the slower receiver-text path.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReceiverShapeFastPathFallsBackForQualifiedNames()
+    {
+        var receiverType = SyntaxFactory.QualifiedName(
+            SyntaxFactory.IdentifierName("System"),
+            SyntaxFactory.IdentifierName("String"));
+
+        await Assert.That(ExtensionBlockHelper.TryClassifyReceiverShape(receiverType, out var shape)).IsFalse();
+        await Assert.That(shape).IsNull();
+    }
 }

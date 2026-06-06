@@ -48,6 +48,34 @@ internal static class ExtensionBlockHelper
             _ => receiverType.ToString(),
         };
 
+    /// <summary>Classifies simple receiver shapes that can skip broader text materialization.</summary>
+    /// <param name="receiverType">The receiver type syntax.</param>
+    /// <param name="shape">The simple receiver text when classified.</param>
+    /// <returns><see langword="true"/> when the receiver can be classified cheaply.</returns>
+    public static bool TryClassifyReceiverShape(TypeSyntax? receiverType, out string? shape)
+    {
+        switch (receiverType)
+        {
+            case PredefinedTypeSyntax predefined:
+            {
+                shape = predefined.Keyword.Text;
+                return true;
+            }
+
+            case IdentifierNameSyntax identifier:
+            {
+                shape = identifier.Identifier.ValueText;
+                return true;
+            }
+
+            default:
+            {
+                shape = null;
+                return false;
+            }
+        }
+    }
+
     /// <summary>Returns whether a receiver type is one that attaches extension members to every type.</summary>
     /// <param name="receiverType">The receiver type syntax.</param>
     /// <param name="receiverText">The display text used in the diagnostic message.</param>

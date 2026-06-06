@@ -17,6 +17,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class RecordAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The highest ASCII character for the specialized PascalCase fast path.</summary>
+    private const char LastAsciiChar = '\u007F';
+
     /// <summary>The default naming convention for record positional parameters.</summary>
     private const NamingConvention DefaultParameterConvention = NamingConvention.PascalCase;
 
@@ -39,6 +42,25 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeRecordClass(nodeContext, parameterConventionCache), SyntaxKind.RecordDeclaration);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeRecordStruct(nodeContext, parameterConventionCache), SyntaxKind.RecordStructDeclaration);
         });
+    }
+
+    /// <summary>Returns whether a record parameter name matches the specialized PascalCase fast path.</summary>
+    /// <param name="name">The candidate parameter name.</param>
+    /// <returns><see langword="true"/> when the name begins with an upper-case letter.</returns>
+    internal static bool IsPascalCaseFastPathCompliant(string name)
+    {
+        if (name.Length == 0)
+        {
+            return false;
+        }
+
+        var first = name[0];
+        if ((uint)(first - 'A') <= ('Z' - 'A'))
+        {
+            return true;
+        }
+
+        return first > LastAsciiChar && char.IsUpper(first);
     }
 
     /// <summary>Applies the record-class rules to a single record declaration.</summary>
@@ -104,13 +126,19 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         }
 
         var convention = parameterConventionCache.Get(context, record.SyntaxTree);
+        var usePascalCaseFastPath = convention == NamingConvention.PascalCase;
 
         var parameters = list.Parameters;
         for (var i = 0; i < parameters.Count; i++)
         {
             var parameter = parameters[i];
             var name = parameter.Identifier.ValueText;
-            if (name.Length == 0 || NamingHelper.IsAllUnderscores(name) || NamingConventions.Conforms(name, convention))
+            if (name.Length == 0 || NamingHelper.IsAllUnderscores(name))
+            {
+                continue;
+            }
+
+            if (usePascalCaseFastPath ? IsPascalCaseFastPathCompliant(name) : NamingConventions.Conforms(name, convention))
             {
                 continue;
             }

@@ -39,7 +39,14 @@ internal static class ExtensionBlockHelper
     /// <summary>Returns the textual receiver type for a receiver type syntax.</summary>
     /// <param name="receiverType">The receiver type syntax.</param>
     /// <returns>The receiver text, or <see langword="null"/> when absent.</returns>
-    public static string? ReceiverTypeText(TypeSyntax? receiverType) => receiverType?.ToString();
+    public static string? ReceiverTypeText(TypeSyntax? receiverType)
+        => receiverType switch
+        {
+            null => null,
+            PredefinedTypeSyntax predefined => predefined.Keyword.Text,
+            IdentifierNameSyntax identifier => identifier.Identifier.Text,
+            _ => receiverType.ToString(),
+        };
 
     /// <summary>Returns whether a receiver type is one that attaches extension members to every type.</summary>
     /// <param name="receiverType">The receiver type syntax.</param>

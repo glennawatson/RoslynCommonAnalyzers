@@ -44,7 +44,20 @@ internal static class UsingClassification
     /// <param name="directive">The using directive.</param>
     /// <returns>The sort key.</returns>
     public static string SortKey(UsingDirectiveSyntax directive)
-        => directive.Alias is { } alias ? alias.Name.Identifier.ValueText : directive.Name?.ToString() ?? string.Empty;
+    {
+        if (directive.Alias is { } alias)
+        {
+            return alias.Name.Identifier.ValueText;
+        }
+
+        var name = directive.Name;
+        if (name is IdentifierNameSyntax identifier)
+        {
+            return identifier.Identifier.ValueText;
+        }
+
+        return name?.ToString() ?? string.Empty;
+    }
 
     /// <summary>Compares two using directives by the canonical ordering.</summary>
     /// <param name="left">The first directive.</param>

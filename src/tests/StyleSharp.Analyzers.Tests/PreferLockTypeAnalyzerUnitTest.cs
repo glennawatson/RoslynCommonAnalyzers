@@ -81,6 +81,40 @@ public class PreferLockTypeAnalyzerUnitTest
         await VerifyNet90Async(Source, FixedSource);
     }
 
+    /// <summary>Verifies an explicitly qualified System.Object field is also reported and fixed.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task QualifiedObjectTypeReplacedAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private readonly System.Object {|SST1900:_gate|} = new();
+
+                                  public void M()
+                                  {
+                                      lock (_gate)
+                                      {
+                                      }
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       private readonly System.Threading.Lock _gate = new();
+
+                                       public void M()
+                                       {
+                                           lock (_gate)
+                                           {
+                                           }
+                                       }
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
     /// <summary>Verifies an object field used for anything other than locking is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

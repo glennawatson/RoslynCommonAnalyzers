@@ -57,7 +57,7 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
         }
 
         var candidates = GetCandidateFields(context.SemanticModel, type, context.CancellationToken);
-        if (candidates.Count == 0)
+        if (candidates is null || candidates.Count == 0)
         {
             return;
         }
@@ -86,8 +86,8 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
     private static bool IsCandidateLockField(FieldDeclarationSyntax field, out VariableDeclaratorSyntax? variable)
     {
         variable = null;
-        if (!ModifierListHelper.Contains(field.Modifiers, SyntaxKind.PrivateKeyword)
-            || !ModifierListHelper.Contains(field.Modifiers, SyntaxKind.ReadOnlyKeyword)
+        if (!IsObjectType(field.Declaration.Type)
+            || !HasPrivateReadonlyModifiers(field.Modifiers)
             || field.Declaration.Variables is not [var only]
             || only.Initializer is not { Value: { } initializer }
             || !IsParameterlessNew(initializer))
@@ -105,29 +105,71 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
     private static bool IsParameterlessNew(ExpressionSyntax expression) => expression switch
     {
         ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0, Initializer: null } => true,
-        ObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0, Initializer: null } creation => IsObjectKeyword(creation.Type),
+        ObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0, Initializer: null } creation => IsObjectType(creation.Type),
         _ => false,
     };
 
-    /// <summary>Returns whether a type syntax is the <c>object</c> keyword.</summary>
+    /// <summary>Returns whether a type syntax is one of the common spellings of <c>System.Object</c>.</summary>
     /// <param name="type">The type syntax.</param>
-    /// <returns><see langword="true"/> for the <c>object</c> predefined type.</returns>
-    private static bool IsObjectKeyword(TypeSyntax type)
-        => type is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword);
+    /// <returns><see langword="true"/> for a syntax shape that can name <c>System.Object</c>.</returns>
+    private static bool IsObjectType(TypeSyntax type)
+        => type switch
+        {
+            PredefinedTypeSyntax predefined when predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword) => true,
+            IdentifierNameSyntax { Identifier.ValueText: "Object" } => true,
+            QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } => IsSystemNamespace(left),
+            _ => false,
+        };
+
+    /// <summary>Returns whether a modifier list contains both <c>private</c> and <c>readonly</c>.</summary>
+    /// <param name="modifiers">The modifier list to inspect.</param>
+    /// <returns><see langword="true"/> when both required modifiers are present.</returns>
+    private static bool HasPrivateReadonlyModifiers(SyntaxTokenList modifiers)
+    {
+        var hasPrivate = false;
+        var hasReadonly = false;
+        for (var i = 0; i < modifiers.Count; i++)
+        {
+            switch (modifiers[i].Kind())
+            {
+                case SyntaxKind.PrivateKeyword:
+                {
+                    hasPrivate = true;
+                    break;
+                }
+
+                case SyntaxKind.ReadOnlyKeyword:
+                {
+                    hasReadonly = true;
+                    break;
+                }
+            }
+        }
+
+        return hasPrivate && hasReadonly;
+    }
+
+    /// <summary>Returns whether a name syntax denotes the <c>System</c> namespace.</summary>
+    /// <param name="name">The syntax to inspect.</param>
+    /// <returns><see langword="true"/> when the syntax denotes <c>System</c>.</returns>
+    private static bool IsSystemNamespace(NameSyntax name)
+        => name is IdentifierNameSyntax { Identifier.ValueText: "System" }
+            or AliasQualifiedNameSyntax { Alias.Identifier.ValueText: "global", Name.Identifier.ValueText: "System" };
 
     /// <summary>Returns whether every reference to the field within the type is a lock target (and there is at least one).</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="type">The declaring type.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The candidate fields keyed by simple field name.</returns>
-    private static Dictionary<string, CandidateFieldState> GetCandidateFields(
+    private static Dictionary<string, CandidateFieldState>? GetCandidateFields(
         SemanticModel model,
         TypeDeclarationSyntax type,
         CancellationToken cancellationToken)
     {
-        var candidates = new Dictionary<string, CandidateFieldState>(type.Members.Count, StringComparer.Ordinal);
-        foreach (var member in type.Members)
+        Dictionary<string, CandidateFieldState>? candidates = null;
+        for (var i = 0; i < type.Members.Count; i++)
         {
+            var member = type.Members[i];
             if (member is not FieldDeclarationSyntax field || !IsCandidateLockField(field, out var variable))
             {
                 continue;
@@ -138,6 +180,7 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
+            candidates ??= new Dictionary<string, CandidateFieldState>(type.Members.Count, StringComparer.Ordinal);
             candidates[variable!.Identifier.ValueText] = new(fieldSymbol, variable);
         }
 

@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Concurrent;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -37,31 +35,31 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(start =>
         {
-            var parameterConventions = new ConcurrentDictionary<SyntaxTree, NamingConvention>();
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeRecordClass(nodeContext, parameterConventions), SyntaxKind.RecordDeclaration);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeRecordStruct(nodeContext, parameterConventions), SyntaxKind.RecordStructDeclaration);
+            var parameterConventionCache = new ParameterConventionCache();
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeRecordClass(nodeContext, parameterConventionCache), SyntaxKind.RecordDeclaration);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeRecordStruct(nodeContext, parameterConventionCache), SyntaxKind.RecordStructDeclaration);
         });
     }
 
     /// <summary>Applies the record-class rules to a single record declaration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="parameterConventions">The per-tree positional-parameter convention cache.</param>
-    private static void AnalyzeRecordClass(SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, NamingConvention> parameterConventions)
+    /// <param name="parameterConventionCache">The per-tree positional-parameter convention cache.</param>
+    private static void AnalyzeRecordClass(SyntaxNodeAnalysisContext context, ParameterConventionCache parameterConventionCache)
     {
         var record = (RecordDeclarationSyntax)context.Node;
         CheckSealedClass(context, record);
-        CheckPositionalParameters(context, record, parameterConventions);
+        CheckPositionalParameters(context, record, parameterConventionCache);
         CheckProperties(context, record);
     }
 
     /// <summary>Applies the record-struct rules to a single record-struct declaration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="parameterConventions">The per-tree positional-parameter convention cache.</param>
-    private static void AnalyzeRecordStruct(SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, NamingConvention> parameterConventions)
+    /// <param name="parameterConventionCache">The per-tree positional-parameter convention cache.</param>
+    private static void AnalyzeRecordStruct(SyntaxNodeAnalysisContext context, ParameterConventionCache parameterConventionCache)
     {
         var record = (RecordDeclarationSyntax)context.Node;
         CheckReadonlyStruct(context, record);
-        CheckPositionalParameters(context, record, parameterConventions);
+        CheckPositionalParameters(context, record, parameterConventionCache);
         CheckProperties(context, record);
     }
 
@@ -94,21 +92,23 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SST1801 for positional parameters that do not match the configured casing.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="record">The record declaration.</param>
-    /// <param name="parameterConventions">The per-tree positional-parameter convention cache.</param>
+    /// <param name="parameterConventionCache">The per-tree positional-parameter convention cache.</param>
     private static void CheckPositionalParameters(
         SyntaxNodeAnalysisContext context,
         RecordDeclarationSyntax record,
-        ConcurrentDictionary<SyntaxTree, NamingConvention> parameterConventions)
+        ParameterConventionCache parameterConventionCache)
     {
         if (record.ParameterList is not { Parameters.Count: > 0 } list)
         {
             return;
         }
 
-        var convention = GetParameterConvention(context, parameterConventions, record.SyntaxTree);
+        var convention = parameterConventionCache.Get(context, record.SyntaxTree);
 
-        foreach (var parameter in list.Parameters)
+        var parameters = list.Parameters;
+        for (var i = 0; i < parameters.Count; i++)
         {
+            var parameter = parameters[i];
             var name = parameter.Identifier.ValueText;
             if (name.Length == 0 || NamingHelper.IsAllUnderscores(name) || NamingConventions.Conforms(name, convention))
             {
@@ -124,13 +124,21 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <param name="record">The record declaration.</param>
     private static void CheckProperties(SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
     {
-        foreach (var member in record.Members)
+        for (var i = 0; i < record.Members.Count; i++)
         {
-            if (member is PropertyDeclarationSyntax { AccessorList: { } accessors } property
-                && !ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword))
+            if (record.Members[i] is not PropertyDeclarationSyntax { AccessorList: { } accessorList } property
+                || ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword))
             {
-                ReportSetAccessor(context, property, accessors);
+                continue;
             }
+
+            var accessors = accessorList.Accessors;
+            if (accessors.Count == 2 && accessors[0].IsKind(SyntaxKind.GetAccessorDeclaration) && accessors[1].IsKind(SyntaxKind.InitAccessorDeclaration))
+            {
+                continue;
+            }
+
+            ReportSetAccessor(context, property, accessors);
         }
     }
 
@@ -138,39 +146,86 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="property">The property declaration.</param>
     /// <param name="accessors">The property's accessor list.</param>
-    private static void ReportSetAccessor(SyntaxNodeAnalysisContext context, PropertyDeclarationSyntax property, AccessorListSyntax accessors)
+    private static void ReportSetAccessor(
+        SyntaxNodeAnalysisContext context,
+        PropertyDeclarationSyntax property,
+        SyntaxList<AccessorDeclarationSyntax> accessors)
     {
-        foreach (var accessor in accessors.Accessors)
+        if (accessors.Count == 1)
         {
-            if (accessor.IsKind(SyntaxKind.SetAccessorDeclaration))
+            if (accessors[0].IsKind(SyntaxKind.SetAccessorDeclaration))
             {
-                context.ReportDiagnostic(DiagnosticHelper.Create(RecordRules.InitOnlyProperty, accessor.SyntaxTree, accessor.Keyword.Span, property.Identifier.ValueText));
+                ReportSetAccessor(context, property, accessors[0]);
+            }
+
+            return;
+        }
+
+        if (accessors.Count == 2)
+        {
+            if (accessors[0].IsKind(SyntaxKind.SetAccessorDeclaration))
+            {
+                ReportSetAccessor(context, property, accessors[0]);
+                return;
+            }
+
+            if (accessors[1].IsKind(SyntaxKind.SetAccessorDeclaration))
+            {
+                ReportSetAccessor(context, property, accessors[1]);
+                return;
+            }
+        }
+
+        for (var i = 0; i < accessors.Count; i++)
+        {
+            if (accessors[i].IsKind(SyntaxKind.SetAccessorDeclaration))
+            {
+                ReportSetAccessor(context, property, accessors[i]);
                 return;
             }
         }
     }
 
-    /// <summary>Resolves the positional-parameter naming convention for one syntax tree.</summary>
+    /// <summary>Reports SST1802 for one set accessor.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="parameterConventions">The shared per-tree cache.</param>
-    /// <param name="tree">The syntax tree being analyzed.</param>
-    /// <returns>The applicable naming convention.</returns>
-    private static NamingConvention GetParameterConvention(
+    /// <param name="property">The property declaration.</param>
+    /// <param name="accessor">The set accessor to flag.</param>
+    private static void ReportSetAccessor(
         SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, NamingConvention> parameterConventions,
-        SyntaxTree tree)
+        PropertyDeclarationSyntax property,
+        AccessorDeclarationSyntax accessor)
+        => context.ReportDiagnostic(DiagnosticHelper.Create(RecordRules.InitOnlyProperty, accessor.SyntaxTree, accessor.Keyword.Span, property.Identifier.ValueText));
+
+    /// <summary>Caches the most recent per-tree parameter convention for one compilation.</summary>
+    private sealed class ParameterConventionCache
     {
-        if (parameterConventions.TryGetValue(tree, out var convention))
+        /// <summary>The most recently resolved cache entry.</summary>
+        private CacheEntry? _last;
+
+        /// <summary>Resolves the positional-parameter naming convention for one syntax tree.</summary>
+        /// <param name="context">The syntax node analysis context.</param>
+        /// <param name="tree">The syntax tree being analyzed.</param>
+        /// <returns>The applicable naming convention.</returns>
+        public NamingConvention Get(SyntaxNodeAnalysisContext context, SyntaxTree tree)
         {
+            var entry = Volatile.Read(ref _last);
+            if (ReferenceEquals(entry?.Tree, tree))
+            {
+                return entry.Convention;
+            }
+
+            var convention = NamingConventions.Read(
+                context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree),
+                NamingConventions.RecordParameterSpecificKey,
+                NamingConventions.RecordParameterGeneralKey,
+                DefaultParameterConvention);
+            Volatile.Write(ref _last, new CacheEntry(tree, convention));
             return convention;
         }
 
-        convention = NamingConventions.Read(
-            context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree),
-            NamingConventions.RecordParameterSpecificKey,
-            NamingConventions.RecordParameterGeneralKey,
-            DefaultParameterConvention);
-        parameterConventions.TryAdd(tree, convention);
-        return convention;
+        /// <summary>Represents one cached tree/convention pair.</summary>
+        /// <param name="Tree">The syntax tree the convention was read from.</param>
+        /// <param name="Convention">The cached convention value.</param>
+        private sealed record CacheEntry(SyntaxTree Tree, NamingConvention Convention);
     }
 }

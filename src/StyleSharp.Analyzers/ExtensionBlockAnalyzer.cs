@@ -15,6 +15,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The block count at which duplicate tracking must cover more than the previous receiver.</summary>
+    private const int SecondExtensionCount = 2;
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
         ExtensionRules.EmptyExtensionBlock,
@@ -47,6 +50,8 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         var reportedContainerNaming = false;
         var sawExtension = false;
         var groupEnded = false;
+        var extensionCount = 0;
+        string? firstReceiver = null;
         string? previousReceiver = null;
         HashSet<string>? seenReceivers = null;
         for (var index = 0; index < members.Count; index++)
@@ -73,7 +78,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
             }
 
             sawExtension = true;
-            ProcessBlock(context, block, groupEnded, ref previousReceiver, ref seenReceivers);
+            ProcessBlock(context, block, groupEnded, ref extensionCount, ref firstReceiver, ref previousReceiver, ref seenReceivers);
         }
     }
 
@@ -81,12 +86,16 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="block">The extension block.</param>
     /// <param name="groupEnded">Whether a non-extension member already interrupted the block run.</param>
+    /// <param name="extensionCount">The number of extension blocks seen so far.</param>
+    /// <param name="firstReceiver">The receiver text of the first block in the container.</param>
     /// <param name="previousReceiver">The receiver type of the previous block (updated on return).</param>
     /// <param name="seenReceivers">The receiver types already seen in earlier blocks.</param>
     private static void ProcessBlock(
         SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax block,
         bool groupEnded,
+        ref int extensionCount,
+        ref string? firstReceiver,
         ref string? previousReceiver,
         ref HashSet<string>? seenReceivers)
     {
@@ -114,17 +123,109 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (previousReceiver is not null && string.CompareOrdinal(receiver, previousReceiver) < 0)
+        ReportOutOfOrderReceiver(context, block, extensionKeyword, receiver, previousReceiver);
+        if (TryHandleFirstReceivers(context, block, extensionKeyword, receiver, ref extensionCount, ref firstReceiver, ref previousReceiver))
         {
-            context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.OrderExtensionBlocks, block.SyntaxTree, extensionKeyword.Span));
+            return;
         }
 
-        seenReceivers ??= new(StringComparer.Ordinal);
-        if (!seenReceivers.Add(receiver))
+        seenReceivers ??= CreateSeenReceivers(firstReceiver!, previousReceiver!);
+        ReportDuplicateReceiver(context, block, extensionKeyword, receiver, seenReceivers);
+        previousReceiver = receiver;
+        extensionCount++;
+    }
+
+    /// <summary>Reports SST1707 when the current receiver sorts before the previous receiver.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="block">The extension block.</param>
+    /// <param name="extensionKeyword">The block's extension keyword.</param>
+    /// <param name="receiver">The current receiver text.</param>
+    /// <param name="previousReceiver">The previous receiver text, when any.</param>
+    private static void ReportOutOfOrderReceiver(
+        SyntaxNodeAnalysisContext context,
+        TypeDeclarationSyntax block,
+        SyntaxToken extensionKeyword,
+        string receiver,
+        string? previousReceiver)
+    {
+        if (previousReceiver is null || string.CompareOrdinal(receiver, previousReceiver) >= 0)
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.OrderExtensionBlocks, block.SyntaxTree, extensionKeyword.Span));
+    }
+
+    /// <summary>Handles the first and second receivers without allocating the seen-receiver set.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="block">The extension block.</param>
+    /// <param name="extensionKeyword">The block's extension keyword.</param>
+    /// <param name="receiver">The current receiver text.</param>
+    /// <param name="extensionCount">The number of extension blocks seen so far.</param>
+    /// <param name="firstReceiver">The first receiver text.</param>
+    /// <param name="previousReceiver">The previous receiver text.</param>
+    /// <returns><see langword="true"/> when the receiver was handled entirely.</returns>
+    private static bool TryHandleFirstReceivers(
+        SyntaxNodeAnalysisContext context,
+        TypeDeclarationSyntax block,
+        SyntaxToken extensionKeyword,
+        string receiver,
+        ref int extensionCount,
+        ref string? firstReceiver,
+        ref string? previousReceiver)
+    {
+        if (extensionCount > 1)
+        {
+            return false;
+        }
+
+        if (extensionCount == 0)
+        {
+            firstReceiver = receiver;
+            previousReceiver = receiver;
+            extensionCount = 1;
+            return true;
+        }
+
+        if (string.Equals(receiver, previousReceiver, StringComparison.Ordinal))
         {
             context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.CombineExtensionBlocks, block.SyntaxTree, extensionKeyword.Span, receiver));
         }
 
         previousReceiver = receiver;
+        extensionCount = SecondExtensionCount;
+        return true;
+    }
+
+    /// <summary>Creates the seen-receiver set once a third extension block is encountered.</summary>
+    /// <param name="firstReceiver">The first receiver text.</param>
+    /// <param name="previousReceiver">The most recently seen receiver text.</param>
+    /// <returns>The initialized receiver set.</returns>
+    private static HashSet<string> CreateSeenReceivers(string firstReceiver, string previousReceiver)
+        => new(StringComparer.Ordinal)
+        {
+            firstReceiver,
+            previousReceiver,
+        };
+
+    /// <summary>Reports SST1701 when the receiver type was already seen.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="block">The extension block.</param>
+    /// <param name="extensionKeyword">The block's extension keyword.</param>
+    /// <param name="receiver">The current receiver text.</param>
+    /// <param name="seenReceivers">The receiver types already seen.</param>
+    private static void ReportDuplicateReceiver(
+        SyntaxNodeAnalysisContext context,
+        TypeDeclarationSyntax block,
+        SyntaxToken extensionKeyword,
+        string receiver,
+        HashSet<string> seenReceivers)
+    {
+        if (seenReceivers.Add(receiver))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.CombineExtensionBlocks, block.SyntaxTree, extensionKeyword.Span, receiver));
     }
 }

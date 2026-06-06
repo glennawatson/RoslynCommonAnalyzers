@@ -50,21 +50,24 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
 
         if (context.Node is NamespaceDeclarationSyntax or FileScopedNamespaceDeclarationSyntax)
         {
-            foreach (var directive in usings)
+            for (var index = 0; index < usings.Count; index++)
             {
+                var directive = usings[index];
                 context.ReportDiagnostic(DiagnosticHelper.Create(OrderingRules.UsingDirectivesPlacement, directive.SyntaxTree, directive.Span));
             }
         }
 
-        var data = new UsingDirectiveData[usings.Count];
-        for (var index = 0; index < usings.Count; index++)
+        if (usings.Count == 1)
         {
-            data[index] = CreateDirectiveData(usings[index]);
+            return;
         }
 
-        for (var index = 1; index < data.Length; index++)
+        var previous = CreateDirectiveData(usings[0]);
+        for (var index = 1; index < usings.Count; index++)
         {
-            CheckPair(context, data[index - 1], data[index]);
+            var current = CreateDirectiveData(usings[index]);
+            CheckPair(context, previous, current);
+            previous = current;
         }
     }
 

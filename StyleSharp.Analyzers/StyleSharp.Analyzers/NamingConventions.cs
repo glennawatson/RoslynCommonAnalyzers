@@ -28,6 +28,12 @@ internal static class NamingConventions
     /// <summary>General editorconfig key for union member casing.</summary>
     public const string UnionMemberGeneralKey = "stylesharp.union_member_naming";
 
+    /// <summary>Rule-specific editorconfig key for positional record parameter casing (SST1801).</summary>
+    public const string RecordParameterSpecificKey = "stylesharp.SST1801.record_parameter_naming";
+
+    /// <summary>General editorconfig key for positional record parameter casing.</summary>
+    public const string RecordParameterGeneralKey = "stylesharp.record_parameter_naming";
+
     /// <summary>Reads a casing convention, preferring the rule-specific key over the general key.</summary>
     /// <param name="options">The analyzer config options for the relevant syntax tree.</param>
     /// <param name="specificKey">The rule-specific editorconfig key.</param>

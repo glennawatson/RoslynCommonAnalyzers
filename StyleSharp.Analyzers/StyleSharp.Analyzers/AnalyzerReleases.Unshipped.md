@@ -202,3 +202,7 @@ SST1704 | Extensions | Warning | ExtensionBlockAnalyzer
 SST1705 | Extensions | Warning | ExtensionBlockAnalyzer
 SST1706 | Extensions | Warning | ExtensionBlockAnalyzer
 SST1707 | Extensions | Disabled | ExtensionBlockAnalyzer
+SST1800 | Records | Disabled | RecordAnalyzer
+SST1801 | Records | Warning | RecordAnalyzer
+SST1802 | Records | Warning | RecordAnalyzer
+SST1803 | Records | Warning | RecordAnalyzer

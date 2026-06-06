@@ -122,6 +122,13 @@ internal static class MaintainabilityRules
         "Member '{0}' is public but its type is not externally visible; declare it internal",
         "A public member of a type that is not externally visible is misleading — its effective accessibility is limited by the type. Off by default — public-on-internal is a common habit.");
 
+    /// <summary>SST1418 — a binary expression is an operand of <c>??</c> without parentheses (StyleSharp original; extends SST1407/SST1408).</summary>
+    public static readonly DiagnosticDescriptor NullCoalescingPrecedence = Create(
+        "SST1418",
+        "Declare precedence when mixing the null-coalescing operator",
+        "Parenthesize this expression to make its precedence with '??' explicit",
+        "A binary expression used as an operand of the '??' operator is parenthesized so the precedence is explicit.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

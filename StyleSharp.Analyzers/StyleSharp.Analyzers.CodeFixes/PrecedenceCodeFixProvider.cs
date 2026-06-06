@@ -4,7 +4,7 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>Wraps an expression in parentheses to make its precedence explicit (SST1407, SST1408).</summary>
+/// <summary>Wraps an expression in parentheses to make its precedence explicit (SST1407, SST1408, SST1418).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(PrecedenceCodeFixProvider))]
 [Shared]
 public sealed class PrecedenceCodeFixProvider : CodeFixProvider
@@ -12,7 +12,8 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         MaintainabilityRules.ArithmeticPrecedence.Id,
-        MaintainabilityRules.ConditionalPrecedence.Id);
+        MaintainabilityRules.ConditionalPrecedence.Id,
+        MaintainabilityRules.NullCoalescingPrecedence.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;

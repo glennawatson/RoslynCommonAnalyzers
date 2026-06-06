@@ -27,7 +27,7 @@ internal static class FieldReferenceAnalysis
         variable = null;
         symbol = null;
         if (property.Parent is not TypeDeclarationSyntax type
-            || type.Modifiers.Any(SyntaxKind.PartialKeyword)
+            || ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword)
             || property.AccessorList is null)
         {
             return false;
@@ -62,8 +62,13 @@ internal static class FieldReferenceAnalysis
         CancellationToken cancellationToken)
     {
         var found = false;
-        foreach (var identifier in type.DescendantNodes().OfType<IdentifierNameSyntax>())
+        foreach (var node in type.DescendantNodes())
         {
+            if (node is not IdentifierNameSyntax identifier)
+            {
+                continue;
+            }
+
             if (identifier.Identifier.ValueText != field.Name
                 || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
             {
@@ -112,11 +117,13 @@ internal static class FieldReferenceAnalysis
     /// <param name="declaration">The field declaration.</param>
     /// <returns><see langword="true"/> when the field is eligible.</returns>
     private static bool IsEligible(IFieldSymbol candidate, FieldDeclarationSyntax declaration)
-        => !candidate.IsStatic
+    {
+        return !candidate.IsStatic
             && candidate.DeclaredAccessibility == Accessibility.Private
             && declaration.Declaration.Variables.Count == 1
             && declaration.AttributeLists.Count == 0
-            && !declaration.Modifiers.Any(SyntaxKind.VolatileKeyword);
+            && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.VolatileKeyword);
+    }
 
     /// <summary>Gets the single source declaration for a field symbol.</summary>
     /// <param name="candidate">The field symbol.</param>
@@ -154,8 +161,13 @@ internal static class FieldReferenceAnalysis
         PropertyDeclarationSyntax property,
         CancellationToken cancellationToken)
     {
-        foreach (var identifier in property.DescendantNodes().OfType<IdentifierNameSyntax>())
+        foreach (var node in property.DescendantNodes())
         {
+            if (node is not IdentifierNameSyntax identifier)
+            {
+                continue;
+            }
+
             if (model.GetSymbolInfo(identifier, cancellationToken).Symbol is IFieldSymbol field)
             {
                 return field;

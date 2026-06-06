@@ -70,7 +70,7 @@ public sealed class NoPublicOnInternalTypeAnalyzer : DiagnosticAnalyzer
     {
         for (SyntaxNode? node = type; node is BaseTypeDeclarationSyntax declaration; node = node.Parent)
         {
-            if (!declaration.Modifiers.Any(SyntaxKind.PublicKeyword))
+            if (!ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PublicKeyword))
             {
                 return false;
             }

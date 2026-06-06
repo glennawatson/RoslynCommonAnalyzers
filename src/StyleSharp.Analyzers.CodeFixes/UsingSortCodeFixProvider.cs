@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -82,14 +81,21 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
     private static async Task<Document> SortAsync(Document document, SyntaxNode container, CancellationToken cancellationToken)
     {
         var original = Usings(container);
-        var ordered = original.OrderBy(directive => directive, Comparer<UsingDirectiveSyntax>.Create(UsingClassification.Compare)).ToList();
-
-        var rebuilt = new List<UsingDirectiveSyntax>(ordered.Count);
-        for (var index = 0; index < ordered.Count; index++)
+        var comparer = Comparer<UsingDirectiveSyntax>.Create(UsingClassification.Compare);
+        var ordered = new UsingDirectiveSyntax[original.Count];
+        for (var i = 0; i < original.Count; i++)
         {
-            rebuilt.Add(ordered[index]
+            ordered[i] = original[i];
+        }
+
+        Array.Sort(ordered, comparer);
+
+        var rebuilt = new UsingDirectiveSyntax[ordered.Length];
+        for (var index = 0; index < ordered.Length; index++)
+        {
+            rebuilt[index] = ordered[index]
                 .WithLeadingTrivia(original[index].GetLeadingTrivia())
-                .WithTrailingTrivia(original[index].GetTrailingTrivia()));
+                .WithTrailingTrivia(original[index].GetTrailingTrivia());
         }
 
         var newContainer = WithUsings(container, SyntaxFactory.List(rebuilt));

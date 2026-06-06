@@ -60,7 +60,7 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        return (ThrowGuardPatterns.TryMatchRangeGuard(ifStatement, out var rangeMatch) && helpers.Range.Contains(rangeMatch.Helper))
+        return (ThrowGuardPatterns.TryMatchRangeGuard(ifStatement, out var rangeMatch) && HasRangeHelper(helpers.Range, rangeMatch.Helper))
             || (ThrowGuardPatterns.TryMatchStringGuard(ifStatement, out var guardMethod, out _) && IsStringGuardHelperAvailable(helpers, guardMethod!));
     }
 
@@ -111,7 +111,7 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         }
 
         if (ThrowGuardPatterns.TryMatchRangeGuard(ifStatement, out var rangeMatch)
-            && helpers.Range.Contains(rangeMatch.Helper))
+            && HasRangeHelper(helpers.Range, rangeMatch.Helper))
         {
             context.ReportDiagnostic(
                 Diagnostic.Create(
@@ -167,30 +167,78 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
     /// <param name="methodName">The method name to look for.</param>
     /// <returns><see langword="true"/> when the type exists and declares such a method.</returns>
     private static bool HasStaticMethod(Compilation compilation, string typeMetadataName, string methodName)
-        => compilation.GetTypeByMetadataName(typeMetadataName) is { } type
-            && type.GetMembers(methodName).Any(member => member is IMethodSymbol { IsStatic: true });
+    {
+        if (compilation.GetTypeByMetadataName(typeMetadataName) is not { } type)
+        {
+            return false;
+        }
+
+        var members = type.GetMembers(methodName);
+        for (var i = 0; i < members.Length; i++)
+        {
+            if (members[i] is IMethodSymbol { IsStatic: true })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Resolves the available out-of-range helper names once per compilation.</summary>
     /// <param name="compilation">The compilation.</param>
     /// <returns>The available helper names.</returns>
-    private static HashSet<string> ResolveRangeHelpers(Compilation compilation)
+    private static string[] ResolveRangeHelpers(Compilation compilation)
     {
-        var helpers = new HashSet<string>(StringComparer.Ordinal);
         if (compilation.GetTypeByMetadataName("System.ArgumentOutOfRangeException") is not { } type)
         {
-            return helpers;
+            return [];
         }
 
         var members = type.GetMembers();
+        var count = 0;
         for (var i = 0; i < members.Length; i++)
         {
             if (members[i] is IMethodSymbol { IsStatic: true, Name: var name } && name.StartsWith("ThrowIf", StringComparison.Ordinal))
             {
-                helpers.Add(name);
+                count++;
+            }
+        }
+
+        if (count == 0)
+        {
+            return [];
+        }
+
+        var helpers = new string[count];
+        var index = 0;
+        for (var i = 0; i < members.Length; i++)
+        {
+            if (members[i] is IMethodSymbol { IsStatic: true, Name: var name } && name.StartsWith("ThrowIf", StringComparison.Ordinal))
+            {
+                helpers[index] = name;
+                index++;
             }
         }
 
         return helpers;
+    }
+
+    /// <summary>Returns whether the resolved range-helper array contains the supplied helper name.</summary>
+    /// <param name="helpers">The resolved range-helper names.</param>
+    /// <param name="helper">The helper name to find.</param>
+    /// <returns><see langword="true"/> when the helper is available.</returns>
+    private static bool HasRangeHelper(string[] helpers, string helper)
+    {
+        for (var i = 0; i < helpers.Length; i++)
+        {
+            if (helpers[i] == helper)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether an if statement is inside a static member or static local function.</summary>
@@ -202,12 +250,12 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         {
             if (current is LocalFunctionStatementSyntax local)
             {
-                return local.Modifiers.Any(SyntaxKind.StaticKeyword);
+                return ModifierListHelper.Contains(local.Modifiers, SyntaxKind.StaticKeyword);
             }
 
             if (current is MemberDeclarationSyntax member)
             {
-                return member.Modifiers.Any(SyntaxKind.StaticKeyword);
+                return ModifierListHelper.Contains(member.Modifiers, SyntaxKind.StaticKeyword);
             }
         }
 
@@ -225,9 +273,9 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         bool ThrowIfNullOrEmpty,
         bool ThrowIfNullOrWhiteSpace,
         bool ThrowIfDisposed,
-        HashSet<string> Range)
+        string[] Range)
     {
         /// <summary>Gets a value indicating whether any guard helper is available.</summary>
-        public bool Any => ThrowIfNull || ThrowIfNullOrEmpty || ThrowIfNullOrWhiteSpace || ThrowIfDisposed || Range.Count > 0;
+        public bool Any => ThrowIfNull || ThrowIfNullOrEmpty || ThrowIfNullOrWhiteSpace || ThrowIfDisposed || Range.Length > 0;
     }
 }

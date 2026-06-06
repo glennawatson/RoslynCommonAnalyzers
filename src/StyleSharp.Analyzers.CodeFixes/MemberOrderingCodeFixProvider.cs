@@ -78,10 +78,49 @@ public sealed class MemberOrderingCodeFixProvider : CodeFixProvider
             return document;
         }
 
-        var reordered = members.RemoveAt(flaggedIndex).Insert(target, member);
+        var reordered = ReorderMembers(members, flaggedIndex, target);
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var newRoot = root!.ReplaceNode(type, type.WithMembers(reordered));
         return document.WithSyntaxRoot(newRoot);
+    }
+
+    /// <summary>Rebuilds the member list with one member moved to a new index.</summary>
+    /// <param name="members">The original members.</param>
+    /// <param name="sourceIndex">The member's current index.</param>
+    /// <param name="targetIndex">The index to move the member to.</param>
+    /// <returns>The reordered syntax list.</returns>
+    private static SyntaxList<MemberDeclarationSyntax> ReorderMembers(
+        SyntaxList<MemberDeclarationSyntax> members,
+        int sourceIndex,
+        int targetIndex)
+    {
+        var reordered = new MemberDeclarationSyntax[members.Count];
+        var moved = members[sourceIndex];
+        var destination = 0;
+
+        for (var index = 0; index < members.Count; index++)
+        {
+            if (destination == targetIndex)
+            {
+                reordered[destination] = moved;
+                destination++;
+            }
+
+            if (index == sourceIndex)
+            {
+                continue;
+            }
+
+            reordered[destination] = members[index];
+            destination++;
+        }
+
+        if (destination == targetIndex)
+        {
+            reordered[destination] = moved;
+        }
+
+        return SyntaxFactory.List(reordered);
     }
 
     /// <summary>Finds the first position before the flagged member that the member should sort ahead of.</summary>

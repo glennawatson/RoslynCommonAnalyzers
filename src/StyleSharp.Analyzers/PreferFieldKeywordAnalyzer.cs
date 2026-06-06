@@ -29,7 +29,7 @@ public sealed class PreferFieldKeywordAnalyzer : DiagnosticAnalyzer
         var property = (PropertyDeclarationSyntax)context.Node;
         if (property.SyntaxTree.Options is not CSharpParseOptions options
             || (int)options.LanguageVersion < CSharp14
-            || property.Modifiers.Any(SyntaxKind.StaticKeyword)
+            || ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword)
             || property.ExplicitInterfaceSpecifier is not null
             || !FieldReferenceAnalysis.TryFindSingleUseBackingField(
                 context.SemanticModel,

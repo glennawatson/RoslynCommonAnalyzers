@@ -13,16 +13,25 @@ internal static class CollectionExpressionHelper
     /// <summary>Resolves the conservative set of generic collection target definitions.</summary>
     /// <param name="compilation">The compilation.</param>
     /// <returns>The accepted target definitions.</returns>
-    public static HashSet<INamedTypeSymbol> ResolveTargets(Compilation compilation)
+    public static INamedTypeSymbol[] ResolveTargets(Compilation compilation)
     {
-        var targets = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-        Add(compilation, targets, "System.Collections.Generic.List`1");
-        Add(compilation, targets, "System.Collections.Generic.IList`1");
-        Add(compilation, targets, "System.Collections.Generic.IEnumerable`1");
-        Add(compilation, targets, "System.Collections.Generic.IReadOnlyList`1");
-        Add(compilation, targets, "System.Collections.Generic.ICollection`1");
-        Add(compilation, targets, "System.Collections.Generic.IReadOnlyCollection`1");
-        return targets;
+        var targets = new INamedTypeSymbol[6];
+        var count = 0;
+        Add(compilation, targets, ref count, "System.Collections.Generic.List`1");
+        Add(compilation, targets, ref count, "System.Collections.Generic.IList`1");
+        Add(compilation, targets, ref count, "System.Collections.Generic.IEnumerable`1");
+        Add(compilation, targets, ref count, "System.Collections.Generic.IReadOnlyList`1");
+        Add(compilation, targets, ref count, "System.Collections.Generic.ICollection`1");
+        Add(compilation, targets, ref count, "System.Collections.Generic.IReadOnlyCollection`1");
+
+        if (count == targets.Length)
+        {
+            return targets;
+        }
+
+        var resized = new INamedTypeSymbol[count];
+        Array.Copy(targets, resized, count);
+        return resized;
     }
 
     /// <summary>Returns whether collection expressions are enabled for the syntax tree.</summary>
@@ -39,7 +48,7 @@ internal static class CollectionExpressionHelper
     public static bool HasAcceptedTarget(
         SyntaxNodeAnalysisContext context,
         ExpressionSyntax expression,
-        HashSet<INamedTypeSymbol> targets)
+        INamedTypeSymbol[] targets)
     {
         if (!HasExplicitTarget(expression))
         {
@@ -48,7 +57,7 @@ internal static class CollectionExpressionHelper
 
         var converted = context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).ConvertedType;
         return converted is IArrayTypeSymbol { Rank: 1 }
-            || (converted is INamedTypeSymbol named && targets.Contains(named.OriginalDefinition));
+            || (converted is INamedTypeSymbol named && ContainsTarget(targets, named.OriginalDefinition));
     }
 
     /// <summary>Returns whether an expression appears in a context with an explicit target type.</summary>
@@ -70,14 +79,33 @@ internal static class CollectionExpressionHelper
     /// <summary>Adds a well-known target definition when it exists.</summary>
     /// <param name="compilation">The compilation.</param>
     /// <param name="targets">The target set.</param>
+    /// <param name="count">The number of populated targets in <paramref name="targets"/>.</param>
     /// <param name="metadataName">The metadata name.</param>
-    private static void Add(Compilation compilation, HashSet<INamedTypeSymbol> targets, string metadataName)
+    private static void Add(Compilation compilation, INamedTypeSymbol[] targets, ref int count, string metadataName)
     {
         if (compilation.GetTypeByMetadataName(metadataName) is not { } type)
         {
             return;
         }
 
-        targets.Add(type);
+        targets[count] = type;
+        count++;
+    }
+
+    /// <summary>Returns whether the accepted target array contains the supplied original definition.</summary>
+    /// <param name="targets">The accepted target definitions.</param>
+    /// <param name="candidate">The candidate original definition.</param>
+    /// <returns><see langword="true"/> when the candidate is accepted.</returns>
+    private static bool ContainsTarget(INamedTypeSymbol[] targets, INamedTypeSymbol candidate)
+    {
+        for (var i = 0; i < targets.Length; i++)
+        {
+            if (SymbolEqualityComparer.Default.Equals(targets[i], candidate))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

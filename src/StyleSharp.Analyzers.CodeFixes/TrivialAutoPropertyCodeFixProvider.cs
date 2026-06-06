@@ -86,11 +86,11 @@ public sealed class TrivialAutoPropertyCodeFixProvider : CodeFixProvider
         changed = changed.ReplaceNode(trackedProperty, updated);
         var trackedField = changed.GetCurrentNode(field)!;
         changed = changed.RemoveNode(trackedField, SyntaxRemoveOptions.KeepNoTrivia)!;
-        var currentProperty = changed.GetAnnotatedNodes(annotation).OfType<PropertyDeclarationSyntax>().Single();
+        var currentProperty = CodeFixTriviaHelper.GetSingleAnnotatedProperty(changed, annotation);
         var previousToken = currentProperty.GetFirstToken().GetPreviousToken();
         var leadingTrivia = previousToken.TrailingTrivia.AddRange(currentProperty.GetLeadingTrivia());
         changed = changed.ReplaceToken(previousToken, previousToken.WithTrailingTrivia(default(SyntaxTriviaList)));
-        currentProperty = changed.GetAnnotatedNodes(annotation).OfType<PropertyDeclarationSyntax>().Single();
+        currentProperty = CodeFixTriviaHelper.GetSingleAnnotatedProperty(changed, annotation);
         var normalizedProperty = currentProperty.WithLeadingTrivia(CodeFixTriviaHelper.CollapseLeadingBlankLine(leadingTrivia));
         return document.WithSyntaxRoot(changed.ReplaceNode(currentProperty, normalizedProperty));
     }

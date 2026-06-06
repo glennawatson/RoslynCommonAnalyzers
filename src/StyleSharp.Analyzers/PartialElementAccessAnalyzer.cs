@@ -38,7 +38,7 @@ public sealed class PartialElementAccessAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var member = (MemberDeclarationSyntax)context.Node;
-        if (!member.Modifiers.Any(SyntaxKind.PartialKeyword) || ModifierOrdering.HasAccess(member.Modifiers))
+        if (!ModifierListHelper.Contains(member.Modifiers, SyntaxKind.PartialKeyword) || ModifierOrdering.HasAccess(member.Modifiers))
         {
             return;
         }

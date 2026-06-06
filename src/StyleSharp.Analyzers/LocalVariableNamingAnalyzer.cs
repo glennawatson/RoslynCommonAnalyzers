@@ -26,7 +26,7 @@ public sealed class LocalVariableNamingAnalyzer : DiagnosticAnalyzer
     {
         switch (context.Node)
         {
-            case LocalDeclarationStatementSyntax local when !local.Modifiers.Any(SyntaxKind.ConstKeyword):
+            case LocalDeclarationStatementSyntax local when !ModifierListHelper.Contains(local.Modifiers, SyntaxKind.ConstKeyword):
             {
                 foreach (var variable in local.Declaration.Variables)
                 {

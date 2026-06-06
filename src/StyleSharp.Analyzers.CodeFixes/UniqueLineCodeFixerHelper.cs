@@ -47,7 +47,8 @@ internal static class UniqueLineCodeFixerHelper
 
         // Bail out unless the entries actually span more than one line.
         var startLine = node.GetLocation().GetLineSpan().StartLinePosition.Line;
-        if (list.Value.Count <= 1 || list.Value.All(p => p.GetLocation().GetLineSpan().StartLinePosition.Line == startLine))
+        var entries = list.Value;
+        if (entries.Count <= 1 || AllOnLine(entries, startLine))
         {
             return null;
         }
@@ -56,13 +57,8 @@ internal static class UniqueLineCodeFixerHelper
 
         // Indent each entry one level deeper than the owning declaration/expression.
         var leadingSpaces = GetLeadingSpaces(node) + 4;
-        var indentedEntries = list.Value
-            .Select(a => a.WithLeadingTrivia(SyntaxFactory.Whitespace(new(' ', leadingSpaces))))
-            .ToList();
-
-        var separators = Enumerable.Repeat(
-            SyntaxFactory.Token(SyntaxKind.CommaToken).WithTrailingTrivia(endOfLine),
-            indentedEntries.Count - 1);
+        var indentedEntries = IndentEntries(entries, leadingSpaces);
+        var separators = CreateSeparators(indentedEntries.Length, endOfLine);
 
         return addParameters(node, SyntaxFactory.SeparatedList(indentedEntries, separators));
     }
@@ -76,7 +72,7 @@ internal static class UniqueLineCodeFixerHelper
         where TParam : SyntaxNode
     {
         var startLine = ownerNode.GetLocation().GetLineSpan().StartLinePosition.Line;
-        if (list.Count <= 1 || list.All(p => p.GetLocation().GetLineSpan().StartLinePosition.Line == startLine))
+        if (list.Count <= 1 || AllOnLine(list, startLine))
         {
             return null;
         }
@@ -84,13 +80,8 @@ internal static class UniqueLineCodeFixerHelper
         var endOfLine = GetEndOfLine(ownerNode, elastic: false);
 
         var leadingSpaces = GetLeadingSpaces(ownerNode) + 4;
-        var indentedEntries = list
-            .Select(a => a.WithLeadingTrivia(SyntaxFactory.Whitespace(new(' ', leadingSpaces))))
-            .ToList();
-
-        var separators = Enumerable.Repeat(
-            SyntaxFactory.Token(SyntaxKind.CommaToken).WithTrailingTrivia(endOfLine),
-            indentedEntries.Count - 1);
+        var indentedEntries = IndentEntries(list, leadingSpaces);
+        var separators = CreateSeparators(indentedEntries.Length, endOfLine);
 
         return SyntaxFactory.SeparatedList(indentedEntries, separators);
     }
@@ -108,6 +99,69 @@ internal static class UniqueLineCodeFixerHelper
         var lineSpan = node.GetLocation().GetLineSpan();
         var lineText = tree.GetText().Lines[lineSpan.StartLinePosition.Line].ToString();
 
-        return lineText.TakeWhile(char.IsWhiteSpace).Count();
+        var count = 0;
+        while (count < lineText.Length && char.IsWhiteSpace(lineText[count]))
+        {
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>Returns whether every entry in a separated list begins on <paramref name="startLine"/>.</summary>
+    /// <typeparam name="TParam">The list entry type.</typeparam>
+    /// <param name="list">The separated list to inspect.</param>
+    /// <param name="startLine">The line to compare against.</param>
+    /// <returns><see langword="true"/> when every entry starts on the same line.</returns>
+    private static bool AllOnLine<TParam>(SeparatedSyntaxList<TParam> list, int startLine)
+        where TParam : SyntaxNode
+    {
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (list[i].GetLocation().GetLineSpan().StartLinePosition.Line != startLine)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Clones list entries with normalized indentation.</summary>
+    /// <typeparam name="TParam">The list entry type.</typeparam>
+    /// <param name="list">The separated list to indent.</param>
+    /// <param name="leadingSpaces">The number of leading spaces to apply.</param>
+    /// <returns>An array containing the indented entries.</returns>
+    private static TParam[] IndentEntries<TParam>(SeparatedSyntaxList<TParam> list, int leadingSpaces)
+        where TParam : SyntaxNode
+    {
+        var indentedEntries = new TParam[list.Count];
+        var trivia = SyntaxFactory.Whitespace(new string(' ', leadingSpaces));
+        for (var i = 0; i < list.Count; i++)
+        {
+            indentedEntries[i] = list[i].WithLeadingTrivia(trivia);
+        }
+
+        return indentedEntries;
+    }
+
+    /// <summary>Creates comma separators that preserve the owner's line-ending convention.</summary>
+    /// <param name="entryCount">The number of entries in the separated list.</param>
+    /// <param name="endOfLine">The end-of-line trivia to apply after each comma.</param>
+    /// <returns>An array of separators sized for the entry count.</returns>
+    private static SyntaxToken[] CreateSeparators(int entryCount, SyntaxTrivia endOfLine)
+    {
+        if (entryCount <= 1)
+        {
+            return [];
+        }
+
+        var separators = new SyntaxToken[entryCount - 1];
+        for (var i = 0; i < separators.Length; i++)
+        {
+            separators[i] = SyntaxFactory.Token(SyntaxKind.CommaToken).WithTrailingTrivia(endOfLine);
+        }
+
+        return separators;
     }
 }

@@ -47,7 +47,7 @@ public sealed class ExplicitCollectionExpressionAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports an accepted explicit collection creation.</summary>
     /// <param name="context">The syntax context.</param>
     /// <param name="targets">The accepted target definitions.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, HashSet<INamedTypeSymbol> targets)
+    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol[] targets)
     {
         if (context.Node is not ExpressionSyntax expression
             || !CollectionExpressionHelper.IsLanguageSupported(expression)

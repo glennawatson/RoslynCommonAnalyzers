@@ -91,9 +91,16 @@ public sealed class PreferFieldKeywordCodeFixProvider : CodeFixProvider
         IFieldSymbol symbol,
         CancellationToken cancellationToken)
     {
-        var references = property.DescendantNodes()
-            .OfType<IdentifierNameSyntax>()
-            .Where(node => SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(node, cancellationToken).Symbol, symbol));
+        var references = new List<IdentifierNameSyntax>(4);
+        foreach (var node in property.DescendantNodes())
+        {
+            if (node is IdentifierNameSyntax identifier
+                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, symbol))
+            {
+                references.Add(identifier);
+            }
+        }
+
         var updated = property.ReplaceNodes(
             references,
             (_, rewritten) => CreateFieldExpression().WithTriviaFrom(rewritten));
@@ -110,11 +117,11 @@ public sealed class PreferFieldKeywordCodeFixProvider : CodeFixProvider
         changed = changed.ReplaceNode(trackedProperty, updated);
         var trackedField = changed.GetCurrentNode(field)!;
         changed = changed.RemoveNode(trackedField, SyntaxRemoveOptions.KeepNoTrivia)!;
-        var currentProperty = changed.GetAnnotatedNodes(annotation).OfType<PropertyDeclarationSyntax>().Single();
+        var currentProperty = CodeFixTriviaHelper.GetSingleAnnotatedProperty(changed, annotation);
         var previousToken = currentProperty.GetFirstToken().GetPreviousToken();
         var leadingTrivia = previousToken.TrailingTrivia.AddRange(currentProperty.GetLeadingTrivia());
         changed = changed.ReplaceToken(previousToken, previousToken.WithTrailingTrivia(default(SyntaxTriviaList)));
-        currentProperty = changed.GetAnnotatedNodes(annotation).OfType<PropertyDeclarationSyntax>().Single();
+        currentProperty = CodeFixTriviaHelper.GetSingleAnnotatedProperty(changed, annotation);
         var normalizedProperty = currentProperty.WithLeadingTrivia(CodeFixTriviaHelper.CollapseLeadingBlankLine(leadingTrivia));
         return changed.ReplaceNode(currentProperty, normalizedProperty);
     }

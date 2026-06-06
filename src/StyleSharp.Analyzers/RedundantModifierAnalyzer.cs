@@ -60,12 +60,13 @@ public sealed class RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the modifier is redundant.</returns>
     private static bool IsRedundantSealed(MemberDeclarationSyntax declaration)
     {
-        if (!declaration.Modifiers.Any(SyntaxKind.OverrideKeyword))
+        if (!ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.OverrideKeyword))
         {
             return declaration is not BaseTypeDeclarationSyntax;
         }
 
-        return declaration.FirstAncestorOrSelf<TypeDeclarationSyntax>()?.Modifiers.Any(SyntaxKind.SealedKeyword) == true;
+        return declaration.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } type
+            && ModifierListHelper.Contains(type.Modifiers, SyntaxKind.SealedKeyword);
     }
 
     /// <summary>Returns whether a partial declaration has no matching part.</summary>

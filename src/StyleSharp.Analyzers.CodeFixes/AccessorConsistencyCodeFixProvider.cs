@@ -15,6 +15,9 @@ namespace StyleSharp.Analyzers;
 [Shared]
 public sealed class AccessorConsistencyCodeFixProvider : CodeFixProvider
 {
+    /// <summary>The fixed brace/open-close edits added when expanding one single-line block accessor.</summary>
+    private const int BlockExpansionBaseChanges = 2;
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.AccessorLineConsistency.Id);
 
@@ -55,7 +58,7 @@ public sealed class AccessorConsistencyCodeFixProvider : CodeFixProvider
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var newLine = LayoutFixHelpers.DetectNewLine(text);
-        var changes = new List<TextChange>();
+        var changes = new List<TextChange>(EstimatedChangeCapacity(list));
 
         foreach (var accessor in list.Accessors)
         {
@@ -72,5 +75,22 @@ public sealed class AccessorConsistencyCodeFixProvider : CodeFixProvider
         }
 
         return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
+    }
+
+    /// <summary>Estimates the number of text changes needed to expand single-line block accessors.</summary>
+    /// <param name="list">The accessor list to inspect.</param>
+    /// <returns>A conservative initial capacity for the change list.</returns>
+    private static int EstimatedChangeCapacity(AccessorListSyntax list)
+    {
+        var capacity = 0;
+        for (var i = 0; i < list.Accessors.Count; i++)
+        {
+            if (list.Accessors[i].Body is { } body)
+            {
+                capacity += body.Statements.Count + BlockExpansionBaseChanges;
+            }
+        }
+
+        return capacity;
     }
 }

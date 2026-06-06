@@ -125,7 +125,7 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
         TypeDeclarationSyntax type,
         CancellationToken cancellationToken)
     {
-        var candidates = new Dictionary<string, CandidateFieldState>(StringComparer.Ordinal);
+        var candidates = new Dictionary<string, CandidateFieldState>(type.Members.Count, StringComparer.Ordinal);
         foreach (var member in type.Members)
         {
             if (member is not FieldDeclarationSyntax field || !IsCandidateLockField(field, out var variable))

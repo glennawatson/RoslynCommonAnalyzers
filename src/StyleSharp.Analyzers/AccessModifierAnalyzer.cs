@@ -65,11 +65,9 @@ public sealed class AccessModifierAnalyzer : DiagnosticAnalyzer
     /// <param name="modifiers">The declaration modifiers.</param>
     /// <returns><see langword="true"/> when an access modifier is present.</returns>
     private static bool HasAccessModifier(SyntaxTokenList modifiers)
-        => modifiers.Any(SyntaxKind.PublicKeyword)
-            || modifiers.Any(SyntaxKind.PrivateKeyword)
-            || modifiers.Any(SyntaxKind.ProtectedKeyword)
-            || modifiers.Any(SyntaxKind.InternalKeyword)
-            || modifiers.Any(SyntaxKind.FileKeyword);
+        => ModifierListHelper.ContainsEither(modifiers, SyntaxKind.PublicKeyword, SyntaxKind.PrivateKeyword)
+            || ModifierListHelper.ContainsEither(modifiers, SyntaxKind.ProtectedKeyword, SyntaxKind.InternalKeyword)
+            || ModifierListHelper.Contains(modifiers, SyntaxKind.FileKeyword);
 
     /// <summary>Returns whether an access modifier may and should be declared on the member.</summary>
     /// <param name="member">The member declaration.</param>
@@ -83,8 +81,8 @@ public sealed class AccessModifierAnalyzer : DiagnosticAnalyzer
 
         return member switch
         {
-            ConstructorDeclarationSyntax constructor => !constructor.Modifiers.Any(SyntaxKind.StaticKeyword),
-            MethodDeclarationSyntax method => method.ExplicitInterfaceSpecifier is null && !method.Modifiers.Any(SyntaxKind.PartialKeyword),
+            ConstructorDeclarationSyntax constructor => !ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword),
+            MethodDeclarationSyntax method => method.ExplicitInterfaceSpecifier is null && !ModifierListHelper.Contains(method.Modifiers, SyntaxKind.PartialKeyword),
             PropertyDeclarationSyntax property => property.ExplicitInterfaceSpecifier is null,
             EventDeclarationSyntax @event => @event.ExplicitInterfaceSpecifier is null,
             IndexerDeclarationSyntax indexer => indexer.ExplicitInterfaceSpecifier is null,

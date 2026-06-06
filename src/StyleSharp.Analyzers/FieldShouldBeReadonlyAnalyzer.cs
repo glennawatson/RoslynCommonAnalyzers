@@ -26,7 +26,7 @@ public sealed class FieldShouldBeReadonlyAnalyzer : DiagnosticAnalyzer
         var declaration = (FieldDeclarationSyntax)context.Node;
         if (!IsCandidate(declaration)
             || declaration.Parent is not TypeDeclarationSyntax type
-            || type.Modifiers.Any(SyntaxKind.PartialKeyword))
+            || ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword))
         {
             return;
         }
@@ -49,11 +49,13 @@ public sealed class FieldShouldBeReadonlyAnalyzer : DiagnosticAnalyzer
     /// <param name="declaration">The field declaration.</param>
     /// <returns><see langword="true"/> when eligible.</returns>
     private static bool IsCandidate(FieldDeclarationSyntax declaration)
-        => declaration.Modifiers.Any(SyntaxKind.PrivateKeyword)
-            && !declaration.Modifiers.Any(SyntaxKind.StaticKeyword)
-            && !declaration.Modifiers.Any(SyntaxKind.ReadOnlyKeyword)
-            && !declaration.Modifiers.Any(SyntaxKind.ConstKeyword)
-            && !declaration.Modifiers.Any(SyntaxKind.VolatileKeyword);
+    {
+        return ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PrivateKeyword)
+            && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.StaticKeyword)
+            && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.ReadOnlyKeyword)
+            && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.ConstKeyword)
+            && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.VolatileKeyword);
+    }
 
     /// <summary>Returns whether a field is written outside an instance constructor.</summary>
     /// <param name="model">The semantic model.</param>
@@ -67,8 +69,13 @@ public sealed class FieldShouldBeReadonlyAnalyzer : DiagnosticAnalyzer
         IFieldSymbol field,
         CancellationToken cancellationToken)
     {
-        foreach (var identifier in type.DescendantNodes().OfType<IdentifierNameSyntax>())
+        foreach (var node in type.DescendantNodes())
         {
+            if (node is not IdentifierNameSyntax identifier)
+            {
+                continue;
+            }
+
             if (identifier.Identifier.ValueText != field.Name
                 || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field)
                 || !FieldReferenceAnalysis.IsWrite(identifier))

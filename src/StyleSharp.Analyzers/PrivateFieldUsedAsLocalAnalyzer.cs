@@ -54,11 +54,11 @@ public sealed class PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
         method = null;
         if (declaration.Declaration.Variables is not [var candidate]
             || candidate.Initializer is not null
-            || !declaration.Modifiers.Any(SyntaxKind.PrivateKeyword)
-            || declaration.Modifiers.Any(SyntaxKind.StaticKeyword)
+            || !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PrivateKeyword)
+            || ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.StaticKeyword)
             || declaration.AttributeLists.Count > 0
             || declaration.Parent is not TypeDeclarationSyntax type
-            || type.Modifiers.Any(SyntaxKind.PartialKeyword)
+            || ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword)
             || context.SemanticModel.GetDeclaredSymbol(candidate, context.CancellationToken) is not IFieldSymbol symbol
             || !TryGetSingleMethod(context.SemanticModel, type, symbol, context.CancellationToken, out method))
         {
@@ -86,8 +86,13 @@ public sealed class PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
     {
         method = null;
         var methodStart = -1;
-        foreach (var identifier in type.DescendantNodes().OfType<IdentifierNameSyntax>())
+        foreach (var node in type.DescendantNodes())
         {
+            if (node is not IdentifierNameSyntax identifier)
+            {
+                continue;
+            }
+
             if (identifier.Identifier.ValueText != field.Name
                 || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
             {

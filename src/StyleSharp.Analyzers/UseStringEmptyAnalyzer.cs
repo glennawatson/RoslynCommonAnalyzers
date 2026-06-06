@@ -54,9 +54,9 @@ public sealed class UseStringEmptyAnalyzer : DiagnosticAnalyzer
                 case EnumMemberDeclarationSyntax:
                     return true;
                 case FieldDeclarationSyntax field:
-                    return field.Modifiers.Any(SyntaxKind.ConstKeyword);
+                    return ModifierListHelper.Contains(field.Modifiers, SyntaxKind.ConstKeyword);
                 case LocalDeclarationStatementSyntax local:
-                    return local.Modifiers.Any(SyntaxKind.ConstKeyword);
+                    return ModifierListHelper.Contains(local.Modifiers, SyntaxKind.ConstKeyword);
                 case StatementSyntax:
                 case MemberDeclarationSyntax:
                     return false;

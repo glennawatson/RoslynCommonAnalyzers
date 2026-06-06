@@ -132,15 +132,15 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         }
 
         var modifiers = member.Modifiers;
-        var isConst = modifiers.Any(SyntaxKind.ConstKeyword);
-        var isStatic = isConst || modifiers.Any(SyntaxKind.StaticKeyword);
+        var isConst = ModifierListHelper.Contains(modifiers, SyntaxKind.ConstKeyword);
+        var isStatic = isConst || ModifierListHelper.Contains(modifiers, SyntaxKind.StaticKeyword);
 
         return new MemberOrder(
             kind,
             AccessRank(modifiers, member.Parent is InterfaceDeclarationSyntax),
             isConst ? 0 : 1,
             isStatic ? 0 : 1,
-            modifiers.Any(SyntaxKind.ReadOnlyKeyword) ? 0 : 1);
+            ModifierListHelper.Contains(modifiers, SyntaxKind.ReadOnlyKeyword) ? 0 : 1);
     }
 
     /// <summary>Resolves the <c>IUnion</c> marker interface in a compilation, or <see langword="null"/> when no unions are present.</summary>
@@ -281,11 +281,11 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <returns>The accessibility rank (most accessible first).</returns>
     private static int AccessRank(SyntaxTokenList modifiers, bool inInterface)
     {
-        var isProtected = modifiers.Any(SyntaxKind.ProtectedKeyword);
-        var isInternal = modifiers.Any(SyntaxKind.InternalKeyword);
-        var isPrivate = modifiers.Any(SyntaxKind.PrivateKeyword);
+        var isProtected = ModifierListHelper.Contains(modifiers, SyntaxKind.ProtectedKeyword);
+        var isInternal = ModifierListHelper.Contains(modifiers, SyntaxKind.InternalKeyword);
+        var isPrivate = ModifierListHelper.Contains(modifiers, SyntaxKind.PrivateKeyword);
 
-        if (modifiers.Any(SyntaxKind.PublicKeyword))
+        if (ModifierListHelper.Contains(modifiers, SyntaxKind.PublicKeyword))
         {
             return PublicAccess;
         }

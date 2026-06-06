@@ -21,15 +21,14 @@ internal readonly record struct FieldClassification(bool IsConst, bool IsStatic,
     {
         // `private protected` keeps both keywords but is treated as private; a
         // field with no access modifier is private by default.
-        var hasOtherAccess = modifiers.Any(SyntaxKind.PublicKeyword)
-            || modifiers.Any(SyntaxKind.InternalKeyword)
-            || modifiers.Any(SyntaxKind.ProtectedKeyword);
-        var isPrivate = modifiers.Any(SyntaxKind.PrivateKeyword) || !hasOtherAccess;
+        var hasOtherAccess = ModifierListHelper.ContainsEither(modifiers, SyntaxKind.PublicKeyword, SyntaxKind.InternalKeyword)
+            || ModifierListHelper.Contains(modifiers, SyntaxKind.ProtectedKeyword);
+        var isPrivate = ModifierListHelper.Contains(modifiers, SyntaxKind.PrivateKeyword) || !hasOtherAccess;
 
         return new(
-            modifiers.Any(SyntaxKind.ConstKeyword),
-            modifiers.Any(SyntaxKind.StaticKeyword),
-            modifiers.Any(SyntaxKind.ReadOnlyKeyword),
+            ModifierListHelper.Contains(modifiers, SyntaxKind.ConstKeyword),
+            ModifierListHelper.Contains(modifiers, SyntaxKind.StaticKeyword),
+            ModifierListHelper.Contains(modifiers, SyntaxKind.ReadOnlyKeyword),
             isPrivate);
     }
 }

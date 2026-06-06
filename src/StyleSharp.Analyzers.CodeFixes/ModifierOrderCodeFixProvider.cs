@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -55,7 +54,13 @@ public sealed class ModifierOrderCodeFixProvider : CodeFixProvider
     private static async Task<Document> ReorderAsync(Document document, SyntaxNode node, CancellationToken cancellationToken)
     {
         var modifiers = ModifierOrdering.Modifiers(node);
-        var sorted = modifiers.OrderBy(ModifierOrdering.Rank).ThenBy(ModifierOrdering.AccessRank).ToList();
+        var sorted = new SyntaxToken[modifiers.Count];
+        for (var i = 0; i < modifiers.Count; i++)
+        {
+            sorted[i] = modifiers[i];
+        }
+
+        Array.Sort(sorted, CompareModifiers);
 
         var replacements = new Dictionary<int, SyntaxToken>(modifiers.Count);
         for (var index = 0; index < modifiers.Count; index++)
@@ -68,5 +73,15 @@ public sealed class ModifierOrderCodeFixProvider : CodeFixProvider
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var newRoot = root!.ReplaceTokens(modifiers, (original, _) => replacements[original.SpanStart]);
         return document.WithSyntaxRoot(newRoot);
+    }
+
+    /// <summary>Compares two modifiers by declaration rank, then access rank for ties.</summary>
+    /// <param name="left">The left modifier token.</param>
+    /// <param name="right">The right modifier token.</param>
+    /// <returns>A negative value when <paramref name="left"/> sorts first, positive when last, zero when equal.</returns>
+    private static int CompareModifiers(SyntaxToken left, SyntaxToken right)
+    {
+        var rankDifference = ModifierOrdering.Rank(left) - ModifierOrdering.Rank(right);
+        return rankDifference != 0 ? rankDifference : ModifierOrdering.AccessRank(left) - ModifierOrdering.AccessRank(right);
     }
 }

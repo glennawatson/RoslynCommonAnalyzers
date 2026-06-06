@@ -26,8 +26,7 @@ public sealed class WriteOnlyPropertyAnalyzer : DiagnosticAnalyzer
         var property = (PropertyDeclarationSyntax)context.Node;
         if (property.AccessorList is not { } accessorList
             || property.ExplicitInterfaceSpecifier is not null
-            || property.Modifiers.Any(SyntaxKind.OverrideKeyword)
-            || property.Modifiers.Any(SyntaxKind.AbstractKeyword)
+            || ModifierListHelper.ContainsEither(property.Modifiers, SyntaxKind.OverrideKeyword, SyntaxKind.AbstractKeyword)
             || property.Parent is InterfaceDeclarationSyntax)
         {
             return;

@@ -29,7 +29,9 @@ public sealed class FieldVisibilityAnalyzer : DiagnosticAnalyzer
     {
         var field = (FieldDeclarationSyntax)context.Node;
         var modifiers = field.Modifiers;
-        if (modifiers.Any(SyntaxKind.ConstKeyword) || !IsExposed(modifiers))
+        if (ModifierListHelper.Contains(modifiers, SyntaxKind.ConstKeyword)
+            || (!ModifierListHelper.ContainsEither(modifiers, SyntaxKind.PublicKeyword, SyntaxKind.InternalKeyword)
+                && !ModifierListHelper.Contains(modifiers, SyntaxKind.ProtectedKeyword)))
         {
             return;
         }
@@ -43,12 +45,4 @@ public sealed class FieldVisibilityAnalyzer : DiagnosticAnalyzer
         var token = variables[0].Identifier;
         context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.FieldsPrivate, token.GetLocation(), token.ValueText));
     }
-
-    /// <summary>Returns whether the modifiers expose the field beyond private.</summary>
-    /// <param name="modifiers">The field modifiers.</param>
-    /// <returns><see langword="true"/> when public, internal, or protected is present.</returns>
-    private static bool IsExposed(SyntaxTokenList modifiers)
-        => modifiers.Any(SyntaxKind.PublicKeyword)
-            || modifiers.Any(SyntaxKind.InternalKeyword)
-            || modifiers.Any(SyntaxKind.ProtectedKeyword);
 }

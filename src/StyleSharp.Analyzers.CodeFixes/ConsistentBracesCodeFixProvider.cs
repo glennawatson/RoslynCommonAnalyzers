@@ -51,7 +51,7 @@ public sealed class ConsistentBracesCodeFixProvider : CodeFixProvider
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var newLine = LayoutFixHelpers.DetectNewLine(text);
-        var changes = new List<TextChange>();
+        var changes = new List<TextChange>(CountClauses(ifStatement) * 2);
 
         var current = ifStatement;
         while (true)
@@ -73,6 +73,27 @@ public sealed class ConsistentBracesCodeFixProvider : CodeFixProvider
         }
 
         return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
+    }
+
+    /// <summary>Counts the clauses in an <c>if</c>/<c>else if</c>/<c>else</c> chain.</summary>
+    /// <param name="ifStatement">The top of the chain.</param>
+    /// <returns>The number of clause bodies that may need wrapping.</returns>
+    private static int CountClauses(IfStatementSyntax ifStatement)
+    {
+        var count = 1;
+        var current = ifStatement;
+        while (current.Else is { } elseClause)
+        {
+            count++;
+            if (elseClause.Statement is not IfStatementSyntax elseIf)
+            {
+                break;
+            }
+
+            current = elseIf;
+        }
+
+        return count;
     }
 
     /// <summary>Wraps a clause body in braces when it is not already a block.</summary>

@@ -116,5 +116,5 @@ public sealed class ElementNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="explicitInterface">The member's explicit interface specifier, if any.</param>
     /// <returns><see langword="true"/> when the member should be skipped.</returns>
     private static bool IsInherited(SyntaxTokenList modifiers, ExplicitInterfaceSpecifierSyntax? explicitInterface)
-        => explicitInterface is not null || modifiers.Any(SyntaxKind.OverrideKeyword);
+        => explicitInterface is not null || ModifierListHelper.Contains(modifiers, SyntaxKind.OverrideKeyword);
 }

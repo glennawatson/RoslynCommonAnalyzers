@@ -13,6 +13,17 @@ repo is `RoslynCommonAnalyzers`.
 dotnet build StyleSharp.Analyzers.slnx -c Release
 dotnet test  --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release
 
+# TUnit / Microsoft.Testing.Platform notes
+# - `dotnet test` must still be run from src/ in this repo so the relative project paths resolve.
+# - Runner-specific arguments must come after `--`.
+# - For focused local runs, `dotnet run` is usually easier than `dotnet test` because TUnit
+#   exposes its CLI flags directly there.
+# - TUnit filtering uses tree-node filters, not VSTest `--filter` syntax:
+#     dotnet run --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release -- --treenode-filter "/*/*/MyTestClass/*"
+#     dotnet test --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release -- --treenode-filter "/*/*/*/MyTestMethod"
+# - Tree-node filter pattern: `/Assembly/Namespace/Class/Method[Property=Value]`
+# - Wildcards are supported with `*`, and OR within a segment uses `(A)|(B)`.
+
 # Build a specific Roslyn slot
 dotnet build StyleSharp.Analyzers.CodeFixes/StyleSharp.Analyzers.CodeFixes.csproj -c Release -p:RoslynVersion=roslyn5.3
 
@@ -47,6 +58,27 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   Even seemingly small query expressions add iterator, closure, and collection
   overhead that is too expensive on analyzer hot paths. Use explicit `for` /
   `foreach` loops and a few locals instead.
+
+- **Keep the LINQ guardrail in place.** Production analyzer/code-fix projects remove
+  the implicit `System.Linq` global using via `<Using Remove="System.Linq" />`.
+  Preserve that guardrail so accidental LINQ usage fails at compile time.
+
+- **Prefer concrete allocation shapes.** If the final size is known, prefer arrays
+  over `List<T>`. If a mutable buffer is still required, give `List<T>`,
+  `Dictionary<TKey, TValue>`, and `HashSet<T>` a sensible initial capacity instead
+  of relying on default zero-capacity growth.
+
+- **Avoid incidental materialization.** Do not introduce `ToList()`/`ToArray()` just
+  to continue processing. Prefer a single-pass loop, or copy once into the exact
+  concrete collection needed by the downstream API.
+
+- **Hot path scans should be single-pass when practical.** Prefer one indexed scan
+  over repeated rescans when the same syntax/token collection is being queried for
+  multiple facts.
+
+- **Roslyn syntax-list helpers are allowed.** `SyntaxTokenList.Any(SyntaxKind.X)` and
+  similar Roslyn helpers are not LINQ. Do not rewrite them solely to satisfy the
+  no-LINQ rule; only replace them when a real repeated-scan perf win is justified.
 
 - **Static helpers, not base classes.** Shared logic lives in `internal static`
   helper classes operating on the passed-in model (`NamingHelper`,

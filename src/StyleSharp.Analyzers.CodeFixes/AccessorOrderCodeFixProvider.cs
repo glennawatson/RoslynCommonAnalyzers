@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -61,18 +59,31 @@ public sealed class AccessorOrderCodeFixProvider : CodeFixProvider
     private static async Task<Document> ReorderAsync(Document document, AccessorListSyntax list, CancellationToken cancellationToken)
     {
         var original = list.Accessors;
-        var ordered = original.OrderBy(Rank).ToList();
-
-        var rebuilt = new List<AccessorDeclarationSyntax>(ordered.Count);
-        for (var index = 0; index < ordered.Count; index++)
+        var ordered = new AccessorDeclarationSyntax[original.Count];
+        for (var i = 0; i < original.Count; i++)
         {
-            rebuilt.Add(ordered[index]
+            ordered[i] = original[i];
+        }
+
+        Array.Sort(ordered, CompareAccessors);
+
+        var rebuilt = new AccessorDeclarationSyntax[ordered.Length];
+        for (var index = 0; index < ordered.Length; index++)
+        {
+            rebuilt[index] = ordered[index]
                 .WithLeadingTrivia(original[index].GetLeadingTrivia())
-                .WithTrailingTrivia(original[index].GetTrailingTrivia()));
+                .WithTrailingTrivia(original[index].GetTrailingTrivia());
         }
 
         var newList = list.WithAccessors(SyntaxFactory.List(rebuilt));
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         return document.WithSyntaxRoot(root!.ReplaceNode(list, newList));
     }
+
+    /// <summary>Compares two accessors by the canonical accessor order.</summary>
+    /// <param name="left">The left accessor.</param>
+    /// <param name="right">The right accessor.</param>
+    /// <returns>A negative value when <paramref name="left"/> sorts first, positive when last, zero when equal.</returns>
+    private static int CompareAccessors(AccessorDeclarationSyntax left, AccessorDeclarationSyntax right)
+        => Rank(left) - Rank(right);
 }

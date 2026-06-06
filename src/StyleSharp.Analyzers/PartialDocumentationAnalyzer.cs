@@ -43,7 +43,7 @@ public sealed class PartialDocumentationAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var member = (MemberDeclarationSyntax)context.Node;
-        if (!member.Modifiers.Any(SyntaxKind.PartialKeyword))
+        if (!ModifierListHelper.Contains(member.Modifiers, SyntaxKind.PartialKeyword))
         {
             return;
         }

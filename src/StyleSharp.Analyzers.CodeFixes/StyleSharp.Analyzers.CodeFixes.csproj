@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Remove="System.Linq" />
     <Using Include="System.Collections.Immutable" />
     <Using Include="System.Composition" />
     <Using Include="System.Diagnostics.CodeAnalysis" />

@@ -78,7 +78,7 @@ public sealed class FileNameAnalyzer : DiagnosticAnalyzer
             if (node is BaseTypeDeclarationSyntax type)
             {
                 // A partial type may legitimately live in any number of files.
-                if (type.Modifiers.Any(SyntaxKind.PartialKeyword))
+                if (ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword))
                 {
                     return false;
                 }

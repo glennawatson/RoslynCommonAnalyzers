@@ -34,4 +34,31 @@ internal static class CodeFixTriviaHelper
 
         return trivia;
     }
+
+    /// <summary>Finds the single annotated property declaration.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="annotation">The annotation to look up.</param>
+    /// <returns>The annotated property declaration.</returns>
+    internal static PropertyDeclarationSyntax GetSingleAnnotatedProperty(SyntaxNode root, SyntaxAnnotation annotation)
+    {
+        PropertyDeclarationSyntax? result = null;
+        var found = false;
+        foreach (var node in root.GetAnnotatedNodes(annotation))
+        {
+            if (node is not PropertyDeclarationSyntax property)
+            {
+                continue;
+            }
+
+            if (found)
+            {
+                throw new InvalidOperationException("Expected a single annotated node.");
+            }
+
+            result = property;
+            found = true;
+        }
+
+        return found ? result! : throw new InvalidOperationException("Annotated node not found.");
+    }
 }

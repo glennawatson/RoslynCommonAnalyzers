@@ -8,7 +8,7 @@ repo is `RoslynCommonAnalyzers`.
 
 ```bash
 # Build / test the floor (Roslyn 4.8) — the default slot
-dotnet build StyleSharp.Analyzers.sln -c Release
+dotnet build StyleSharp.Analyzers.slnx -c Release
 dotnet test  --project StyleSharp.Analyzers/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release
 
 # Build a specific Roslyn slot
@@ -85,7 +85,11 @@ behind `#if ROSLYN_5_OR_GREATER` only when structural probing won't do.
 
 ## Diagnostic id scheme
 
-- `SST00xx` — the original list-layout / readability rules.
+- `SST11xx` — readability rules, mirroring StyleCop's `SA11xx` numbers. The
+  "parameters/arguments must be on unique lines" family (one analyzer per syntax
+  kind) lives at the **end** of the range, `SST1150`–`SST1171`, since StyleCop has
+  no per-kind equivalent; they supersede the StyleCop `SA1116`/`SA1117` split-list
+  rules, which are therefore not ported separately.
 - `SST13xx` — naming rules, mirroring StyleCop's `SA13xx` numbers for
   discoverability, but **adapted to .NET runtime conventions** (e.g. SST1309
   requires private fields to be `_camelCase`, inverting SA1309).

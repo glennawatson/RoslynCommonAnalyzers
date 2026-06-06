@@ -22,12 +22,12 @@ public class DocumentationSummaryTextUnitTest
     [Test]
     public async Task ValidPropertyAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Gets or sets the count.</summary>\n"
             + "    public int Count { get; set; }\n}";
 
-        await VerifyProperty.VerifyAnalyzerAsync(source);
+        await VerifyProperty.VerifyAnalyzerAsync(Source);
     }
 
     /// <summary>Verifies a property summary is reported and prefixed with the accessor phrase (SST1623).</summary>
@@ -35,16 +35,16 @@ public class DocumentationSummaryTextUnitTest
     [Test]
     public async Task PropertyAccessorsAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// {|SST1623:<summary>The count.</summary>|}\n"
             + "    public int Count { get; set; }\n}";
-        const string fixedSource = "/// <summary>A container.</summary>\n"
+        const string FixedSource = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Gets or sets the count.</summary>\n"
             + "    public int Count { get; set; }\n}";
 
-        await VerifyProperty.VerifyCodeFixAsync(source, fixedSource);
+        await VerifyProperty.VerifyCodeFixAsync(Source, FixedSource);
     }
 
     /// <summary>Verifies a constructor summary with the standard text is accepted.</summary>
@@ -52,12 +52,12 @@ public class DocumentationSummaryTextUnitTest
     [Test]
     public async Task ValidConstructorAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Initializes a new instance of the <see cref=\"C\"/> class.</summary>\n"
             + "    public C() { }\n}";
 
-        await VerifyConstructor.VerifyAnalyzerAsync(source);
+        await VerifyConstructor.VerifyAnalyzerAsync(Source);
     }
 
     /// <summary>Verifies a constructor summary is reported and rewritten to the standard text (SST1642).</summary>
@@ -65,16 +65,16 @@ public class DocumentationSummaryTextUnitTest
     [Test]
     public async Task ConstructorStandardTextAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// {|SST1642:<summary>Creates the thing.</summary>|}\n"
             + "    public C() { }\n}";
-        const string fixedSource = "/// <summary>A container.</summary>\n"
+        const string FixedSource = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Initializes a new instance of the <see cref=\"C\"/> class.</summary>\n"
             + "    public C() { }\n}";
 
-        await VerifyConstructor.VerifyCodeFixAsync(source, fixedSource);
+        await VerifyConstructor.VerifyCodeFixAsync(Source, FixedSource);
     }
 
     /// <summary>Verifies a constructor-style destructor summary is accepted.</summary>
@@ -82,12 +82,12 @@ public class DocumentationSummaryTextUnitTest
     [Test]
     public async Task ValidDestructorAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Finalizes an instance of the <see cref=\"C\"/> class.</summary>\n"
             + "    ~C() { }\n}";
 
-        await VerifyDestructor.VerifyAnalyzerAsync(source);
+        await VerifyDestructor.VerifyAnalyzerAsync(Source);
     }
 
     /// <summary>Verifies a destructor summary is reported and rewritten to the standard text (SST1643).</summary>
@@ -95,15 +95,15 @@ public class DocumentationSummaryTextUnitTest
     [Test]
     public async Task DestructorStandardTextAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// {|SST1643:<summary>Cleans up.</summary>|}\n"
             + "    ~C() { }\n}";
-        const string fixedSource = "/// <summary>A container.</summary>\n"
+        const string FixedSource = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Finalizes an instance of the <see cref=\"C\"/> class.</summary>\n"
             + "    ~C() { }\n}";
 
-        await VerifyDestructor.VerifyCodeFixAsync(source, fixedSource);
+        await VerifyDestructor.VerifyCodeFixAsync(Source, FixedSource);
     }
 }

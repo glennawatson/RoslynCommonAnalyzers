@@ -29,18 +29,18 @@ public class DocumentationEdgeCaseUnitTest
     [Test]
     public async Task StructConstructorAsync()
     {
-        const string source = "/// <summary>A point.</summary>\n"
+        const string Source = "/// <summary>A point.</summary>\n"
             + "public struct Point\n{\n"
             + "    /// {|SST1642:<summary>Makes a point.</summary>|}\n"
             + "    /// <param name=\"x\">The x.</param>\n"
             + "    public Point(int x) { }\n}";
-        const string fixedSource = "/// <summary>A point.</summary>\n"
+        const string FixedSource = "/// <summary>A point.</summary>\n"
             + "public struct Point\n{\n"
             + "    /// <summary>Initializes a new instance of the <see cref=\"Point\"/> struct.</summary>\n"
             + "    /// <param name=\"x\">The x.</param>\n"
             + "    public Point(int x) { }\n}";
 
-        await VerifyConstructor.VerifyCodeFixAsync(source, fixedSource);
+        await VerifyConstructor.VerifyCodeFixAsync(Source, FixedSource);
     }
 
     /// <summary>Verifies a period tucked inside a closing quote is accepted (no SST1629).</summary>

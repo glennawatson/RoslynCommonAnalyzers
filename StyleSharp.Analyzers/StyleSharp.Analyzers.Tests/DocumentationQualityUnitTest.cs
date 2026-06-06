@@ -21,14 +21,14 @@ public class DocumentationQualityUnitTest
     [Test]
     public async Task ParameterMatchAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    /// <param name=\"value\">The value.</param>\n"
             + "    /// {|SST1612:<param name=\"extra\">Extra.</param>|}\n"
             + "    public void M(int value) { }\n}";
 
-        await Verify.VerifyAnalyzerAsync(source);
+        await Verify.VerifyAnalyzerAsync(Source);
     }
 
     /// <summary>Verifies a nameless parameter documentation element is reported (SST1613).</summary>
@@ -42,13 +42,13 @@ public class DocumentationQualityUnitTest
     [Test]
     public async Task ParameterTextAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    /// <param name=\"value\"></param>\n"
             + "    public void M(int {|SST1614:value|}) { }\n}";
 
-        await Verify.VerifyAnalyzerAsync(source);
+        await Verify.VerifyAnalyzerAsync(Source);
     }
 
     /// <summary>Verifies an empty return documentation element is reported (SST1616).</summary>
@@ -56,13 +56,13 @@ public class DocumentationQualityUnitTest
     [Test]
     public async Task ReturnTextAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Gets a value.</summary>\n"
             + "    /// {|SST1616:<returns></returns>|}\n"
             + "    public int M() => 0;\n}";
 
-        await Verify.VerifyAnalyzerAsync(source);
+        await Verify.VerifyAnalyzerAsync(Source);
     }
 
     /// <summary>Verifies an extra type parameter documentation element is reported (SST1620).</summary>
@@ -70,14 +70,14 @@ public class DocumentationQualityUnitTest
     [Test]
     public async Task TypeParameterMatchAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    /// <typeparam name=\"T\">The type.</typeparam>\n"
             + "    /// {|SST1620:<typeparam name=\"X\">Extra.</typeparam>|}\n"
             + "    public void M<T>() { }\n}";
 
-        await Verify.VerifyAnalyzerAsync(source);
+        await Verify.VerifyAnalyzerAsync(Source);
     }
 
     /// <summary>Verifies a nameless type parameter documentation element is reported (SST1621).</summary>
@@ -91,12 +91,12 @@ public class DocumentationQualityUnitTest
     [Test]
     public async Task TypeParameterTextAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    /// <typeparam name=\"T\"></typeparam>\n"
             + "    public void M<{|SST1622:T|}>() { }\n}";
 
-        await Verify.VerifyAnalyzerAsync(source);
+        await Verify.VerifyAnalyzerAsync(Source);
     }
 }

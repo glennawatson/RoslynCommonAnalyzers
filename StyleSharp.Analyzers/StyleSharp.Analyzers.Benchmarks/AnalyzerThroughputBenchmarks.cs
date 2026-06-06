@@ -2,10 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System;
 using System.Collections.Immutable;
-using System.IO;
-using System.Linq;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -42,14 +39,14 @@ public class AnalyzerThroughputBenchmarks
             References,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var assembly = typeof(Sst0005InvocationExpressionArgumentMustBeOnUniqueLinesAnalyzer).Assembly;
+        var assembly = typeof(Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesAnalyzer).Assembly;
         _analyzers = assembly.GetTypes()
             .Where(t => !t.IsAbstract && typeof(DiagnosticAnalyzer).IsAssignableFrom(t))
             .Select(t => (DiagnosticAnalyzer)Activator.CreateInstance(t)!)
             .ToImmutableArray();
 
         _singleAnalyzer = ImmutableArray.Create<DiagnosticAnalyzer>(
-            new Sst0005InvocationExpressionArgumentMustBeOnUniqueLinesAnalyzer());
+            new Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesAnalyzer());
     }
 
     /// <summary>Runs all 22 analyzers over the compilation and returns the diagnostic count.</summary>

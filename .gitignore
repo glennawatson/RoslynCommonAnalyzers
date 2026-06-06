@@ -393,3 +393,9 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# JetBrains Rider / IntelliJ
+.idea/
+
+# Claude Code
+.claude/

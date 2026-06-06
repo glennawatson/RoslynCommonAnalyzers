@@ -16,19 +16,19 @@ public class DocumentationStubFixUnitTest
     [Test]
     public async Task ParameterAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    public void M(int {|SST1611:value|}) { }\n}";
 
         // The stub is a scaffold; the now-empty <param> raises SST1614 to be filled in.
-        const string fixedSource = "/// <summary>A container.</summary>\n"
+        const string FixedSource = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    /// <param name=\"value\"></param>\n"
             + "    public void M(int {|SST1614:value|}) { }\n}";
 
-        await Verify.VerifyCodeFixAsync(source, fixedSource);
+        await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
     /// <summary>Verifies the fix inserts a <c>&lt;returns&gt;</c> stub for a non-void member (SST1615).</summary>
@@ -36,17 +36,17 @@ public class DocumentationStubFixUnitTest
     [Test]
     public async Task ReturnsAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Gets a value.</summary>\n"
             + "    public int {|SST1615:M|}() => 0;\n}";
-        const string fixedSource = "/// <summary>A container.</summary>\n"
+        const string FixedSource = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Gets a value.</summary>\n"
             + "    /// {|SST1616:<returns></returns>|}\n"
             + "    public int M() => 0;\n}";
 
-        await Verify.VerifyCodeFixAsync(source, fixedSource);
+        await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
     /// <summary>Verifies the fix inserts a <c>&lt;typeparam&gt;</c> stub (SST1618).</summary>
@@ -54,17 +54,17 @@ public class DocumentationStubFixUnitTest
     [Test]
     public async Task TypeParameterAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    public void M<{|SST1618:T|}>() { }\n}";
-        const string fixedSource = "/// <summary>A container.</summary>\n"
+        const string FixedSource = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    /// <typeparam name=\"T\"></typeparam>\n"
             + "    public void M<{|SST1622:T|}>() { }\n}";
 
-        await Verify.VerifyCodeFixAsync(source, fixedSource);
+        await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
     /// <summary>Verifies the fix removes a stray <c>&lt;returns&gt;</c> from a void member (SST1617).</summary>
@@ -72,16 +72,16 @@ public class DocumentationStubFixUnitTest
     [Test]
     public async Task RemoveReturnsAsync()
     {
-        const string source = "/// <summary>A container.</summary>\n"
+        const string Source = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    /// <returns>Nothing.</returns>\n"
             + "    public void {|SST1617:M|}() { }\n}";
-        const string fixedSource = "/// <summary>A container.</summary>\n"
+        const string FixedSource = "/// <summary>A container.</summary>\n"
             + "public class C\n{\n"
             + "    /// <summary>Does a thing.</summary>\n"
             + "    public void M() { }\n}";
 
-        await Verify.VerifyCodeFixAsync(source, fixedSource);
+        await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 }

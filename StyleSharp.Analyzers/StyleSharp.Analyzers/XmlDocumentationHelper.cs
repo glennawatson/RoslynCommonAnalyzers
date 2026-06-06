@@ -159,6 +159,46 @@ internal static class XmlDocumentationHelper
         return false;
     }
 
+    /// <summary>Returns the element's text content with runs of whitespace collapsed to single spaces and trimmed.</summary>
+    /// <param name="node">The element node.</param>
+    /// <returns>The normalized text, or an empty string when there is none.</returns>
+    public static string NormalizedText(XmlNodeSyntax node)
+    {
+        if (node is not XmlElementSyntax element)
+        {
+            return string.Empty;
+        }
+
+        var builder = new System.Text.StringBuilder();
+        var pendingSpace = false;
+        foreach (var token in element.DescendantTokens())
+        {
+            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+            {
+                continue;
+            }
+
+            foreach (var character in token.ValueText)
+            {
+                if (char.IsWhiteSpace(character))
+                {
+                    pendingSpace = builder.Length > 0;
+                    continue;
+                }
+
+                if (pendingSpace)
+                {
+                    builder.Append(' ');
+                    pendingSpace = false;
+                }
+
+                builder.Append(character);
+            }
+        }
+
+        return builder.ToString();
+    }
+
     /// <summary>
     /// Determines whether an element's prose should gain a terminal period — i.e.
     /// its last significant content is plain text not already ending in terminal

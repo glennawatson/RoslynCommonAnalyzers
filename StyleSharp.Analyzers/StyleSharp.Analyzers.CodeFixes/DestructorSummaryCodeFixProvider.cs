@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis.Text;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>Replaces a destructor summary with the standard "Finalizes an instance…" text (SST1643).</summary>

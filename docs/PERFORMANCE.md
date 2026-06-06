@@ -193,3 +193,33 @@ Code fixes run on demand, so they're far less hot than analyzers — but still:
 - [ ] Descriptors are `static readonly`.
 - [ ] A benchmark exists (micro and/or end-to-end) and shows zero/near-zero
       allocation on the no-diagnostic path.
+
+## Performance-sensitive rules
+
+Most StyleSharp rules are narrow `RegisterSyntaxNodeAction` checks over a single
+`SyntaxKind` and are effectively free. A few carry a higher cost or are heuristic; the
+table records them so the cost is a deliberate choice, not a surprise. Where a rule is
+**off by default**, enable it in `.editorconfig` only when you want it.
+
+| Rule(s) | Cost | Default | Notes |
+| --- | --- | --- | --- |
+| SST1305 (Hungarian notation) | Heuristic + per-name `string` slicing | **Off** | Pattern-matches name prefixes against an allow-list; inherently fuzzy. Opt-in. |
+| SST1306 / SST1308 / SST1310 (field-name styles) | Cheap | **Off** | Conflict with the runtime `_camelCase` convention (SST1309); shipped for consumers who want the StyleCop style. |
+| SST1507, SST1517, SST1518 (blank-line / file-boundary) | One `RegisterSyntaxTreeAction` line-table scan per file | On | Scans the cached line table once; no per-node cost. |
+| SST1512 / SST1515 (single-line comment spacing) | `RegisterSyntaxTreeAction` + a `FindTrivia` per candidate line | On | Heaviest of the layout rules — still once per file, not per node. |
+| SST1626 (misplaced `///`) | `FirstAncestorOrSelf` walk per doc comment | On | Only runs on documentation trivia, which is sparse. |
+| SST1516 / SST1201–SST1217 (ordering) | Pairwise scan of a member / using list | On | Lists are short; single pass, no allocations on the clean path. |
+
+### Rules intentionally **not** ported for performance reasons
+
+- **SA1650 (spelling)** — needs an embedded dictionary and per-word lookups over all
+  documentation text. Too heavy for an always-on analyzer; not ported.
+- **SA1503 → [SST1503](rules/SST1503.md)** *is* ported but **off by default**: the
+  repository's `.editorconfig` defers brace-omission to Sonar's `S121` (measured faster).
+  Enable `SST1503` instead of `S121` if you are not running SonarAnalyzer.
+- **SA1121 (use built-in type alias)** is left to Roslynator's `RCS1013` (measured
+  faster); StyleSharp does not duplicate it.
+
+When adding a rule that must walk the whole tree (a `RegisterSyntaxTreeAction`), prefer a
+single pass over the cached line table or token stream, and add it to the table above so
+the cost stays visible.

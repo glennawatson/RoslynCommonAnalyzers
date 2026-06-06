@@ -63,9 +63,9 @@ namespace StyleSharp.Analyzers {
         /// <summary>
         ///   Looks up a localized string similar to Fix spacing.
         /// </summary>
-        internal static string SST0001CodeFixTitle {
+        internal static string SST1150CodeFixTitle {
             get {
-                return ResourceManager.GetString("SST0001CodeFixTitle", resourceCulture);
+                return ResourceManager.GetString("SST1150CodeFixTitle", resourceCulture);
             }
         }
     }

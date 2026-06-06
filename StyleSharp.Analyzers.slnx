@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="LICENSE" />
+    <File Path="version.json" />
+  </Folder>
+  <Project Path="StyleSharp.Analyzers/StyleSharp.Analyzers/StyleSharp.Analyzers.csproj" />
+  <Project Path="StyleSharp.Analyzers/StyleSharp.Analyzers.CodeFixes/StyleSharp.Analyzers.CodeFixes.csproj" />
+  <Project Path="StyleSharp.Analyzers/StyleSharp.Analyzers.Package/StyleSharp.Analyzers.Packages.csproj" />
+  <Project Path="StyleSharp.Analyzers/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj" />
+  <Folder Name="/Benchmarks/">
+    <Project Path="StyleSharp.Analyzers/StyleSharp.Analyzers.Benchmarks/StyleSharp.Analyzers.Benchmarks.csproj" />
+  </Folder>
+</Solution>

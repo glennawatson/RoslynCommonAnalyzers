@@ -147,9 +147,9 @@ The solution follows the standard analyzer layout:
 ## Building and testing
 
 ```bash
-dotnet restore StyleSharp.Analyzers.sln
-dotnet build StyleSharp.Analyzers.sln --configuration Release
-dotnet test --solution StyleSharp.Analyzers.sln --configuration Release
+dotnet restore StyleSharp.Analyzers.slnx
+dotnet build StyleSharp.Analyzers.slnx --configuration Release
+dotnet test --solution StyleSharp.Analyzers.slnx --configuration Release
 ```
 
 `TreatWarningsAsErrors` is on and the repo's `.editorconfig` is strict — the

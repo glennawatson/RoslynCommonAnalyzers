@@ -71,13 +71,13 @@ jobs:
           git push origin "$VERSION"
 
       - name: Restore
-        run: dotnet restore StyleSharp.Analyzers.sln
+        run: dotnet restore StyleSharp.Analyzers.slnx
 
       - name: Build
-        run: dotnet build StyleSharp.Analyzers.sln --no-restore --configuration Release
+        run: dotnet build StyleSharp.Analyzers.slnx --no-restore --configuration Release
 
       - name: Pack
-        run: dotnet pack StyleSharp.Analyzers.sln --no-build --configuration Release -o packages
+        run: dotnet pack StyleSharp.Analyzers.slnx --no-build --configuration Release -o packages
 
       - name: Install GitReleaseNoteGenerator
         run: dotnet tool install -g GitReleaseNoteGenerator

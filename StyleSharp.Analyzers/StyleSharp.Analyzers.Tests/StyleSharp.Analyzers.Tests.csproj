@@ -3,6 +3,11 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>StyleSharp.Analyzers.Tests</RootNamespace>
+
+    <!-- Run the analyzer tests against the newest Roslyn we target (5.3) so the test
+         compiler can parse the latest C# syntax, e.g. C# 14 extension blocks. The analyzer
+         source is version-agnostic (netstandard2.0), so this exercises the same logic. -->
+    <MicrosoftCodeAnalysisVersion>5.3.0</MicrosoftCodeAnalysisVersion>
   </PropertyGroup>
 
   <ItemGroup>

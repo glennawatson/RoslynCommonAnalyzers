@@ -174,6 +174,104 @@ internal static class DocumentationRules
         "This summary is short enough to fit on a single line",
         "A '<summary>' whose combined text is shorter than the configured limit (default 100 characters) should be written on one line: '/// <summary>Text</summary>'.");
 
+    /// <summary>SST1626 — a documentation-style comment is used where it does not document an element.</summary>
+    public static readonly DiagnosticDescriptor NoDocumentationStyleComment = Create(
+        "SST1626",
+        "Single-line comments should not use documentation style slashes",
+        "Use '//' for this comment; '///' is reserved for element documentation",
+        "A '///' comment is only used to document a type or member; elsewhere a '//' comment is used.");
+
+    /// <summary>SST1651 — placeholder documentation elements should be removed.</summary>
+    public static readonly DiagnosticDescriptor NoPlaceholderElements = Create(
+        "SST1651",
+        "Documentation should not contain placeholder text",
+        "Replace the '<placeholder>' element with real documentation",
+        "Generated '<placeholder>' documentation elements are replaced with real content.");
+
+    /// <summary>SST1601 — partial elements should be documented.</summary>
+    public static readonly DiagnosticDescriptor PartialMustBeDocumented = Create(
+        "SST1601",
+        "Partial elements should be documented",
+        "Partial '{0}' should have a documentation comment",
+        "Partial types and methods carry XML documentation.");
+
+    /// <summary>SST1605 — partial element documentation should have a summary (opt-in).</summary>
+    public static readonly DiagnosticDescriptor PartialMustHaveSummary = CreateOptIn(
+        "SST1605",
+        "Partial element documentation should have a summary",
+        "Documentation for partial '{0}' should contain a <summary>",
+        "A documented partial element includes a <summary>. Off by default — documenting one part of a partial is often enough.");
+
+    /// <summary>SST1607 — partial element summary should have text (opt-in).</summary>
+    public static readonly DiagnosticDescriptor PartialSummaryMustHaveText = CreateOptIn(
+        "SST1607",
+        "Partial element summary should have text",
+        "The <summary> for partial '{0}' should not be empty",
+        "A documented partial element's <summary> contains text. Off by default.");
+
+    /// <summary>SST1609 — property documentation should have a value element (opt-in).</summary>
+    public static readonly DiagnosticDescriptor PropertyMustHaveValue = CreateOptIn(
+        "SST1609",
+        "Property documentation should have a value",
+        "Documentation for property '{0}' should contain a <value>",
+        "A documented property includes a <value> element. Off by default, matching StyleCop.");
+
+    /// <summary>SST1610 — property value element should have text (opt-in).</summary>
+    public static readonly DiagnosticDescriptor PropertyValueMustHaveText = CreateOptIn(
+        "SST1610",
+        "Property value documentation should have text",
+        "The <value> for property '{0}' should not be empty",
+        "A property's <value> element contains text. Off by default, matching StyleCop.");
+
+    /// <summary>SST1619 — generic type parameters of a partial type should be documented (opt-in).</summary>
+    public static readonly DiagnosticDescriptor PartialTypeParametersDocumented = CreateOptIn(
+        "SST1619",
+        "Partial generic type parameters should be documented",
+        "Type parameter '{0}' should have a matching <typeparam>",
+        "Each generic type parameter of a documented partial type has a <typeparam> element. Off by default.");
+
+    /// <summary>SST1625 — element documentation should not be copy-pasted.</summary>
+    public static readonly DiagnosticDescriptor NoDuplicateDocumentation = Create(
+        "SST1625",
+        "Element documentation should not be copy-pasted",
+        "This documentation text duplicates another element's text",
+        "Each documentation element describes its own element rather than repeating another's text verbatim.");
+
+    /// <summary>SST1628 — documentation text should begin with a capital letter (opt-in).</summary>
+    public static readonly DiagnosticDescriptor TextBeginsWithCapital = CreateOptIn(
+        "SST1628",
+        "Documentation text should begin with a capital letter",
+        "The documentation summary should begin with a capital letter",
+        "Documentation summary text begins with a capital letter. Off by default, matching StyleCop.");
+
+    /// <summary>SST1630 — documentation text should contain whitespace between words (opt-in).</summary>
+    public static readonly DiagnosticDescriptor TextContainsWhitespace = CreateOptIn(
+        "SST1630",
+        "Documentation text should contain whitespace",
+        "The documentation summary should contain more than one word",
+        "Documentation summary text contains whitespace (more than a single word). Off by default, matching StyleCop.");
+
+    /// <summary>SST1631 — documentation text should be mostly letters (opt-in).</summary>
+    public static readonly DiagnosticDescriptor TextCharacterPercentage = CreateOptIn(
+        "SST1631",
+        "Documentation text should be mostly letters",
+        "The documentation summary should be made up mostly of letters, not symbols",
+        "At least half of a documentation summary's characters are letters or whitespace. Off by default, matching StyleCop.");
+
+    /// <summary>SST1632 — documentation text should meet a minimum length (opt-in).</summary>
+    public static readonly DiagnosticDescriptor TextMinimumLength = CreateOptIn(
+        "SST1632",
+        "Documentation text should meet a minimum length",
+        "The documentation summary is too short to be meaningful",
+        "Documentation summary text is at least a few characters long. Off by default, matching StyleCop.");
+
+    /// <summary>SST1648 — inheritdoc should only be used on inheriting elements.</summary>
+    public static readonly DiagnosticDescriptor InheritDocValid = Create(
+        "SST1648",
+        "inheritdoc should be used with inheriting elements",
+        "'{0}' uses <inheritdoc> but does not inherit from or implement a documented base",
+        "An <inheritdoc> element is only used where the element inherits or implements a base member to inherit documentation from.");
+
     /// <summary>Creates a Warning-severity Documentation descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>
@@ -188,6 +286,23 @@ internal static class DocumentationRules
             "Documentation",
             DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
+            description: description,
+            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+
+    /// <summary>Creates a Documentation descriptor that is disabled by default (opt-in via .editorconfig).</summary>
+    /// <param name="id">The diagnostic id.</param>
+    /// <param name="title">The rule title.</param>
+    /// <param name="messageFormat">The message format.</param>
+    /// <param name="description">The rule description.</param>
+    /// <returns>The descriptor.</returns>
+    private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
+        new(
+            id,
+            title,
+            messageFormat,
+            "Documentation",
+            DiagnosticSeverity.Warning,
+            isEnabledByDefault: false,
             description: description,
             helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
 }

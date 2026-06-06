@@ -16,7 +16,7 @@ public class ExtensionBlockAnalyzerUnitTest
     public async Task EmptyExtensionBlockReportedAsync()
         => await VerifyExtensionBlock.VerifyAnalyzerAsync(
             """
-            public static class Ext
+            public static class SampleExtensions
             {
                 {|SST1700:extension|}(string text)
                 {
@@ -30,7 +30,7 @@ public class ExtensionBlockAnalyzerUnitTest
     public async Task DuplicateReceiverTypeReportedAsync()
         => await VerifyExtensionBlock.VerifyAnalyzerAsync(
             """
-            public static class Ext
+            public static class SampleExtensions
             {
                 extension(string text)
                 {
@@ -50,7 +50,7 @@ public class ExtensionBlockAnalyzerUnitTest
     public async Task SeparatedExtensionBlockReportedAsync()
         => await VerifyExtensionBlock.VerifyAnalyzerAsync(
             """
-            public static class Ext
+            public static class SampleExtensions
             {
                 extension(string text)
                 {
@@ -66,13 +66,45 @@ public class ExtensionBlockAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a container class not named with an 'Extensions' suffix is reported (SST1704).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ContainerWithoutExtensionsSuffixReportedAsync()
+        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+            """
+            public static class {|SST1704:StringStuff|}
+            {
+                extension(string text)
+                {
+                    public bool IsEmpty => text.Length == 0;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a classic extension method mixed with an extension block is reported (SST1705).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ClassicMethodMixedWithBlockReportedAsync()
+        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+            """
+            public static class TextExtensions
+            {
+                public static bool {|SST1705:IsBlank|}(this string text) => text.Length == 0;
+
+                extension(string other)
+                {
+                    public int Size => other.Length;
+                }
+            }
+            """);
+
     /// <summary>Verifies non-empty blocks with distinct receiver types are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task DistinctNonEmptyBlocksAreCleanAsync()
         => await VerifyExtensionBlock.VerifyAnalyzerAsync(
             """
-            public static class Ext
+            public static class SampleExtensions
             {
                 extension(string text)
                 {

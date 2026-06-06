@@ -29,4 +29,12 @@ internal static class ExtensionBlockHelper
     /// <returns>The receiver parameter's type text (for example <c>string</c>), or <see langword="null"/>.</returns>
     public static string? ReceiverTypeText(TypeDeclarationSyntax extensionBlock)
         => extensionBlock.ParameterList?.Parameters is { Count: > 0 } parameters ? parameters[0].Type?.ToString() : null;
+
+    /// <summary>Returns whether the member is a classic <c>this</c>-parameter extension method.</summary>
+    /// <param name="member">The member declaration.</param>
+    /// <returns><see langword="true"/> when the member is a static extension method declared the pre-C#14 way.</returns>
+    public static bool IsClassicExtensionMethod(MemberDeclarationSyntax member)
+        => member is MethodDeclarationSyntax method
+            && method.ParameterList.Parameters.Count > 0
+            && method.ParameterList.Parameters[0].Modifiers.Any(SyntaxKind.ThisKeyword);
 }

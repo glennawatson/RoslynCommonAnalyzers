@@ -6,11 +6,11 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Reports issues with C# 14 extension blocks declared in a class: an empty extension block
-/// (SST1700), a second extension block that repeats an earlier block's receiver type (SST1701), and
-/// extension blocks separated by other members (SST1702). The class members are walked once with an
-/// inner look-back over earlier members, so no intermediate collection is allocated; classes with no
-/// extension blocks pay only the membership test. On the Roslyn 4.8 floor the syntax cannot occur,
-/// so nothing is reported.
+/// (SST1700), a second extension block that repeats an earlier block's receiver type (SST1701),
+/// extension blocks separated by other members (SST1702), a container class not named with an
+/// 'Extensions' suffix (SST1704), and classic extension methods mixed in with extension blocks
+/// (SST1705). A class with no extension block bails after a single membership scan, so the common
+/// case is cheap; on the Roslyn 4.8 floor the syntax cannot occur, so nothing is reported.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
@@ -19,7 +19,9 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
         ExtensionRules.EmptyExtensionBlock,
         ExtensionRules.CombineExtensionBlocks,
-        ExtensionRules.GroupExtensionBlocks);
+        ExtensionRules.GroupExtensionBlocks,
+        ExtensionRules.ExtensionContainerNaming,
+        ExtensionRules.DoNotMixExtensionStyles);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -34,7 +36,17 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var members = ((ClassDeclarationSyntax)context.Node).Members;
+        var declaration = (ClassDeclarationSyntax)context.Node;
+        var members = declaration.Members;
+        if (!ContainsExtensionBlock(members))
+        {
+            return;
+        }
+
+        if (!declaration.Identifier.ValueText.EndsWith("Extensions", System.StringComparison.Ordinal))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(ExtensionRules.ExtensionContainerNaming, declaration.Identifier.GetLocation(), declaration.Identifier.ValueText));
+        }
 
         // 'sawExtension' records that a block has been seen; 'groupEnded' that a non-extension member
         // has since interrupted the run — a later extension block is then no longer contiguous.
@@ -42,9 +54,15 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         var groupEnded = false;
         for (var index = 0; index < members.Count; index++)
         {
-            if (members[index] is not TypeDeclarationSyntax block || !ExtensionBlockHelper.IsExtensionBlock(block))
+            var member = members[index];
+            if (member is not TypeDeclarationSyntax block || !ExtensionBlockHelper.IsExtensionBlock(block))
             {
                 groupEnded |= sawExtension;
+                if (ExtensionBlockHelper.IsClassicExtensionMethod(member))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(ExtensionRules.DoNotMixExtensionStyles, ((MethodDeclarationSyntax)member).Identifier.GetLocation()));
+                }
+
                 continue;
             }
 
@@ -62,6 +80,22 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
 
             ReportDuplicateReceiver(context, members, index, block);
         }
+    }
+
+    /// <summary>Returns whether any member is an extension block.</summary>
+    /// <param name="members">The class members.</param>
+    /// <returns><see langword="true"/> when at least one member is an extension block.</returns>
+    private static bool ContainsExtensionBlock(SyntaxList<MemberDeclarationSyntax> members)
+    {
+        foreach (var member in members)
+        {
+            if (ExtensionBlockHelper.IsExtensionBlock(member))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reports the block when an earlier extension block in the same class shares its receiver type.</summary>

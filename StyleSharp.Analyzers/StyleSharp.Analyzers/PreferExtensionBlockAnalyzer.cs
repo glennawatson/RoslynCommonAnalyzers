@@ -41,8 +41,7 @@ public sealed class PreferExtensionBlockAnalyzer : DiagnosticAnalyzer
         }
 
         var method = (MethodDeclarationSyntax)context.Node;
-        if (method.ParameterList.Parameters.Count == 0
-            || !method.ParameterList.Parameters[0].Modifiers.Any(SyntaxKind.ThisKeyword))
+        if (!ExtensionBlockHelper.IsClassicExtensionMethod(method))
         {
             return;
         }

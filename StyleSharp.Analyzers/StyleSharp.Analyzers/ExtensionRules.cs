@@ -38,6 +38,20 @@ internal static class ExtensionRules
         "Replace this classic extension method with an extension block member",
         "Extension members are declared inside an 'extension(Receiver) { … }' block. Off by default — adopting the C# 14 syntax is a deliberate, repo-wide migration.");
 
+    /// <summary>SST1704 — a class declaring extension blocks is not named with an 'Extensions' suffix.</summary>
+    public static readonly DiagnosticDescriptor ExtensionContainerNaming = Create(
+        "SST1704",
+        "Extension container class names should end in 'Extensions'",
+        "Rename '{0}' to end in 'Extensions'",
+        "A class that declares extension blocks is named with an 'Extensions' suffix so its purpose is clear and it is easy to find.");
+
+    /// <summary>SST1705 — a class mixes classic extension methods with extension blocks.</summary>
+    public static readonly DiagnosticDescriptor DoNotMixExtensionStyles = Create(
+        "SST1705",
+        "Do not mix classic extension methods with extension blocks",
+        "Move this extension method into an extension block",
+        "A class that uses extension blocks declares all of its extensions as extension-block members rather than mixing in classic 'this'-parameter methods.");
+
     /// <summary>Creates a Warning-severity Extensions descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

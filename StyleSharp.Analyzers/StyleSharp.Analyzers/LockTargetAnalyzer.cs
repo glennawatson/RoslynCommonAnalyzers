@@ -6,10 +6,12 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Reports questionable <c>lock</c> targets: a field or property reachable from
-/// outside the declaring type (SST1901), and <c>this</c>, a <see cref="System.Type"/>,
-/// or a string (SST1902, opt-in). In every case unrelated code can take the same
-/// lock, so the fix is to lock on a private, dedicated object instead. These are
-/// general advice rather than a runtime feature, so they apply on every framework.
+/// outside the declaring type (SST1901), <c>this</c>, a <see cref="System.Type"/>,
+/// or a string (SST1902, opt-in), and a freshly-created object (SST1903). In each
+/// case the lock either leaks to unrelated code or cannot coordinate with any
+/// other caller, so the fix is to lock on a private, dedicated object instead.
+/// These are general advice rather than a runtime feature, so they apply on every
+/// framework.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
@@ -17,7 +19,8 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
         ConcurrencyRules.DoNotLockOnAccessibleMember,
-        ConcurrencyRules.DoNotLockOnWeakIdentity);
+        ConcurrencyRules.DoNotLockOnWeakIdentity,
+        ConcurrencyRules.DoNotLockOnNewlyCreatedObject);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -32,12 +35,17 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
         });
     }
 
-    /// <summary>Reports SST1901/SST1902 for a questionable lock target.</summary>
+    /// <summary>Reports SST1901/SST1903 for a questionable lock target.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="typeSymbol">The resolved <c>System.Type</c> symbol, if any.</param>
     private static void AnalyzeLock(SyntaxNodeAnalysisContext context, INamedTypeSymbol? typeSymbol)
     {
-        var expression = ((LockStatementSyntax)context.Node).Expression;
+        var expression = UnwrapParentheses(((LockStatementSyntax)context.Node).Expression);
+
+        if (IsNewlyCreatedObject(expression, context.SemanticModel, context.CancellationToken))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(ConcurrencyRules.DoNotLockOnNewlyCreatedObject, expression.GetLocation()));
+        }
 
         if (IsWeakIdentity(expression, context.SemanticModel, typeSymbol, context.CancellationToken))
         {
@@ -60,6 +68,15 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(Diagnostic.Create(ConcurrencyRules.DoNotLockOnAccessibleMember, expression.GetLocation(), symbol.Name));
     }
+
+    /// <summary>Returns whether a lock expression creates a fresh object on every evaluation.</summary>
+    /// <param name="expression">The lock target expression.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when the target is an object creation expression.</returns>
+    private static bool IsNewlyCreatedObject(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken)
+        => (expression is ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax)
+            && model.GetTypeInfo(expression, cancellationToken).Type is not null;
 
     /// <summary>Returns whether a lock expression is <c>this</c>, a <c>Type</c>, or a string.</summary>
     /// <param name="expression">The lock target expression.</param>
@@ -105,4 +122,17 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for public, protected, or protected-or-internal.</returns>
     private static bool IsExternallyAccessible(Accessibility accessibility)
         => accessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal;
+
+    /// <summary>Removes parentheses around a lock target so checks can reason about the underlying expression.</summary>
+    /// <param name="expression">The expression to unwrap.</param>
+    /// <returns>The innermost non-parenthesized expression.</returns>
+    private static ExpressionSyntax UnwrapParentheses(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax { Expression: { } inner })
+        {
+            expression = inner;
+        }
+
+        return expression;
+    }
 }

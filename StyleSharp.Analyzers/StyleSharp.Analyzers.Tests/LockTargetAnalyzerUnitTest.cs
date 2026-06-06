@@ -7,7 +7,7 @@ using VerifyLockTarget = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
 
 namespace StyleSharp.Analyzers.Tests;
 
-/// <summary>Unit tests for the lock-target rules: SST1901 (accessible member) and SST1902 (weak identity).</summary>
+/// <summary>Unit tests for the lock-target rules: SST1901 (accessible member), SST1902 (weak identity), and SST1903 (new object).</summary>
 public class LockTargetAnalyzerUnitTest
 {
     /// <summary>Verifies locking on a public field is reported (SST1901).</summary>
@@ -69,7 +69,24 @@ public class LockTargetAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies locking on a private object field is not reported by either rule.</summary>
+    /// <summary>Verifies locking on a newly-created object is reported (SST1903).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NewObjectTargetReportedAsync()
+        => await VerifyLockTarget.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public void M()
+                {
+                    lock ({|SST1903:new object()|})
+                    {
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies locking on a private object field is not reported by any lock-target rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task PrivateObjectFieldIsCleanAsync()

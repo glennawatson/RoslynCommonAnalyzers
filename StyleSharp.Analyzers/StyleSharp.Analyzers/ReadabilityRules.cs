@@ -297,6 +297,13 @@ internal static class ReadabilityRules
         "Remove this commented-out code",
         "Source control preserves old code; comments are reserved for explanation. Off by default because code detection is heuristic.");
 
+    /// <summary>SST1149 — a null check uses <c>== null</c> / <c>!= null</c> instead of the pattern form.</summary>
+    public static readonly DiagnosticDescriptor PreferIsNullPattern = Create(
+        "SST1149",
+        "Prefer the 'is null' pattern for null checks",
+        "Use '{0}' for this null check",
+        "A null check is written as 'x is null' or 'x is not null' rather than 'x == null' or 'x != null', which reads directly and ignores overloaded equality operators.");
+
     /// <summary>Creates a Warning-severity Readability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

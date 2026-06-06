@@ -207,6 +207,7 @@ SST1145 | Readability | Warning | ConditionalOperatorPlacementAnalyzer
 SST1146 | Readability | Warning | ConditionalOnNewLineAnalyzer
 SST1147 | Readability | Disabled | NestedTernaryAnalyzer
 SST1148 | Readability | Disabled | CommentedOutCodeAnalyzer
+SST1149 | Readability | Warning | PreferIsNullPatternAnalyzer
 SST1416 | Maintainability | Disabled | NoPublicOnInternalTypeAnalyzer
 SST1418 | Maintainability | Warning | NullCoalescingPrecedenceAnalyzer
 SST1417 | Maintainability | Disabled | NamespaceFolderAnalyzer
@@ -232,6 +233,7 @@ SST1803 | Records | Warning | RecordAnalyzer
 SST1900 | Concurrency | Warning | PreferLockTypeAnalyzer
 SST1901 | Concurrency | Warning | LockTargetAnalyzer
 SST1902 | Concurrency | Disabled | LockTargetAnalyzer
+SST1903 | Concurrency | Warning | LockTargetAnalyzer
 SST2000 | Modernization | Warning | ArgumentGuardAnalyzer
 SST2001 | Modernization | Disabled | ArgumentGuardAnalyzer
 SST2002 | Modernization | Disabled | ArgumentGuardAnalyzer

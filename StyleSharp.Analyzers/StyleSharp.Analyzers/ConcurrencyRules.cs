@@ -33,6 +33,13 @@ internal static class ConcurrencyRules
         "Do not lock on this, a Type, or a string; lock on a private, dedicated object instead",
         "Locking on 'this', a System.Type, or a string exposes the lock to unrelated code (strings may be interned, Types are shared), risking deadlocks. Off by default — overlaps CA2002.");
 
+    /// <summary>SST1903 — a <c>lock</c> expression creates a fresh object on the spot.</summary>
+    public static readonly DiagnosticDescriptor DoNotLockOnNewlyCreatedObject = Create(
+        "SST1903",
+        "Do not lock on a newly-created object",
+        "Do not lock on a newly-created object; store a dedicated lock object instead",
+        "Locking on a newly-created object never coordinates with other callers because every evaluation creates a fresh instance; store a dedicated lock object in a field instead.");
+
     /// <summary>Creates a Warning-severity Concurrency descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

@@ -207,3 +207,5 @@ SST1801 | Records | Warning | RecordAnalyzer
 SST1802 | Records | Warning | RecordAnalyzer
 SST1803 | Records | Warning | RecordAnalyzer
 SST2000 | Modernization | Warning | ArgumentGuardAnalyzer
+SST2001 | Modernization | Disabled | ArgumentGuardAnalyzer
+SST2002 | Modernization | Disabled | ArgumentGuardAnalyzer

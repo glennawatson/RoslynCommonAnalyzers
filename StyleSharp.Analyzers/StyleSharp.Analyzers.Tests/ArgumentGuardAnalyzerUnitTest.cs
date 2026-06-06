@@ -100,6 +100,66 @@ public class ArgumentGuardAnalyzerUnitTest
         await VerifyNet80Async(Source, Source);
     }
 
+    /// <summary>Verifies an IsNullOrEmpty guard is reported (SST2001) and rewritten to ThrowIfNullOrEmpty.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task IsNullOrEmptyGuardReplacedAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  public void M(string value)
+                                  {
+                                      {|SST2001:if (string.IsNullOrEmpty(value)) throw new ArgumentException("Value required.", nameof(value));|}
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       public void M(string value)
+                                       {
+                                           ArgumentException.ThrowIfNullOrEmpty(value);
+                                       }
+                                   }
+                                   """;
+        await VerifyNet80Async(Source, FixedSource);
+    }
+
+    /// <summary>Verifies an IsNullOrWhiteSpace guard is reported (SST2002) and rewritten to ThrowIfNullOrWhiteSpace.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task IsNullOrWhiteSpaceGuardReplacedAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  public void M(string value)
+                                  {
+                                      {|SST2002:if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("Value required.", nameof(value));|}
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       public void M(string value)
+                                       {
+                                           ArgumentException.ThrowIfNullOrWhiteSpace(value);
+                                       }
+                                   }
+                                   """;
+        await VerifyNet80Async(Source, FixedSource);
+    }
+
     /// <summary>Verifies the rule stays silent where ThrowIfNull does not exist (pre-.NET 6 reference assemblies).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -200,6 +200,7 @@ SST1142 | Readability | Warning | TupleElementNameAnalyzer
 SST1414 | Maintainability | Warning | TupleSignatureNamingAnalyzer
 SST1143 | Readability | Warning | BooleanLiteralComparisonAnalyzer
 SST1144 | Readability | Disabled | PreferOrPatternAnalyzer
+SST1145 | Readability | Warning | ConditionalOperatorPlacementAnalyzer
 SST1416 | Maintainability | Disabled | NoPublicOnInternalTypeAnalyzer
 SST1418 | Maintainability | Warning | NullCoalescingPrecedenceAnalyzer
 SST1417 | Maintainability | Disabled | NamespaceFolderAnalyzer

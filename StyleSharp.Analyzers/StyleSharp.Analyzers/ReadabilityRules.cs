@@ -269,6 +269,13 @@ internal static class ReadabilityRules
         "Combine these case labels into a single 'or' pattern",
         "Stacked case labels are combined into one 'case A or B:' pattern (C# 9+). Off by default — stacked labels are a common, valid style.");
 
+    /// <summary>SST1145 — a wrapped conditional expression places <c>?</c>/<c>:</c> inconsistently (StyleSharp original).</summary>
+    public static readonly DiagnosticDescriptor ConditionalOperatorPlacement = Create(
+        "SST1145",
+        "Place conditional operators consistently",
+        "Place the '{0}' operator at the {1} of the line",
+        "When a conditional expression wraps, its '?' and ':' operators are placed consistently (leading by default); set 'stylesharp.conditional_operator_placement' in .editorconfig.");
+
     /// <summary>Creates a Warning-severity Readability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

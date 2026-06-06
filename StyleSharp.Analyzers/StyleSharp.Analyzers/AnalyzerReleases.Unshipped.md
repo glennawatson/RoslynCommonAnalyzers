@@ -200,3 +200,5 @@ SST1702 | Extensions | Warning | ExtensionBlockAnalyzer
 SST1703 | Extensions | Disabled | PreferExtensionBlockAnalyzer
 SST1704 | Extensions | Warning | ExtensionBlockAnalyzer
 SST1705 | Extensions | Warning | ExtensionBlockAnalyzer
+SST1706 | Extensions | Warning | ExtensionBlockAnalyzer
+SST1707 | Extensions | Disabled | ExtensionBlockAnalyzer

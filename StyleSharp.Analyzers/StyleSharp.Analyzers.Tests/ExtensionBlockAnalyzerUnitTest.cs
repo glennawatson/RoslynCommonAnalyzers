@@ -52,14 +52,49 @@ public class ExtensionBlockAnalyzerUnitTest
             """
             public static class SampleExtensions
             {
+                extension(int value)
+                {
+                    public bool IsZero => value == 0;
+                }
+
+                public static int Helper() => 0;
+
+                {|SST1702:extension|}(string text)
+                {
+                    public bool IsEmpty => text.Length == 0;
+                }
+            }
+            """);
+
+    /// <summary>Verifies an extension block on a broad receiver type is reported (SST1706).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BroadReceiverReportedAsync()
+        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+            """
+            public static class ObjectExtensions
+            {
+                {|SST1706:extension|}(object value)
+                {
+                    public bool IsNull => value is null;
+                }
+            }
+            """);
+
+    /// <summary>Verifies extension blocks out of receiver-type order are reported (SST1707, opt-in).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UnorderedExtensionBlocksReportedAsync()
+        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+            """
+            public static class SampleExtensions
+            {
                 extension(string text)
                 {
                     public bool IsEmpty => text.Length == 0;
                 }
 
-                public static int Helper() => 0;
-
-                {|SST1702:extension|}(int value)
+                {|SST1707:extension|}(int value)
                 {
                     public bool IsZero => value == 0;
                 }
@@ -106,14 +141,14 @@ public class ExtensionBlockAnalyzerUnitTest
             """
             public static class SampleExtensions
             {
-                extension(string text)
-                {
-                    public bool IsEmpty => text.Length == 0;
-                }
-
                 extension(int value)
                 {
                     public bool IsZero => value == 0;
+                }
+
+                extension(string text)
+                {
+                    public bool IsEmpty => text.Length == 0;
                 }
             }
             """);

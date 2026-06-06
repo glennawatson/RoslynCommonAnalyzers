@@ -52,6 +52,20 @@ internal static class ExtensionRules
         "Move this extension method into an extension block",
         "A class that uses extension blocks declares all of its extensions as extension-block members rather than mixing in classic 'this'-parameter methods.");
 
+    /// <summary>SST1706 — an extension block targets a broad receiver type such as <c>object</c> or <c>dynamic</c>.</summary>
+    public static readonly DiagnosticDescriptor BroadExtensionReceiver = Create(
+        "SST1706",
+        "Avoid declaring extension members on a broad receiver type",
+        "Avoid declaring extension members on '{0}'",
+        "Extension members on 'object' or 'dynamic' attach to every type and clutter completion lists; target a specific type instead.");
+
+    /// <summary>SST1707 — extension blocks in a type are not ordered by receiver type (opt-in).</summary>
+    public static readonly DiagnosticDescriptor OrderExtensionBlocks = CreateOptIn(
+        "SST1707",
+        "Extension blocks should be ordered by receiver type",
+        "Order this extension block by its receiver type",
+        "Extension blocks within a type are ordered by receiver type so they are easy to scan. Off by default — block ordering is a matter of preference.");
+
     /// <summary>Creates a Warning-severity Extensions descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

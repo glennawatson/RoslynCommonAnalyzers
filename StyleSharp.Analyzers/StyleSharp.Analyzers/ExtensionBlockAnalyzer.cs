@@ -21,7 +21,9 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         ExtensionRules.CombineExtensionBlocks,
         ExtensionRules.GroupExtensionBlocks,
         ExtensionRules.ExtensionContainerNaming,
-        ExtensionRules.DoNotMixExtensionStyles);
+        ExtensionRules.DoNotMixExtensionStyles,
+        ExtensionRules.BroadExtensionReceiver,
+        ExtensionRules.OrderExtensionBlocks);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -50,8 +52,10 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
 
         // 'sawExtension' records that a block has been seen; 'groupEnded' that a non-extension member
         // has since interrupted the run — a later extension block is then no longer contiguous.
+        // 'previousReceiver' is the receiver type of the most recent block, for the ordering rule.
         var sawExtension = false;
         var groupEnded = false;
+        string? previousReceiver = null;
         for (var index = 0; index < members.Count; index++)
         {
             var member = members[index];
@@ -66,21 +70,57 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            if (groupEnded)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(ExtensionRules.GroupExtensionBlocks, block.GetFirstToken().GetLocation()));
-            }
-
             sawExtension = true;
-
-            if (block.Members.Count == 0)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(ExtensionRules.EmptyExtensionBlock, block.GetFirstToken().GetLocation()));
-            }
-
-            ReportDuplicateReceiver(context, members, index, block);
+            ProcessBlock(context, members, index, block, groupEnded, ref previousReceiver);
         }
     }
+
+    /// <summary>Applies the per-block rules (SST1700/1701/1702/1706/1707) to one extension block.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="members">The class members.</param>
+    /// <param name="index">The index of the block.</param>
+    /// <param name="block">The extension block.</param>
+    /// <param name="groupEnded">Whether a non-extension member already interrupted the block run.</param>
+    /// <param name="previousReceiver">The receiver type of the previous block (updated on return).</param>
+    private static void ProcessBlock(
+        SyntaxNodeAnalysisContext context,
+        SyntaxList<MemberDeclarationSyntax> members,
+        int index,
+        TypeDeclarationSyntax block,
+        bool groupEnded,
+        ref string? previousReceiver)
+    {
+        var location = block.GetFirstToken().GetLocation();
+        var receiver = ExtensionBlockHelper.ReceiverTypeText(block);
+
+        if (groupEnded)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(ExtensionRules.GroupExtensionBlocks, location));
+        }
+
+        if (block.Members.Count == 0)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(ExtensionRules.EmptyExtensionBlock, location));
+        }
+
+        if (IsBroadReceiver(receiver))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(ExtensionRules.BroadExtensionReceiver, location, receiver));
+        }
+
+        if (receiver is not null && previousReceiver is not null && string.CompareOrdinal(receiver, previousReceiver) < 0)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(ExtensionRules.OrderExtensionBlocks, location));
+        }
+
+        previousReceiver = receiver ?? previousReceiver;
+        ReportDuplicateReceiver(context, members, index, receiver);
+    }
+
+    /// <summary>Returns whether a receiver type is one that attaches extension members to every type.</summary>
+    /// <param name="receiver">The receiver type text.</param>
+    /// <returns><see langword="true"/> for <c>object</c>, <c>System.Object</c>, or <c>dynamic</c>.</returns>
+    private static bool IsBroadReceiver(string? receiver) => receiver is "object" or "System.Object" or "dynamic";
 
     /// <summary>Returns whether any member is an extension block.</summary>
     /// <param name="members">The class members.</param>
@@ -102,10 +142,9 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="members">The class members.</param>
     /// <param name="index">The index of the current block.</param>
-    /// <param name="block">The current extension block.</param>
-    private static void ReportDuplicateReceiver(SyntaxNodeAnalysisContext context, SyntaxList<MemberDeclarationSyntax> members, int index, TypeDeclarationSyntax block)
+    /// <param name="receiver">The current block's receiver type text (already computed).</param>
+    private static void ReportDuplicateReceiver(SyntaxNodeAnalysisContext context, SyntaxList<MemberDeclarationSyntax> members, int index, string? receiver)
     {
-        var receiver = ExtensionBlockHelper.ReceiverTypeText(block);
         if (receiver is null)
         {
             return;
@@ -117,7 +156,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
                 && ExtensionBlockHelper.IsExtensionBlock(other)
                 && ExtensionBlockHelper.ReceiverTypeText(other) == receiver)
             {
-                context.ReportDiagnostic(Diagnostic.Create(ExtensionRules.CombineExtensionBlocks, block.GetFirstToken().GetLocation(), receiver));
+                context.ReportDiagnostic(Diagnostic.Create(ExtensionRules.CombineExtensionBlocks, members[index].GetFirstToken().GetLocation(), receiver));
                 return;
             }
         }

@@ -19,6 +19,20 @@ internal static class ConcurrencyRules
         "Change the type of '{0}' to System.Threading.Lock",
         "A private readonly object used only as a lock target is declared as System.Threading.Lock (.NET 9+), which the compiler locks through a typed scope rather than Monitor.");
 
+    /// <summary>SST1901 — a <c>lock</c> targets a field or property reachable from outside the declaring type.</summary>
+    public static readonly DiagnosticDescriptor DoNotLockOnAccessibleMember = Create(
+        "SST1901",
+        "Do not lock on a publicly accessible object",
+        "Do not lock on '{0}', which is accessible beyond the declaring type",
+        "Locking on a field or property reachable from outside the type lets unrelated code take the same lock and deadlock; lock on a private, dedicated object instead.");
+
+    /// <summary>SST1902 — a <c>lock</c> targets <c>this</c>, a <c>Type</c>, or a string (opt-in).</summary>
+    public static readonly DiagnosticDescriptor DoNotLockOnWeakIdentity = CreateOptIn(
+        "SST1902",
+        "Do not lock on 'this', a Type, or a string",
+        "Do not lock on this, a Type, or a string; lock on a private, dedicated object instead",
+        "Locking on 'this', a System.Type, or a string exposes the lock to unrelated code (strings may be interned, Types are shared), risking deadlocks. Off by default — overlaps CA2002.");
+
     /// <summary>Creates a Warning-severity Concurrency descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>
@@ -33,6 +47,23 @@ internal static class ConcurrencyRules
             "Concurrency",
             DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
+            description: description,
+            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+
+    /// <summary>Creates a Concurrency descriptor that is disabled by default (opt-in via .editorconfig).</summary>
+    /// <param name="id">The diagnostic id.</param>
+    /// <param name="title">The rule title.</param>
+    /// <param name="messageFormat">The message format.</param>
+    /// <param name="description">The rule description.</param>
+    /// <returns>The descriptor.</returns>
+    private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
+        new(
+            id,
+            title,
+            messageFormat,
+            "Concurrency",
+            DiagnosticSeverity.Warning,
+            isEnabledByDefault: false,
             description: description,
             helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
 }

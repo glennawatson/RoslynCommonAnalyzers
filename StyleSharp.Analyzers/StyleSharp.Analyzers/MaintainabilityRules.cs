@@ -136,6 +136,13 @@ internal static class MaintainabilityRules
         "Namespace '{0}' does not match the folder structure; expected '{1}'",
         "A type's namespace mirrors the file's folder path under the project root. Off by default — set 'stylesharp.namespace_root' in .editorconfig to override the root namespace.");
 
+    /// <summary>SST1415 — an argument-exception constructor uses a string literal where <c>nameof</c> would track renames (StyleSharp original).</summary>
+    public static readonly DiagnosticDescriptor UseNameofForParameter = Create(
+        "SST1415",
+        "Use nameof for parameter references",
+        "Use 'nameof({0})' instead of the string literal \"{0}\"",
+        "A string literal that names a parameter in an argument-exception constructor is written with 'nameof' so it follows renames.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

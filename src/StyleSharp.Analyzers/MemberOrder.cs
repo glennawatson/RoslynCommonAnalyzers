@@ -131,16 +131,16 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
             return null;
         }
 
-        var modifiers = member.Modifiers;
-        var isConst = ModifierListHelper.Contains(modifiers, SyntaxKind.ConstKeyword);
-        var isStatic = isConst || ModifierListHelper.Contains(modifiers, SyntaxKind.StaticKeyword);
+        var facts = ReadModifierFacts(member.Modifiers);
+        var isConst = facts.IsConst;
+        var isStatic = isConst || facts.IsStatic;
 
         return new MemberOrder(
             kind,
-            AccessRank(modifiers, member.Parent is InterfaceDeclarationSyntax),
+            AccessRank(facts, member.Parent is InterfaceDeclarationSyntax),
             isConst ? 0 : 1,
             isStatic ? 0 : 1,
-            ModifierListHelper.Contains(modifiers, SyntaxKind.ReadOnlyKeyword) ? 0 : 1);
+            facts.IsReadOnly ? 0 : 1);
     }
 
     /// <summary>Resolves the <c>IUnion</c> marker interface in a compilation, or <see langword="null"/> when no unions are present.</summary>
@@ -229,6 +229,70 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         _ => NamedMemberToken(member),
     };
 
+    /// <summary>Reads the relevant modifier facts from one token-list scan.</summary>
+    /// <param name="modifiers">The modifiers to inspect.</param>
+    /// <returns>The gathered modifier facts.</returns>
+    internal static ModifierFacts ReadModifierFacts(SyntaxTokenList modifiers)
+    {
+        var isPublic = false;
+        var isInternal = false;
+        var isProtected = false;
+        var isPrivate = false;
+        var isConst = false;
+        var isStatic = false;
+        var isReadOnly = false;
+
+        for (var i = 0; i < modifiers.Count; i++)
+        {
+            switch (modifiers[i].Kind())
+            {
+                case SyntaxKind.PublicKeyword:
+                {
+                    isPublic = true;
+                    break;
+                }
+
+                case SyntaxKind.InternalKeyword:
+                {
+                    isInternal = true;
+                    break;
+                }
+
+                case SyntaxKind.ProtectedKeyword:
+                {
+                    isProtected = true;
+                    break;
+                }
+
+                case SyntaxKind.PrivateKeyword:
+                {
+                    isPrivate = true;
+                    break;
+                }
+
+                case SyntaxKind.ConstKeyword:
+                {
+                    isConst = true;
+                    break;
+                }
+
+                case SyntaxKind.StaticKeyword:
+                {
+                    isStatic = true;
+                    break;
+                }
+
+                case SyntaxKind.ReadOnlyKeyword:
+                {
+                    isReadOnly = true;
+                    break;
+                }
+            }
+        }
+
+        return new(isPublic, isInternal, isProtected, isPrivate, isConst, isStatic, isReadOnly);
+    }
+
     /// <summary>Returns the identifier token for the member kinds that carry a plain name.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns>The identifier token, or the member's first token as a fallback.</returns>
@@ -276,41 +340,47 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
             : rule;
 
     /// <summary>Computes the accessibility rank from a member's modifiers.</summary>
-    /// <param name="modifiers">The member modifiers.</param>
+    /// <param name="facts">The gathered member modifier facts.</param>
     /// <param name="inInterface">Whether the member is declared in an interface (default public).</param>
     /// <returns>The accessibility rank (most accessible first).</returns>
-    private static int AccessRank(SyntaxTokenList modifiers, bool inInterface)
+    private static int AccessRank(ModifierFacts facts, bool inInterface)
     {
-        var isProtected = ModifierListHelper.Contains(modifiers, SyntaxKind.ProtectedKeyword);
-        var isInternal = ModifierListHelper.Contains(modifiers, SyntaxKind.InternalKeyword);
-        var isPrivate = ModifierListHelper.Contains(modifiers, SyntaxKind.PrivateKeyword);
-
-        if (ModifierListHelper.Contains(modifiers, SyntaxKind.PublicKeyword))
+        if (facts.IsPublic)
         {
             return PublicAccess;
         }
 
-        if (isProtected && isInternal)
+        if (facts.IsProtected && facts.IsInternal)
         {
             return ProtectedInternalAccess;
         }
 
-        if (isProtected && isPrivate)
+        if (facts.IsProtected && facts.IsPrivate)
         {
             return PrivateProtectedAccess;
         }
 
-        if (isInternal)
+        if (facts.IsInternal)
         {
             return InternalAccess;
         }
 
-        if (isProtected)
+        if (facts.IsProtected)
         {
             return ProtectedAccess;
         }
 
         // No access modifier: interface members are public; everything else is private.
-        return isPrivate || !inInterface ? PrivateAccess : PublicAccess;
+        return facts.IsPrivate || !inInterface ? PrivateAccess : PublicAccess;
     }
+
+    /// <summary>Modifier facts gathered from one token-list scan.</summary>
+    internal readonly record struct ModifierFacts(
+        bool IsPublic,
+        bool IsInternal,
+        bool IsProtected,
+        bool IsPrivate,
+        bool IsConst,
+        bool IsStatic,
+        bool IsReadOnly);
 }

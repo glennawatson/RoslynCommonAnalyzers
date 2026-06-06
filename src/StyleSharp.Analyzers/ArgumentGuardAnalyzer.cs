@@ -32,12 +32,7 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(start =>
         {
-            var helpers = new GuardHelpers(
-                HasStaticMethod(start.Compilation, "System.ArgumentNullException", "ThrowIfNull"),
-                HasStaticMethod(start.Compilation, "System.ArgumentException", "ThrowIfNullOrEmpty"),
-                HasStaticMethod(start.Compilation, "System.ArgumentException", "ThrowIfNullOrWhiteSpace"),
-                HasStaticMethod(start.Compilation, "System.ObjectDisposedException", "ThrowIf"),
-                ResolveRangeHelpers(start.Compilation));
+            var helpers = CreateHelpers(start.Compilation);
 
             if (!helpers.Any)
             {
@@ -84,6 +79,65 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
                 "ThrowIfEqual",
                 "ThrowIfNotEqual",
             ]);
+
+    /// <summary>Creates the available guard-helper set for one compilation.</summary>
+    /// <param name="compilation">The compilation to probe.</param>
+    /// <returns>The resolved guard-helper set.</returns>
+    internal static GuardHelpers CreateHelpers(Compilation compilation)
+    {
+        var argumentNullException = compilation.GetTypeByMetadataName("System.ArgumentNullException");
+        var argumentException = compilation.GetTypeByMetadataName("System.ArgumentException");
+        var objectDisposedException = compilation.GetTypeByMetadataName("System.ObjectDisposedException");
+        var argumentOutOfRangeException = compilation.GetTypeByMetadataName("System.ArgumentOutOfRangeException");
+        ReadArgumentExceptionHelpers(argumentException, out var throwIfNullOrEmpty, out var throwIfNullOrWhiteSpace);
+
+        return new(
+            HasStaticMethod(argumentNullException, "ThrowIfNull"),
+            throwIfNullOrEmpty,
+            throwIfNullOrWhiteSpace,
+            HasStaticMethod(objectDisposedException, "ThrowIf"),
+            ResolveRangeHelpers(argumentOutOfRangeException));
+    }
+
+    /// <summary>Reads the string guard helpers exposed by <c>ArgumentException</c> in one pass.</summary>
+    /// <param name="type">The resolved <c>ArgumentException</c> type, when available.</param>
+    /// <param name="throwIfNullOrEmpty">Set to <see langword="true"/> when <c>ThrowIfNullOrEmpty</c> exists.</param>
+    /// <param name="throwIfNullOrWhiteSpace">Set to <see langword="true"/> when <c>ThrowIfNullOrWhiteSpace</c> exists.</param>
+    internal static void ReadArgumentExceptionHelpers(
+        INamedTypeSymbol? type,
+        out bool throwIfNullOrEmpty,
+        out bool throwIfNullOrWhiteSpace)
+    {
+        throwIfNullOrEmpty = false;
+        throwIfNullOrWhiteSpace = false;
+        if (type is null)
+        {
+            return;
+        }
+
+        var members = type.GetMembers();
+        for (var i = 0; i < members.Length; i++)
+        {
+            if (members[i] is not IMethodSymbol { IsStatic: true, Name: var name })
+            {
+                continue;
+            }
+
+            if (name == "ThrowIfNullOrEmpty")
+            {
+                throwIfNullOrEmpty = true;
+            }
+            else if (name == "ThrowIfNullOrWhiteSpace")
+            {
+                throwIfNullOrWhiteSpace = true;
+            }
+
+            if (throwIfNullOrEmpty && throwIfNullOrWhiteSpace)
+            {
+                return;
+            }
+        }
+    }
 
     /// <summary>Reports the applicable guard-helper suggestion for one if statement.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -162,13 +216,12 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         => guardMethod == ThrowGuardPatterns.IsNullOrEmpty ? helpers.ThrowIfNullOrEmpty : helpers.ThrowIfNullOrWhiteSpace;
 
     /// <summary>Returns whether a type has a static method with the given name.</summary>
-    /// <param name="compilation">The compilation to resolve the type in.</param>
-    /// <param name="typeMetadataName">The metadata name of the declaring type.</param>
+    /// <param name="type">The type symbol, when resolved.</param>
     /// <param name="methodName">The method name to look for.</param>
     /// <returns><see langword="true"/> when the type exists and declares such a method.</returns>
-    private static bool HasStaticMethod(Compilation compilation, string typeMetadataName, string methodName)
+    private static bool HasStaticMethod(INamedTypeSymbol? type, string methodName)
     {
-        if (compilation.GetTypeByMetadataName(typeMetadataName) is not { } type)
+        if (type is null)
         {
             return false;
         }
@@ -186,11 +239,11 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>Resolves the available out-of-range helper names once per compilation.</summary>
-    /// <param name="compilation">The compilation.</param>
+    /// <param name="type">The resolved <c>ArgumentOutOfRangeException</c> type, when available.</param>
     /// <returns>The available helper names.</returns>
-    private static string[] ResolveRangeHelpers(Compilation compilation)
+    private static string[] ResolveRangeHelpers(INamedTypeSymbol? type)
     {
-        if (compilation.GetTypeByMetadataName("System.ArgumentOutOfRangeException") is not { } type)
+        if (type is null)
         {
             return [];
         }

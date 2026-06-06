@@ -2,7 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
+
+using TUnit.Assertions;
 
 using VerifyGuard = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ArgumentGuardAnalyzer,
@@ -260,6 +264,32 @@ public class ArgumentGuardAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies helper availability can be resolved from a compilation in one place.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CreateHelpersFindsCurrentRuntimeThrowHelpersAsync()
+    {
+        var compilation = CreateCompilation();
+        var helpers = ArgumentGuardAnalyzer.CreateHelpers(compilation);
+
+        await Assert.That(helpers.ThrowIfNull).IsTrue();
+        await Assert.That(helpers.Any).IsTrue();
+    }
+
+    /// <summary>Verifies the ArgumentException helper scan can resolve both string throw helpers in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReadArgumentExceptionHelpersFindsBothStringHelpersAsync()
+    {
+        var compilation = CreateCompilation();
+        var argumentException = compilation.GetTypeByMetadataName("System.ArgumentException");
+
+        ArgumentGuardAnalyzer.ReadArgumentExceptionHelpers(argumentException, out var throwIfNullOrEmpty, out var throwIfNullOrWhiteSpace);
+
+        await Assert.That(throwIfNullOrEmpty).IsTrue();
+        await Assert.That(throwIfNullOrWhiteSpace).IsTrue();
+    }
+
     /// <summary>Runs a code-fix verification against the .NET 8 reference assemblies (where the helper exists).</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected fixed source.</param>
@@ -274,5 +304,19 @@ public class ArgumentGuardAnalyzerUnitTest
         };
 
         await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Creates a minimal compilation against the current runtime reference set.</summary>
+    /// <returns>The compilation.</returns>
+    private static CSharpCompilation CreateCompilation()
+    {
+        var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator);
+        var references = new MetadataReference[trustedAssemblies.Length];
+        for (var i = 0; i < trustedAssemblies.Length; i++)
+        {
+            references[i] = MetadataReference.CreateFromFile(trustedAssemblies[i]);
+        }
+
+        return CSharpCompilation.Create("Bench", references: references);
     }
 }

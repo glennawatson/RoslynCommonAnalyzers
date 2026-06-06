@@ -37,9 +37,9 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(start =>
         {
-            var unionMarker = MemberOrder.ResolveUnionMarker(start.Compilation);
+            var unionMarkerCache = new UnionMarkerCache();
             start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, unionMarker),
+                nodeContext => Analyze(nodeContext, unionMarkerCache),
                 SyntaxKind.ClassDeclaration,
                 SyntaxKind.StructDeclaration,
                 SyntaxKind.RecordDeclaration,
@@ -48,19 +48,45 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
         });
     }
 
+    /// <summary>Returns whether a member list contains nested class/record declarations that may need union detection.</summary>
+    /// <param name="members">The member list to scan.</param>
+    /// <returns><see langword="true"/> when union-marker resolution may be needed.</returns>
+    internal static bool HasUnionCandidateMembers(SyntaxList<MemberDeclarationSyntax> members)
+    {
+        for (var i = 0; i < members.Count; i++)
+        {
+            if (members[i] is ClassDeclarationSyntax)
+            {
+                return true;
+            }
+
+            if (members[i] is RecordDeclarationSyntax { ClassOrStructKeyword.RawKind: 0 })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Orders a type's members and, for C# 14 extension blocks, the members nested inside them.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="unionMarker">The resolved <c>IUnion</c> marker, or <see langword="null"/> when no unions exist.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol? unionMarker)
+    /// <param name="unionMarkerCache">The lazy cache for the resolved <c>IUnion</c> marker.</param>
+    private static void Analyze(SyntaxNodeAnalysisContext context, UnionMarkerCache unionMarkerCache)
     {
         var type = (TypeDeclarationSyntax)context.Node;
-        OrderMembers(context, type.Members, unionMarker);
+        var members = type.Members;
+        var unionMarker = HasUnionCandidateMembers(members)
+            ? unionMarkerCache.Get(context.SemanticModel.Compilation)
+            : null;
+
+        OrderMembers(context, members, unionMarker);
 
         // An extension block is itself a TypeDeclarationSyntax but is not one of the kinds we
         // visit independently, so the pass above skips it. Order its members here. Detecting it
         // by "TypeDeclaration we don't otherwise visit" keeps this version-tolerant — the C# 14
         // ExtensionBlockDeclaration kind need not be named (it does not exist on the 4.8 floor).
-        foreach (var member in type.Members)
+        foreach (var member in members)
         {
             if (member is TypeDeclarationSyntax nested && !IsIndependentlyVisited(nested))
             {
@@ -109,4 +135,29 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
             or SyntaxKind.RecordDeclaration
             or SyntaxKind.RecordStructDeclaration
             or SyntaxKind.InterfaceDeclaration;
+
+    /// <summary>Lazily caches the resolved union marker for one compilation start.</summary>
+    private sealed class UnionMarkerCache
+    {
+        /// <summary>The cached union marker, once resolved.</summary>
+        private INamedTypeSymbol? _marker;
+
+        /// <summary>Tracks whether the marker has already been resolved for this compilation start.</summary>
+        private bool _initialized;
+
+        /// <summary>Gets the cached union marker, resolving it only when first needed.</summary>
+        /// <param name="compilation">The compilation that may contain the marker.</param>
+        /// <returns>The resolved marker, or <see langword="null"/>.</returns>
+        public INamedTypeSymbol? Get(Compilation compilation)
+        {
+            if (_initialized)
+            {
+                return _marker;
+            }
+
+            _marker = MemberOrder.ResolveUnionMarker(compilation);
+            _initialized = true;
+            return _marker;
+        }
+    }
 }

@@ -2,6 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+using TUnit.Assertions;
+
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MemberOrderingAnalyzer,
     StyleSharp.Analyzers.MemberOrderingCodeFixProvider>;
@@ -160,4 +165,54 @@ public class MemberOrderingAnalyzerUnitTest
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies member-ordering can detect when union-marker resolution may be needed.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UnionCandidateScanFindsNestedReferenceTypesAsync()
+    {
+        var type = ParseType(
+            "public class C { public sealed class Nested { } public record R; public int Value; }");
+
+        await Assert.That(MemberOrderingAnalyzer.HasUnionCandidateMembers(type.Members)).IsTrue();
+    }
+
+    /// <summary>Verifies member-ordering skips union-marker resolution when only non-reference nested members exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UnionCandidateScanSkipsNonReferenceMembersAsync()
+    {
+        var type = ParseType(
+            "public class C { public int Value; public readonly record struct Item(int Value); public interface I { } }");
+
+        await Assert.That(MemberOrderingAnalyzer.HasUnionCandidateMembers(type.Members)).IsFalse();
+    }
+
+    /// <summary>Verifies member-ordering can read the relevant modifier facts in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ModifierFactsCaptureStaticReadonlyAccessibilityAsync()
+    {
+        var field = ParseField("public static readonly int Value;");
+        var facts = MemberOrder.ReadModifierFacts(field.Modifiers);
+
+        await Assert.That(facts.IsPublic).IsTrue();
+        await Assert.That(facts.IsStatic).IsTrue();
+        await Assert.That(facts.IsReadOnly).IsTrue();
+    }
+
+    /// <summary>Parses one type declaration for helper-level member-ordering tests.</summary>
+    /// <param name="source">The type declaration source.</param>
+    /// <returns>The parsed type declaration.</returns>
+    private static TypeDeclarationSyntax ParseType(string source)
+        => (TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0];
+
+    /// <summary>Parses one field declaration for helper-level member-ordering tests.</summary>
+    /// <param name="source">The field declaration source.</param>
+    /// <returns>The parsed field declaration.</returns>
+    private static FieldDeclarationSyntax ParseField(string source)
+        => (FieldDeclarationSyntax)SyntaxFactory.ParseCompilationUnit("public class C { " + source + " }")
+            .Members[0]
+            .ChildNodes()
+            .Single();
 }

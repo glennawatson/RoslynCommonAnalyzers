@@ -33,6 +33,20 @@ internal static class ModernizationRules
         "Replace the check with 'ArgumentException.ThrowIfNullOrWhiteSpace({0})'",
         "A string.IsNullOrWhiteSpace check that throws is replaced by ArgumentException.ThrowIfNullOrWhiteSpace (.NET 8+). Off by default — it can change the thrown message and exception type.");
 
+    /// <summary>SST2003 — a disposed check should use <c>ObjectDisposedException.ThrowIf</c>.</summary>
+    public static readonly DiagnosticDescriptor UseObjectDisposedThrowIf = Create(
+        "SST2003",
+        "Use ObjectDisposedException.ThrowIf",
+        "Replace the disposed check with 'ObjectDisposedException.ThrowIf({0}, this)'",
+        "A standard disposed check is replaced by ObjectDisposedException.ThrowIf (.NET 8+).");
+
+    /// <summary>SST2004 — a range check should use an <c>ArgumentOutOfRangeException.ThrowIf...</c> helper.</summary>
+    public static readonly DiagnosticDescriptor UseArgumentOutOfRangeThrowIf = Create(
+        "SST2004",
+        "Use ArgumentOutOfRangeException range helpers",
+        "Replace the range check with 'ArgumentOutOfRangeException.{0}'",
+        "A simple range check is replaced by the matching ArgumentOutOfRangeException.ThrowIf helper (.NET 8+).");
+
     /// <summary>Creates a Warning-severity Modernization descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

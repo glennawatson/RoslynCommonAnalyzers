@@ -18,6 +18,57 @@ internal static class ThrowGuardPatterns
     /// <summary>The <c>string.IsNullOrWhiteSpace</c> guard method name.</summary>
     public const string IsNullOrWhiteSpace = "IsNullOrWhiteSpace";
 
+    /// <summary>Matches a standard instance disposed guard.</summary>
+    /// <param name="ifStatement">The candidate if statement.</param>
+    /// <param name="condition">The disposed condition.</param>
+    /// <returns><see langword="true"/> when the guard can use <c>ObjectDisposedException.ThrowIf</c>.</returns>
+    public static bool TryMatchObjectDisposed(IfStatementSyntax ifStatement, out ExpressionSyntax? condition)
+    {
+        condition = null;
+        if (ifStatement.Else is not null
+            || !TryGetThrownCreation(ifStatement.Statement, out var creation)
+            || SimpleTypeName(creation!.Type) != "ObjectDisposedException"
+            || !HasStandardDisposedArguments(creation.ArgumentList))
+        {
+            return false;
+        }
+
+        condition = ifStatement.Condition;
+        return true;
+    }
+
+    /// <summary>Matches a simple comparison guard that maps exactly to an out-of-range helper.</summary>
+    /// <param name="ifStatement">The candidate if statement.</param>
+    /// <param name="match">The helper and operands when matched.</param>
+    /// <returns><see langword="true"/> when a replacement is available.</returns>
+    public static bool TryMatchRangeGuard(IfStatementSyntax ifStatement, out RangeGuardMatch match)
+    {
+        match = default;
+        if (!TryGetRangeGuardParts(ifStatement, out var binary, out var parameterName))
+        {
+            return false;
+        }
+
+        var leftMatches = IsIdentifier(binary!.Left, parameterName!);
+        var rightMatches = IsIdentifier(binary.Right, parameterName!);
+        if (leftMatches == rightMatches)
+        {
+            return false;
+        }
+
+        var value = leftMatches ? binary.Left : binary.Right;
+        var bound = leftMatches ? binary.Right : binary.Left;
+        var kind = leftMatches ? binary.Kind() : Reverse(binary.Kind());
+        var helper = RangeHelper(kind, bound);
+        if (helper is null)
+        {
+            return false;
+        }
+
+        match = new RangeGuardMatch(helper, value, IsZero(bound) && HelperHasSingleArgument(helper) ? null : bound);
+        return true;
+    }
+
     /// <summary>
     /// Matches <c>if (E is null) throw new ArgumentNullException(...);</c> (and the
     /// <c>== null</c> form), where the constructor takes no argument or a single
@@ -184,6 +235,127 @@ internal static class ThrowGuardPatterns
         };
     }
 
+    /// <summary>Extracts the binary comparison and named parameter from a range guard.</summary>
+    /// <param name="ifStatement">The candidate statement.</param>
+    /// <param name="binary">The binary comparison.</param>
+    /// <param name="parameterName">The guarded parameter name.</param>
+    /// <returns><see langword="true"/> when the outer guard shape matches.</returns>
+    private static bool TryGetRangeGuardParts(
+        IfStatementSyntax ifStatement,
+        out BinaryExpressionSyntax? binary,
+        out string parameterName)
+    {
+        binary = ifStatement.Condition as BinaryExpressionSyntax;
+        parameterName = string.Empty;
+        if (ifStatement.Else is not null
+            || binary is null
+            || !TryGetThrownCreation(ifStatement.Statement, out var creation)
+            || SimpleTypeName(creation!.Type) != "ArgumentOutOfRangeException")
+        {
+            return false;
+        }
+
+        return TryGetParamName(creation.ArgumentList, out parameterName);
+    }
+
+    /// <summary>Returns whether disposed-exception arguments carry no custom message.</summary>
+    /// <param name="arguments">The constructor arguments.</param>
+    /// <returns><see langword="true"/> for zero arguments or one type-name argument.</returns>
+    private static bool HasStandardDisposedArguments(ArgumentListSyntax? arguments)
+        => arguments is null
+            || arguments.Arguments.Count == 0
+            || (arguments.Arguments.Count == 1
+                && arguments.Arguments[0].Expression is InvocationExpressionSyntax
+                {
+                    Expression: IdentifierNameSyntax { Identifier.Text: "nameof" },
+                });
+
+    /// <summary>Reads the identifier named by the exception's first <c>nameof</c> argument.</summary>
+    /// <param name="arguments">The constructor arguments.</param>
+    /// <param name="name">The named parameter.</param>
+    /// <returns><see langword="true"/> when a single <c>nameof(identifier)</c> argument is present.</returns>
+    private static bool TryGetParamName(ArgumentListSyntax? arguments, out string name)
+    {
+        name = string.Empty;
+        if (arguments?.Arguments.Count != 1
+            || arguments.Arguments[0].Expression is not InvocationExpressionSyntax
+            {
+                Expression: IdentifierNameSyntax { Identifier.Text: "nameof" },
+                ArgumentList.Arguments: [{ Expression: IdentifierNameSyntax identifier }],
+            })
+        {
+            return false;
+        }
+
+        name = identifier.Identifier.ValueText;
+        return true;
+    }
+
+    /// <summary>Returns whether an expression is the named identifier.</summary>
+    /// <param name="expression">The expression.</param>
+    /// <param name="name">The expected identifier name.</param>
+    /// <returns><see langword="true"/> when the expression is that identifier.</returns>
+    private static bool IsIdentifier(ExpressionSyntax expression, string name)
+        => expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == name;
+
+    /// <summary>Reverses a comparison kind when the guarded value is on the right.</summary>
+    /// <param name="kind">The original comparison kind.</param>
+    /// <returns>The reversed comparison kind.</returns>
+    private static SyntaxKind Reverse(SyntaxKind kind) => kind switch
+    {
+        SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
+        SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
+        SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
+        SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
+        _ => kind,
+    };
+
+    /// <summary>Maps a comparison kind and zero bound to the corresponding helper.</summary>
+    /// <param name="kind">The normalized comparison kind.</param>
+    /// <param name="bound">The comparison bound.</param>
+    /// <returns>The helper name, or <see langword="null"/>.</returns>
+    private static string? RangeHelper(SyntaxKind kind, ExpressionSyntax bound)
+        => IsZero(bound) ? ZeroRangeHelper(kind) : BoundRangeHelper(kind);
+
+    /// <summary>Maps a comparison against zero to a single-argument helper.</summary>
+    /// <param name="kind">The comparison kind.</param>
+    /// <returns>The helper name, or <see langword="null"/>.</returns>
+    private static string? ZeroRangeHelper(SyntaxKind kind) => kind switch
+    {
+        SyntaxKind.LessThanExpression => "ThrowIfNegative",
+        SyntaxKind.LessThanOrEqualExpression => "ThrowIfNegativeOrZero",
+        SyntaxKind.EqualsExpression => "ThrowIfZero",
+        _ => null,
+    };
+
+    /// <summary>Maps a comparison against a bound to a two-argument helper.</summary>
+    /// <param name="kind">The comparison kind.</param>
+    /// <returns>The helper name, or <see langword="null"/>.</returns>
+    private static string? BoundRangeHelper(SyntaxKind kind) => kind switch
+        {
+            SyntaxKind.GreaterThanExpression => "ThrowIfGreaterThan",
+            SyntaxKind.GreaterThanOrEqualExpression => "ThrowIfGreaterThanOrEqual",
+            SyntaxKind.LessThanExpression => "ThrowIfLessThan",
+            SyntaxKind.LessThanOrEqualExpression => "ThrowIfLessThanOrEqual",
+            SyntaxKind.EqualsExpression => "ThrowIfEqual",
+            SyntaxKind.NotEqualsExpression => "ThrowIfNotEqual",
+            _ => null,
+        };
+
+    /// <summary>Returns whether an expression is the numeric zero literal.</summary>
+    /// <param name="expression">The expression.</param>
+    /// <returns><see langword="true"/> when it is zero.</returns>
+    private static bool IsZero(ExpressionSyntax expression)
+        => expression is LiteralExpressionSyntax literal
+            && literal.IsKind(SyntaxKind.NumericLiteralExpression)
+            && literal.Token.ValueText.AsSpan().SequenceEqual("0".AsSpan());
+
+    /// <summary>Returns whether a helper takes only the guarded value.</summary>
+    /// <param name="helper">The helper name.</param>
+    /// <returns><see langword="true"/> for single-argument helpers.</returns>
+    private static bool HelperHasSingleArgument(string helper)
+        => helper is "ThrowIfNegative" or "ThrowIfNegativeOrZero" or "ThrowIfZero";
+
     /// <summary>Returns whether a simple type name is <c>ArgumentException</c> or <c>ArgumentNullException</c>.</summary>
     /// <param name="name">The simple type name.</param>
     /// <returns><see langword="true"/> for either argument-exception type.</returns>
@@ -199,4 +371,10 @@ internal static class ThrowGuardPatterns
         AliasQualifiedNameSyntax alias => alias.Name.Identifier.Text,
         _ => null,
     };
+
+    /// <summary>A matched range helper and its ordered operands.</summary>
+    /// <param name="Helper">The helper method name.</param>
+    /// <param name="Value">The guarded value.</param>
+    /// <param name="Bound">The optional bound.</param>
+    internal readonly record struct RangeGuardMatch(string Helper, ExpressionSyntax Value, ExpressionSyntax? Bound);
 }

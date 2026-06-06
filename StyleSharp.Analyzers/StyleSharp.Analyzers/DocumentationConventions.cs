@@ -51,6 +51,29 @@ internal static class DocumentationConventions
         return hasSet ? "Sets " : "Gets ";
     }
 
+    /// <summary>Returns whether a property has a set or init accessor with explicit restricted accessibility.</summary>
+    /// <param name="property">The property declaration.</param>
+    /// <returns><see langword="true"/> when a write accessor declares its own accessibility.</returns>
+    public static bool HasRestrictedWriteAccessor(PropertyDeclarationSyntax property)
+    {
+        if (property.ExplicitInterfaceSpecifier is not null || property.AccessorList is not { } accessorList)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < accessorList.Accessors.Count; i++)
+        {
+            var accessor = accessorList.Accessors[i];
+            if ((accessor.Keyword.IsKind(SyntaxKind.SetKeyword) || accessor.Keyword.IsKind(SyntaxKind.InitKeyword))
+                && accessor.Modifiers.Count > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Returns the standard constructor summary text referencing <paramref name="type"/>.</summary>
     /// <param name="type">The declaring type.</param>
     /// <returns>The standard summary inner text.</returns>

@@ -143,6 +143,48 @@ internal static class MaintainabilityRules
         "Use 'nameof({0})' instead of the string literal \"{0}\"",
         "A string literal that names a parameter in an argument-exception constructor is written with 'nameof' so it follows renames.");
 
+    /// <summary>SST1421 — a property has a setter but no getter.</summary>
+    public static readonly DiagnosticDescriptor NoWriteOnlyProperty = Create(
+        "SST1421",
+        "Write-only properties should not be used",
+        "Add a getter or replace this write-only property with a method",
+        "A property exposes a readable value; write-only operations are represented by methods.");
+
+    /// <summary>SST1423 — a switch statement exceeds the configured section count.</summary>
+    public static readonly DiagnosticDescriptor TooManySwitchSections = Create(
+        "SST1423",
+        "Switch statements should not have too many sections",
+        "Reduce this switch statement from {0} sections to at most {1}",
+        "Large switch statements are split into smaller abstractions. The maximum section count is configurable and defaults to 30.");
+
+    /// <summary>SST1419 — a modifier has no effect in its declaration context.</summary>
+    public static readonly DiagnosticDescriptor NoRedundantModifier = Create(
+        "SST1419",
+        "Remove redundant modifiers",
+        "Remove the redundant '{0}' modifier",
+        "Modifiers are omitted when the declaration context already guarantees the same behavior.");
+
+    /// <summary>SST1420 — a property trivially wraps a private backing field.</summary>
+    public static readonly DiagnosticDescriptor PreferAutoProperty = Create(
+        "SST1420",
+        "Trivial properties should be auto-implemented",
+        "Convert this property to an auto-property and remove its backing field",
+        "A property whose accessors only read and write a private single-use field is auto-implemented.");
+
+    /// <summary>SST1422 — a private field acts only as method-local temporary storage (opt-in).</summary>
+    public static readonly DiagnosticDescriptor PrivateFieldUsedAsLocal = CreateOptIn(
+        "SST1422",
+        "Private fields used only as locals should be local variables",
+        "Move field '{0}' into the method that uses it",
+        "A field that is reset before every use and referenced by one method does not represent object state. Off by default because conversion is a refactoring.");
+
+    /// <summary>SST1424 — a private field is never assigned outside construction (opt-in).</summary>
+    public static readonly DiagnosticDescriptor FieldShouldBeReadonly = CreateOptIn(
+        "SST1424",
+        "Fields that are never reassigned should be readonly",
+        "Make field '{0}' readonly",
+        "A private instance field assigned only by its initializer or constructors is declared readonly. Off by default to avoid overlap with IDE0044.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

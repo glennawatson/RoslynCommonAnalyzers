@@ -276,6 +276,27 @@ internal static class ReadabilityRules
         "Place the '{0}' operator at the {1} of the line",
         "When a conditional expression wraps, its '?' and ':' operators are placed consistently (leading by default); set 'stylesharp.conditional_operator_placement' in .editorconfig.");
 
+    /// <summary>SST1146 — an <c>if</c> statement follows a closing brace on the same line.</summary>
+    public static readonly DiagnosticDescriptor ConditionalOnNewLine = Create(
+        "SST1146",
+        "An if statement should start on a new line",
+        "Move the 'if' statement to a new line",
+        "An independent 'if' statement starts on a new line after the preceding closing brace.");
+
+    /// <summary>SST1147 — a conditional expression is nested inside another conditional expression (opt-in).</summary>
+    public static readonly DiagnosticDescriptor NoNestedTernary = CreateOptIn(
+        "SST1147",
+        "Do not nest conditional operators",
+        "Extract this nested conditional expression into an independent statement",
+        "Nested conditional expressions are difficult to scan. Off by default because shallow conditional chains are a defensible style.");
+
+    /// <summary>SST1148 — a regular comment appears to contain C# code (opt-in).</summary>
+    public static readonly DiagnosticDescriptor NoCommentedOutCode = CreateOptIn(
+        "SST1148",
+        "Commented-out code should be removed",
+        "Remove this commented-out code",
+        "Source control preserves old code; comments are reserved for explanation. Off by default because code detection is heuristic.");
+
     /// <summary>Creates a Warning-severity Readability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

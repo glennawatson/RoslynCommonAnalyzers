@@ -160,6 +160,89 @@ public class ArgumentGuardAnalyzerUnitTest
         await VerifyNet80Async(Source, FixedSource);
     }
 
+    /// <summary>Verifies a standard disposed guard is replaced by ObjectDisposedException.ThrowIf.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DisposedGuardReplacedAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  private bool _disposed;
+
+                                  public void M()
+                                  {
+                                      {|SST2003:if (_disposed) throw new ObjectDisposedException(nameof(C));|}
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       private bool _disposed;
+
+                                       public void M()
+                                       {
+                                           ObjectDisposedException.ThrowIf(_disposed, this);
+                                       }
+                                   }
+                                   """;
+        await VerifyNet80Async(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a negative range guard is replaced by ThrowIfNegative.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NegativeRangeGuardReplacedAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  public void M(int value)
+                                  {
+                                      {|SST2004:if (value < 0) throw new ArgumentOutOfRangeException(nameof(value));|}
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       public void M(int value)
+                                       {
+                                           ArgumentOutOfRangeException.ThrowIfNegative(value);
+                                       }
+                                   }
+                                   """;
+        await VerifyNet80Async(Source, FixedSource);
+    }
+
+    /// <summary>Verifies an ambiguous range comparison is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AmbiguousRangeGuardIsCleanAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  public void M(int value, int other)
+                                  {
+                                      if (other < 0) throw new ArgumentOutOfRangeException(nameof(value));
+                                  }
+                              }
+                              """;
+        await VerifyNet80Async(Source, Source);
+    }
+
     /// <summary>Verifies the rule stays silent where ThrowIfNull does not exist (pre-.NET 6 reference assemblies).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

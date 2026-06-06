@@ -17,7 +17,9 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         ModernizationRules.UseThrowIfNull.Id,
         ModernizationRules.UseThrowIfNullOrEmpty.Id,
-        ModernizationRules.UseThrowIfNullOrWhiteSpace.Id);
+        ModernizationRules.UseThrowIfNullOrWhiteSpace.Id,
+        ModernizationRules.UseObjectDisposedThrowIf.Id,
+        ModernizationRules.UseArgumentOutOfRangeThrowIf.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -61,6 +63,25 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider
             return ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out var expression)
                 ? $"ArgumentNullException.ThrowIfNull({expression});"
                 : null;
+        }
+
+        if (diagnosticId == ModernizationRules.UseObjectDisposedThrowIf.Id)
+        {
+            return ThrowGuardPatterns.TryMatchObjectDisposed(ifStatement, out var condition)
+                ? $"ObjectDisposedException.ThrowIf({condition}, this);"
+                : null;
+        }
+
+        if (diagnosticId == ModernizationRules.UseArgumentOutOfRangeThrowIf.Id)
+        {
+            if (!ThrowGuardPatterns.TryMatchRangeGuard(ifStatement, out var match))
+            {
+                return null;
+            }
+
+            return match.Bound is null
+                ? $"ArgumentOutOfRangeException.{match.Helper}({match.Value});"
+                : $"ArgumentOutOfRangeException.{match.Helper}({match.Value}, {match.Bound});";
         }
 
         if (!ThrowGuardPatterns.TryMatchStringGuard(ifStatement, out _, out var stringExpression))

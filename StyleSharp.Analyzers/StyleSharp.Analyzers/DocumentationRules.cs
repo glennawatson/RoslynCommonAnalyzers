@@ -128,6 +128,27 @@ internal static class DocumentationRules
         "Property summary should start with '{0}'",
         "A property's summary begins with 'Gets', 'Sets', or 'Gets or sets' to match its accessors.");
 
+    /// <summary>SST1624 — a property summary mentions a restricted setter (opt-in).</summary>
+    public static readonly DiagnosticDescriptor PropertySummaryOmitsRestrictedSetter = CreateOptIn(
+        "SST1624",
+        "Property summary should omit a restricted set accessor",
+        "Property summary should start with 'Gets' because the set accessor is more restricted",
+        "A property's public summary omits a setter or initializer whose accessibility is more restrictive than the property.");
+
+    /// <summary>SST1627 — a documentation section contains no text (opt-in).</summary>
+    public static readonly DiagnosticDescriptor DocumentationTextNotEmpty = CreateOptIn(
+        "SST1627",
+        "Documentation text should not be empty",
+        "This documentation section should contain text",
+        "Non-summary documentation sections such as remarks and paragraphs contain descriptive text.");
+
+    /// <summary>SST1644 — a documentation comment contains an interior blank line (opt-in).</summary>
+    public static readonly DiagnosticDescriptor DocumentationHeaderNoBlankLines = CreateOptIn(
+        "SST1644",
+        "Documentation headers should not contain blank lines",
+        "Remove this blank documentation line",
+        "Documentation prose remains contiguous rather than containing empty '///' lines. Off by default because the upstream StyleCop rule is deprecated.");
+
     /// <summary>SST1642 — constructor summaries should begin with the standard text.</summary>
     public static readonly DiagnosticDescriptor ConstructorStandardText = Create(
         "SST1642",

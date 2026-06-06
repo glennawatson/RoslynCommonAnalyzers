@@ -34,6 +34,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         DocumentationRules.TypeParameterDocumentationMustDeclareName,
         DocumentationRules.TypeParameterDocumentationMustHaveText,
         DocumentationRules.PropertySummaryAccessors,
+        DocumentationRules.PropertySummaryOmitsRestrictedSetter,
         DocumentationRules.ConstructorStandardText,
         DocumentationRules.DestructorStandardText,
         DocumentationRules.TextMustEndWithPeriod);
@@ -122,7 +123,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             ReturnType: null,
             Skips(property.Modifiers, property.ExplicitInterfaceSpecifier),
             DocumentationRules.ElementsMustBeDocumented,
-            new SummaryPrefix(DocumentationConventions.PropertyAccessorPrefix(property), DocumentationRules.PropertySummaryAccessors)),
+            PropertySummaryRequirement(property)),
 
         EnumMemberDeclarationSyntax enumMember => new MemberDoc(
             enumMember.Identifier,
@@ -159,6 +160,14 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         => constructor.Modifiers.Any(SyntaxKind.StaticKeyword)
             ? null
             : new SummaryPrefix(DocumentationConventions.ConstructorStandardPrefix, DocumentationRules.ConstructorStandardText);
+
+    /// <summary>Returns the accessor-summary requirement for a property.</summary>
+    /// <param name="property">The property declaration.</param>
+    /// <returns>The required prefix and diagnostic rule.</returns>
+    private static SummaryPrefix PropertySummaryRequirement(PropertyDeclarationSyntax property)
+        => DocumentationConventions.HasRestrictedWriteAccessor(property)
+            ? new SummaryPrefix("Gets ", DocumentationRules.PropertySummaryOmitsRestrictedSetter)
+            : new SummaryPrefix(DocumentationConventions.PropertyAccessorPrefix(property), DocumentationRules.PropertySummaryAccessors);
 
     /// <summary>Runs every applicable documentation check for one member.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -230,7 +239,18 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (requirement is not { } required || XmlDocumentationHelper.LeadingTextStartsWith(element, required.Text.AsSpan()))
+        if (requirement is not { } required)
+        {
+            return;
+        }
+
+        var hasRequiredPrefix = XmlDocumentationHelper.LeadingTextStartsWith(element, required.Text.AsSpan());
+        if (required.Rule.Id == DocumentationRules.PropertySummaryOmitsRestrictedSetter.Id)
+        {
+            hasRequiredPrefix &= !XmlDocumentationHelper.LeadingTextStartsWith(element, "Gets or sets ".AsSpan());
+        }
+
+        if (hasRequiredPrefix)
         {
             return;
         }

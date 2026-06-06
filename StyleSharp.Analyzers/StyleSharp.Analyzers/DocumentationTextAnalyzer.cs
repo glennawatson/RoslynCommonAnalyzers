@@ -26,7 +26,8 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
         DocumentationRules.TextBeginsWithCapital,
         DocumentationRules.TextContainsWhitespace,
         DocumentationRules.TextCharacterPercentage,
-        DocumentationRules.TextMinimumLength);
+        DocumentationRules.TextMinimumLength,
+        DocumentationRules.DocumentationTextNotEmpty);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -42,6 +43,7 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var documentation = (DocumentationCommentTriviaSyntax)context.Node;
+        CheckEmptySections(context, documentation);
         if (XmlDocumentationHelper.FindElement(documentation, "summary") is not { } summary)
         {
             return;
@@ -59,6 +61,52 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
         CheckPercentage(context, text, location);
         CheckLength(context, text, location);
     }
+
+    /// <summary>Reports empty non-summary section elements.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="documentation">The documentation comment.</param>
+    private static void CheckEmptySections(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation)
+    {
+        for (var i = 0; i < documentation.Content.Count; i++)
+        {
+            if (documentation.Content[i] is not XmlElementSyntax element
+                || !IsSectionElement(element.StartTag.Name.LocalName.ValueText.AsSpan())
+                || HasChildElement(element)
+                || XmlDocumentationHelper.NormalizedText(element).Length > 0)
+            {
+                continue;
+            }
+
+            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.DocumentationTextNotEmpty, element.GetLocation()));
+        }
+    }
+
+    /// <summary>Returns whether an XML element contains another XML element.</summary>
+    /// <param name="element">The element to inspect.</param>
+    /// <returns><see langword="true"/> when a child element is present.</returns>
+    private static bool HasChildElement(XmlElementSyntax element)
+    {
+        for (var i = 0; i < element.Content.Count; i++)
+        {
+            if (element.Content[i] is XmlElementSyntax or XmlEmptyElementSyntax)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether an element is a prose section that must contain text.</summary>
+    /// <param name="name">The element name.</param>
+    /// <returns><see langword="true"/> for handled section elements.</returns>
+    private static bool IsSectionElement(ReadOnlySpan<char> name)
+        => name.SequenceEqual("remarks".AsSpan())
+            || name.SequenceEqual("para".AsSpan())
+            || name.SequenceEqual("note".AsSpan())
+            || name.SequenceEqual("example".AsSpan())
+            || name.SequenceEqual("value".AsSpan())
+            || name.SequenceEqual("returns".AsSpan());
 
     /// <summary>Reports a summary that does not begin with a capital letter.</summary>
     /// <param name="context">The syntax node analysis context.</param>

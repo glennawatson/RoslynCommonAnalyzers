@@ -20,7 +20,9 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
         ModernizationRules.UseThrowIfNull,
         ModernizationRules.UseThrowIfNullOrEmpty,
-        ModernizationRules.UseThrowIfNullOrWhiteSpace);
+        ModernizationRules.UseThrowIfNullOrWhiteSpace,
+        ModernizationRules.UseObjectDisposedThrowIf,
+        ModernizationRules.UseArgumentOutOfRangeThrowIf);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -33,7 +35,9 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
             var helpers = new GuardHelpers(
                 HasStaticMethod(start.Compilation, "System.ArgumentNullException", "ThrowIfNull"),
                 HasStaticMethod(start.Compilation, "System.ArgumentException", "ThrowIfNullOrEmpty"),
-                HasStaticMethod(start.Compilation, "System.ArgumentException", "ThrowIfNullOrWhiteSpace"));
+                HasStaticMethod(start.Compilation, "System.ArgumentException", "ThrowIfNullOrWhiteSpace"),
+                HasStaticMethod(start.Compilation, "System.ObjectDisposedException", "ThrowIf"),
+                ResolveRangeHelpers(start.Compilation));
 
             if (!helpers.Any)
             {
@@ -54,6 +58,29 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         if (helpers.ThrowIfNull && ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out var nullChecked))
         {
             context.ReportDiagnostic(Diagnostic.Create(ModernizationRules.UseThrowIfNull, ifStatement.GetLocation(), nullChecked!.ToString()));
+            return;
+        }
+
+        if (helpers.ThrowIfDisposed
+            && !IsStaticContext(ifStatement)
+            && ThrowGuardPatterns.TryMatchObjectDisposed(ifStatement, out var disposedCondition))
+        {
+            context.ReportDiagnostic(
+                Diagnostic.Create(
+                    ModernizationRules.UseObjectDisposedThrowIf,
+                    ifStatement.GetLocation(),
+                    disposedCondition!.ToString()));
+            return;
+        }
+
+        if (ThrowGuardPatterns.TryMatchRangeGuard(ifStatement, out var rangeMatch)
+            && helpers.Range.Contains(rangeMatch.Helper))
+        {
+            context.ReportDiagnostic(
+                Diagnostic.Create(
+                    ModernizationRules.UseArgumentOutOfRangeThrowIf,
+                    ifStatement.GetLocation(),
+                    rangeMatch.Helper));
             return;
         }
 
@@ -99,13 +126,64 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         => compilation.GetTypeByMetadataName(typeMetadataName) is { } type
             && type.GetMembers(methodName).Any(member => member is IMethodSymbol { IsStatic: true });
 
+    /// <summary>Resolves the available out-of-range helper names once per compilation.</summary>
+    /// <param name="compilation">The compilation.</param>
+    /// <returns>The available helper names.</returns>
+    private static HashSet<string> ResolveRangeHelpers(Compilation compilation)
+    {
+        var helpers = new HashSet<string>(StringComparer.Ordinal);
+        if (compilation.GetTypeByMetadataName("System.ArgumentOutOfRangeException") is not { } type)
+        {
+            return helpers;
+        }
+
+        var members = type.GetMembers();
+        for (var i = 0; i < members.Length; i++)
+        {
+            if (members[i] is IMethodSymbol { IsStatic: true, Name: var name } && name.StartsWith("ThrowIf", StringComparison.Ordinal))
+            {
+                helpers.Add(name);
+            }
+        }
+
+        return helpers;
+    }
+
+    /// <summary>Returns whether an if statement is inside a static member or static local function.</summary>
+    /// <param name="statement">The statement.</param>
+    /// <returns><see langword="true"/> when <c>this</c> is unavailable.</returns>
+    private static bool IsStaticContext(IfStatementSyntax statement)
+    {
+        for (SyntaxNode? current = statement.Parent; current is not null; current = current.Parent)
+        {
+            if (current is LocalFunctionStatementSyntax local)
+            {
+                return local.Modifiers.Any(SyntaxKind.StaticKeyword);
+            }
+
+            if (current is MemberDeclarationSyntax member)
+            {
+                return member.Modifiers.Any(SyntaxKind.StaticKeyword);
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>The guard helpers available in a compilation's referenced framework.</summary>
     /// <param name="ThrowIfNull">Whether <c>ArgumentNullException.ThrowIfNull</c> exists.</param>
     /// <param name="ThrowIfNullOrEmpty">Whether <c>ArgumentException.ThrowIfNullOrEmpty</c> exists.</param>
     /// <param name="ThrowIfNullOrWhiteSpace">Whether <c>ArgumentException.ThrowIfNullOrWhiteSpace</c> exists.</param>
-    private readonly record struct GuardHelpers(bool ThrowIfNull, bool ThrowIfNullOrEmpty, bool ThrowIfNullOrWhiteSpace)
+    /// <param name="ThrowIfDisposed">Whether <c>ObjectDisposedException.ThrowIf</c> exists.</param>
+    /// <param name="Range">The available <c>ArgumentOutOfRangeException</c> helper names.</param>
+    private readonly record struct GuardHelpers(
+        bool ThrowIfNull,
+        bool ThrowIfNullOrEmpty,
+        bool ThrowIfNullOrWhiteSpace,
+        bool ThrowIfDisposed,
+        HashSet<string> Range)
     {
         /// <summary>Gets a value indicating whether any guard helper is available.</summary>
-        public bool Any => ThrowIfNull || ThrowIfNullOrEmpty || ThrowIfNullOrWhiteSpace;
+        public bool Any => ThrowIfNull || ThrowIfNullOrEmpty || ThrowIfNullOrWhiteSpace || ThrowIfDisposed || Range.Count > 0;
     }
 }

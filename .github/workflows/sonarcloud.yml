@@ -28,11 +28,11 @@ jobs:
                     fetch-depth: 0
                     fetch-tags: true
 
-            -   name: Set up JDK 17
+            -   name: Set up JDK 21
                 uses: actions/setup-java@v5
                 with:
-                    java-version: '17'
-                    distribution: zulu
+                    java-version: '21'
+                    distribution: temurin
 
             -   name: Setup .NET
                 uses: actions/setup-dotnet@v5
@@ -76,11 +76,12 @@ jobs:
                       /o:"glennawatson" \
                       /d:sonar.token="${SONAR_TOKEN}" \
                       /d:sonar.host.url="https://sonarcloud.io" \
+                      /d:sonar.scanner.skipJreProvisioning=true \
                       /d:sonar.cs.vscoveragexml.reportsPaths="**/TestResults/**/sonar-coverage.xml" \
-                      /d:sonar.exclusions="**/*.Tests/**" \
-                      /d:sonar.coverage.exclusions="**/*.Tests/**" \
-                      /d:sonar.cpd.exclusions="**/*.Tests/**" \
-                      /d:sonar.test.exclusions="**/*.Tests/**"
+                      /d:sonar.exclusions="**/tests/**,**/benchmarks/**" \
+                      /d:sonar.coverage.exclusions="**/tests/**,**/benchmarks/**" \
+                      /d:sonar.cpd.exclusions="**/tests/**,**/benchmarks/**" \
+                      /d:sonar.test.exclusions="**/tests/**,**/benchmarks/**"
 
             -   name: Build
                 working-directory: src

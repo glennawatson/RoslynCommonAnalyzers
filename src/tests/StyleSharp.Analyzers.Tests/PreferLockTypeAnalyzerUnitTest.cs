@@ -312,7 +312,7 @@ public class PreferLockTypeAnalyzerUnitTest
     /// <param name="source">The field declaration source.</param>
     /// <returns>The parsed field declaration.</returns>
     private static FieldDeclarationSyntax ParseField(string source)
-        => (FieldDeclarationSyntax)SyntaxFactory.ParseCompilationUnit("public class C { " + source + " }")
+        => (FieldDeclarationSyntax)SyntaxFactory.ParseCompilationUnit($$"""public class C { {{source}} }""")
             .Members[0]
             .ChildNodes()
             .Single();

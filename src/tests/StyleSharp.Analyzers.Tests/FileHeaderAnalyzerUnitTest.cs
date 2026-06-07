@@ -10,11 +10,16 @@ using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
 
 namespace StyleSharp.Analyzers.Tests;
 
-/// <summary>Unit tests for SST1633 (file header from file_header_template).</summary>
+    /// <summary>Unit tests for SST1633 (file header from file_header_template).</summary>
 public class FileHeaderAnalyzerUnitTest
 {
     /// <summary>The editorconfig configuring a single-line header template.</summary>
-    private const string EditorConfig = "root = true\n[*.cs]\nfile_header_template = Copyright text.\n";
+    private const string EditorConfig = """
+        root = true
+        [*.cs]
+        file_header_template = Copyright text.
+
+        """;
 
     /// <summary>Verifies a file with no header template configured is ignored.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -29,7 +34,10 @@ public class FileHeaderAnalyzerUnitTest
     {
         var test = new Verify.Test
         {
-            TestCode = "// Copyright text.\nnamespace N { }"
+            TestCode = """
+                // Copyright text.
+                namespace N { }
+                """
         };
 
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
@@ -44,7 +52,10 @@ public class FileHeaderAnalyzerUnitTest
         var test = new Verify.Test
         {
             TestCode = "namespace N { }",
-            FixedCode = "// Copyright text.\nnamespace N { }",
+            FixedCode = """
+                // Copyright text.
+                namespace N { }
+                """,
 
             // A file-start (position 0) diagnostic cannot be suppressed by a #pragma
             // that necessarily comes after it, so skip the harness's suppression check.

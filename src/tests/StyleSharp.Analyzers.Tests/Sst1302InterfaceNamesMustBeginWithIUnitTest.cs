@@ -46,7 +46,16 @@ public class Sst1302InterfaceNamesMustBeginWithIUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task CodeFixUpdatesReferencesAsync()
-        => await Verifysst1302.VerifyCodeFixAsync(
-            "public interface {|SST1302:Widget|} { }\npublic class C : Widget { }",
-            "public interface IWidget { }\npublic class C : IWidget { }");
+    {
+        const string source = """
+                              public interface {|SST1302:Widget|} { }
+                              public class C : Widget { }
+                              """;
+        const string fixedSource = """
+                                   public interface IWidget { }
+                                   public class C : IWidget { }
+                                   """;
+
+        await Verifysst1302.VerifyCodeFixAsync(source, fixedSource);
+    }
 }

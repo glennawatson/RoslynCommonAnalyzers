@@ -37,7 +37,12 @@ public class TooManySwitchLabelsAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", "root = true\n[*.cs]\nstylesharp.SST1423.max_switch_sections = 2\n"));
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.SST1423.max_switch_sections = 2
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -68,7 +73,12 @@ public class TooManySwitchLabelsAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", "root = true\n[*.cs]\nstylesharp.max_switch_sections = 2\n"));
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.max_switch_sections = 2
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -10,10 +10,12 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\StyleSharp.Analyzers\StyleSharp.Analyzers.csproj" />
+    <ProjectReference Include="..\..\StyleSharp.Analyzers.CodeFixes\StyleSharp.Analyzers.CodeFixes.csproj" />
   </ItemGroup>
 
 </Project>

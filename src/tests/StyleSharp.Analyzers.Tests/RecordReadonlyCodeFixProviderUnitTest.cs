@@ -19,9 +19,15 @@ public class RecordReadonlyCodeFixProviderUnitTest
     [Test]
     public async Task ReadonlyModifierAddedAsync()
     {
-        const string Source = "public record struct {|SST1803:Point|}(int X, int Y);";
-        const string FixedSource = "public readonly record struct Point(int X, int Y);";
-        await VerifyReadonly.VerifyCodeFixAsync(Source + IsExternalInit, FixedSource + IsExternalInit);
+        const string Source = """
+                              public record struct {|SST1803:Point|}(int X, int Y);
+                              namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+                              """;
+        const string FixedSource = """
+                                   public readonly record struct Point(int X, int Y);
+                                   namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+                                   """;
+        await VerifyReadonly.VerifyCodeFixAsync(Source, FixedSource);
     }
 
     /// <summary>Verifies a readonly record struct and a record class are not reported by SST1803.</summary>
@@ -29,5 +35,8 @@ public class RecordReadonlyCodeFixProviderUnitTest
     [Test]
     public async Task ReadonlyStructAndRecordClassAreCleanAsync()
         => await VerifyReadonly.VerifyAnalyzerAsync(
-            "public readonly record struct Point(int X, int Y);\npublic sealed record Person(string Name);" + IsExternalInit);
+            $$"""
+            public readonly record struct Point(int X, int Y);
+            public sealed record Person(string Name);{{IsExternalInit}}
+            """);
 }

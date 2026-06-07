@@ -52,10 +52,14 @@ public class MaintainabilityAnalyzerUnitTest
     [Test]
     public async Task ExposedFieldReportedAsync()
         => await VerifyField.VerifyAnalyzerAsync(
-            "internal class C\n{\n"
-            + "    public int {|SST1401:Exposed|};\n"
-            + "    public const int Allowed = 1;\n"
-            + "    private int _hidden;\n}");
+            """
+            internal class C
+            {
+                public int {|SST1401:Exposed|};
+                public const int Allowed = 1;
+                private int _hidden;
+            }
+            """);
 
     /// <summary>Verifies a second top-level type is reported (SST1402).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -80,38 +84,54 @@ public class MaintainabilityAnalyzerUnitTest
     [Test]
     public async Task SuppressionWithoutJustificationReportedAsync()
         => await VerifySuppress.VerifyAnalyzerAsync(
-            "using System.Diagnostics.CodeAnalysis;\n"
-            + "internal class C\n{\n"
-            + "    [{|SST1404:SuppressMessage(\"Cat\", \"Rule\")|}]\n"
-            + "    public void M() { }\n}");
+            """
+            using System.Diagnostics.CodeAnalysis;
+            internal class C
+            {
+                [{|SST1404:SuppressMessage("Cat", "Rule")|}]
+                public void M() { }
+            }
+            """);
 
     /// <summary>Verifies a justified suppression is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task JustifiedSuppressionAllowedAsync()
         => await VerifySuppress.VerifyAnalyzerAsync(
-            "using System.Diagnostics.CodeAnalysis;\n"
-            + "internal class C\n{\n"
-            + "    [SuppressMessage(\"Cat\", \"Rule\", Justification = \"Tested.\")]\n"
-            + "    public void M() { }\n}");
+            """
+            using System.Diagnostics.CodeAnalysis;
+            internal class C
+            {
+                [SuppressMessage("Cat", "Rule", Justification = "Tested.")]
+                public void M() { }
+            }
+            """);
 
     /// <summary>Verifies a Debug.Assert without a message is reported (SST1405).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task AssertWithoutMessageReportedAsync()
         => await VerifyDebug.VerifyAnalyzerAsync(
-            "using System.Diagnostics;\n"
-            + "internal class C\n{\n"
-            + "    public void M() => Debug.{|SST1405:Assert|}(true);\n}");
+            """
+            using System.Diagnostics;
+            internal class C
+            {
+                public void M() => Debug.{|SST1405:Assert|}(true);
+            }
+            """);
 
     /// <summary>Verifies a Debug.Fail with an empty message is reported (SST1406).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task FailWithoutMessageReportedAsync()
         => await VerifyDebug.VerifyAnalyzerAsync(
-            "using System.Diagnostics;\n"
-            + "internal class C\n{\n"
-            + "    public void M() => Debug.{|SST1406:Fail|}(\"\");\n}");
+            """
+            using System.Diagnostics;
+            internal class C
+            {
+                public void M() => Debug.{|SST1406:Fail|}("");
+            }
+            """);
 
     /// <summary>Verifies mixed arithmetic precedence is reported (SST1407) and parenthesized.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

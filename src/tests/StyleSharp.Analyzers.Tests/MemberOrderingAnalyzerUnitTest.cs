@@ -4,9 +4,6 @@
 
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-
-using TUnit.Assertions;
-
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MemberOrderingAnalyzer,
     StyleSharp.Analyzers.MemberOrderingCodeFixProvider>;
@@ -21,26 +18,35 @@ public class MemberOrderingAnalyzerUnitTest
     [Test]
     public async Task OrderedNoDiagnosticAsync()
         => await Verify.VerifyAnalyzerAsync(
-            "public class C\n{\n"
-            + "    private int _field;\n"
-            + "    public C() { }\n"
-            + "    public int Property { get; set; }\n"
-            + "    public void Method() { }\n"
-            + "}");
+            """
+            public class C
+            {
+                private int _field;
+                public C() { }
+                public int Property { get; set; }
+                public void Method() { }
+            }
+            """);
 
     /// <summary>Verifies a field after a method is reported (SST1201) and moved before it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task KindOutOfOrderAsync()
     {
-        const string Source = "public class C\n{\n"
-            + "    public void Method() { }\n"
-            + "    private int {|SST1201:_field|};\n"
-            + "}";
-        const string FixedSource = "public class C\n{\n"
-            + "    private int _field;\n"
-            + "    public void Method() { }\n"
-            + "}";
+        const string Source = """
+            public class C
+            {
+                public void Method() { }
+                private int {|SST1201:_field|};
+            }
+            """;
+        const string FixedSource = """
+            public class C
+            {
+                private int _field;
+                public void Method() { }
+            }
+            """;
 
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
@@ -50,14 +56,20 @@ public class MemberOrderingAnalyzerUnitTest
     [Test]
     public async Task AccessOutOfOrderAsync()
     {
-        const string Source = "public class C\n{\n"
-            + "    private void A() { }\n"
-            + "    public void {|SST1202:B|}() { }\n"
-            + "}";
-        const string FixedSource = "public class C\n{\n"
-            + "    public void B() { }\n"
-            + "    private void A() { }\n"
-            + "}";
+        const string Source = """
+            public class C
+            {
+                private void A() { }
+                public void {|SST1202:B|}() { }
+            }
+            """;
+        const string FixedSource = """
+            public class C
+            {
+                public void B() { }
+                private void A() { }
+            }
+            """;
 
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
@@ -67,14 +79,20 @@ public class MemberOrderingAnalyzerUnitTest
     [Test]
     public async Task ConstantAfterFieldAsync()
     {
-        const string Source = "public class C\n{\n"
-            + "    private int _field;\n"
-            + "    private const int {|SST1203:Max|} = 1;\n"
-            + "}";
-        const string FixedSource = "public class C\n{\n"
-            + "    private const int Max = 1;\n"
-            + "    private int _field;\n"
-            + "}";
+        const string Source = """
+            public class C
+            {
+                private int _field;
+                private const int {|SST1203:Max|} = 1;
+            }
+            """;
+        const string FixedSource = """
+            public class C
+            {
+                private const int Max = 1;
+                private int _field;
+            }
+            """;
 
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
@@ -84,14 +102,20 @@ public class MemberOrderingAnalyzerUnitTest
     [Test]
     public async Task StaticAfterInstanceAsync()
     {
-        const string Source = "public class C\n{\n"
-            + "    public void Instance() { }\n"
-            + "    public static void {|SST1204:Shared|}() { }\n"
-            + "}";
-        const string FixedSource = "public class C\n{\n"
-            + "    public static void Shared() { }\n"
-            + "    public void Instance() { }\n"
-            + "}";
+        const string Source = """
+            public class C
+            {
+                public void Instance() { }
+                public static void {|SST1204:Shared|}() { }
+            }
+            """;
+        const string FixedSource = """
+            public class C
+            {
+                public static void Shared() { }
+                public void Instance() { }
+            }
+            """;
 
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
@@ -101,14 +125,20 @@ public class MemberOrderingAnalyzerUnitTest
     [Test]
     public async Task InstanceReadonlyAfterMutableAsync()
     {
-        const string Source = "public class C\n{\n"
-            + "    private int _mutable;\n"
-            + "    private readonly int {|SST1215:_value|};\n"
-            + "}";
-        const string FixedSource = "public class C\n{\n"
-            + "    private readonly int _value;\n"
-            + "    private int _mutable;\n"
-            + "}";
+        const string Source = """
+            public class C
+            {
+                private int _mutable;
+                private readonly int {|SST1215:_value|};
+            }
+            """;
+        const string FixedSource = """
+            public class C
+            {
+                private readonly int _value;
+                private int _mutable;
+            }
+            """;
 
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
@@ -118,14 +148,20 @@ public class MemberOrderingAnalyzerUnitTest
     [Test]
     public async Task StaticReadonlyAfterMutableAsync()
     {
-        const string Source = "public class C\n{\n"
-            + "    private static int _mutable;\n"
-            + "    private static readonly int {|SST1214:_value|};\n"
-            + "}";
-        const string FixedSource = "public class C\n{\n"
-            + "    private static readonly int _value;\n"
-            + "    private static int _mutable;\n"
-            + "}";
+        const string Source = """
+            public class C
+            {
+                private static int _mutable;
+                private static readonly int {|SST1214:_value|};
+            }
+            """;
+        const string FixedSource = """
+            public class C
+            {
+                private static readonly int _value;
+                private static int _mutable;
+            }
+            """;
 
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
@@ -135,27 +171,34 @@ public class MemberOrderingAnalyzerUnitTest
     [Test]
     public async Task RecordBeforeUnionAsync()
         => await Verify.VerifyAnalyzerAsync(
-            "public class C\n{\n"
-            + "    public class U : System.Runtime.CompilerServices.IUnion { }\n"
-            + "    public record {|SST1201:R|} { }\n"
-            + "}\n"
-            + "namespace System.Runtime.CompilerServices\n{\n"
-            + "    internal interface IUnion { }\n"
-            + "    internal static class IsExternalInit { }\n"
-            + "}");
+            """
+            public class C
+            {
+                public class U : System.Runtime.CompilerServices.IUnion { }
+                public record {|SST1201:R|} { }
+            }
+            namespace System.Runtime.CompilerServices
+            {
+                internal interface IUnion { }
+                internal static class IsExternalInit { }
+            }
+            """);
 
     /// <summary>Verifies the move fix is not offered when the file has conditional directives.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task ConditionalDirectivesSuppressFixAsync()
     {
-        const string Source = "public class C\n{\n"
-            + "#if DEBUG\n"
-            + "    public const int Flag = 1;\n"
-            + "#endif\n"
-            + "    public void Method() { }\n"
-            + "    private int {|SST1201:_field|};\n"
-            + "}";
+        const string Source = """
+            public class C
+            {
+            #if DEBUG
+                public const int Flag = 1;
+            #endif
+                public void Method() { }
+                private int {|SST1201:_field|};
+            }
+            """;
 
         var test = new Verify.Test
         {
@@ -250,7 +293,7 @@ public class MemberOrderingAnalyzerUnitTest
     /// <param name="source">The field declaration source.</param>
     /// <returns>The parsed field declaration.</returns>
     private static FieldDeclarationSyntax ParseField(string source)
-        => (FieldDeclarationSyntax)SyntaxFactory.ParseCompilationUnit("public class C { " + source + " }")
+        => (FieldDeclarationSyntax)SyntaxFactory.ParseCompilationUnit($"public class C {{ {source} }}")
             .Members[0]
             .ChildNodes()
             .Single();

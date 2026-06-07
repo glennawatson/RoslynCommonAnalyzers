@@ -469,26 +469,11 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         => explicitInterface is not null
             || ModifierListHelper.ContainsEither(modifiers, SyntaxKind.OverrideKeyword, SyntaxKind.PartialKeyword);
 
-    /// <summary>Returns whether a return type is void or a non-generic Task/ValueTask (the async equivalent of void).</summary>
+    /// <summary>Returns whether a return type is <see langword="void"/>.</summary>
     /// <param name="returnType">The return type.</param>
     /// <returns><see langword="true"/> when the type carries no documentable return value.</returns>
     private static bool IsVoidLike(TypeSyntax returnType)
-    {
-        if (returnType is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword))
-        {
-            return true;
-        }
-
-        // Only the non-generic (IdentifierName) forms are void-like; Task<T>/ValueTask<T> return a value.
-        var name = returnType switch
-        {
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            QualifiedNameSyntax { Right: IdentifierNameSyntax right } => right.Identifier.ValueText,
-            _ => null
-        };
-
-        return name is "Task" or "ValueTask";
-    }
+        => returnType is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
 
     /// <summary>Returns the type parameters of an optional type parameter list.</summary>
     /// <param name="list">The type parameter list, or <see langword="null"/>.</param>

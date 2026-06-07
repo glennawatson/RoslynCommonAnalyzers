@@ -4,9 +4,6 @@
 
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-
-using TUnit.Assertions;
-
 using VerifyAutoProperty = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.TrivialAutoPropertyAnalyzer,
     StyleSharp.Analyzers.TrivialAutoPropertyCodeFixProvider>;

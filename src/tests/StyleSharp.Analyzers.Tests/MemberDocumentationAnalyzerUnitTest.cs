@@ -52,41 +52,57 @@ public class MemberDocumentationAnalyzerUnitTest
     [Test]
     public async Task ParameterAsync()
         => await Verify.VerifyAnalyzerAsync(
-            "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Does a thing.</summary>\n"
-            + "    public void M(int {|SST1611:value|}) { }\n}");
+            """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Does a thing.</summary>
+                public void M(int {|SST1611:value|}) { }
+            }
+            """);
 
     /// <summary>Verifies a missing return value is reported (SST1615).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task ReturnValueAsync()
         => await Verify.VerifyAnalyzerAsync(
-            "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Gets a value.</summary>\n"
-            + "    public int {|SST1615:M|}() => 0;\n}");
+            """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Gets a value.</summary>
+                public int {|SST1615:M|}() => 0;
+            }
+            """);
 
     /// <summary>Verifies a documented void return is reported (SST1617).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task VoidReturnAsync()
         => await Verify.VerifyAnalyzerAsync(
-            "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Does a thing.</summary>\n"
-            + "    /// <returns>Nothing.</returns>\n"
-            + "    public void {|SST1617:M|}() { }\n}");
+            """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Does a thing.</summary>
+                /// <returns>Nothing.</returns>
+                public void {|SST1617:M|}() { }
+            }
+            """);
 
     /// <summary>Verifies an undocumented type parameter is reported (SST1618).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task TypeParameterAsync()
         => await Verify.VerifyAnalyzerAsync(
-            "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Does a thing.</summary>\n"
-            + "    public void M<{|SST1618:T|}>() { }\n}");
+            """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Does a thing.</summary>
+                public void M<{|SST1618:T|}>() { }
+            }
+            """);
 
     /// <summary>Verifies summary text without terminal punctuation is reported and a period is added (SST1629).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

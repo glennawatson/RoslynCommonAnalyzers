@@ -19,8 +19,29 @@ public class LayoutCommentUnitTest
     [Test]
     public async Task CommentMissingBlankBeforeInsertedAsync()
     {
-        const string Source = "internal class C\n{\n    private void M()\n    {\n        var a = 1;\n        {|SST1515:// comment|}\n        var b = a;\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    private void M()\n    {\n        var a = 1;\n\n        // comment\n        var b = a;\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void M()
+                {
+                    var a = 1;
+                    {|SST1515:// comment|}
+                    var b = a;
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M()
+                {
+                    var a = 1;
+
+                    // comment
+                    var b = a;
+                }
+            }
+            """;
         await VerifyComment.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -29,8 +50,27 @@ public class LayoutCommentUnitTest
     [Test]
     public async Task CommentFollowedByBlankRemovedAsync()
     {
-        const string Source = "internal class C\n{\n    private void M()\n    {\n        {|SST1512:// comment|}\n\n        var a = 1;\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    private void M()\n    {\n        // comment\n        var a = 1;\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void M()
+                {
+                    {|SST1512:// comment|}
+
+                    var a = 1;
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M()
+                {
+                    // comment
+                    var a = 1;
+                }
+            }
+            """;
         await VerifyComment.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -39,14 +79,47 @@ public class LayoutCommentUnitTest
     [Test]
     public async Task WellSpacedCommentIsCleanAsync()
         => await VerifyComment.VerifyAnalyzerAsync(
-            "internal class C\n{\n    private void M()\n    {\n        var a = 1;\n\n        // comment\n        var b = a;\n    }\n}");
+            """
+            internal class C
+            {
+                private void M()
+                {
+                    var a = 1;
+
+                    // comment
+                    var b = a;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a file header comment keeps the blank separator before using directives (no SST1512).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FileHeaderBeforeUsingIsCleanAsync()
+        => await VerifyComment.VerifyAnalyzerAsync(
+            """
+            // Copyright text.
+
+            using System;
+
+            internal class C
+            {
+                private static string M() => string.Empty;
+            }
+            """);
 
     /// <summary>Verifies the standalone-comment helper accepts indentation before a single-line comment.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task StandaloneCommentHelperAcceptsIndentedCommentAsync()
     {
-        var comment = ParseSingleLineComment("class C\n{\n    // comment\n}\n");
+        var comment = ParseSingleLineComment(
+            """
+            class C
+            {
+                // comment
+            }
+            """);
         var text = await comment.SyntaxTree!.GetTextAsync();
 
         await Assert.That(SingleLineCommentSpacingAnalyzer.IsStandaloneComment(text, comment)).IsTrue();
@@ -57,7 +130,13 @@ public class LayoutCommentUnitTest
     [Test]
     public async Task StandaloneCommentHelperRejectsTrailingCommentAsync()
     {
-        var comment = ParseSingleLineComment("class C\n{\n    void M() { var value = 0; // comment }\n}\n");
+        var comment = ParseSingleLineComment(
+            """
+            class C
+            {
+                void M() { var value = 0; // comment }
+            }
+            """);
         var text = await comment.SyntaxTree!.GetTextAsync();
 
         await Assert.That(SingleLineCommentSpacingAnalyzer.IsStandaloneComment(text, comment)).IsFalse();

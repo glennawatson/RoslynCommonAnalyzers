@@ -22,10 +22,14 @@ public class DocumentationSummaryTextUnitTest
     [Test]
     public async Task ValidPropertyAsync()
     {
-        const string Source = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Gets or sets the count.</summary>\n"
-            + "    public int Count { get; set; }\n}";
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Gets or sets the count.</summary>
+                public int Count { get; set; }
+            }
+            """;
 
         await VerifyProperty.VerifyAnalyzerAsync(Source);
     }
@@ -35,14 +39,22 @@ public class DocumentationSummaryTextUnitTest
     [Test]
     public async Task PropertyAccessorsAsync()
     {
-        const string Source = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// {|SST1623:<summary>The count.</summary>|}\n"
-            + "    public int Count { get; set; }\n}";
-        const string FixedSource = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Gets or sets the count.</summary>\n"
-            + "    public int Count { get; set; }\n}";
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// {|SST1623:<summary>The count.</summary>|}
+                public int Count { get; set; }
+            }
+            """;
+        const string FixedSource = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Gets or sets the count.</summary>
+                public int Count { get; set; }
+            }
+            """;
 
         await VerifyProperty.VerifyCodeFixAsync(Source, FixedSource);
     }
@@ -52,10 +64,14 @@ public class DocumentationSummaryTextUnitTest
     [Test]
     public async Task ValidConstructorAsync()
     {
-        const string Source = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Initializes a new instance of the <see cref=\"C\"/> class.</summary>\n"
-            + "    public C() { }\n}";
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Initializes a new instance of the <see cref="C"/> class.</summary>
+                public C() { }
+            }
+            """;
 
         await VerifyConstructor.VerifyAnalyzerAsync(Source);
     }
@@ -65,14 +81,22 @@ public class DocumentationSummaryTextUnitTest
     [Test]
     public async Task ConstructorStandardTextAsync()
     {
-        const string Source = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// {|SST1642:<summary>Creates the thing.</summary>|}\n"
-            + "    public C() { }\n}";
-        const string FixedSource = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Initializes a new instance of the <see cref=\"C\"/> class.</summary>\n"
-            + "    public C() { }\n}";
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// {|SST1642:<summary>Creates the thing.</summary>|}
+                public C() { }
+            }
+            """;
+        const string FixedSource = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Initializes a new instance of the <see cref="C"/> class.</summary>
+                public C() { }
+            }
+            """;
 
         await VerifyConstructor.VerifyCodeFixAsync(Source, FixedSource);
     }
@@ -82,10 +106,14 @@ public class DocumentationSummaryTextUnitTest
     [Test]
     public async Task ValidDestructorAsync()
     {
-        const string Source = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Finalizes an instance of the <see cref=\"C\"/> class.</summary>\n"
-            + "    ~C() { }\n}";
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Finalizes an instance of the <see cref="C"/> class.</summary>
+                ~C() { }
+            }
+            """;
 
         await VerifyDestructor.VerifyAnalyzerAsync(Source);
     }
@@ -95,14 +123,22 @@ public class DocumentationSummaryTextUnitTest
     [Test]
     public async Task DestructorStandardTextAsync()
     {
-        const string Source = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// {|SST1643:<summary>Cleans up.</summary>|}\n"
-            + "    ~C() { }\n}";
-        const string FixedSource = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Finalizes an instance of the <see cref=\"C\"/> class.</summary>\n"
-            + "    ~C() { }\n}";
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// {|SST1643:<summary>Cleans up.</summary>|}
+                ~C() { }
+            }
+            """;
+        const string FixedSource = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Finalizes an instance of the <see cref="C"/> class.</summary>
+                ~C() { }
+            }
+            """;
 
         await VerifyDestructor.VerifyCodeFixAsync(Source, FixedSource);
     }

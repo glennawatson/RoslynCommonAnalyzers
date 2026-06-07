@@ -22,8 +22,10 @@ public class ParameterNamingAnalyzerUnitTest
     [Test]
     public async Task RecordPositionalIgnoredAsync()
         => await Verify.VerifyAnalyzerAsync(
-            "public record Point(int X, int Y);\n"
-            + "namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }");
+            """
+            public record Point(int X, int Y);
+            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            """);
 
     /// <summary>Verifies a PascalCase parameter is reported and renamed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

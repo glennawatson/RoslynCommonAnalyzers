@@ -35,13 +35,18 @@ public class RecordAnalyzerUnitTest
     [Test]
     public async Task LowercasePositionalParametersReportedAsync()
         => await VerifyRecord.VerifyAnalyzerAsync(
-            "public sealed record Point(int {|SST1801:x|}, int {|SST1801:y|});" + IsExternalInit);
+            $$"""
+            public sealed record Point(int {|SST1801:x|}, int {|SST1801:y|});{{IsExternalInit}}
+            """);
 
     /// <summary>Verifies PascalCase positional record parameters are not reported by SST1801.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task PascalCasePositionalParametersAreCleanAsync()
-        => await VerifyRecord.VerifyAnalyzerAsync("public sealed record Point(int X, int Y);" + IsExternalInit);
+        => await VerifyRecord.VerifyAnalyzerAsync(
+            $$"""
+            public sealed record Point(int X, int Y);{{IsExternalInit}}
+            """);
 
     /// <summary>Verifies an editorconfig override to camel_case flags a PascalCase positional parameter.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -50,7 +55,9 @@ public class RecordAnalyzerUnitTest
     {
         var test = new VerifyRecord.Test
         {
-            TestCode = "public sealed record Point(int {|SST1801:X|}, int y);" + IsExternalInit
+            TestCode = $$"""
+                       public sealed record Point(int {|SST1801:X|}, int y);{{IsExternalInit}}
+                       """
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
@@ -115,7 +122,7 @@ public class RecordAnalyzerUnitTest
     /// <param name="source">The property declaration source.</param>
     /// <returns>The parsed property declaration.</returns>
     private static PropertyDeclarationSyntax ParseProperty(string source)
-        => (PropertyDeclarationSyntax)SyntaxFactory.ParseCompilationUnit("public sealed record Person { " + source + " }")
+        => (PropertyDeclarationSyntax)SyntaxFactory.ParseCompilationUnit($$"""public sealed record Person { {{source}} }""")
             .Members[0]
             .ChildNodes()
             .Single();

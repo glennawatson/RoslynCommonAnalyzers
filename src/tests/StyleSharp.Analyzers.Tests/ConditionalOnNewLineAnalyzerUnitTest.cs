@@ -43,9 +43,26 @@ public class ConditionalOnNewLineAnalyzerUnitTest
     [Test]
     public async Task SameLineIfIsFixedWithCrLfAsync()
     {
-        const string Source = "public class C\r\n{\r\n    public void M(bool a, bool b)\r\n    {\r\n        if (a) { } {|SST1146:if|} (b) { }\r\n    }\r\n}";
-        const string FixedSource = "public class C\r\n{\r\n    public void M(bool a, bool b)\r\n    {\r\n        if (a) { }\r\n        if (b) { }\r\n    }\r\n}";
-        await VerifyConditional.VerifyCodeFixAsync(Source, FixedSource);
+        string source = """
+            public class C
+            {
+                public void M(bool a, bool b)
+                {
+                    if (a) { } {|SST1146:if|} (b) { }
+                }
+            }
+            """.ReplaceLineEndings("\r\n");
+        string fixedSource = """
+            public class C
+            {
+                public void M(bool a, bool b)
+                {
+                    if (a) { }
+                    if (b) { }
+                }
+            }
+            """.ReplaceLineEndings("\r\n");
+        await VerifyConditional.VerifyCodeFixAsync(source, fixedSource);
     }
 
     /// <summary>Verifies normal multi-line and else-if forms are not reported.</summary>

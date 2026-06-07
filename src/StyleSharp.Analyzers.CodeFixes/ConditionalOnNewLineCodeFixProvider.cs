@@ -61,8 +61,9 @@ public sealed class ConditionalOnNewLineCodeFixProvider : CodeFixProvider
             indentationLength++;
         }
 
+        var newLine = LayoutFixHelpers.DetectNewLine(text);
         var builder = new System.Text.StringBuilder(indentationLength + 1);
-        _ = builder.Append('\n').Append(lineText, 0, indentationLength);
+        _ = builder.Append(newLine).Append(lineText, 0, indentationLength);
         var separatingTrivia = Microsoft.CodeAnalysis.Text.TextSpan.FromBounds(previous.Span.End, token.SpanStart);
         return document.WithText(text.WithChanges(new Microsoft.CodeAnalysis.Text.TextChange(separatingTrivia, builder.ToString())));
     }

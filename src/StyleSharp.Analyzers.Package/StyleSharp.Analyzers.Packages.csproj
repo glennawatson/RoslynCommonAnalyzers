@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <!-- This is the only project that produces a NuGet package; everything else
+         is non-packable by default (see Directory.Build.props). -->
+    <IsPackable>true</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>StyleSharp.Analyzers</PackageId>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <!-- Analyzer-only package: no lib/ folder, so the empty dependency group is expected. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+
+    <!-- Roslyn slots shipped under analyzers/dotnet/<slot>/cs. The SDK (>= 6.0.100)
+         loads the highest slot <= the host compiler's Roslyn version. Keep in sync
+         with the slot definitions in Directory.Build.props. -->
+    <RoslynSlots>roslyn4.8;roslyn4.14;roslyn5.3</RoslynSlots>
+
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_AddAnalyzersToOutput</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <!-- ProjectReference gives sln build ordering and builds the default (floor) slot;
+       _BuildRoslynSlots builds the remaining slots. -->
+  <ItemGroup>
+    <ProjectReference Include="..\StyleSharp.Analyzers.CodeFixes\StyleSharp.Analyzers.CodeFixes.csproj" />
+    <ProjectReference Include="..\StyleSharp.Analyzers\StyleSharp.Analyzers.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="tools\*.ps1" CopyToOutputDirectory="PreserveNewest" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <!-- Build the analyzer + code-fix assemblies once per Roslyn slot so a single
+       pack emits every analyzers/dotnet/<slot>/cs folder. -->
+  <Target Name="_BuildRoslynSlots">
+    <ItemGroup>
+      <_RoslynSlot Include="$(RoslynSlots)" />
+    </ItemGroup>
+    <!-- Build each slot as its own `dotnet build` process so it restores and
+         builds cleanly into its segregated obj/bin (BaseIntermediateOutputPath /
+         BaseOutputPath key off RoslynVersion). Building the code-fix project also
+         builds the analyzer via its ProjectReference. -->
+    <Exec Command="dotnet build &quot;$(MSBuildThisFileDirectory)../StyleSharp.Analyzers.CodeFixes/StyleSharp.Analyzers.CodeFixes.csproj&quot; --configuration $(Configuration) -p:RoslynVersion=%(_RoslynSlot.Identity)" />
+  </Target>
+
+  <Target Name="_AddAnalyzersToOutput" DependsOnTargets="_BuildRoslynSlots">
+    <ItemGroup>
+      <_RoslynSlot Include="$(RoslynSlots)" />
+      <TfmSpecificPackageFile Include="..\StyleSharp.Analyzers\bin\%(_RoslynSlot.Identity)\$(Configuration)\netstandard2.0\StyleSharp.Analyzers.dll"
+                              PackagePath="analyzers/dotnet/%(_RoslynSlot.Identity)/cs" />
+      <TfmSpecificPackageFile Include="..\StyleSharp.Analyzers.CodeFixes\bin\%(_RoslynSlot.Identity)\$(Configuration)\netstandard2.0\StyleSharp.Analyzers.CodeFixes.dll"
+                              PackagePath="analyzers/dotnet/%(_RoslynSlot.Identity)/cs" />
+    </ItemGroup>
+  </Target>
+
+</Project>

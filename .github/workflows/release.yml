@@ -71,13 +71,16 @@ jobs:
           git push origin "$VERSION"
 
       - name: Restore
-        run: dotnet restore Blazor.Common.Analyzers.sln
+        working-directory: src
+        run: dotnet restore StyleSharp.Analyzers.slnx
 
       - name: Build
-        run: dotnet build Blazor.Common.Analyzers.sln --no-restore --configuration Release
+        working-directory: src
+        run: dotnet build StyleSharp.Analyzers.slnx --no-restore --configuration Release
 
       - name: Pack
-        run: dotnet pack Blazor.Common.Analyzers.sln --no-build --configuration Release -o packages
+        working-directory: src
+        run: dotnet pack StyleSharp.Analyzers.slnx --no-build --configuration Release -o packages
 
       - name: Install GitReleaseNoteGenerator
         run: dotnet tool install -g GitReleaseNoteGenerator
@@ -92,7 +95,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: unsigned-nuget
-          path: packages/*.nupkg
+          path: src/packages/*.nupkg
           if-no-files-found: error
 
       - name: Upload release notes

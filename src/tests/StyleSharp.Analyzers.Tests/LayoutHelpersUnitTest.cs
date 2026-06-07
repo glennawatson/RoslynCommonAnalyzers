@@ -16,7 +16,12 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task GetLineSpanOfOrLaterResolvesMultiLineSpanAsync()
     {
-        var text = SourceText.From("first\nsecond\nthird\n");
+        var text = SourceText.From(
+            $$"""
+            first
+            second
+            third{{"\n"}}
+            """);
         var lineNumber = 0;
         var line = text.Lines[0];
 
@@ -31,7 +36,12 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task LineOfOrLaterAdvancesAcrossLaterPositionsAsync()
     {
-        var text = SourceText.From("first\nsecond\nthird\n");
+        var text = SourceText.From(
+            $$"""
+            first
+            second
+            third{{"\n"}}
+            """);
         var lineNumber = 0;
         var line = text.Lines[0];
 
@@ -49,7 +59,15 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task BraceLineHelpersClassifyAllmanOpeningBraceAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit("class C\n{\n    void M()\n    {\n    }\n}");
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                void M()
+                {
+                }
+            }
+            """);
         var block = root.DescendantNodes().OfType<BlockSyntax>().Single();
         var text = await root.SyntaxTree.GetTextAsync();
         var open = block.OpenBraceToken;
@@ -65,7 +83,13 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task BraceLineHelpersClassifyInlineOpeningBraceAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit("class C\n{\n    void M() { return; }\n}");
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                void M() { return; }
+            }
+            """);
         var block = root.DescendantNodes().OfType<BlockSyntax>().Single();
         var text = await root.SyntaxTree.GetTextAsync();
         var open = block.OpenBraceToken;
@@ -81,7 +105,13 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task ContentStartLineUsesFirstTokenWithoutLeadingCommentsAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit("class C\n{\n    void M() { }\n}");
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                void M() { }
+            }
+            """);
         var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var text = await root.SyntaxTree.GetTextAsync();
 
@@ -93,7 +123,14 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task ContentStartLineUsesLeadingCommentWhenPresentAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit("class C\n{\n    // docs\n    void M() { }\n}");
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                // docs
+                void M() { }
+            }
+            """);
         var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var text = await root.SyntaxTree.GetTextAsync();
 
@@ -105,7 +142,13 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task TryGetHeaderStartLineSkipsMembersWithoutLeadingTriviaAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit("class C\n{\n    void M() { }\n}");
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                void M() { }
+            }
+            """);
         var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var text = await root.SyntaxTree.GetTextAsync();
 
@@ -117,7 +160,14 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task TryGetHeaderStartLineFindsLeadingCommentAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit("class C\n{\n    // docs\n    void M() { }\n}");
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                // docs
+                void M() { }
+            }
+            """);
         var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var text = await root.SyntaxTree.GetTextAsync();
 
@@ -130,7 +180,14 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task ContentStartLineOrLaterUsesCursorWithoutHeaderTriviaAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit("class C\n{\n    void M() { }\n    void N() { }\n}");
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                void M() { }
+                void N() { }
+            }
+            """);
         var methods = root.DescendantNodes().OfType<MethodDeclarationSyntax>().ToArray();
         var text = await root.SyntaxTree.GetTextAsync();
         var lineNumber = 0;
@@ -148,7 +205,14 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task ContentStartLineOrLaterUsesHeaderTriviaWhenPresentAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit("class C\n{\n    // docs\n    void M() { }\n}");
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                // docs
+                void M() { }
+            }
+            """);
         var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var text = await root.SyntaxTree.GetTextAsync();
         var lineNumber = 0;
@@ -162,7 +226,13 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task TokenLineFactsClassifyInlineBraceAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit("class C\n{\n    void M() { return; }\n}");
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                void M() { return; }
+            }
+            """);
         var block = root.DescendantNodes().OfType<BlockSyntax>().Single();
         var text = await root.SyntaxTree.GetTextAsync();
         var open = block.OpenBraceToken;
@@ -178,7 +248,16 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task TokenLineFactsClassifyAllmanBraceAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit("class C\n{\n    void M()\n    {\n        return;\n    }\n}");
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                void M()
+                {
+                    return;
+                }
+            }
+            """);
         var block = root.DescendantNodes().OfType<BlockSyntax>().Single();
         var text = await root.SyntaxTree.GetTextAsync();
         var open = block.OpenBraceToken;

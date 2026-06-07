@@ -19,8 +19,23 @@ public class LayoutBlankLineUnitTest
     [Test]
     public async Task MultipleBlankLinesCollapsedAsync()
     {
-        const string Source = "internal class C\n{\n    private int a;\n\n\n    private int b;\n}";
-        const string FixedSource = "internal class C\n{\n    private int a;\n\n    private int b;\n}";
+        const string Source = """
+            internal class C
+            {
+                private int a;
+
+
+                private int b;
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private int a;
+
+                private int b;
+            }
+            """;
         await VerifyBlanks.VerifyCodeFixAsync(Source, VerifyBlanks.Diagnostic("SST1507").WithSpan(5, 1, 6, 1), FixedSource);
     }
 
@@ -28,15 +43,44 @@ public class LayoutBlankLineUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task SingleBlankLineIsCleanAsync()
-        => await VerifyBlanks.VerifyAnalyzerAsync("internal class C\n{\n    private int a;\n\n    private int b;\n}");
+        => await VerifyBlanks.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private int a;
+
+                private int b;
+            }
+            """);
 
     /// <summary>Verifies adjacent members without a blank line are reported (SST1516) and separated.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task AdjacentMembersSeparatedAsync()
     {
-        const string Source = "internal class C\n{\n    private void A()\n    {\n    }\n    {|SST1516:private|} void B()\n    {\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    private void A()\n    {\n    }\n\n    private void B()\n    {\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void A()
+                {
+                }
+                {|SST1516:private|} void B()
+                {
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void A()
+                {
+                }
+
+                private void B()
+                {
+                }
+            }
+            """;
         await VerifySpacing.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -45,5 +89,16 @@ public class LayoutBlankLineUnitTest
     [Test]
     public async Task SeparatedMembersAreCleanAsync()
         => await VerifySpacing.VerifyAnalyzerAsync(
-            "internal class C\n{\n    private void A()\n    {\n    }\n\n    private void B()\n    {\n    }\n}");
+            """
+            internal class C
+            {
+                private void A()
+                {
+                }
+
+                private void B()
+                {
+                }
+            }
+            """);
 }

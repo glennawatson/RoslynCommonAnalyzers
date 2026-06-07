@@ -47,15 +47,15 @@ public class Sst1302InterfaceNamesMustBeginWithIUnitTest
     [Test]
     public async Task CodeFixUpdatesReferencesAsync()
     {
-        const string source = """
+        const string Source = """
                               public interface {|SST1302:Widget|} { }
                               public class C : Widget { }
                               """;
-        const string fixedSource = """
+        const string FixedSource = """
                                    public interface IWidget { }
                                    public class C : IWidget { }
                                    """;
 
-        await Verifysst1302.VerifyCodeFixAsync(source, fixedSource);
+        await Verifysst1302.VerifyCodeFixAsync(Source, FixedSource);
     }
 }

@@ -36,8 +36,18 @@ public class MaintainabilityAnalyzerUnitTest
     [Test]
     public async Task MemberGetsPrivateAsync()
     {
-        const string Source = "internal class C\n{\n    void {|SST1400:M|}() { }\n}";
-        const string FixedSource = "internal class C\n{\n    private void M() { }\n}";
+        const string Source = """
+                              internal class C
+                              {
+                                  void {|SST1400:M|}() { }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private void M() { }
+                                   }
+                                   """;
         await VerifyAccess.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -45,7 +55,13 @@ public class MaintainabilityAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task InterfaceMemberAllowedAsync()
-        => await VerifyAccess.VerifyAnalyzerAsync("internal interface I\n{\n    void M();\n}");
+        => await VerifyAccess.VerifyAnalyzerAsync(
+            """
+            internal interface I
+            {
+                void M();
+            }
+            """);
 
     /// <summary>Verifies an exposed field is reported (SST1401) while constants and private fields are not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -65,19 +81,31 @@ public class MaintainabilityAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task SecondTypeReportedAsync()
-        => await VerifyFile.VerifyAnalyzerAsync("internal class A { }\ninternal class {|SST1402:B|} { }");
+        => await VerifyFile.VerifyAnalyzerAsync(
+            """
+            internal class A { }
+            internal class {|SST1402:B|} { }
+            """);
 
     /// <summary>Verifies a partial type split across declarations is counted once.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task PartialTypeCountedOnceAsync()
-        => await VerifyFile.VerifyAnalyzerAsync("internal partial class A { }\ninternal partial class A { }");
+        => await VerifyFile.VerifyAnalyzerAsync(
+            """
+            internal partial class A { }
+            internal partial class A { }
+            """);
 
     /// <summary>Verifies a second namespace is reported (SST1403).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task SecondNamespaceReportedAsync()
-        => await VerifyFile.VerifyAnalyzerAsync("namespace A { }\nnamespace {|SST1403:B|} { }");
+        => await VerifyFile.VerifyAnalyzerAsync(
+            """
+            namespace A { }
+            namespace {|SST1403:B|} { }
+            """);
 
     /// <summary>Verifies a suppression without justification is reported (SST1404).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -138,8 +166,18 @@ public class MaintainabilityAnalyzerUnitTest
     [Test]
     public async Task ArithmeticPrecedenceParenthesizedAsync()
     {
-        const string Source = "internal class C\n{\n    public int M(int a, int b, int c) => a + {|SST1407:b * c|};\n}";
-        const string FixedSource = "internal class C\n{\n    public int M(int a, int b, int c) => a + (b * c);\n}";
+        const string Source = """
+                              internal class C
+                              {
+                                  public int M(int a, int b, int c) => a + {|SST1407:b * c|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       public int M(int a, int b, int c) => a + (b * c);
+                                   }
+                                   """;
         await VerifyPrecedence.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -148,8 +186,18 @@ public class MaintainabilityAnalyzerUnitTest
     [Test]
     public async Task ConditionalPrecedenceParenthesizedAsync()
     {
-        const string Source = "internal class C\n{\n    public bool M(bool a, bool b, bool c) => a || {|SST1408:b && c|};\n}";
-        const string FixedSource = "internal class C\n{\n    public bool M(bool a, bool b, bool c) => a || (b && c);\n}";
+        const string Source = """
+                              internal class C
+                              {
+                                  public bool M(bool a, bool b, bool c) => a || {|SST1408:b && c|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       public bool M(bool a, bool b, bool c) => a || (b && c);
+                                   }
+                                   """;
         await VerifyPrecedence.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -158,8 +206,20 @@ public class MaintainabilityAnalyzerUnitTest
     [Test]
     public async Task EmptyDelegateParenthesesRemovedAsync()
     {
-        const string Source = "using System;\ninternal class C\n{\n    public Action A() => delegate{|SST1410:()|} { };\n}";
-        const string FixedSource = "using System;\ninternal class C\n{\n    public Action A() => delegate { };\n}";
+        const string Source = """
+                              using System;
+                              internal class C
+                              {
+                                  public Action A() => delegate{|SST1410:()|} { };
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+                                   internal class C
+                                   {
+                                       public Action A() => delegate { };
+                                   }
+                                   """;
         await VerifyParens.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -168,8 +228,20 @@ public class MaintainabilityAnalyzerUnitTest
     [Test]
     public async Task EmptyAttributeParenthesesRemovedAsync()
     {
-        const string Source = "internal class C\n{\n    [System.Obsolete{|SST1411:()|}]\n    public void M() { }\n}";
-        const string FixedSource = "internal class C\n{\n    [System.Obsolete]\n    public void M() { }\n}";
+        const string Source = """
+                              internal class C
+                              {
+                                  [System.Obsolete{|SST1411:()|}]
+                                  public void M() { }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       [System.Obsolete]
+                                       public void M() { }
+                                   }
+                                   """;
         await VerifyParens.VerifyCodeFixAsync(Source, FixedSource);
     }
 }

@@ -25,7 +25,7 @@ public class UnionMemberNamingAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task ValidAsync()
-        => await Verify.VerifyAnalyzerAsync($"{Marker}{UnionBase}public sealed class Circle : Shape {{{{ }}}}");
+        => await Verify.VerifyAnalyzerAsync($$"""{{Marker}}{{UnionBase}}public sealed class Circle : Shape { }""");
 
     /// <summary>Verifies a lower-case union case is reported and renamed to PascalCase.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

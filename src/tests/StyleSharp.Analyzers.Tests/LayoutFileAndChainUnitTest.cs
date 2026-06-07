@@ -21,27 +21,79 @@ public class LayoutFileAndChainUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task BlankLinesAtFileStartRemovedAsync()
-        => await VerifyFileStart.VerifyCodeFixAsync(
-            "\ninternal class C\n{\n}\n",
+    {
+        const string Source = $$"""
+
+            internal class C
+            {
+            }{{"\n"}}
+            """;
+        const string FixedSource = $$"""
+            internal class C
+            {
+            }{{"\n"}}
+            """;
+        await VerifyFileStart.VerifyCodeFixAsync(
+            Source,
             VerifyFileStart.Diagnostic("SST1517").WithSpan(1, 1, 2, 1),
-            "internal class C\n{\n}\n");
+            FixedSource);
+    }
 
     /// <summary>Verifies a missing final newline is reported (SST1518) and added.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task MissingFinalNewlineAddedAsync()
-        => await VerifyFileEnd.VerifyCodeFixAsync(
-            "internal class C\n{\n}",
+    {
+        const string Source = """
+            internal class C
+            {
+            }
+            """;
+        const string FixedSource = $$"""
+            internal class C
+            {
+            }{{"\n"}}
+            """;
+        await VerifyFileEnd.VerifyCodeFixAsync(
+            Source,
             VerifyFileEnd.Diagnostic("SST1518").WithSpan(3, 2, 3, 2),
-            "internal class C\n{\n}\n");
+            FixedSource);
+    }
 
     /// <summary>Verifies a blank line before 'else' is reported (SST1510) and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task BlankBeforeElseRemovedAsync()
     {
-        const string Source = "internal class C\n{\n    private void M(bool x)\n    {\n        if (x)\n        {\n        }\n\n        {|SST1510:else|}\n        {\n        }\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    private void M(bool x)\n    {\n        if (x)\n        {\n        }\n        else\n        {\n        }\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    if (x)
+                    {
+                    }
+
+                    {|SST1510:else|}
+                    {
+                    }
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    if (x)
+                    {
+                    }
+                    else
+                    {
+                    }
+                }
+            }
+            """;
         await VerifyChain.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -50,8 +102,31 @@ public class LayoutFileAndChainUnitTest
     [Test]
     public async Task BlankBeforeWhileFooterRemovedAsync()
     {
-        const string Source = "internal class C\n{\n    private void M(bool x)\n    {\n        do\n        {\n        }\n\n        {|SST1511:while|} (x);\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    private void M(bool x)\n    {\n        do\n        {\n        }\n        while (x);\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    do
+                    {
+                    }
+
+                    {|SST1511:while|} (x);
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    do
+                    {
+                    }
+                    while (x);
+                }
+            }
+            """;
         await VerifyChain.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -60,5 +135,18 @@ public class LayoutFileAndChainUnitTest
     [Test]
     public async Task AdjacentElseIsCleanAsync()
         => await VerifyChain.VerifyAnalyzerAsync(
-            "internal class C\n{\n    private void M(bool x)\n    {\n        if (x)\n        {\n        }\n        else\n        {\n        }\n    }\n}");
+            """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    if (x)
+                    {
+                    }
+                    else
+                    {
+                    }
+                }
+            }
+            """);
 }

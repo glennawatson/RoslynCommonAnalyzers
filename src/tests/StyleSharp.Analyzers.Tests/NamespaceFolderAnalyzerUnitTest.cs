@@ -11,14 +11,24 @@ namespace StyleSharp.Analyzers.Tests;
 public class NamespaceFolderAnalyzerUnitTest
 {
     /// <summary>A global analyzer config supplying the project directory and root namespace.</summary>
-    private const string GlobalConfig = "is_global = true\nbuild_property.ProjectDir = /src/MyApp/\nbuild_property.RootNamespace = MyApp\n";
+    private const string GlobalConfig = """
+        is_global = true
+        build_property.ProjectDir = /src/MyApp/
+        build_property.RootNamespace = MyApp
+
+        """;
 
     /// <summary>Verifies a namespace that does not match the folder structure is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task MismatchedNamespaceReportedAsync()
     {
-        const string Source = "namespace {|SST1417:MyApp.Wrong|}\n{\n    public class Widget { }\n}";
+        const string Source = """
+                              namespace {|SST1417:MyApp.Wrong|}
+                              {
+                                  public class Widget { }
+                              }
+                              """;
 
         var test = new VerifyNamespace.Test();
         test.TestState.Sources.Add(("/src/MyApp/Models/Widget.cs", Source));
@@ -32,7 +42,12 @@ public class NamespaceFolderAnalyzerUnitTest
     [Test]
     public async Task MatchingNamespaceIsCleanAsync()
     {
-        const string Source = "namespace MyApp.Models\n{\n    public class Widget { }\n}";
+        const string Source = """
+                              namespace MyApp.Models
+                              {
+                                  public class Widget { }
+                              }
+                              """;
 
         var test = new VerifyNamespace.Test();
         test.TestState.Sources.Add(("/src/MyApp/Models/Widget.cs", Source));

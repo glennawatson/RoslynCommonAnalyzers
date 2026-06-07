@@ -49,18 +49,18 @@ public class SingleLineSummaryAnalyzerUnitTest
     [Test]
     public async Task ShortMultiLineCollapsedAsync()
     {
-        const string source = """
+        const string Source = """
                               /// {|SST1653:<summary>
                               /// Short text.
                               /// </summary>|}
                               public class C { }
                               """;
-        const string fixedSource = """
+        const string FixedSource = """
                                    /// <summary>Short text.</summary>
                                    public class C { }
                                    """;
 
-        await Verify.VerifyCodeFixAsync(source, fixedSource);
+        await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
     /// <summary>Verifies lowering the limit via editorconfig stops a short summary from being reported.</summary>

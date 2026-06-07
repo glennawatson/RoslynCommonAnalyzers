@@ -116,15 +116,12 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
         {
             IFieldSymbol field => field.Type,
             IPropertySymbol property => property.Type,
-            _ => model.GetTypeInfo(expression, cancellationToken).Type,
+            _ => model.GetTypeInfo(expression, cancellationToken).Type
         };
 
-        if (type is null)
-        {
-            return false;
-        }
-
-        return type.SpecialType == SpecialType.System_String || (typeSymbol is not null && IsOrDerivesFrom(type, typeSymbol));
+        return type is not null
+               && (type.SpecialType == SpecialType.System_String
+                   || (typeSymbol is not null && IsOrDerivesFrom(type, typeSymbol)));
     }
 
     /// <summary>Returns whether a type is, or derives from, the target type.</summary>
@@ -133,7 +130,7 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when <paramref name="type"/> is or inherits <paramref name="target"/>.</returns>
     private static bool IsOrDerivesFrom(ITypeSymbol type, INamedTypeSymbol target)
     {
-        for (ITypeSymbol? current = type; current is not null; current = current.BaseType)
+        for (var current = type; current is not null; current = current.BaseType)
         {
             if (SymbolEqualityComparer.Default.Equals(current, target))
             {
@@ -182,34 +179,18 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a cast type is spelled as <c>object</c> or <c>System.Object</c>.</summary>
     /// <param name="type">The cast target type syntax.</param>
     /// <returns><see langword="true"/> when the cast target is object.</returns>
-    private static bool IsObjectType(TypeSyntax type)
-    {
-        if (type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ObjectKeyword })
-        {
-            return true;
-        }
-
-        if (type is not QualifiedNameSyntax qualifiedName
-            || qualifiedName.Right.Identifier.ValueText != "Object")
-        {
-            return false;
-        }
-
-        return IsSystemTypeName(qualifiedName.Left);
-    }
+    private static bool IsObjectType(TypeSyntax type) =>
+        type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ObjectKeyword } ||
+        (type is QualifiedNameSyntax qualifiedName
+            && qualifiedName.Right.Identifier.ValueText == "Object"
+            && IsSystemTypeName(qualifiedName.Left));
 
     /// <summary>Returns whether a type name is spelled as <c>System</c> or <c>global::System</c>.</summary>
     /// <param name="name">The name syntax to inspect.</param>
     /// <returns><see langword="true"/> when the name refers to <c>System</c>.</returns>
-    private static bool IsSystemTypeName(NameSyntax name)
-    {
-        if (name is IdentifierNameSyntax { Identifier.ValueText: "System" })
-        {
-            return true;
-        }
-
-        return name is AliasQualifiedNameSyntax aliasQualifiedName
-            && aliasQualifiedName.Alias.Identifier.ValueText == "global"
-            && aliasQualifiedName.Name.Identifier.ValueText == "System";
-    }
+    private static bool IsSystemTypeName(NameSyntax name) =>
+        name is IdentifierNameSyntax { Identifier.ValueText: "System" }
+            || (name is AliasQualifiedNameSyntax aliasQualifiedName
+              && aliasQualifiedName.Alias.Identifier.ValueText == "global"
+              && aliasQualifiedName.Name.Identifier.ValueText == "System");
 }

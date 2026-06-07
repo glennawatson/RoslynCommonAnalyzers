@@ -12,7 +12,7 @@ internal static class NamespaceFolderBenchmarkCases
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["build_property.ProjectDir"] = "/src/MyApp/",
-            ["build_property.RootNamespace"] = "MyApp",
+            ["build_property.RootNamespace"] = "MyApp"
         });
 
     /// <summary>Creates the prepared benchmark state for the requested node count.</summary>

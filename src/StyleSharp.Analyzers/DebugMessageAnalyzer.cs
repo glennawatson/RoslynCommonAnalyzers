@@ -63,7 +63,7 @@ public sealed class DebugMessageAnalyzer : DiagnosticAnalyzer
         {
             AssertName => (MaintainabilityRules.AssertMessage, AssertMessageIndex),
             FailName => (MaintainabilityRules.FailMessage, FailMessageIndex),
-            _ => (null!, -1),
+            _ => (null!, -1)
         };
 
         if (rule is null || HasMessage(invocation.ArgumentList.Arguments, messageIndex))

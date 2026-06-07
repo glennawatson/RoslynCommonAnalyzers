@@ -37,7 +37,7 @@ public static partial class VisualBasicCodeRefactoringVerifier<TCodeRefactoring>
         var test = new Test
         {
             TestCode = source,
-            FixedCode = fixedSource,
+            FixedCode = fixedSource
         };
 
         test.ExpectedDiagnostics.AddRange(expected);

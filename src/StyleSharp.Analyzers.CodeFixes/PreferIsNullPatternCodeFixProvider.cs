@@ -33,7 +33,7 @@ public sealed class PreferIsNullPatternCodeFixProvider : CodeFixProvider
         SyntaxKind.DefaultExpression,
         SyntaxKind.TypeOfExpression,
         SyntaxKind.AwaitExpression,
-        SyntaxKind.CastExpression,
+        SyntaxKind.CastExpression
     ];
 
     /// <inheritdoc/>

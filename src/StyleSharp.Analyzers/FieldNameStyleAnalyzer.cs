@@ -80,7 +80,7 @@ public sealed class FieldNameStyleAnalyzer : DiagnosticAnalyzer
     {
         foreach (var prefix in HungarianPrefixes)
         {
-            if (name.StartsWith(prefix, System.StringComparison.Ordinal))
+            if (name.StartsWith(prefix, StringComparison.Ordinal))
             {
                 return prefix;
             }

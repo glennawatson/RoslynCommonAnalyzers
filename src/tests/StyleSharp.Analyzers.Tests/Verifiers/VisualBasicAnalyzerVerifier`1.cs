@@ -41,7 +41,7 @@ public static partial class VisualBasicAnalyzerVerifier<TAnalyzer>
     {
         var test = new Test
         {
-            TestCode = source,
+            TestCode = source
         };
 
         test.ExpectedDiagnostics.AddRange(expected);

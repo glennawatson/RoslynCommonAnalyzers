@@ -25,20 +25,11 @@ internal static class DocumentationOptions
     /// <summary>Reads the single-line summary length limit, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options for the relevant syntax tree.</param>
     /// <returns>The configured (or default) maximum length.</returns>
-    public static int ReadSummaryMaxLength(AnalyzerConfigOptions options)
-    {
-        if (TryReadPositiveInt(options, SummaryMaxLengthSpecificKey, out var value))
-        {
-            return value;
-        }
-
-        if (TryReadPositiveInt(options, SummaryMaxLengthGeneralKey, out value))
-        {
-            return value;
-        }
-
-        return DefaultSummaryMaxLength;
-    }
+    public static int ReadSummaryMaxLength(AnalyzerConfigOptions options) =>
+        TryReadPositiveInt(options, SummaryMaxLengthSpecificKey, out var value)
+        || TryReadPositiveInt(options, SummaryMaxLengthGeneralKey, out value)
+            ? value
+            : DefaultSummaryMaxLength;
 
     /// <summary>Tries to read a positive integer from a single editorconfig key.</summary>
     /// <param name="options">The analyzer config options.</param>

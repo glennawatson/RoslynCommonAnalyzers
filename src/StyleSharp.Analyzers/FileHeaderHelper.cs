@@ -82,6 +82,6 @@ internal static class FileHeaderHelper
         }
 
         var index = filePath!.LastIndexOfAny(PathSeparators);
-        return index >= 0 ? filePath.Substring(index + 1) : filePath;
+        return index >= 0 ? filePath[(index + 1)..] : filePath;
     }
 }

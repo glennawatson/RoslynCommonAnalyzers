@@ -134,7 +134,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             DocumentationRules.EnumItemsMustBeDocumented,
             SummaryRequirement: null),
 
-        _ => null,
+        _ => null
     };
 
     /// <summary>Describes a type declaration, including any primary-constructor / positional-record parameters.</summary>
@@ -417,15 +417,16 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         var isVoid = IsVoidLike(returnType);
         var returns = XmlDocumentationHelper.FindElement(documentation, "returns");
 
-        if (isVoid && returns is not null)
+        switch (isVoid)
         {
-            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.VoidMustNotHaveReturn, nameToken.GetLocation(), nameToken.ValueText));
-            return;
-        }
+            case true when returns is not null:
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.VoidMustNotHaveReturn, nameToken.GetLocation(), nameToken.ValueText));
+                    return;
+                }
 
-        if (isVoid)
-        {
-            return;
+            case true:
+                return;
         }
 
         if (returns is null)
@@ -483,7 +484,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
             QualifiedNameSyntax { Right: IdentifierNameSyntax right } => right.Identifier.ValueText,
-            _ => null,
+            _ => null
         };
 
         return name is "Task" or "ValueTask";

@@ -55,12 +55,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         }
 
         var first = name[0];
-        if ((uint)(first - 'A') <= ('Z' - 'A'))
-        {
-            return true;
-        }
-
-        return first > LastAsciiChar && char.IsUpper(first);
+        return (uint)(first - 'A') <= ('Z' - 'A') || (first > LastAsciiChar && char.IsUpper(first));
     }
 
     /// <summary>Returns whether a positional parameter name should produce SST1801 for the given convention.</summary>
@@ -74,14 +69,11 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        if (name.Length == 0 || NamingHelper.IsAllUnderscores(name))
-        {
-            return false;
-        }
-
-        return convention == NamingConvention.PascalCase
-            ? !IsPascalCaseFastPathCompliant(name)
-            : !NamingConventions.Conforms(name, convention);
+        return name.Length != 0
+               && !NamingHelper.IsAllUnderscores(name)
+               && (convention == NamingConvention.PascalCase
+                    ? !IsPascalCaseFastPathCompliant(name)
+                    : !NamingConventions.Conforms(name, convention));
     }
 
     /// <summary>Returns the set accessor that should produce SST1802, or <see langword="null"/> for clean shapes.</summary>
@@ -89,29 +81,26 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <returns>The set accessor to report, or <see langword="null"/>.</returns>
     internal static AccessorDeclarationSyntax? TryGetSetAccessorToReport(SyntaxList<AccessorDeclarationSyntax> accessors)
     {
-        if (accessors.Count == 2)
+        const int MaxAccessors = 2;
+        switch (accessors.Count)
         {
-            if (accessors[0].IsKind(SyntaxKind.GetAccessorDeclaration) && accessors[1].IsKind(SyntaxKind.InitAccessorDeclaration))
-            {
-                return null;
-            }
+            case MaxAccessors:
+                {
+                    if (accessors[0].IsKind(SyntaxKind.GetAccessorDeclaration) && accessors[1].IsKind(SyntaxKind.InitAccessorDeclaration))
+                    {
+                        return null;
+                    }
 
-            if (accessors[0].IsKind(SyntaxKind.SetAccessorDeclaration))
-            {
-                return accessors[0];
-            }
+                    if (accessors[0].IsKind(SyntaxKind.SetAccessorDeclaration))
+                    {
+                        return accessors[0];
+                    }
 
-            if (accessors[1].IsKind(SyntaxKind.SetAccessorDeclaration))
-            {
-                return accessors[1];
-            }
+                    return accessors[1].IsKind(SyntaxKind.SetAccessorDeclaration) ? accessors[1] : null;
+                }
 
-            return null;
-        }
-
-        if (accessors.Count == 1)
-        {
-            return accessors[0].IsKind(SyntaxKind.SetAccessorDeclaration) ? accessors[0] : null;
+            case 1:
+                return accessors[0].IsKind(SyntaxKind.SetAccessorDeclaration) ? accessors[0] : null;
         }
 
         for (var i = 0; i < accessors.Count; i++)
@@ -259,7 +248,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
                 NamingConventions.RecordParameterSpecificKey,
                 NamingConventions.RecordParameterGeneralKey,
                 DefaultParameterConvention);
-            Volatile.Write(ref _last, new CacheEntry(tree, convention));
+            Volatile.Write(ref _last, new(tree, convention));
             return convention;
         }
 

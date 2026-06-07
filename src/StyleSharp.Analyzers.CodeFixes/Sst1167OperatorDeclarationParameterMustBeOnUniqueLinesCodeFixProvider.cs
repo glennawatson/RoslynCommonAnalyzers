@@ -54,10 +54,10 @@ public sealed class Sst1167OperatorDeclarationParameterMustBeOnUniqueLinesCodeFi
     {
         var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(
-                          node => node.ParameterList?.Parameters,
-                          (node, parameters) => node.WithParameterList(
+                          syntax => syntax.ParameterList?.Parameters,
+                          (currentNode, parameters) => currentNode.WithParameterList(
                               SyntaxFactory.ParameterList(parameters)
-                                  .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                                  .WithOpenParenToken(currentNode.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
                       ?? node;
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
     }

@@ -37,12 +37,9 @@ public sealed class UseLiteralSuffixAnalyzer : DiagnosticAnalyzer
         }
 
         var text = literal.Token.Text;
-        if (text.Length == 0 || char.IsLetter(text[text.Length - 1]))
-        {
-            return null;
-        }
-
-        return SuffixForKeyword(predefined.Keyword.Kind(), HasFloatingForm(text));
+        return text.Length == 0 || char.IsLetter(text[^1])
+            ? null
+            : SuffixForKeyword(predefined.Keyword.Kind(), HasFloatingForm(text));
     }
 
     /// <summary>Removes a single layer of parentheses from an expression.</summary>
@@ -63,7 +60,7 @@ public sealed class UseLiteralSuffixAnalyzer : DiagnosticAnalyzer
         SyntaxKind.FloatKeyword => "F",
         SyntaxKind.DoubleKeyword => "D",
         SyntaxKind.DecimalKeyword => "M",
-        _ => null,
+        _ => null
     };
 
     /// <summary>Reports a numeric literal cast that a suffix could replace.</summary>
@@ -82,13 +79,7 @@ public sealed class UseLiteralSuffixAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a numeric literal is written in floating-point form (decimal point or exponent).</summary>
     /// <param name="text">The literal token text.</param>
     /// <returns><see langword="true"/> when the literal has a decimal point or exponent.</returns>
-    private static bool HasFloatingForm(string text)
-    {
-        if (text.StartsWith("0x", System.StringComparison.OrdinalIgnoreCase) || text.StartsWith("0b", System.StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return text.IndexOf('.') >= 0 || text.IndexOf('e') >= 0 || text.IndexOf('E') >= 0;
-    }
+    private static bool HasFloatingForm(string text) =>
+        !text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) && !text.StartsWith("0b", StringComparison.OrdinalIgnoreCase)
+            && (text.IndexOf('.') >= 0 || text.IndexOf('e') >= 0 || text.IndexOf('E') >= 0);
 }

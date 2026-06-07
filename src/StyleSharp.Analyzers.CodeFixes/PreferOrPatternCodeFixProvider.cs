@@ -58,7 +58,7 @@ public sealed class PreferOrPatternCodeFixProvider : CodeFixProvider
         var caseKeyword = SyntaxFactory.Token(SyntaxKind.CaseKeyword)
             .WithLeadingTrivia(labels[0].GetLeadingTrivia())
             .WithTrailingTrivia(SyntaxFactory.Space);
-        var label = SyntaxFactory.CasePatternSwitchLabel(caseKeyword, combined, null, LabelColon(labels[labels.Count - 1]));
+        var label = SyntaxFactory.CasePatternSwitchLabel(caseKeyword, combined, null, LabelColon(labels[^1]));
         return section.WithLabels(SyntaxFactory.SingletonList<SwitchLabelSyntax>(label));
     }
 
@@ -69,7 +69,7 @@ public sealed class PreferOrPatternCodeFixProvider : CodeFixProvider
     {
         CasePatternSwitchLabelSyntax pattern => pattern.Pattern.WithoutTrivia(),
         CaseSwitchLabelSyntax value => SyntaxFactory.ConstantPattern(value.Value.WithoutTrivia()),
-        _ => SyntaxFactory.ConstantPattern(SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
+        _ => SyntaxFactory.ConstantPattern(SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression))
     };
 
     /// <summary>Returns the colon token of a switch label (keeping its trailing trivia).</summary>
@@ -79,6 +79,6 @@ public sealed class PreferOrPatternCodeFixProvider : CodeFixProvider
     {
         CasePatternSwitchLabelSyntax pattern => pattern.ColonToken,
         CaseSwitchLabelSyntax value => value.ColonToken,
-        _ => SyntaxFactory.Token(SyntaxKind.ColonToken),
+        _ => SyntaxFactory.Token(SyntaxKind.ColonToken)
     };
 }

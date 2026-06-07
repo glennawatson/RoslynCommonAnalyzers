@@ -11,5 +11,5 @@ internal enum TraceOutputFormat
     Text,
 
     /// <summary>Machine-readable JSON summary.</summary>
-    Json,
+    Json
 }

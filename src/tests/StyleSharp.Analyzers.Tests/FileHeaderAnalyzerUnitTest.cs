@@ -29,7 +29,7 @@ public class FileHeaderAnalyzerUnitTest
     {
         var test = new Verify.Test
         {
-            TestCode = "// Copyright text.\nnamespace N { }",
+            TestCode = "// Copyright text.\nnamespace N { }"
         };
 
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
@@ -48,7 +48,7 @@ public class FileHeaderAnalyzerUnitTest
 
             // A file-start (position 0) diagnostic cannot be suppressed by a #pragma
             // that necessarily comes after it, so skip the harness's suppression check.
-            TestBehaviors = TestBehaviors.SkipSuppressionCheck,
+            TestBehaviors = TestBehaviors.SkipSuppressionCheck
         };
 
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));

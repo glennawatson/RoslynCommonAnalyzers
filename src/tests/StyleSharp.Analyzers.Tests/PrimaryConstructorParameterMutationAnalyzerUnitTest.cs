@@ -46,7 +46,7 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
     {
         var expression = ParseExpression(
             "public record Counter(int Count) { public Counter Reset() => this with { Count = 0 }; }",
-            static root => root.DescendantNodes().OfType<IdentifierNameSyntax>().Single(node => node.Identifier.ValueText == "Count"));
+            static root => root.DescendantNodes().OfType<IdentifierNameSyntax>().Single(static node => node.Identifier.ValueText == "Count"));
 
         await Assert.That(PrimaryConstructorParameterMutationAnalyzer.CouldReferencePrimaryConstructorParameter(expression)).IsFalse();
     }

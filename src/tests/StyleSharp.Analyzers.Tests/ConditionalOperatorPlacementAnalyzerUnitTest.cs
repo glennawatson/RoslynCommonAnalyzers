@@ -54,7 +54,7 @@ public class ConditionalOperatorPlacementAnalyzerUnitTest
                                {|SST1145:?|} 1
                                {|SST1145::|} 2;
                        }
-                       """,
+                       """
         };
 
         test.TestState.AnalyzerConfigFiles.Add(

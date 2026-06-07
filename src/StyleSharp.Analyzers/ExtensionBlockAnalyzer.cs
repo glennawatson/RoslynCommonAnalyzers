@@ -87,7 +87,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
             if (!reportedContainerNaming)
             {
                 reportedContainerNaming = true;
-                if (!declaration.Identifier.ValueText.EndsWith("Extensions", System.StringComparison.Ordinal))
+                if (!declaration.Identifier.ValueText.EndsWith("Extensions", StringComparison.Ordinal))
                 {
                     context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.ExtensionContainerNaming, declaration.SyntaxTree, declaration.Identifier.Span, declaration.Identifier.ValueText));
                 }
@@ -202,17 +202,17 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         ref string? firstReceiver,
         ref string? previousReceiver)
     {
-        if (extensionCount > 1)
+        switch (extensionCount)
         {
-            return false;
-        }
-
-        if (extensionCount == 0)
-        {
-            firstReceiver = receiver;
-            previousReceiver = receiver;
-            extensionCount = 1;
-            return true;
+            case > 1:
+                return false;
+            case 0:
+                {
+                    firstReceiver = receiver;
+                    previousReceiver = receiver;
+                    extensionCount = 1;
+                    return true;
+                }
         }
 
         if (IsDuplicateImmediateReceiver(receiver, previousReceiver!))
@@ -233,7 +233,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         => new(StringComparer.Ordinal)
         {
             firstReceiver,
-            previousReceiver,
+            previousReceiver
         };
 
     /// <summary>Reports SST1701 when the receiver type was already seen.</summary>

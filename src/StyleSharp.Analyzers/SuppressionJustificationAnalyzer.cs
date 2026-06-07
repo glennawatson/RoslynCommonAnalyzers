@@ -57,7 +57,7 @@ public sealed class SuppressionJustificationAnalyzer : DiagnosticAnalyzer
         {
             QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
             SimpleNameSyntax direct => direct.Identifier.ValueText,
-            _ => string.Empty,
+            _ => string.Empty
         };
 
         return string.Equals(simple, "SuppressMessage", StringComparison.Ordinal)

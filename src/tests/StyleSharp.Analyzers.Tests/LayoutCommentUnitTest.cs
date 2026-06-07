@@ -67,5 +67,5 @@ public class LayoutCommentUnitTest
     /// <param name="source">The source containing the target comment.</param>
     /// <returns>The parsed single-line comment trivia.</returns>
     private static SyntaxTrivia ParseSingleLineComment(string source)
-        => SyntaxFactory.ParseCompilationUnit(source).DescendantTrivia().First(trivia => trivia.IsKind(SyntaxKind.SingleLineCommentTrivia));
+        => SyntaxFactory.ParseCompilationUnit(source).DescendantTrivia().First(static trivia => trivia.IsKind(SyntaxKind.SingleLineCommentTrivia));
 }

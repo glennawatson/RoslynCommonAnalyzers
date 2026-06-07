@@ -39,7 +39,7 @@ public sealed class ExplicitCollectionExpressionAnalyzer : DiagnosticAnalyzer
             ArrayCreationExpressionSyntax array => array.Initializer,
             ImplicitArrayCreationExpressionSyntax array => array.Initializer,
             ObjectCreationExpressionSyntax creation => creation.Initializer,
-            _ => null,
+            _ => null
         };
         return initializer is not null;
     }

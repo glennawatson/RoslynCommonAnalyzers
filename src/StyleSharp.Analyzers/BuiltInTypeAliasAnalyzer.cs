@@ -35,18 +35,18 @@ public sealed class BuiltInTypeAliasAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // A qualified name ('System.Int32') and member access ('x.Int32') own the name; handle those elsewhere.
-        if (identifier.Parent is QualifiedNameSyntax qualified && qualified.Right == identifier)
+        switch (identifier.Parent)
         {
-            return;
+            // A qualified name ('System.Int32') and member access ('x.Int32') own the name; handle those elsewhere.
+            case QualifiedNameSyntax qualified when qualified.Right == identifier:
+            case MemberAccessExpressionSyntax member when member.Name == identifier:
+                return;
+            default:
+                {
+                    Report(context, identifier);
+                    break;
+                }
         }
-
-        if (identifier.Parent is MemberAccessExpressionSyntax member && member.Name == identifier)
-        {
-            return;
-        }
-
-        Report(context, identifier);
     }
 
     /// <summary>Reports a qualified framework type name (<c>System.Int32</c>).</summary>

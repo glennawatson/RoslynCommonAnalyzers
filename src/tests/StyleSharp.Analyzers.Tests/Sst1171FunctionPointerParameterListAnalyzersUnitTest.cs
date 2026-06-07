@@ -77,7 +77,7 @@ public class Sst1171FunctionPointerParameterListAnalyzersUnitTest
     {
         var test = new Verifysst0022.Test
         {
-            TestCode = source,
+            TestCode = source
         };
 
         if (fixedSource is not null)
@@ -85,7 +85,7 @@ public class Sst1171FunctionPointerParameterListAnalyzersUnitTest
             test.FixedCode = fixedSource;
         }
 
-        test.SolutionTransforms.Add((solution, projectId) =>
+        test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var compilationOptions = (CSharpCompilationOptions)solution.GetProject(projectId)!.CompilationOptions!;
             return solution.WithProjectCompilationOptions(projectId, compilationOptions.WithAllowUnsafe(true));

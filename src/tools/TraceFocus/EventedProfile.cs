@@ -9,25 +9,25 @@ namespace TraceFocus;
 /// <summary>Evented profile exported by the speedscope format.</summary>
 public sealed class EventedProfile
 {
-    /// <summary>Gets or sets the profile name.</summary>
+    /// <summary>Gets the profile name.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
 
-    /// <summary>Gets or sets the speedscope profile type.</summary>
+    /// <summary>Gets the speedscope profile type.</summary>
     [JsonPropertyName("type")]
-    public string Type { get; set; } = string.Empty;
+    public string Type { get; init; } = string.Empty;
 
-    /// <summary>Gets or sets the profile unit.</summary>
+    /// <summary>Gets the profile unit.</summary>
     [JsonPropertyName("unit")]
-    public string Unit { get; set; } = string.Empty;
+    public string Unit { get; init; } = string.Empty;
 
-    /// <summary>Gets or sets the profile start value.</summary>
+    /// <summary>Gets the profile start value.</summary>
     [JsonPropertyName("startValue")]
-    public double StartValue { get; set; }
+    public double StartValue { get; init; }
 
-    /// <summary>Gets or sets the profile end value.</summary>
+    /// <summary>Gets the profile end value.</summary>
     [JsonPropertyName("endValue")]
-    public double EndValue { get; set; }
+    public double EndValue { get; init; }
 
     /// <summary>Gets the frame events.</summary>
     [JsonInclude]

@@ -31,7 +31,7 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
         LockUse,
 
         /// <summary>The token represents a conflicting declaration or a non-lock use.</summary>
-        Conflict,
+        Conflict
     }
 
     /// <inheritdoc/>
@@ -136,15 +136,10 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
     /// <param name="token">The identifier token to classify.</param>
     /// <param name="fieldName">The candidate field name.</param>
     /// <returns>The token classification.</returns>
-    internal static FieldNameTokenKind ClassifyFieldNameToken(TypeDeclarationSyntax type, SyntaxToken token, string fieldName)
-    {
-        if (!TryGetRelevantFieldNameParent(type, token, fieldName, out var parent))
-        {
-            return FieldNameTokenKind.Ignore;
-        }
-
-        return ClassifyFieldNameParent(parent!);
-    }
+    internal static FieldNameTokenKind ClassifyFieldNameToken(TypeDeclarationSyntax type, SyntaxToken token, string fieldName) =>
+        !TryGetRelevantFieldNameParent(type, token, fieldName, out var parent)
+            ? FieldNameTokenKind.Ignore
+            : ClassifyFieldNameParent(parent!);
 
     /// <summary>Returns whether a field declaration could be an object lock candidate using syntax-only checks.</summary>
     /// <param name="field">The field declaration.</param>
@@ -276,7 +271,7 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
     {
         ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0, Initializer: null } => true,
         ObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0, Initializer: null } creation => IsObjectType(creation.Type),
-        _ => false,
+        _ => false
     };
 
     /// <summary>Returns whether a type syntax is one of the common spellings of <c>System.Object</c>.</summary>
@@ -288,7 +283,7 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
             PredefinedTypeSyntax predefined when predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword) => true,
             IdentifierNameSyntax { Identifier.ValueText: "Object" } => true,
             QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } => IsSystemNamespace(left),
-            _ => false,
+            _ => false
         };
 
     /// <summary>Returns the relevant parent node for a matching field-name token in the current type.</summary>
@@ -300,7 +295,7 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
     private static bool TryGetRelevantFieldNameParent(TypeDeclarationSyntax type, SyntaxToken token, string fieldName, out SyntaxNode? parent)
     {
         if (token.ValueText != fieldName
-            || token.Parent is not SyntaxNode syntaxParent
+            || token.Parent is not { } syntaxParent
             || syntaxParent.FirstAncestorOrSelf<TypeDeclarationSyntax>() != type)
         {
             parent = null;
@@ -314,29 +309,20 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
     /// <summary>Classifies how a relevant field-name syntax parent affects the syntax-only lock-use fast path.</summary>
     /// <param name="parent">The syntax parent to classify.</param>
     /// <returns>The token classification.</returns>
-    private static FieldNameTokenKind ClassifyFieldNameParent(SyntaxNode parent)
-    {
-        if (parent is IdentifierNameSyntax identifier)
+    [SuppressMessage("Critical Code Smell", "S1541:Methods and properties should not be too complex", Justification = "The method uses a switch for performance reasons.")]
+    private static FieldNameTokenKind ClassifyFieldNameParent(SyntaxNode parent) =>
+        parent switch
         {
-            return IsLockTarget(identifier)
+            IdentifierNameSyntax identifier => IsLockTarget(identifier)
                 ? FieldNameTokenKind.LockUse
-                : FieldNameTokenKind.Conflict;
-        }
-
-        if (parent is VariableDeclaratorSyntax variable)
-        {
-            return variable.Parent?.Parent is BaseFieldDeclarationSyntax
+                : FieldNameTokenKind.Conflict,
+            VariableDeclaratorSyntax variable => variable.Parent?.Parent is BaseFieldDeclarationSyntax
                 ? FieldNameTokenKind.Ignore
-                : FieldNameTokenKind.Conflict;
-        }
-
-        if (parent is ParameterSyntax or SingleVariableDesignationSyntax or CatchDeclarationSyntax or ForEachStatementSyntax)
-        {
-            return FieldNameTokenKind.Conflict;
-        }
-
-        return FieldNameTokenKind.Ignore;
-    }
+                : FieldNameTokenKind.Conflict,
+            ParameterSyntax or SingleVariableDesignationSyntax or CatchDeclarationSyntax or ForEachStatementSyntax =>
+                FieldNameTokenKind.Conflict,
+            _ => FieldNameTokenKind.Ignore
+        };
 
     /// <summary>Returns whether a type syntax unambiguously denotes <c>System.Object</c> without semantic binding.</summary>
     /// <param name="type">The type syntax.</param>
@@ -404,7 +390,7 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            candidates ??= new Dictionary<string, CandidateFieldState>(type.Members.Count, StringComparer.Ordinal);
+            candidates ??= new(type.Members.Count, StringComparer.Ordinal);
             candidates[variable!.Identifier.ValueText] = new(fieldSymbol, variable);
         }
 

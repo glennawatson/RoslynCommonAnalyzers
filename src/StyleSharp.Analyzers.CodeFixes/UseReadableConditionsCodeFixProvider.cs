@@ -78,7 +78,7 @@ public sealed class UseReadableConditionsCodeFixProvider : CodeFixProvider
         SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
         SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
         SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-        _ => kind,
+        _ => kind
     };
 
     /// <summary>Returns the operator token kind for a comparison expression kind.</summary>
@@ -91,6 +91,6 @@ public sealed class UseReadableConditionsCodeFixProvider : CodeFixProvider
         SyntaxKind.LessThanExpression => SyntaxKind.LessThanToken,
         SyntaxKind.LessThanOrEqualExpression => SyntaxKind.LessThanEqualsToken,
         SyntaxKind.GreaterThanExpression => SyntaxKind.GreaterThanToken,
-        _ => SyntaxKind.GreaterThanEqualsToken,
+        _ => SyntaxKind.GreaterThanEqualsToken
     };
 }

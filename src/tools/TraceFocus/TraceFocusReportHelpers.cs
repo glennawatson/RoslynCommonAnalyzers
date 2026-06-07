@@ -36,15 +36,12 @@ internal static class TraceFocusReportHelpers
     /// <param name="part">The retained value.</param>
     /// <param name="total">The total sampled value.</param>
     /// <returns>The formatted percentage string.</returns>
-    public static string FormatPercent(double part, double total)
-    {
-        if (total <= 0)
+    public static string FormatPercent(double part, double total) =>
+        total switch
         {
-            return "0.0%";
-        }
-
-        return (part / total * PercentageScale).ToString("F1", CultureInfo.InvariantCulture) + "%";
-    }
+            <= 0 => "0.0%",
+            _ => (part / total * PercentageScale).ToString("F1", CultureInfo.InvariantCulture) + "%"
+        };
 
     /// <summary>Projects only analyzer-owned frame totals from the supplied totals table.</summary>
     /// <param name="totals">The source totals table.</param>

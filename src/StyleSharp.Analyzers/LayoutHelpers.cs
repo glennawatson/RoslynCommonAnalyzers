@@ -62,15 +62,10 @@ internal static class LayoutHelpers
     /// <param name="text">The source text.</param>
     /// <param name="member">The member node.</param>
     /// <returns>The zero-based line index of the member's first documentation/comment trivia or first token.</returns>
-    public static int ContentStartLine(SourceText text, SyntaxNode member)
-    {
-        if (TryGetHeaderStartLine(text, member, out var startLine))
-        {
-            return startLine;
-        }
-
-        return StartLine(text, member.GetFirstToken());
-    }
+    public static int ContentStartLine(SourceText text, SyntaxNode member) =>
+        TryGetHeaderStartLine(text, member, out var startLine)
+            ? startLine
+            : StartLine(text, member.GetFirstToken());
 
     /// <summary>Returns the starting line of leading comment or documentation trivia, when present.</summary>
     /// <param name="text">The source text.</param>
@@ -82,23 +77,25 @@ internal static class LayoutHelpers
         var leadingTrivia = member.GetLeadingTrivia();
         if (leadingTrivia.Count == 0)
         {
-            startLine = default;
+            startLine = 0;
             return false;
         }
 
         foreach (var trivia in leadingTrivia)
         {
-            if (trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
-                || trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia)
-                || trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
-                || trivia.IsKind(SyntaxKind.MultiLineCommentTrivia))
+            if (!trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
+                && !trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia)
+                && !trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
+                && !trivia.IsKind(SyntaxKind.MultiLineCommentTrivia))
             {
-                startLine = LineOf(text, trivia.SpanStart);
-                return true;
+                continue;
             }
+
+            startLine = LineOf(text, trivia.SpanStart);
+            return true;
         }
 
-        startLine = default;
+        startLine = 0;
         return false;
     }
 
@@ -253,12 +250,14 @@ internal static class LayoutHelpers
     {
         foreach (var trivia in member.GetLeadingTrivia())
         {
-            if (trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
-                || trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia))
+            if (!trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
+                && !trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia))
             {
-                header = trivia;
-                return true;
+                continue;
             }
+
+            header = trivia;
+            return true;
         }
 
         header = default;
@@ -372,7 +371,7 @@ internal static class LayoutHelpers
         CommonForEachStatementSyntax forEach => forEach.Statement,
         ForStatementSyntax @for => @for.Statement,
         WhileStatementSyntax @while => @while.Statement,
-        _ => null,
+        _ => null
     };
 
     /// <summary>Returns the embedded statement of the resource/do control kinds, or <see langword="null"/>.</summary>
@@ -384,7 +383,7 @@ internal static class LayoutHelpers
         UsingStatementSyntax @using => @using.Statement,
         LockStatementSyntax @lock => @lock.Statement,
         FixedStatementSyntax @fixed => @fixed.Statement,
-        _ => null,
+        _ => null
     };
 
     /// <summary>Summarizes how a token relates to other tokens on its line.</summary>

@@ -48,7 +48,7 @@ public class SingleLineSummaryAnalyzerUnitTest
     {
         var test = new Verify.Test
         {
-            TestCode = "/// <summary>\n/// Short text.\n/// </summary>\npublic class C { }",
+            TestCode = "/// <summary>\n/// Short text.\n/// </summary>\npublic class C { }"
         };
 
         test.TestState.AnalyzerConfigFiles.Add(

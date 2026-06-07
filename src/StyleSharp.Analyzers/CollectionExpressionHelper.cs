@@ -63,18 +63,13 @@ internal static class CollectionExpressionHelper
     /// <summary>Returns whether an expression appears in a context with an explicit target type.</summary>
     /// <param name="expression">The candidate expression.</param>
     /// <returns><see langword="true"/> when the context supplies a target type.</returns>
-    private static bool HasExplicitTarget(ExpressionSyntax expression)
-    {
-        if (expression.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration } })
-        {
-            return declaration.Type is not IdentifierNameSyntax { Identifier.Text: "var" };
-        }
-
-        return expression.Parent is AssignmentExpressionSyntax
-            or ArrowExpressionClauseSyntax
-            or ReturnStatementSyntax
-            or ArgumentSyntax;
-    }
+    private static bool HasExplicitTarget(ExpressionSyntax expression) =>
+        expression.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration } }
+            ? declaration.Type is not IdentifierNameSyntax { Identifier.Text: "var" }
+            : expression.Parent is AssignmentExpressionSyntax
+                or ArrowExpressionClauseSyntax
+                or ReturnStatementSyntax
+                or ArgumentSyntax;
 
     /// <summary>Adds a well-known target definition when it exists.</summary>
     /// <param name="compilation">The compilation.</param>

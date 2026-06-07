@@ -9,9 +9,9 @@ namespace TraceFocus;
 /// <summary>Root speedscope document model used by the trace-focus terminal tool.</summary>
 public sealed class SpeedscopeDocument
 {
-    /// <summary>Gets or sets the shared frame table.</summary>
+    /// <summary>Gets the shared frame table.</summary>
     [JsonPropertyName("shared")]
-    public SharedSection Shared { get; set; } = new();
+    public SharedSection Shared { get; init; } = new();
 
     /// <summary>Gets the exported profiles.</summary>
     [JsonInclude]

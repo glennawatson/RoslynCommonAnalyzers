@@ -116,7 +116,7 @@ internal static class XmlDocumentationHelper
         {
             XmlElementSyntax element => element.StartTag.Attributes,
             XmlEmptyElementSyntax element => element.Attributes,
-            _ => default,
+            _ => default
         };
 
         foreach (var attribute in attributes)
@@ -297,7 +297,7 @@ internal static class XmlDocumentationHelper
 
                 if (start < value.Length)
                 {
-                    return value.Slice(start).StartsWith(expected, StringComparison.Ordinal);
+                    return value[start..].StartsWith(expected, StringComparison.Ordinal);
                 }
             }
         }
@@ -350,7 +350,7 @@ internal static class XmlDocumentationHelper
     {
         XmlElementSyntax element => element.StartTag.Name.LocalName.ValueText,
         XmlEmptyElementSyntax element => element.Name.LocalName.ValueText,
-        _ => null,
+        _ => null
     };
 
     /// <summary>Returns whether a character is terminal sentence punctuation.</summary>

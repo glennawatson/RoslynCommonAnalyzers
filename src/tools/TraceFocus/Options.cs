@@ -118,12 +118,9 @@ internal sealed class Options
         }
 
         var artifactsPath = Path.GetFullPath(ArtifactsPath);
-        if (!Directory.Exists(artifactsPath))
-        {
-            throw new DirectoryNotFoundException($"Artifacts directory '{artifactsPath}' does not exist.");
-        }
-
-        return FindNewestMatch(artifactsPath, Pattern!);
+        return !Directory.Exists(artifactsPath)
+            ? throw new DirectoryNotFoundException($"Artifacts directory '{artifactsPath}' does not exist.")
+            : FindNewestMatch(artifactsPath, Pattern!);
     }
 
     /// <summary>Finds the newest matching speedscope export under the artifacts directory.</summary>

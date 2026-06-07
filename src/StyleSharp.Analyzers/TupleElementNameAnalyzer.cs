@@ -37,14 +37,10 @@ public sealed class TupleElementNameAnalyzer : DiagnosticAnalyzer
         out string? name)
     {
         name = null;
-        if (access.Name is not IdentifierNameSyntax identifier
-            || !TupleHelpers.TryGetItemPosition(identifier.Identifier.ValueText, out _)
-            || semanticModel.GetTypeInfo(access.Expression, cancellationToken).Type is not INamedTypeSymbol { IsTupleType: true } tuple)
-        {
-            return false;
-        }
-
-        return TupleHelpers.TryGetPreferredTupleElementName(tuple, identifier.Identifier.ValueText, out name);
+        return access.Name is IdentifierNameSyntax identifier
+            && TupleHelpers.TryGetItemPosition(identifier.Identifier.ValueText, out _)
+            && semanticModel.GetTypeInfo(access.Expression, cancellationToken).Type is INamedTypeSymbol { IsTupleType: true } tuple
+            && TupleHelpers.TryGetPreferredTupleElementName(tuple, identifier.Identifier.ValueText, out name);
     }
 
     /// <summary>Reports SST1142 when a tuple's named element is accessed through its ItemN field.</summary>

@@ -61,11 +61,8 @@ internal static class DocumentationVisibility
         }
 
         // Interface members are implicitly public unless explicitly private.
-        if (member.Parent is InterfaceDeclarationSyntax)
-        {
-            return !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PrivateKeyword);
-        }
-
-        return ExposesMembers(declaration.Modifiers);
+        return member.Parent is InterfaceDeclarationSyntax
+            ? !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PrivateKeyword)
+            : ExposesMembers(declaration.Modifiers);
     }
 }

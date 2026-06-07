@@ -265,7 +265,7 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
         {
             ArgumentSyntax argument => argument.Expression,
             AttributeArgumentSyntax attributeArgument => attributeArgument.Expression,
-            _ => null,
+            _ => null
         };
 
         return expression is null || IsMultiLineFriendlyKind(expression.Kind());

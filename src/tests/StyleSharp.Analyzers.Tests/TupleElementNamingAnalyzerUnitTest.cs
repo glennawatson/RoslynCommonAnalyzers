@@ -41,7 +41,7 @@ public class TupleElementNamingAnalyzerUnitTest
     {
         var test = new Verify.Test
         {
-            TestCode = "public class C { public (int {|SST1316:Count|}, string name) M() => default; }",
+            TestCode = "public class C { public (int {|SST1316:Count|}, string name) M() => default; }"
         };
 
         test.TestState.AnalyzerConfigFiles.Add(

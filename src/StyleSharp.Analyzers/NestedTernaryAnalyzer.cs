@@ -23,7 +23,7 @@ public sealed class NestedTernaryAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        SyntaxNode? parent = context.Node.Parent;
+        var parent = context.Node.Parent;
         while (parent is ParenthesizedExpressionSyntax)
         {
             parent = parent.Parent;

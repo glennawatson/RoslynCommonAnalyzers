@@ -260,7 +260,7 @@ public class PreferLockTypeAnalyzerUnitTest
     {
         var type = ParseType(
             "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }");
-        var token = type.DescendantTokens().Single(t => t.ValueText == "_gate" && t.Parent is IdentifierNameSyntax);
+        var token = type.DescendantTokens().Single(static t => t.ValueText == "_gate" && t.Parent is IdentifierNameSyntax);
 
         await Assert.That(PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, "_gate")).IsEqualTo(
             PreferLockTypeAnalyzer.FieldNameTokenKind.LockUse);
@@ -273,7 +273,7 @@ public class PreferLockTypeAnalyzerUnitTest
     {
         var type = ParseType(
             "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }");
-        var token = type.DescendantTokens().Single(t => t.ValueText == "_gate" && t.Parent is VariableDeclaratorSyntax);
+        var token = type.DescendantTokens().Single(static t => t.ValueText == "_gate" && t.Parent is VariableDeclaratorSyntax);
 
         await Assert.That(PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, "_gate")).IsEqualTo(
             PreferLockTypeAnalyzer.FieldNameTokenKind.Ignore);
@@ -286,7 +286,7 @@ public class PreferLockTypeAnalyzerUnitTest
     {
         var type = ParseType(
             "public class C { private readonly object _gate = new(); void M(object _gate) { lock (_gate) { } } }");
-        var token = type.DescendantTokens().Single(t => t.ValueText == "_gate" && t.Parent is ParameterSyntax);
+        var token = type.DescendantTokens().Single(static t => t.ValueText == "_gate" && t.Parent is ParameterSyntax);
 
         await Assert.That(PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, "_gate")).IsEqualTo(
             PreferLockTypeAnalyzer.FieldNameTokenKind.Conflict);
@@ -302,7 +302,7 @@ public class PreferLockTypeAnalyzerUnitTest
         {
             ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
             TestCode = source,
-            FixedCode = fixedSource,
+            FixedCode = fixedSource
         };
 
         await test.RunAsync(CancellationToken.None);

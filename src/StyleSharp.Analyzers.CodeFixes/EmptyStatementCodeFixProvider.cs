@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Threading.Tasks;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -32,8 +30,7 @@ public sealed class EmptyStatementCodeFixProvider : CodeFixProvider
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not EmptyStatementSyntax statement
-                || statement.Parent is not (BlockSyntax or SwitchSectionSyntax or GlobalStatementSyntax))
+            if (root.FindNode(diagnostic.Location.SourceSpan) is not EmptyStatementSyntax { Parent: BlockSyntax or SwitchSectionSyntax or GlobalStatementSyntax } statement)
             {
                 continue;
             }

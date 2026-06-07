@@ -69,6 +69,6 @@ public sealed class ChainedBlockSpacingAnalyzer : DiagnosticAnalyzer
         CatchClauseSyntax @catch => @catch.CatchKeyword,
         FinallyClauseSyntax @finally => @finally.FinallyKeyword,
         DoStatementSyntax @do => @do.WhileKeyword,
-        _ => default,
+        _ => default
     };
 }

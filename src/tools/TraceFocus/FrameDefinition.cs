@@ -9,7 +9,7 @@ namespace TraceFocus;
 /// <summary>Single frame entry from the speedscope shared frame table.</summary>
 public sealed class FrameDefinition
 {
-    /// <summary>Gets or sets the frame name.</summary>
+    /// <summary>Gets the frame name.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
 }

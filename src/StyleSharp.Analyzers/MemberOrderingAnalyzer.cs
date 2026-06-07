@@ -55,14 +55,11 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
     {
         for (var i = 0; i < members.Count; i++)
         {
-            if (members[i] is ClassDeclarationSyntax)
+            switch (members[i])
             {
-                return true;
-            }
-
-            if (members[i] is RecordDeclarationSyntax { ClassOrStructKeyword.RawKind: 0 })
-            {
-                return true;
+                case ClassDeclarationSyntax:
+                case RecordDeclarationSyntax { ClassOrStructKeyword.RawKind: 0 }:
+                    return true;
             }
         }
 

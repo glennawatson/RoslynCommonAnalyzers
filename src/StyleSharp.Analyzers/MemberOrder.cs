@@ -171,7 +171,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         OperatorDeclarationSyntax @operator => @operator.OperatorToken,
         ConversionOperatorDeclarationSyntax conversion => conversion.OperatorKeyword,
         BaseTypeDeclarationSyntax type => type.Identifier,
-        _ => NamedMemberToken(member),
+        _ => NamedMemberToken(member)
     };
 
     /// <summary>Reads the relevant modifier facts from one token-list scan.</summary>
@@ -279,31 +279,26 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         "Major Code Smell",
         "S1541:Cyclomatic Complexity of methods should not be too high",
         Justification = "A direct switch-based kind map benchmarked better than the dictionary-backed alternatives on the MemberOrdering hot path.")]
-    internal static int KindRank(SyntaxKind kind, bool isUnion)
-    {
-        if (isUnion)
-        {
-            return UnionKind;
-        }
-
-        return kind switch
-        {
-            SyntaxKind.FieldDeclaration => FieldKind,
-            SyntaxKind.ConstructorDeclaration => ConstructorKind,
-            SyntaxKind.DestructorDeclaration => DestructorKind,
-            SyntaxKind.DelegateDeclaration => DelegateKind,
-            SyntaxKind.EventDeclaration or SyntaxKind.EventFieldDeclaration => EventKind,
-            SyntaxKind.EnumDeclaration => EnumKind,
-            SyntaxKind.InterfaceDeclaration => InterfaceKind,
-            SyntaxKind.PropertyDeclaration => PropertyKind,
-            SyntaxKind.IndexerDeclaration => IndexerKind,
-            SyntaxKind.MethodDeclaration or SyntaxKind.OperatorDeclaration or SyntaxKind.ConversionOperatorDeclaration => MethodKind,
-            SyntaxKind.StructDeclaration or SyntaxKind.RecordStructDeclaration => StructKind,
-            SyntaxKind.ClassDeclaration => ClassKind,
-            SyntaxKind.RecordDeclaration => RecordKind,
-            _ => NoKind,
-        };
-    }
+    internal static int KindRank(SyntaxKind kind, bool isUnion) =>
+        isUnion
+            ? UnionKind
+            : kind switch
+            {
+                SyntaxKind.FieldDeclaration => FieldKind,
+                SyntaxKind.ConstructorDeclaration => ConstructorKind,
+                SyntaxKind.DestructorDeclaration => DestructorKind,
+                SyntaxKind.DelegateDeclaration => DelegateKind,
+                SyntaxKind.EventDeclaration or SyntaxKind.EventFieldDeclaration => EventKind,
+                SyntaxKind.EnumDeclaration => EnumKind,
+                SyntaxKind.InterfaceDeclaration => InterfaceKind,
+                SyntaxKind.PropertyDeclaration => PropertyKind,
+                SyntaxKind.IndexerDeclaration => IndexerKind,
+                SyntaxKind.MethodDeclaration or SyntaxKind.OperatorDeclaration or SyntaxKind.ConversionOperatorDeclaration => MethodKind,
+                SyntaxKind.StructDeclaration or SyntaxKind.RecordStructDeclaration => StructKind,
+                SyntaxKind.ClassDeclaration => ClassKind,
+                SyntaxKind.RecordDeclaration => RecordKind,
+                _ => NoKind
+            };
 
     /// <summary>Returns the violated ordering rule when the current member follows the previous member.</summary>
     /// <param name="current">The current member order.</param>
@@ -318,7 +313,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         }
 
         var difference = current.ReadOnly - previous.ReadOnly;
-        return difference is >= 0 ? null : ReadonlyViolationRule(current);
+        return difference >= 0 ? null : ReadonlyViolationRule(current);
     }
 
     /// <summary>Returns the identifier token for the member kinds that carry a plain name.</summary>
@@ -332,7 +327,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         PropertyDeclarationSyntax property => property.Identifier,
         EventDeclarationSyntax @event => @event.Identifier,
         DelegateDeclarationSyntax @delegate => @delegate.Identifier,
-        _ => member.GetFirstToken(),
+        _ => member.GetFirstToken()
     };
 
     /// <summary>Returns the identifier of the first variable in a field/event declaration.</summary>
@@ -350,7 +345,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         PropertyDeclarationSyntax property => property.ExplicitInterfaceSpecifier is not null,
         EventDeclarationSyntax @event => @event.ExplicitInterfaceSpecifier is not null,
         IndexerDeclarationSyntax indexer => indexer.ExplicitInterfaceSpecifier is not null,
-        _ => false,
+        _ => false
     };
 
     /// <summary>Routes a readonly-ordering violation to the instance variant (SST1215) for instance fields.</summary>
@@ -365,27 +360,13 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <param name="current">The current member order.</param>
     /// <param name="previous">The previous member order.</param>
     /// <returns>The violated rule, or <see langword="null"/> when earlier dimensions match.</returns>
-    private static DiagnosticDescriptor? SelectNonReadonlyViolationRule(in MemberOrder current, in MemberOrder previous)
-    {
-        if (TrySelectRuleForDifference(current.Kind - previous.Kind, OrderingRules.OrderByKind, out var rule))
-        {
-            return rule;
-        }
-
-        if (TrySelectRuleForDifference(current.Access - previous.Access, OrderingRules.OrderByAccess, out rule))
-        {
-            return rule;
-        }
-
-        if (TrySelectRuleForDifference(current.Constant - previous.Constant, OrderingRules.ConstantsBeforeFields, out rule))
-        {
-            return rule;
-        }
-
-        return TrySelectRuleForDifference(current.Static - previous.Static, OrderingRules.StaticBeforeInstance, out rule)
-            ? rule
-            : null;
-    }
+    private static DiagnosticDescriptor? SelectNonReadonlyViolationRule(in MemberOrder current, in MemberOrder previous) =>
+        !TrySelectRuleForDifference(current.Kind - previous.Kind, OrderingRules.OrderByKind, out var rule)
+        && !TrySelectRuleForDifference(current.Access - previous.Access, OrderingRules.OrderByAccess, out rule)
+        && !TrySelectRuleForDifference(current.Constant - previous.Constant, OrderingRules.ConstantsBeforeFields, out rule)
+        && !TrySelectRuleForDifference(current.Static - previous.Static, OrderingRules.StaticBeforeInstance, out rule)
+            ? null
+            : rule;
 
     /// <summary>Returns whether a dimension difference determines ordering, and selects its rule when violated.</summary>
     /// <param name="difference">The difference between the current and previous dimension values.</param>
@@ -415,14 +396,12 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
             return PublicAccess;
         }
 
-        if (facts.IsProtected && facts.IsInternal)
+        switch (facts.IsProtected)
         {
-            return ProtectedInternalAccess;
-        }
-
-        if (facts.IsProtected && facts.IsPrivate)
-        {
-            return PrivateProtectedAccess;
+            case true when facts.IsInternal:
+                return ProtectedInternalAccess;
+            case true when facts.IsPrivate:
+                return PrivateProtectedAccess;
         }
 
         if (facts.IsInternal)

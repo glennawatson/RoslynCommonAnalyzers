@@ -82,11 +82,8 @@ public sealed class DocumentationHeaderSpacingAnalyzer : DiagnosticAnalyzer
     private static bool PrecededByBlankLineRequired(SourceText text, MemberDeclarationSyntax member, int headerFirstLine)
     {
         var previous = member.GetFirstToken().GetPreviousToken();
-        if (previous.IsKind(SyntaxKind.None) || previous.IsKind(SyntaxKind.OpenBraceToken))
-        {
-            return false;
-        }
-
-        return headerFirstLine <= LayoutHelpers.EndLine(text, previous) + 1;
+        return !previous.IsKind(SyntaxKind.None)
+               && !previous.IsKind(SyntaxKind.OpenBraceToken)
+               && headerFirstLine <= LayoutHelpers.EndLine(text, previous) + 1;
     }
 }

@@ -50,7 +50,7 @@ public sealed class UseNullableShorthandCodeFixProvider : CodeFixProvider
     {
         GenericNameSyntax generic => generic,
         QualifiedNameSyntax { Right: GenericNameSyntax generic } => generic,
-        _ => null,
+        _ => null
     };
 
     /// <summary>Replaces the nullable type node with its <c>T?</c> shorthand.</summary>

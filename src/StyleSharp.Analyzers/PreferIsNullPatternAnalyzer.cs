@@ -81,7 +81,7 @@ public sealed class PreferIsNullPatternAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the containing lambda is an expression tree.</returns>
     private static bool IsInExpressionTree(SyntaxNode node, SemanticModel model, INamedTypeSymbol expressionType, CancellationToken cancellationToken)
     {
-        for (SyntaxNode? current = node.Parent; current is not null; current = current.Parent)
+        for (var current = node.Parent; current is not null; current = current.Parent)
         {
             if (current is not AnonymousFunctionExpressionSyntax anonymous)
             {

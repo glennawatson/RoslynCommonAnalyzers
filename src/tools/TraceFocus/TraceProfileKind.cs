@@ -14,5 +14,5 @@ internal enum TraceProfileKind
     Cpu,
 
     /// <summary>Allocation profiling trace defaults.</summary>
-    Alloc,
+    Alloc
 }

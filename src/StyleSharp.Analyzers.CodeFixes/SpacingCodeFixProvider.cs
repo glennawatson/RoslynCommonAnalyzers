@@ -124,25 +124,22 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider
     /// <returns>The text change to apply.</returns>
     private static TextChange PunctuationChange(string action, TextSpan span, SourceText text)
     {
-        if (action == SpacingAnalyzer.AddAfter)
+        switch (action)
         {
-            return new(new(span.End, 0), " ");
-        }
+            case SpacingAnalyzer.AddAfter:
+                return new(new(span.End, 0), " ");
+            case SpacingAnalyzer.AddBefore:
+                return new(new(span.Start, 0), " ");
+            case SpacingAnalyzer.RemoveAfter:
+                {
+                    var afterEnd = span.End;
+                    while (afterEnd < text.Length && (text[afterEnd] == ' ' || text[afterEnd] == '\t'))
+                    {
+                        afterEnd++;
+                    }
 
-        if (action == SpacingAnalyzer.AddBefore)
-        {
-            return new(new(span.Start, 0), " ");
-        }
-
-        if (action == SpacingAnalyzer.RemoveAfter)
-        {
-            var afterEnd = span.End;
-            while (afterEnd < text.Length && (text[afterEnd] == ' ' || text[afterEnd] == '\t'))
-            {
-                afterEnd++;
-            }
-
-            return new(TextSpan.FromBounds(span.End, afterEnd), string.Empty);
+                    return new(TextSpan.FromBounds(span.End, afterEnd), string.Empty);
+                }
         }
 
         var start = span.Start;

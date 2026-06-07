@@ -70,17 +70,12 @@ internal static class NamingHelper
     public static string SuggestPascalCase(string name)
     {
         var start = SignificantStart(name);
-        if (start >= name.Length)
+        if (start >= name.Length || (start == 0 && char.IsUpper(name[0])))
         {
             return name;
         }
 
-        if (start == 0 && char.IsUpper(name[0]))
-        {
-            return name;
-        }
-
-        return char.ToUpperInvariant(name[start]) + name.Substring(start + 1);
+        return char.ToUpperInvariant(name[start]) + name[(start + 1)..];
     }
 
     /// <summary>Suggests a camelCase form of <paramref name="name"/> (leading underscores and a known field prefix stripped).</summary>
@@ -89,17 +84,9 @@ internal static class NamingHelper
     public static string SuggestCamelCase(string name)
     {
         var start = SignificantStart(name);
-        if (start >= name.Length)
-        {
-            return name;
-        }
-
-        if (start == 0 && char.IsLower(name[0]))
-        {
-            return name;
-        }
-
-        return char.ToLowerInvariant(name[start]) + name.Substring(start + 1);
+        return start >= name.Length || (start == 0 && char.IsLower(name[0]))
+            ? name
+            : char.ToLowerInvariant(name[start]) + name[(start + 1)..];
     }
 
     /// <summary>Suggests the runtime private-field form <c>_camelCase</c> for <paramref name="name"/>.</summary>

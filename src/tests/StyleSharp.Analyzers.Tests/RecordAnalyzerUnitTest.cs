@@ -50,7 +50,7 @@ public class RecordAnalyzerUnitTest
     {
         var test = new VerifyRecord.Test
         {
-            TestCode = "public sealed record Point(int {|SST1801:X|}, int y);" + IsExternalInit,
+            TestCode = "public sealed record Point(int {|SST1801:X|}, int y);" + IsExternalInit
         };
 
         test.TestState.AnalyzerConfigFiles.Add(

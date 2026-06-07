@@ -27,8 +27,9 @@ public sealed class TupleElementNameCodeFixProvider : CodeFixProvider
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<IdentifierNameSyntax>() is not { } identifier
-                || identifier.Parent is not MemberAccessExpressionSyntax access
+            if (root
+                .FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)
+                .FirstAncestorOrSelf<IdentifierNameSyntax>() is not { Parent: MemberAccessExpressionSyntax access } identifier
                 || !TupleElementNameAnalyzer.TryGetReplacementName(access, semanticModel, context.CancellationToken, out var name)
                 || string.IsNullOrEmpty(name))
             {

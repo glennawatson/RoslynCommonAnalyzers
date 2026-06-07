@@ -58,7 +58,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
         Space,
 
         /// <summary>The tokens are separated by a line break.</summary>
-        NewLine,
+        NewLine
     }
 
     /// <inheritdoc/>
@@ -303,13 +303,19 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="separation">The separation to the token before it.</param>
     private static void CheckColonBefore(SyntaxTreeAnalysisContext context, SyntaxToken colon, Separation separation)
     {
-        if (separation == Separation.Adjacent && RequiresSpaceBothSides(colon))
+        switch (separation)
         {
-            Report(context, SpacingRules.ColonSpacing, colon, AddBefore);
-        }
-        else if (separation == Separation.Space && RequiresNoSpaceBefore(colon))
-        {
-            Report(context, SpacingRules.ColonSpacing, colon, RemoveBefore);
+            case Separation.Adjacent when RequiresSpaceBothSides(colon):
+                {
+                    Report(context, SpacingRules.ColonSpacing, colon, AddBefore);
+                    break;
+                }
+
+            case Separation.Space when RequiresNoSpaceBefore(colon):
+                {
+                    Report(context, SpacingRules.ColonSpacing, colon, RemoveBefore);
+                    break;
+                }
         }
     }
 
@@ -360,7 +366,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     {
         BinaryExpressionSyntax binary => binary.OperatorToken == token,
         AssignmentExpressionSyntax assignment => assignment.OperatorToken == token,
-        _ => false,
+        _ => false
     };
 
     /// <summary>Reports a space between an increment/decrement operator and its operand (SST1020).</summary>
@@ -599,7 +605,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
         AddAfter => AddAfterProperties,
         AddBefore => AddBeforeProperties,
         RemoveAfter => RemoveAfterProperties,
-        _ => RemoveBeforeProperties,
+        _ => RemoveBeforeProperties
     };
 
     /// <summary>Returns the whitespace separation between two adjacent tokens.</summary>
@@ -641,16 +647,10 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the token is a unary dereference ('*') or address-of ('&amp;') operator.</summary>
     /// <param name="token">The token.</param>
     /// <returns><see langword="true"/> when the token is the operator of a pointer-indirection or address-of expression.</returns>
-    private static bool IsDereferenceOrAddressOf(SyntaxToken token)
-    {
-        if (!token.IsKind(SyntaxKind.AsteriskToken) && !token.IsKind(SyntaxKind.AmpersandToken))
-        {
-            return false;
-        }
-
-        return token.Parent is PrefixUnaryExpressionSyntax unary
+    private static bool IsDereferenceOrAddressOf(SyntaxToken token) =>
+        (token.IsKind(SyntaxKind.AsteriskToken) || token.IsKind(SyntaxKind.AmpersandToken))
+            && token.Parent is PrefixUnaryExpressionSyntax unary
             && (unary.IsKind(SyntaxKind.PointerIndirectionExpression) || unary.IsKind(SyntaxKind.AddressOfExpression));
-    }
 
     /// <summary>Applies the trivia spacing rules to a single token's leading or trailing trivia.</summary>
     /// <param name="context">The syntax tree analysis context.</param>

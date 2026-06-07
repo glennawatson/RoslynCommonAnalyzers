@@ -62,12 +62,9 @@ public sealed class CommentedOutCodeAnalyzer : DiagnosticAnalyzer
             end--;
         }
 
-        if (end - start < MinimumCodeLength || StartsWithMarker(text, start, end))
-        {
-            return false;
-        }
-
-        return IsCodeTerminator(text[end - 1]) || StartsWithCodeKeyword(text, start, end);
+        return end - start >= MinimumCodeLength
+            && !StartsWithMarker(text, start, end)
+            && (IsCodeTerminator(text[end - 1]) || StartsWithCodeKeyword(text, start, end));
     }
 
     /// <summary>Returns whether text starts with a non-code comment marker.</summary>

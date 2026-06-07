@@ -11,5 +11,5 @@ internal enum NamingConvention
     PascalCase,
 
     /// <summary>camelCase — begins with a lower-case letter.</summary>
-    CamelCase,
+    CamelCase
 }

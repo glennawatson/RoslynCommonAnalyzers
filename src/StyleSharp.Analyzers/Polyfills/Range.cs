@@ -52,12 +52,9 @@ internal readonly struct Range : IEquatable<Range>
     {
         var start = Start.GetOffset(length);
         var end = End.GetOffset(length);
-        if ((uint)end > (uint)length || (uint)start > (uint)end)
-        {
-            throw new ArgumentOutOfRangeException(nameof(length));
-        }
-
-        return (start, end - start);
+        return (uint)end > (uint)length || (uint)start > (uint)end
+            ? throw new ArgumentOutOfRangeException(nameof(length))
+            : ((int Offset, int Length))(start, end - start);
     }
 
     /// <inheritdoc/>

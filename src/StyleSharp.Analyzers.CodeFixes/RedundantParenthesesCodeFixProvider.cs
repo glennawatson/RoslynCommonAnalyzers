@@ -59,11 +59,6 @@ public sealed class RedundantParenthesesCodeFixProvider : CodeFixProvider
         }
 
         var attribute = node.FirstAncestorOrSelf<AttributeSyntax>();
-        if (attribute?.ArgumentList is null)
-        {
-            return null;
-        }
-
-        return (attribute, attribute.WithArgumentList(null));
+        return attribute?.ArgumentList is null ? null : (attribute, attribute.WithArgumentList(null));
     }
 }

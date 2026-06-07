@@ -74,14 +74,12 @@ public sealed class PrefixLocalCallsWithThisAnalyzer : DiagnosticAnalyzer
     {
         for (var current = node.Parent; current is not null; current = current.Parent)
         {
-            if (current is InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } })
+            switch (current)
             {
-                return true;
-            }
-
-            if (current is StatementSyntax or MemberDeclarationSyntax)
-            {
-                return false;
+                case InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } }:
+                    return true;
+                case StatementSyntax or MemberDeclarationSyntax:
+                    return false;
             }
         }
 
@@ -91,20 +89,14 @@ public sealed class PrefixLocalCallsWithThisAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the symbol is a non-static field, property, method, or event of a type.</summary>
     /// <param name="symbol">The bound symbol.</param>
     /// <returns><see langword="true"/> when a <c>this.</c> prefix would apply.</returns>
-    private static bool IsInstanceMemberOfEnclosingType(ISymbol? symbol)
-    {
-        if (symbol is not { IsStatic: false, ContainingType: not null })
-        {
-            return false;
-        }
-
-        return symbol switch
-        {
-            IMethodSymbol method => method.MethodKind is MethodKind.Ordinary,
-            IFieldSymbol => true,
-            IPropertySymbol => true,
-            IEventSymbol => true,
-            _ => false,
-        };
-    }
+    private static bool IsInstanceMemberOfEnclosingType(ISymbol? symbol) =>
+        symbol is { IsStatic: false, ContainingType: not null }
+            && symbol switch
+            {
+                IMethodSymbol method => method.MethodKind is MethodKind.Ordinary,
+                IFieldSymbol => true,
+                IPropertySymbol => true,
+                IEventSymbol => true,
+                _ => false
+            };
 }

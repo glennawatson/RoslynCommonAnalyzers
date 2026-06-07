@@ -74,16 +74,16 @@ public sealed class PrecedenceAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        if (innerCategory is ConditionalAndCategory or ConditionalOrCategory)
+        return innerCategory switch
         {
-            return parentCategory is ConditionalAndCategory or ConditionalOrCategory
+            ConditionalAndCategory or ConditionalOrCategory => parentCategory is ConditionalAndCategory
+                or ConditionalOrCategory
                 ? MaintainabilityRules.ConditionalPrecedence
-                : null;
-        }
-
-        return innerCategory >= MultiplicativeCategory && parentCategory >= MultiplicativeCategory
-            ? MaintainabilityRules.ArithmeticPrecedence
-            : null;
+                : null,
+            _ => innerCategory >= MultiplicativeCategory && parentCategory >= MultiplicativeCategory
+                ? MaintainabilityRules.ArithmeticPrecedence
+                : null
+        };
     }
 
     /// <summary>Classifies an operator kind into one precedence-rule category.</summary>
@@ -100,7 +100,7 @@ public sealed class PrecedenceAnalyzer : DiagnosticAnalyzer
         SyntaxKind.MultiplyExpression or SyntaxKind.DivideExpression or SyntaxKind.ModuloExpression => MultiplicativeCategory,
         SyntaxKind.AddExpression or SyntaxKind.SubtractExpression => AdditiveCategory,
         SyntaxKind.LeftShiftExpression or SyntaxKind.RightShiftExpression => ShiftCategory,
-        _ => NoCategory,
+        _ => NoCategory
     };
 
     /// <summary>Reports an inner binary expression whose precedence against its parent is implicit.</summary>

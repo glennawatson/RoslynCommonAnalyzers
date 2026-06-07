@@ -70,7 +70,7 @@ public sealed class SingleLineElementAnalyzer : DiagnosticAnalyzer
         {
             BaseMethodDeclarationSyntax method => method.Body,
             LocalFunctionStatementSyntax local => local.Body,
-            _ => null,
+            _ => null
         };
 
         if (body is not null)
@@ -119,6 +119,6 @@ public sealed class SingleLineElementAnalyzer : DiagnosticAnalyzer
         DestructorDeclarationSyntax destructor => destructor.Identifier.ValueText,
         LocalFunctionStatementSyntax local => local.Identifier.ValueText,
         BaseTypeDeclarationSyntax type => type.Identifier.ValueText,
-        _ => "the element",
+        _ => "the element"
     };
 }

@@ -599,7 +599,7 @@ internal sealed class ClassGeneratorBuilder
     /// <summary>Builds a comma-separated parameter list rendered on a single line.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
     /// <returns>The single-line parameter list text.</returns>
-    private static string GenerateOneLineParameters(int parameterCount) => string.Join(", ", Enumerable.Range(0, parameterCount).Select(i => $"int a{i}"));
+    private static string GenerateOneLineParameters(int parameterCount) => string.Join(", ", Enumerable.Range(0, parameterCount).Select(static i => $"int a{i}"));
 
     /// <summary>Builds a parameter list split unevenly across two lines.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
@@ -610,8 +610,8 @@ internal sealed class ClassGeneratorBuilder
         var remainingCount = parameterCount - halfWayPoint;
 
         return $"""
-                {string.Join(", ", Enumerable.Range(0, halfWayPoint).Select(i => $"int a{i}"))},
-                            {string.Join(", ", Enumerable.Range(halfWayPoint, remainingCount).Select(i => $"int a{i}"))}
+                {string.Join(", ", Enumerable.Range(0, halfWayPoint).Select(static i => $"int a{i}"))},
+                            {string.Join(", ", Enumerable.Range(halfWayPoint, remainingCount).Select(static i => $"int a{i}"))}
                 """;
     }
 
@@ -638,7 +638,7 @@ internal sealed class ClassGeneratorBuilder
     /// <summary>Builds a comma-separated argument list rendered on a single line.</summary>
     /// <param name="parameterCount">The number of arguments to emit.</param>
     /// <returns>The single-line argument list text.</returns>
-    private static string GenerateOneLineArguments(int parameterCount) => string.Join(", ", Enumerable.Range(0, parameterCount).Select(i => $"{i}"));
+    private static string GenerateOneLineArguments(int parameterCount) => string.Join(", ", Enumerable.Range(0, parameterCount).Select(static i => $"{i}"));
 
     /// <summary>Builds an argument list split unevenly across two lines.</summary>
     /// <param name="parameterCount">The number of arguments to emit.</param>
@@ -649,8 +649,8 @@ internal sealed class ClassGeneratorBuilder
         var remainingCount = parameterCount - halfWayPoint;
 
         return $"""
-                {string.Join(", ", Enumerable.Range(0, halfWayPoint).Select(i => $"{i}"))},
-                            {string.Join(", ", Enumerable.Range(halfWayPoint, remainingCount).Select(i => $"{i}"))}
+                {string.Join(", ", Enumerable.Range(0, halfWayPoint).Select(static i => $"{i}"))},
+                            {string.Join(", ", Enumerable.Range(halfWayPoint, remainingCount).Select(static i => $"{i}"))}
                 """;
     }
 

@@ -160,7 +160,7 @@ public class MemberOrderingAnalyzerUnitTest
         var test = new Verify.Test
         {
             TestCode = Source,
-            FixedCode = Source,
+            FixedCode = Source
         };
 
         await test.RunAsync(CancellationToken.None);

@@ -58,11 +58,11 @@ public sealed class FileNameAnalyzer : DiagnosticAnalyzer
         }
 
         var slash = filePath!.LastIndexOfAny(['/', '\\']);
-        var name = slash >= 0 ? filePath.Substring(slash + 1) : filePath;
+        var name = slash >= 0 ? filePath[(slash + 1)..] : filePath;
 
         // Cut at the extension/suffix ('.'), or a generic-arity marker ('{T}' or backtick).
         var cut = name.IndexOfAny(['.', '{', '`']);
-        return cut >= 0 ? name.Substring(0, cut) : name;
+        return cut >= 0 ? name[..cut] : name;
     }
 
     /// <summary>Finds the identifier of the first non-partial type declaration in the file.</summary>
@@ -75,22 +75,25 @@ public sealed class FileNameAnalyzer : DiagnosticAnalyzer
 
         foreach (var node in root.DescendantNodes())
         {
-            if (node is BaseTypeDeclarationSyntax type)
+            switch (node)
             {
-                // A partial type may legitimately live in any number of files.
-                if (ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword))
-                {
-                    return false;
-                }
+                case BaseTypeDeclarationSyntax type:
+                    {
+                        // A partial type may legitimately live in any number of files.
+                        if (ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword))
+                        {
+                            return false;
+                        }
 
-                identifier = type.Identifier;
-                return true;
-            }
+                        identifier = type.Identifier;
+                        return true;
+                    }
 
-            if (node is DelegateDeclarationSyntax @delegate)
-            {
-                identifier = @delegate.Identifier;
-                return true;
+                case DelegateDeclarationSyntax @delegate:
+                    {
+                        identifier = @delegate.Identifier;
+                        return true;
+                    }
             }
         }
 

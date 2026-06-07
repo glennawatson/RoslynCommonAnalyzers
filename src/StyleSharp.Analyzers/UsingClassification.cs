@@ -51,12 +51,9 @@ internal static class UsingClassification
         }
 
         var name = directive.Name;
-        if (name is IdentifierNameSyntax identifier)
-        {
-            return identifier.Identifier.ValueText;
-        }
-
-        return name?.ToString() ?? string.Empty;
+        return name is IdentifierNameSyntax identifier
+            ? identifier.Identifier.ValueText
+            : name?.ToString() ?? string.Empty;
     }
 
     /// <summary>Compares two using directives by their alphabetical sort key without allocating for common name shapes.</summary>
@@ -70,12 +67,9 @@ internal static class UsingClassification
             return string.CompareOrdinal(leftAlias.Name.Identifier.ValueText, rightAlias.Name.Identifier.ValueText);
         }
 
-        if (left.Name is { } leftName && right.Name is { } rightName && IsIdentifierOrQualified(leftName) && IsIdentifierOrQualified(rightName))
-        {
-            return CompareIdentifierOrQualifiedName(leftName, rightName);
-        }
-
-        return string.CompareOrdinal(SortKey(left), SortKey(right));
+        return left.Name is { } leftName && right.Name is { } rightName && IsIdentifierOrQualified(leftName) && IsIdentifierOrQualified(rightName)
+            ? CompareIdentifierOrQualifiedName(leftName, rightName)
+            : string.CompareOrdinal(SortKey(left), SortKey(right));
     }
 
     /// <summary>Compares two using directives by the canonical ordering.</summary>
@@ -119,25 +113,24 @@ internal static class UsingClassification
             if (right is QualifiedNameSyntax rightQualified)
             {
                 var compare = CompareIdentifierOrQualifiedName(leftQualified.Left, rightQualified.Left);
-                if (compare != 0)
-                {
-                    return compare;
-                }
-
-                return string.CompareOrdinal(leftQualified.Right.Identifier.ValueText, rightQualified.Right.Identifier.ValueText);
+                return compare != 0
+                    ? compare
+                    : string.CompareOrdinal(leftQualified.Right.Identifier.ValueText, rightQualified.Right.Identifier.ValueText);
             }
 
             var leftPrefixCompare = CompareIdentifierOrQualifiedName(leftQualified.Left, right);
             return leftPrefixCompare != 0 ? leftPrefixCompare : 1;
         }
 
-        if (right is QualifiedNameSyntax rightOnlyQualified)
+        if (right is not QualifiedNameSyntax rightOnlyQualified)
         {
-            var rightPrefixCompare = CompareIdentifierOrQualifiedName(left, rightOnlyQualified.Left);
-            return rightPrefixCompare != 0 ? rightPrefixCompare : -1;
+            return string.CompareOrdinal(
+                ((IdentifierNameSyntax)left).Identifier.ValueText,
+                ((IdentifierNameSyntax)right).Identifier.ValueText);
         }
 
-        return string.CompareOrdinal(((IdentifierNameSyntax)left).Identifier.ValueText, ((IdentifierNameSyntax)right).Identifier.ValueText);
+        var rightPrefixCompare = CompareIdentifierOrQualifiedName(left, rightOnlyQualified.Left);
+        return rightPrefixCompare != 0 ? rightPrefixCompare : -1;
     }
 
     /// <summary>Returns whether a using target name starts with <c>System</c>.</summary>
@@ -148,6 +141,6 @@ internal static class UsingClassification
         IdentifierNameSyntax identifier => identifier.Identifier.ValueText == "System",
         QualifiedNameSyntax qualified => StartsWithSystem(qualified.Left),
         AliasQualifiedNameSyntax { Alias.Identifier.ValueText: "System" } => true,
-        _ => false,
+        _ => false
     };
 }

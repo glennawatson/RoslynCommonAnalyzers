@@ -48,8 +48,8 @@ public class AnalyzerThroughputBenchmarks
         var assembly = typeof(Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesAnalyzer).Assembly;
         _analyzers = [
             ..assembly.GetTypes()
-                .Where(t => !t.IsAbstract && typeof(DiagnosticAnalyzer).IsAssignableFrom(t))
-                .Select(t => (DiagnosticAnalyzer)Activator.CreateInstance(t)!)
+                .Where(static t => !t.IsAbstract && typeof(DiagnosticAnalyzer).IsAssignableFrom(t))
+                .Select(static t => (DiagnosticAnalyzer)Activator.CreateInstance(t)!)
         ];
 
         _singleAnalyzer =
@@ -78,8 +78,8 @@ public class AnalyzerThroughputBenchmarks
             ..
             trustedAssemblies
                 .Split(Path.PathSeparator)
-                .Where(path => path.Length > 0)
-                .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
+                .Where(static path => path.Length > 0)
+                .Select(static MetadataReference (path) => MetadataReference.CreateFromFile(path))
         ];
     }
 

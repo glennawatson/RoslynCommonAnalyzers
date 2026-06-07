@@ -90,9 +90,9 @@ public sealed class NamespaceFolderAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var relative = normalizedPath.Substring(normalizedDirectory.Length);
+        var relative = normalizedPath[normalizedDirectory.Length..];
         var lastSlash = relative.LastIndexOf('/');
-        relativeDirectory = lastSlash < 0 ? string.Empty : relative.Substring(0, lastSlash);
+        relativeDirectory = lastSlash < 0 ? string.Empty : relative[..lastSlash];
         return true;
     }
 
@@ -147,7 +147,12 @@ public sealed class NamespaceFolderAnalyzer : DiagnosticAnalyzer
             return general;
         }
 
-        return global.TryGetValue(RootNamespaceBuildKey, out var build) ? build : string.Empty;
+        if (global.TryGetValue(RootNamespaceBuildKey, out var build))
+        {
+            return build;
+        }
+
+        return string.Empty;
     }
 
     /// <summary>Returns whether a folder name is a valid C# identifier (and so usable as a namespace part).</summary>

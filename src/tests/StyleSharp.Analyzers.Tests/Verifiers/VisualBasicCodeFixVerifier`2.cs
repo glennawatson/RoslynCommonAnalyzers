@@ -44,7 +44,7 @@ public static partial class VisualBasicCodeFixVerifier<TAnalyzer, TCodeFix>
     {
         var test = new Test
         {
-            TestCode = source,
+            TestCode = source
         };
 
         test.ExpectedDiagnostics.AddRange(expected);
@@ -76,7 +76,7 @@ public static partial class VisualBasicCodeFixVerifier<TAnalyzer, TCodeFix>
         var test = new Test
         {
             TestCode = source,
-            FixedCode = fixedSource,
+            FixedCode = fixedSource
         };
 
         test.ExpectedDiagnostics.AddRange(expected);

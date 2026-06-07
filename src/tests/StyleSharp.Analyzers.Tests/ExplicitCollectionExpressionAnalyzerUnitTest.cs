@@ -34,7 +34,7 @@ public class ExplicitCollectionExpressionAnalyzerUnitTest
         {
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
             TestCode = Source,
-            FixedCode = FixedSource,
+            FixedCode = FixedSource
         };
 
         await test.RunAsync(CancellationToken.None);

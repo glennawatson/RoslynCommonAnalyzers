@@ -127,7 +127,7 @@ internal static class ThrowGuardPatterns
         {
             ThrowStatementSyntax direct => direct,
             BlockSyntax { Statements: [ThrowStatementSyntax single] } => single,
-            _ => null,
+            _ => null
         };
 
         creation = throwStatement?.Expression as ObjectCreationExpressionSyntax;
@@ -207,7 +207,7 @@ internal static class ThrowGuardPatterns
         PredefinedTypeSyntax predefined => predefined.Keyword.IsKind(SyntaxKind.StringKeyword),
         IdentifierNameSyntax identifier => identifier.Identifier.Text is "string" or "String",
         MemberAccessExpressionSyntax qualified => qualified.Name.Identifier.Text is "String",
-        _ => false,
+        _ => false
     };
 
     /// <summary>Returns whether a constructor's paramName argument is absent or names the checked expression.</summary>
@@ -231,7 +231,7 @@ internal static class ThrowGuardPatterns
         {
             InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.Text: "nameof" }, ArgumentList.Arguments: [var named] } => named.Expression.ToString() == expectedText,
             LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.StringLiteralExpression) => literal.Token.ValueText == expectedText,
-            _ => false,
+            _ => false
         };
     }
 
@@ -247,15 +247,11 @@ internal static class ThrowGuardPatterns
     {
         binary = ifStatement.Condition as BinaryExpressionSyntax;
         parameterName = string.Empty;
-        if (ifStatement.Else is not null
-            || binary is null
-            || !TryGetThrownCreation(ifStatement.Statement, out var creation)
-            || SimpleTypeName(creation!.Type) != "ArgumentOutOfRangeException")
-        {
-            return false;
-        }
-
-        return TryGetParamName(creation.ArgumentList, out parameterName);
+        return ifStatement.Else is null
+            && binary is not null
+            && TryGetThrownCreation(ifStatement.Statement, out var creation)
+            && SimpleTypeName(creation!.Type) == "ArgumentOutOfRangeException"
+            && TryGetParamName(creation.ArgumentList, out parameterName);
     }
 
     /// <summary>Returns whether disposed-exception arguments carry no custom message.</summary>
@@ -267,7 +263,7 @@ internal static class ThrowGuardPatterns
             || (arguments.Arguments.Count == 1
                 && arguments.Arguments[0].Expression is InvocationExpressionSyntax
                 {
-                    Expression: IdentifierNameSyntax { Identifier.Text: "nameof" },
+                    Expression: IdentifierNameSyntax { Identifier.Text: "nameof" }
                 });
 
     /// <summary>Reads the identifier named by the exception's first <c>nameof</c> argument.</summary>
@@ -281,7 +277,7 @@ internal static class ThrowGuardPatterns
             || arguments.Arguments[0].Expression is not InvocationExpressionSyntax
             {
                 Expression: IdentifierNameSyntax { Identifier.Text: "nameof" },
-                ArgumentList.Arguments: [{ Expression: IdentifierNameSyntax identifier }],
+                ArgumentList.Arguments: [{ Expression: IdentifierNameSyntax identifier }]
             })
         {
             return false;
@@ -307,7 +303,7 @@ internal static class ThrowGuardPatterns
         SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
         SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
         SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-        _ => kind,
+        _ => kind
     };
 
     /// <summary>Maps a comparison kind and zero bound to the corresponding helper.</summary>
@@ -325,7 +321,7 @@ internal static class ThrowGuardPatterns
         SyntaxKind.LessThanExpression => "ThrowIfNegative",
         SyntaxKind.LessThanOrEqualExpression => "ThrowIfNegativeOrZero",
         SyntaxKind.EqualsExpression => "ThrowIfZero",
-        _ => null,
+        _ => null
     };
 
     /// <summary>Maps a comparison against a bound to a two-argument helper.</summary>
@@ -339,7 +335,7 @@ internal static class ThrowGuardPatterns
             SyntaxKind.LessThanOrEqualExpression => "ThrowIfLessThanOrEqual",
             SyntaxKind.EqualsExpression => "ThrowIfEqual",
             SyntaxKind.NotEqualsExpression => "ThrowIfNotEqual",
-            _ => null,
+            _ => null
         };
 
     /// <summary>Returns whether an expression is the numeric zero literal.</summary>
@@ -369,7 +365,7 @@ internal static class ThrowGuardPatterns
         IdentifierNameSyntax identifier => identifier.Identifier.Text,
         QualifiedNameSyntax qualified => qualified.Right.Identifier.Text,
         AliasQualifiedNameSyntax alias => alias.Name.Identifier.Text,
-        _ => null,
+        _ => null
     };
 
     /// <summary>A matched range helper and its ordered operands.</summary>

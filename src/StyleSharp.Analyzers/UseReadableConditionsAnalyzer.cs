@@ -53,6 +53,6 @@ public sealed class UseReadableConditionsAnalyzer : DiagnosticAnalyzer
     {
         LiteralExpressionSyntax => true,
         PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.UnaryMinusExpression or (int)SyntaxKind.UnaryPlusExpression, Operand: LiteralExpressionSyntax } => true,
-        _ => false,
+        _ => false
     };
 }

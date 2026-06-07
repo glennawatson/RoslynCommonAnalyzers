@@ -777,7 +777,7 @@ public class SpacingAnalyzerUnitTest
     {
         var test = new VerifySpacing.Test
         {
-            TestCode = source,
+            TestCode = source
         };
 
         if (fixedSource is not null)
@@ -785,7 +785,7 @@ public class SpacingAnalyzerUnitTest
             test.FixedCode = fixedSource;
         }
 
-        test.SolutionTransforms.Add((solution, projectId) =>
+        test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var compilationOptions = (CSharpCompilationOptions)solution.GetProject(projectId)!.CompilationOptions!;
             return solution.WithProjectCompilationOptions(projectId, compilationOptions.WithAllowUnsafe(true));

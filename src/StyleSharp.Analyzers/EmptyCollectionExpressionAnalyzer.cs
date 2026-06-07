@@ -52,7 +52,7 @@ public sealed class EmptyCollectionExpressionAnalyzer : DiagnosticAnalyzer
         InvocationExpressionSyntax invocation => IsEmptyInvocation(invocation),
         ObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0, Initializer: null } => true,
         ArrayCreationExpressionSyntax array => IsEmptyArray(array),
-        _ => false,
+        _ => false
     };
 
     /// <summary>Returns whether an invocation is <c>Array.Empty</c> or <c>Enumerable.Empty</c>.</summary>
@@ -73,14 +73,8 @@ public sealed class EmptyCollectionExpressionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an array creation is empty.</summary>
     /// <param name="array">The array creation.</param>
     /// <returns><see langword="true"/> for an empty initializer or zero length.</returns>
-    private static bool IsEmptyArray(ArrayCreationExpressionSyntax array)
-    {
-        if (array.Initializer is { Expressions.Count: 0 })
-        {
-            return true;
-        }
-
-        return array.Type.RankSpecifiers is [{ Rank: 1, Sizes: [LiteralExpressionSyntax literal] }]
-            && literal.Token.ValueText.AsSpan().SequenceEqual("0".AsSpan());
-    }
+    private static bool IsEmptyArray(ArrayCreationExpressionSyntax array) =>
+        array.Initializer is { Expressions.Count: 0 }
+            || (array.Type.RankSpecifiers is [{ Rank: 1, Sizes: [LiteralExpressionSyntax literal] }]
+              && literal.Token.ValueText.AsSpan().SequenceEqual("0".AsSpan()));
 }

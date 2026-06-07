@@ -58,7 +58,7 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
         CompilationUnitSyntax unit => unit.Usings,
         NamespaceDeclarationSyntax ns => ns.Usings,
         FileScopedNamespaceDeclarationSyntax file => file.Usings,
-        _ => default,
+        _ => default
     };
 
     /// <summary>Replaces a container's using list with the canonically sorted equivalent.</summary>
@@ -70,7 +70,7 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
         CompilationUnitSyntax unit => unit.WithUsings(usings),
         NamespaceDeclarationSyntax ns => ns.WithUsings(usings),
         FileScopedNamespaceDeclarationSyntax file => file.WithUsings(usings),
-        _ => container,
+        _ => container
     };
 
     /// <summary>Sorts the container's using directives, keeping each slot's trivia.</summary>

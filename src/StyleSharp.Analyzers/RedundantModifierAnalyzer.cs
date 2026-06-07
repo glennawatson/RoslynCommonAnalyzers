@@ -58,16 +58,11 @@ public sealed class RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a sealed modifier has no effect.</summary>
     /// <param name="declaration">The declaration.</param>
     /// <returns><see langword="true"/> when the modifier is redundant.</returns>
-    private static bool IsRedundantSealed(MemberDeclarationSyntax declaration)
-    {
-        if (!ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.OverrideKeyword))
-        {
-            return declaration is not BaseTypeDeclarationSyntax;
-        }
-
-        return declaration.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } type
-            && ModifierListHelper.Contains(type.Modifiers, SyntaxKind.SealedKeyword);
-    }
+    private static bool IsRedundantSealed(MemberDeclarationSyntax declaration) =>
+        !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.OverrideKeyword)
+            ? declaration is not BaseTypeDeclarationSyntax
+            : declaration.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } type
+              && ModifierListHelper.Contains(type.Modifiers, SyntaxKind.SealedKeyword);
 
     /// <summary>Returns whether a partial declaration has no matching part.</summary>
     /// <param name="context">The syntax node context.</param>

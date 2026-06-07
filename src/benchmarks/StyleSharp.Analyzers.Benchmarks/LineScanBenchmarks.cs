@@ -34,7 +34,7 @@ public class LineScanBenchmarks
         EachOwnLine,
 
         /// <summary>A mix - some items share a line, others wrap (reported).</summary>
-        Jagged,
+        Jagged
     }
 
     /// <summary>Gets or sets the parameter-list layout under test.</summary>
@@ -65,7 +65,7 @@ class C
         {
             Layout.OneLine => "OneLine",
             Layout.EachOwnLine => "EachOwnLine",
-            _ => "Jagged",
+            _ => "Jagged"
         };
 
         _list = _tree.GetRoot()
@@ -100,15 +100,10 @@ class C
 
         var parameterLine = listNode.GetLocation().GetLineSpan().StartLinePosition.Line;
         var diffChecker = new HashSet<int> { parameterLine };
-        var lineNumbers = list.Select(x => x.GetLocation().GetLineSpan().StartLinePosition.Line).ToList();
+        var lineNumbers = list.Select(static x => x.GetLocation().GetLineSpan().StartLinePosition.Line).ToList();
         diffChecker.UnionWith(lineNumbers);
 
-        if (diffChecker.Count == list.Count + 1)
-        {
-            return false;
-        }
-
-        return diffChecker.Count != 1;
+        return diffChecker.Count != list.Count + 1 && diffChecker.Count != 1;
     }
 
     /// <summary>Mirrors the optimized single-pass implementation.</summary>
@@ -130,8 +125,9 @@ class C
         var sawShared = false;
         var sawSeparated = false;
 
-        foreach (var item in list)
+        for (var index = 0; index < list.Count; index++)
         {
+            var item = list[index];
             var line = tree.GetLineSpan(item.Span).StartLinePosition.Line;
             if (line == previousLine)
             {

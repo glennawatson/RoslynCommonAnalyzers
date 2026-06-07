@@ -67,10 +67,10 @@ public sealed class AccessModifierAnalyzerUnitTest
     public async Task ModifierPropertiesReuseInternalCacheAsync()
     {
         var type = ParseMember<ClassDeclarationSyntax>("class C { }", SyntaxKind.ClassDeclaration);
+        var first = AccessModifierAnalyzer.ModifierProperties(type);
+        var second = AccessModifierAnalyzer.ModifierProperties(type);
 
-        await Assert.That(object.ReferenceEquals(
-            AccessModifierAnalyzer.ModifierProperties(type),
-            AccessModifierAnalyzer.ModifierProperties(type))).IsTrue();
+        await Assert.That(ReferenceEquals(first, second)).IsTrue();
     }
 
     /// <summary>Verifies nested members reuse the cached private-modifier diagnostic properties.</summary>
@@ -79,10 +79,10 @@ public sealed class AccessModifierAnalyzerUnitTest
     public async Task ModifierPropertiesReusePrivateCacheAsync()
     {
         var method = ParseMember<MethodDeclarationSyntax>("class C { void M() { } }", SyntaxKind.MethodDeclaration);
+        var first = AccessModifierAnalyzer.ModifierProperties(method);
+        var second = AccessModifierAnalyzer.ModifierProperties(method);
 
-        await Assert.That(object.ReferenceEquals(
-            AccessModifierAnalyzer.ModifierProperties(method),
-            AccessModifierAnalyzer.ModifierProperties(method))).IsTrue();
+        await Assert.That(ReferenceEquals(first, second)).IsTrue();
     }
 
     /// <summary>Verifies top-level declarations are recognized for internal modifier insertion.</summary>

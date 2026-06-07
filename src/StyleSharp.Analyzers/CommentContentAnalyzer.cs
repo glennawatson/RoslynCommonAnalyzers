@@ -38,7 +38,7 @@ public sealed class CommentContentAnalyzer : DiagnosticAnalyzer
         {
             SyntaxKind.SingleLineCommentTrivia => IsEmptySingleLine(text, comment.Span),
             SyntaxKind.MultiLineCommentTrivia => IsEmptyMultiLine(text, comment.Span),
-            _ => false,
+            _ => false
         };
 
     /// <summary>Reports every empty comment in the tree.</summary>

@@ -62,13 +62,19 @@ public sealed class ConditionalOperatorPlacementAnalyzer : DiagnosticAnalyzer
         var breakBefore = LineOf(text, operatorToken.SpanStart) > LineOf(text, previous.Span.End);
         var breakAfter = LineOf(text, next.SpanStart) > LineOf(text, operatorToken.Span.End);
 
-        if (leading && breakAfter)
+        switch (leading)
         {
-            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.ConditionalOperatorPlacement, operatorToken.GetLocation(), operatorToken.Text, "start"));
-        }
-        else if (!leading && breakBefore)
-        {
-            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.ConditionalOperatorPlacement, operatorToken.GetLocation(), operatorToken.Text, "end"));
+            case true when breakAfter:
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.ConditionalOperatorPlacement, operatorToken.GetLocation(), operatorToken.Text, "start"));
+                    break;
+                }
+
+            case false when breakBefore:
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.ConditionalOperatorPlacement, operatorToken.GetLocation(), operatorToken.Text, "end"));
+                    break;
+                }
         }
     }
 

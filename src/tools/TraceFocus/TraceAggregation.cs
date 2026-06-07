@@ -91,10 +91,8 @@ internal sealed class TraceAggregation
     /// <param name="totals">The totals table.</param>
     /// <param name="key">The frame or stack key.</param>
     /// <param name="duration">The sampled duration to add.</param>
-    private static void AddDuration(Dictionary<string, double> totals, string key, double duration)
-    {
+    private static void AddDuration(Dictionary<string, double> totals, string key, double duration) =>
         totals[key] = totals.TryGetValue(key, out var existing) ? existing + duration : duration;
-    }
 
     /// <summary>Builds the printable stack key used in the aggregated stack table.</summary>
     /// <param name="frames">The retained stack frames.</param>

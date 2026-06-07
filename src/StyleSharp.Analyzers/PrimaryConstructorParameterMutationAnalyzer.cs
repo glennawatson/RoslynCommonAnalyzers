@@ -134,14 +134,12 @@ public sealed class PrimaryConstructorParameterMutationAnalyzer : DiagnosticAnal
                 continue;
             }
 
-            if (type is RecordDeclarationSyntax)
+            switch (type)
             {
-                return false;
-            }
-
-            if (type is ClassDeclarationSyntax or StructDeclarationSyntax)
-            {
-                return true;
+                case RecordDeclarationSyntax:
+                    return false;
+                case ClassDeclarationSyntax or StructDeclarationSyntax:
+                    return true;
             }
         }
 

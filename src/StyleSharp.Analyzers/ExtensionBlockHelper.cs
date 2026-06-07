@@ -45,7 +45,7 @@ internal static class ExtensionBlockHelper
             null => null,
             PredefinedTypeSyntax predefined => predefined.Keyword.Text,
             IdentifierNameSyntax identifier => identifier.Identifier.Text,
-            _ => receiverType.ToString(),
+            _ => receiverType.ToString()
         };
 
     /// <summary>Classifies simple receiver shapes that can skip broader text materialization.</summary>

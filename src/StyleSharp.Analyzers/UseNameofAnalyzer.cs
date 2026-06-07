@@ -82,7 +82,7 @@ public sealed class UseNameofAnalyzer : DiagnosticAnalyzer
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
             QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-            _ => null,
+            _ => null
         };
 
         return name is { } simpleName
@@ -96,7 +96,7 @@ public sealed class UseNameofAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when a visible parameter matches the candidate name.</returns>
     private static bool IsVisibleParameterName(SyntaxNode start, string candidateName)
     {
-        for (SyntaxNode? current = start.Parent; current is not null; current = current.Parent)
+        for (var current = start.Parent; current is not null; current = current.Parent)
         {
             if (DeclaresParameterName(current, candidateName))
             {
@@ -116,18 +116,16 @@ public sealed class UseNameofAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The candidate parameter-owning node.</param>
     /// <param name="candidateName">The candidate parameter name.</param>
     /// <returns><see langword="true"/> when the node directly declares a matching parameter.</returns>
-    private static bool DeclaresParameterName(SyntaxNode node, string candidateName)
-    {
-        return node switch
+    private static bool DeclaresParameterName(SyntaxNode node, string candidateName) =>
+        node switch
         {
             BaseMethodDeclarationSyntax method => ContainsParameterName(method.ParameterList.Parameters, candidateName),
             LocalFunctionStatementSyntax localFunction => ContainsParameterName(localFunction.ParameterList.Parameters, candidateName),
             ParenthesizedLambdaExpressionSyntax lambda => ContainsParameterName(lambda.ParameterList.Parameters, candidateName),
             IndexerDeclarationSyntax indexer => ContainsParameterName(indexer.ParameterList.Parameters, candidateName),
             SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Parameter.Identifier.ValueText == candidateName,
-            _ => false,
+            _ => false
         };
-    }
 
     /// <summary>Returns whether any parameter in the list matches the candidate name.</summary>
     /// <param name="parameters">The parameter list to scan.</param>

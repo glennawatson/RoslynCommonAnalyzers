@@ -68,7 +68,7 @@ public class ModernCSharpRegressionTests
         var test = new CSharpAnalyzerVerifier<TupleElementNamingAnalyzer>.Test
         {
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = "public class C { public void M() { var (a, _) = (1, 2); System.Console.WriteLine(a); } }",
+            TestCode = "public class C { public void M() { var (a, _) = (1, 2); System.Console.WriteLine(a); } }"
         };
 
         await test.RunAsync(CancellationToken.None);

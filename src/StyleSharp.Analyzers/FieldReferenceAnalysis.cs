@@ -90,15 +90,9 @@ internal static class FieldReferenceAnalysis
     /// <param name="type">The containing type declaration.</param>
     /// <param name="expression">The already-unwrapped expression to inspect.</param>
     /// <returns><see langword="true"/> when the expression safely names a private object field.</returns>
-    internal static bool IsPrivateObjectFieldLockTarget(TypeDeclarationSyntax type, ExpressionSyntax expression)
-    {
-        if (expression is not IdentifierNameSyntax identifier || IsShadowed(identifier))
-        {
-            return false;
-        }
-
-        return TryFindPrivateObjectField(type, identifier.Identifier.ValueText);
-    }
+    internal static bool IsPrivateObjectFieldLockTarget(TypeDeclarationSyntax type, ExpressionSyntax expression) =>
+        expression is IdentifierNameSyntax identifier && !IsShadowed(identifier)
+            && TryFindPrivateObjectField(type, identifier.Identifier.ValueText);
 
     /// <summary>Returns whether a reference writes to a field.</summary>
     /// <param name="identifier">The field reference.</param>
@@ -111,33 +105,25 @@ internal static class FieldReferenceAnalysis
             expression = access;
         }
 
-        if (expression.Parent is AssignmentExpressionSyntax assignment && assignment.Left == expression)
+        return expression.Parent switch
         {
-            return true;
-        }
-
-        if (expression.Parent is PrefixUnaryExpressionSyntax prefix)
-        {
-            return prefix.IsKind(SyntaxKind.PreIncrementExpression)
-                || prefix.IsKind(SyntaxKind.PreDecrementExpression);
-        }
-
-        return expression.Parent is PostfixUnaryExpressionSyntax
-            or ArgumentSyntax { RefOrOutKeyword.RawKind: not 0 };
+            AssignmentExpressionSyntax assignment when assignment.Left == expression => true,
+            PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression) ||
+                                                  prefix.IsKind(SyntaxKind.PreDecrementExpression),
+            _ => expression.Parent is PostfixUnaryExpressionSyntax or ArgumentSyntax { RefOrOutKeyword.RawKind: not 0 }
+        };
     }
 
     /// <summary>Returns whether a field and declaration meet the shared eligibility requirements.</summary>
     /// <param name="candidate">The field symbol.</param>
     /// <param name="declaration">The field declaration.</param>
     /// <returns><see langword="true"/> when the field is eligible.</returns>
-    private static bool IsEligible(IFieldSymbol candidate, FieldDeclarationSyntax declaration)
-    {
-        return !candidate.IsStatic
-            && candidate.DeclaredAccessibility == Accessibility.Private
-            && declaration.Declaration.Variables.Count == 1
-            && declaration.AttributeLists.Count == 0
-            && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.VolatileKeyword);
-    }
+    private static bool IsEligible(IFieldSymbol candidate, FieldDeclarationSyntax declaration) =>
+        !candidate.IsStatic
+        && candidate.DeclaredAccessibility == Accessibility.Private
+        && declaration.Declaration.Variables.Count == 1
+        && declaration.AttributeLists.Count == 0
+        && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.VolatileKeyword);
 
     /// <summary>Gets the single source declaration for a field symbol.</summary>
     /// <param name="candidate">The field symbol.</param>

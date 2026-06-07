@@ -37,24 +37,30 @@ public sealed class FileTypeNamespaceAnalyzer : DiagnosticAnalyzer
 
         foreach (var node in root.DescendantNodes(static descend => descend is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax))
         {
-            if (node is BaseNamespaceDeclarationSyntax namespaceDeclaration)
+            switch (node)
             {
-                if (firstNamespaceSeen)
-                {
-                    var name = namespaceDeclaration.Name;
-                    context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.SingleNamespace, name.GetLocation(), name.ToString()));
-                }
+                case BaseNamespaceDeclarationSyntax namespaceDeclaration:
+                    {
+                        if (firstNamespaceSeen)
+                        {
+                            var name = namespaceDeclaration.Name;
+                            context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.SingleNamespace, name.GetLocation(), name.ToString()));
+                        }
 
-                firstNamespaceSeen = true;
-            }
-            else if (node is BaseTypeDeclarationSyntax type && typeKeys.Add(TypeKey(type)))
-            {
-                if (firstTypeSeen)
-                {
-                    context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.SingleType, type.Identifier.GetLocation(), type.Identifier.ValueText));
-                }
+                        firstNamespaceSeen = true;
+                        break;
+                    }
 
-                firstTypeSeen = true;
+                case BaseTypeDeclarationSyntax type when typeKeys.Add(TypeKey(type)):
+                    {
+                        if (firstTypeSeen)
+                        {
+                            context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.SingleType, type.Identifier.GetLocation(), type.Identifier.ValueText));
+                        }
+
+                        firstTypeSeen = true;
+                        break;
+                    }
             }
         }
     }

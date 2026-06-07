@@ -81,6 +81,6 @@ public sealed class ElementSpacingAnalyzer : DiagnosticAnalyzer
         NamespaceDeclarationSyntax ns => ns.Members,
         FileScopedNamespaceDeclarationSyntax file => file.Members,
         CompilationUnitSyntax unit => unit.Members,
-        _ => default,
+        _ => default
     };
 }

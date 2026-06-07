@@ -30,7 +30,7 @@ internal static class ModifierOrdering
         SyntaxKind.UnsafeKeyword,
         SyntaxKind.VolatileKeyword,
         SyntaxKind.AsyncKeyword,
-        SyntaxKind.PartialKeyword,
+        SyntaxKind.PartialKeyword
     ];
 
     /// <summary>The access modifier keywords in canonical order; the array index drives the sub-rank.</summary>
@@ -40,7 +40,7 @@ internal static class ModifierOrdering
         SyntaxKind.FileKeyword,
         SyntaxKind.PrivateKeyword,
         SyntaxKind.ProtectedKeyword,
-        SyntaxKind.InternalKeyword,
+        SyntaxKind.InternalKeyword
     ];
 
     /// <summary>Returns the modifier list of a node that carries modifiers, or an empty list.</summary>
@@ -51,7 +51,7 @@ internal static class ModifierOrdering
         MemberDeclarationSyntax member => member.Modifiers,
         AccessorDeclarationSyntax accessor => accessor.Modifiers,
         LocalFunctionStatementSyntax local => local.Modifiers,
-        _ => default,
+        _ => default
     };
 
     /// <summary>Returns whether a modifier token is an access modifier.</summary>

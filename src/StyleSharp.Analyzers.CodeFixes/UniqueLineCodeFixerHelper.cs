@@ -136,7 +136,7 @@ internal static class UniqueLineCodeFixerHelper
         where TParam : SyntaxNode
     {
         var indentedEntries = new TParam[list.Count];
-        var trivia = SyntaxFactory.Whitespace(new string(' ', leadingSpaces));
+        var trivia = SyntaxFactory.Whitespace(new(' ', leadingSpaces));
         for (var i = 0; i < list.Count; i++)
         {
             indentedEntries[i] = list[i].WithLeadingTrivia(trivia);

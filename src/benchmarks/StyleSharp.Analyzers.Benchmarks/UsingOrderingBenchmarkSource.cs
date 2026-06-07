@@ -16,7 +16,7 @@ internal static class UsingOrderingBenchmarkSource
             ? BenchmarkSourceText.JoinBlocks(containers, GenerateViolatingNamespace)
             : $$"""
                using System;
-               {{BenchmarkSourceText.JoinLines(containers, i => $"using N{i:0000};")}}
+               {{BenchmarkSourceText.JoinLines(containers, static i => $"using N{i:0000};")}}
 
                namespace Bench;
 

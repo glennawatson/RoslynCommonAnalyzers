@@ -33,7 +33,7 @@ public class TooManySwitchLabelsAnalyzerUnitTest
                                }
                            }
                        }
-                       """,
+                       """
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
@@ -64,7 +64,7 @@ public class TooManySwitchLabelsAnalyzerUnitTest
                                }
                            }
                        }
-                       """,
+                       """
         };
 
         test.TestState.AnalyzerConfigFiles.Add(

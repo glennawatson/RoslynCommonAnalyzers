@@ -88,7 +88,7 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
         CompilationUnitSyntax unit => unit.Usings,
         NamespaceDeclarationSyntax ns => ns.Usings,
         FileScopedNamespaceDeclarationSyntax file => file.Usings,
-        _ => default,
+        _ => default
     };
 
     /// <summary>Reports the ordering violation, if any, between two adjacent using directives.</summary>

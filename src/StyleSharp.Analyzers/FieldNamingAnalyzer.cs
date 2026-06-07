@@ -95,8 +95,6 @@ public sealed class FieldNamingAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        return classification.IsReadOnly
-            ? NamingRules.NonPrivateReadonlyPascalCase
-            : NamingRules.AccessibleFieldPascalCase;
+        return classification.IsReadOnly ? NamingRules.NonPrivateReadonlyPascalCase : NamingRules.AccessibleFieldPascalCase;
     }
 }

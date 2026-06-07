@@ -96,7 +96,7 @@ public sealed class DocumentationCommentStyleAnalyzer : DiagnosticAnalyzer
     /// <param name="element">The element node.</param>
     private static void CheckPlaceholder(SyntaxNodeAnalysisContext context, XmlNameSyntax name, SyntaxNode element)
     {
-        if (!string.Equals(name.LocalName.ValueText, PlaceholderName, System.StringComparison.Ordinal))
+        if (!string.Equals(name.LocalName.ValueText, PlaceholderName, StringComparison.Ordinal))
         {
             return;
         }

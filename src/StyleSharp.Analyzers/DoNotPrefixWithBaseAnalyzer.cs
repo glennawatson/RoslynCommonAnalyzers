@@ -81,6 +81,6 @@ public sealed class DoNotPrefixWithBaseAnalyzer : DiagnosticAnalyzer
         IMethodSymbol method => method.OverriddenMethod,
         IPropertySymbol property => property.OverriddenProperty,
         IEventSymbol @event => @event.OverriddenEvent,
-        _ => null,
+        _ => null
     };
 }

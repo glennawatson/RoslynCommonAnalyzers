@@ -75,23 +75,16 @@ public sealed class AccessModifierAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an access modifier may and should be declared on the member.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns><see langword="true"/> when a modifier is required.</returns>
-    internal static bool RequiresModifierFast(MemberDeclarationSyntax member)
-    {
-        if (member.Parent is InterfaceDeclarationSyntax)
-        {
-            return false;
-        }
-
-        return member switch
-        {
-            ConstructorDeclarationSyntax constructor => !ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword),
-            MethodDeclarationSyntax method => method.ExplicitInterfaceSpecifier is null && !ModifierListHelper.Contains(method.Modifiers, SyntaxKind.PartialKeyword),
-            PropertyDeclarationSyntax property => property.ExplicitInterfaceSpecifier is null,
-            EventDeclarationSyntax @event => @event.ExplicitInterfaceSpecifier is null,
-            IndexerDeclarationSyntax indexer => indexer.ExplicitInterfaceSpecifier is null,
-            _ => true,
-        };
-    }
+    internal static bool RequiresModifierFast(MemberDeclarationSyntax member) =>
+        member.Parent is not InterfaceDeclarationSyntax && member switch
+            {
+                ConstructorDeclarationSyntax constructor => !ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword),
+                MethodDeclarationSyntax method => method.ExplicitInterfaceSpecifier is null && !ModifierListHelper.Contains(method.Modifiers, SyntaxKind.PartialKeyword),
+                PropertyDeclarationSyntax property => property.ExplicitInterfaceSpecifier is null,
+                EventDeclarationSyntax @event => @event.ExplicitInterfaceSpecifier is null,
+                IndexerDeclarationSyntax indexer => indexer.ExplicitInterfaceSpecifier is null,
+                _ => true
+            };
 
     /// <summary>Returns whether the declaration is top-level and therefore defaults to <c>internal</c>.</summary>
     /// <param name="member">The member declaration.</param>

@@ -48,14 +48,12 @@ public sealed class FieldShouldBeReadonlyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a field declaration is eligible for readonly analysis.</summary>
     /// <param name="declaration">The field declaration.</param>
     /// <returns><see langword="true"/> when eligible.</returns>
-    private static bool IsCandidate(FieldDeclarationSyntax declaration)
-    {
-        return ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PrivateKeyword)
-            && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.StaticKeyword)
-            && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.ReadOnlyKeyword)
-            && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.ConstKeyword)
-            && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.VolatileKeyword);
-    }
+    private static bool IsCandidate(FieldDeclarationSyntax declaration) =>
+        ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PrivateKeyword)
+        && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.StaticKeyword)
+        && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.ReadOnlyKeyword)
+        && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.ConstKeyword)
+        && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.VolatileKeyword);
 
     /// <summary>Returns whether a field is written outside an instance constructor.</summary>
     /// <param name="model">The semantic model.</param>

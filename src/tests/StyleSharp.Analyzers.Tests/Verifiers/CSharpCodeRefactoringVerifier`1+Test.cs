@@ -23,7 +23,7 @@ public static partial class CSharpCodeRefactoringVerifier<TCodeRefactoring>
         /// Initializes a new instance of the <see cref="Test"/> class.
         /// </summary>
         public Test() =>
-            SolutionTransforms.Add((solution, projectId) =>
+            SolutionTransforms.Add(static (solution, projectId) =>
             {
                 var compilationOptions = solution.GetProject(projectId)!.CompilationOptions!;
                 compilationOptions = compilationOptions.WithSpecificDiagnosticOptions(

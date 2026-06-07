@@ -60,13 +60,10 @@ public sealed class NamingRenameCodeFixProvider : CodeFixProvider
         var solution = document.Project.Solution;
 
         var model = await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
-        if (model?.GetDeclaredSymbol(node, cancellationToken) is not { } symbol)
-        {
-            return solution;
-        }
-
-        return await Renamer
-            .RenameSymbolAsync(solution, symbol, default, newName, cancellationToken)
-            .ConfigureAwait(false);
+        return model?.GetDeclaredSymbol(node, cancellationToken) is not { } symbol
+            ? solution
+            : await Renamer
+                .RenameSymbolAsync(solution, symbol, default, newName, cancellationToken)
+                .ConfigureAwait(false);
     }
 }

@@ -59,21 +59,11 @@ public sealed class InheritDocAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the symbol inherits or implements a base it can inherit documentation from.</summary>
     /// <param name="symbol">The declared symbol.</param>
     /// <returns><see langword="true"/> when inheritdoc is appropriate.</returns>
-    private static bool Inherits(ISymbol symbol)
-    {
-        if (symbol is INamedTypeSymbol type)
-        {
-            return type.Interfaces.Length > 0
-                || (type.TypeKind == TypeKind.Class && type.BaseType is { SpecialType: not SpecialType.System_Object });
-        }
-
-        if (symbol.IsOverride || HasExplicitInterfaceImplementation(symbol))
-        {
-            return true;
-        }
-
-        return ImplementsInterfaceMember(symbol);
-    }
+    private static bool Inherits(ISymbol symbol) =>
+        symbol is INamedTypeSymbol type
+            ? type.Interfaces.Length > 0
+              || (type.TypeKind == TypeKind.Class && type.BaseType is { SpecialType: not SpecialType.System_Object })
+            : symbol.IsOverride || HasExplicitInterfaceImplementation(symbol) || ImplementsInterfaceMember(symbol);
 
     /// <summary>Returns whether the member explicitly implements an interface member.</summary>
     /// <param name="symbol">The member symbol.</param>
@@ -83,7 +73,7 @@ public sealed class InheritDocAnalyzer : DiagnosticAnalyzer
         IMethodSymbol method => !method.ExplicitInterfaceImplementations.IsEmpty,
         IPropertySymbol property => !property.ExplicitInterfaceImplementations.IsEmpty,
         IEventSymbol @event => !@event.ExplicitInterfaceImplementations.IsEmpty,
-        _ => false,
+        _ => false
     };
 
     /// <summary>Returns whether the member implicitly implements an interface member of its containing type.</summary>

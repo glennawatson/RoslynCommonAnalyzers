@@ -113,22 +113,19 @@ internal static class SemanticTypeBenchmarkSource
     /// <returns>The generated member block.</returns>
     private static string GenerateTrivialAutoPropertyMember(int index, bool violating)
     {
-        if (!violating)
-        {
-            return $$"""
-                   public int Value{{index}} { get; set; }
-                   """;
-        }
+        return !violating
+            ? $$"""
+                  public int Value{{index}} { get; set; }
+                  """
+            : $$"""
+                  private int _value{{index}};
 
-        return $$"""
-               private int _value{{index}};
-
-               public int Value{{index}}
-               {
-                   get => _value{{index}};
-                   set => _value{{index}} = value;
-               }
-               """;
+                  public int Value{{index}}
+                  {
+                      get => _value{{index}};
+                      set => _value{{index}} = value;
+                  }
+                  """;
     }
 
     /// <summary>Builds one clean or violating declaration for redundant-modifier analysis.</summary>

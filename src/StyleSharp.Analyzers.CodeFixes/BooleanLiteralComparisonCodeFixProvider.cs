@@ -22,7 +22,7 @@ public sealed class BooleanLiteralComparisonCodeFixProvider : CodeFixProvider
         SyntaxKind.TrueLiteralExpression,
         SyntaxKind.FalseLiteralExpression,
         SyntaxKind.LogicalNotExpression,
-        SyntaxKind.ConditionalAccessExpression,
+        SyntaxKind.ConditionalAccessExpression
     ];
 
     /// <inheritdoc/>

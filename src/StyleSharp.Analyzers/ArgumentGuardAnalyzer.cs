@@ -47,17 +47,11 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
     /// <param name="ifStatement">The candidate if statement.</param>
     /// <param name="helpers">The guard helpers available in this scenario.</param>
     /// <returns><see langword="true"/> when the analyzer would report a diagnostic.</returns>
-    internal static bool WouldReportForBenchmark(IfStatementSyntax ifStatement, in GuardHelpers helpers)
-    {
-        if ((helpers.ThrowIfNull && ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out _))
-            || (helpers.ThrowIfDisposed && !IsStaticContext(ifStatement) && ThrowGuardPatterns.TryMatchObjectDisposed(ifStatement, out _)))
-        {
-            return true;
-        }
-
-        return (ThrowGuardPatterns.TryMatchRangeGuard(ifStatement, out var rangeMatch) && HasRangeHelper(helpers.Range, rangeMatch.Helper))
-            || (ThrowGuardPatterns.TryMatchStringGuard(ifStatement, out var guardMethod, out _) && IsStringGuardHelperAvailable(helpers, guardMethod!));
-    }
+    internal static bool WouldReportForBenchmark(IfStatementSyntax ifStatement, in GuardHelpers helpers) =>
+        (helpers.ThrowIfNull && ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out _))
+        || (helpers.ThrowIfDisposed && !IsStaticContext(ifStatement) && ThrowGuardPatterns.TryMatchObjectDisposed(ifStatement, out _))
+        || (ThrowGuardPatterns.TryMatchRangeGuard(ifStatement, out var rangeMatch) && HasRangeHelper(helpers.Range, rangeMatch.Helper))
+        || (ThrowGuardPatterns.TryMatchStringGuard(ifStatement, out var guardMethod, out _) && IsStringGuardHelperAvailable(helpers, guardMethod!));
 
     /// <summary>Creates a helper set that enables every guard pattern currently supported by the analyzer.</summary>
     /// <returns>A helper set suitable for hot-path benchmarks.</returns>
@@ -77,7 +71,7 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
                 "ThrowIfLessThan",
                 "ThrowIfLessThanOrEqual",
                 "ThrowIfEqual",
-                "ThrowIfNotEqual",
+                "ThrowIfNotEqual"
             ]);
 
     /// <summary>Creates the available guard-helper set for one compilation.</summary>
@@ -123,13 +117,19 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            if (name == "ThrowIfNullOrEmpty")
+            switch (name)
             {
-                throwIfNullOrEmpty = true;
-            }
-            else if (name == "ThrowIfNullOrWhiteSpace")
-            {
-                throwIfNullOrWhiteSpace = true;
+                case "ThrowIfNullOrEmpty":
+                    {
+                        throwIfNullOrEmpty = true;
+                        break;
+                    }
+
+                case "ThrowIfNullOrWhiteSpace":
+                    {
+                        throwIfNullOrWhiteSpace = true;
+                        break;
+                    }
             }
 
             if (throwIfNullOrEmpty && throwIfNullOrWhiteSpace)
@@ -267,11 +267,14 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         var index = 0;
         for (var i = 0; i < members.Length; i++)
         {
-            if (members[i] is IMethodSymbol { IsStatic: true, Name: var name } && name.StartsWith("ThrowIf", StringComparison.Ordinal))
+            if (members[i] is not IMethodSymbol { IsStatic: true, Name: var name } ||
+                !name.StartsWith("ThrowIf", StringComparison.Ordinal))
             {
-                helpers[index] = name;
-                index++;
+                continue;
             }
+
+            helpers[index] = name;
+            index++;
         }
 
         return helpers;
@@ -299,16 +302,14 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when <c>this</c> is unavailable.</returns>
     private static bool IsStaticContext(IfStatementSyntax statement)
     {
-        for (SyntaxNode? current = statement.Parent; current is not null; current = current.Parent)
+        for (var current = statement.Parent; current is not null; current = current.Parent)
         {
-            if (current is LocalFunctionStatementSyntax local)
+            switch (current)
             {
-                return ModifierListHelper.Contains(local.Modifiers, SyntaxKind.StaticKeyword);
-            }
-
-            if (current is MemberDeclarationSyntax member)
-            {
-                return ModifierListHelper.Contains(member.Modifiers, SyntaxKind.StaticKeyword);
+                case LocalFunctionStatementSyntax local:
+                    return ModifierListHelper.Contains(local.Modifiers, SyntaxKind.StaticKeyword);
+                case MemberDeclarationSyntax member:
+                    return ModifierListHelper.Contains(member.Modifiers, SyntaxKind.StaticKeyword);
             }
         }
 

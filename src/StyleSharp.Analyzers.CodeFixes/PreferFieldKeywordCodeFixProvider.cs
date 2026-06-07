@@ -103,7 +103,7 @@ public sealed class PreferFieldKeywordCodeFixProvider : CodeFixProvider
 
         var updated = property.ReplaceNodes(
             references,
-            (_, rewritten) => CreateFieldExpression().WithTriviaFrom(rewritten));
+            static (_, rewritten) => CreateFieldExpression().WithTriviaFrom(rewritten));
 
         if (variable.Initializer is { } initializer)
         {

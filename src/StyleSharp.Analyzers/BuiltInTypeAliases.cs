@@ -30,7 +30,7 @@ internal static class BuiltInTypeAliases
         [SpecialType.System_Int64] = "long",
         [SpecialType.System_UInt64] = "ulong",
         [SpecialType.System_Object] = "object",
-        [SpecialType.System_String] = "string",
+        [SpecialType.System_String] = "string"
     };
 
     /// <summary>The predefined-type token kind for each keyword alias.</summary>
@@ -50,7 +50,7 @@ internal static class BuiltInTypeAliases
         ["long"] = SyntaxKind.LongKeyword,
         ["ulong"] = SyntaxKind.ULongKeyword,
         ["object"] = SyntaxKind.ObjectKeyword,
-        ["string"] = SyntaxKind.StringKeyword,
+        ["string"] = SyntaxKind.StringKeyword
     };
 
     /// <summary>The simple framework type names that have a keyword alias, used as a cheap pre-filter.</summary>
@@ -70,7 +70,7 @@ internal static class BuiltInTypeAliases
         "Int64",
         "UInt64",
         "Object",
-        "String",
+        "String"
     ];
 
     /// <summary>Returns whether the simple type name has a keyword alias (a cheap pre-filter before semantic checks).</summary>

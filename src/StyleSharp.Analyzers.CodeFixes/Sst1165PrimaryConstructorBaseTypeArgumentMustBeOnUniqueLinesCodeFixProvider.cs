@@ -54,10 +54,10 @@ public sealed class Sst1165PrimaryConstructorBaseTypeArgumentMustBeOnUniqueLines
     {
         var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(
-                          node => node.ArgumentList?.Arguments,
-                          (node, parameters) => node.WithArgumentList(
+                          parametersList => parametersList.ArgumentList?.Arguments,
+                          (argumentParameters, parameters) => argumentParameters.WithArgumentList(
                               SyntaxFactory.ArgumentList(parameters)
-                                  .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                                  .WithOpenParenToken(argumentParameters.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
                       ?? node;
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
     }

@@ -52,8 +52,7 @@ public sealed class PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
         variable = null;
         field = null;
         method = null;
-        if (declaration.Declaration.Variables is not [var candidate]
-            || candidate.Initializer is not null
+        if (declaration.Declaration.Variables is not [{ Initializer: null } candidate]
             || !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PrivateKeyword)
             || ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.StaticKeyword)
             || declaration.AttributeLists.Count > 0

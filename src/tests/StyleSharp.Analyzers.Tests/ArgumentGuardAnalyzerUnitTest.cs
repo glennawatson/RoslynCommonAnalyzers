@@ -300,7 +300,7 @@ public class ArgumentGuardAnalyzerUnitTest
         {
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
             TestCode = source,
-            FixedCode = fixedSource,
+            FixedCode = fixedSource
         };
 
         await test.RunAsync(CancellationToken.None);

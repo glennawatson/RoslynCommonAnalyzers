@@ -60,5 +60,5 @@ public sealed class UsingDirectiveQualifiedAnalyzer : DiagnosticAnalyzer
     /// <param name="name">The name to strip.</param>
     /// <returns>The name without the <c>global::</c> prefix.</returns>
     private static string StripGlobal(string name)
-        => name.StartsWith("global::", System.StringComparison.Ordinal) ? name.Substring("global::".Length) : name;
+        => name.StartsWith("global::", StringComparison.Ordinal) ? name["global::".Length..] : name;
 }

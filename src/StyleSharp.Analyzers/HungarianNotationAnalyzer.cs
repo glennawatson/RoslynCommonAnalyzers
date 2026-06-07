@@ -19,10 +19,10 @@ public sealed class HungarianNotationAnalyzer : DiagnosticAnalyzer
     private const int MaxPrefixLength = 2;
 
     /// <summary>Short lower-case words that look like prefixes but are legitimate name starts.</summary>
-    private static readonly HashSet<string> AllowedPrefixes = new(System.StringComparer.Ordinal)
+    private static readonly HashSet<string> AllowedPrefixes = new(StringComparer.Ordinal)
     {
         "as", "at", "by", "db", "do", "go", "id", "if", "in", "io", "is", "it",
-        "my", "no", "of", "on", "or", "so", "to", "ui", "up", "us", "ok",
+        "my", "no", "of", "on", "or", "so", "to", "ui", "up", "us", "ok"
     };
 
     /// <summary>The kinds whose identifiers are inspected for Hungarian notation.</summary>
@@ -102,11 +102,9 @@ public sealed class HungarianNotationAnalyzer : DiagnosticAnalyzer
             prefix++;
         }
 
-        if (prefix is 0 or > MaxPrefixLength || prefix >= core.Length || !char.IsUpper(core[prefix]))
-        {
-            return false;
-        }
-
-        return !AllowedPrefixes.Contains(core.Substring(0, prefix));
+        return prefix is not 0 and <= MaxPrefixLength
+               && prefix < core.Length
+               && char.IsUpper(core[prefix])
+               && !AllowedPrefixes.Contains(core[..prefix]);
     }
 }

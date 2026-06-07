@@ -42,10 +42,10 @@ public class PreferExtensionBlockAnalyzerUnitTest
     {
         var test = new VerifyPreferExtension.Test
         {
-            TestCode = source,
+            TestCode = source
         };
 
-        test.SolutionTransforms.Add((solution, projectId) =>
+        test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
             return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Preview));

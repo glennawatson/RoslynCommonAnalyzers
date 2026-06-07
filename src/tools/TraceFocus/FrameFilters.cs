@@ -13,7 +13,7 @@ internal sealed class FrameFilters
     /// <summary>The default analyzer-visible include terms.</summary>
     private static readonly string[] DefaultIncludeTerms =
     [
-        "StyleSharp.Analyzers!StyleSharp.Analyzers.",
+        "StyleSharp.Analyzers!StyleSharp.Analyzers."
     ];
 
     /// <summary>The default infrastructure frames that are filtered from reports.</summary>
@@ -40,7 +40,7 @@ internal sealed class FrameFilters
         "Microsoft.CodeAnalysis.Diagnostics.AnalyzerDriver",
         "Microsoft.CodeAnalysis.Diagnostics.AnalyzerExecutor",
         "Microsoft.CodeAnalysis.Diagnostics.CompilationEventQueue",
-        "Microsoft.CodeAnalysis.Diagnostics.AsyncQueue",
+        "Microsoft.CodeAnalysis.Diagnostics.AsyncQueue"
     ];
 
     /// <summary>The default allocation-trace infrastructure frames to exclude.</summary>
@@ -49,7 +49,7 @@ internal sealed class FrameFilters
         "GC_TIME",
         "ALLOCATION",
         "AllocationTick",
-        "MALLOC",
+        "MALLOC"
     ];
 
     /// <summary>Initializes a new instance of the <see cref="FrameFilters"/> class from command-line options.</summary>

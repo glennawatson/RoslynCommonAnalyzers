@@ -43,6 +43,17 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(Analyze, HandledKinds);
     }
 
+    /// <summary>Returns whether an opening bracket remains on the declaration line of the preceding token.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="open">The opening bracket token.</param>
+    /// <param name="openLine">The opening bracket's line.</param>
+    /// <returns><see langword="true"/> when the opening token is on the declaration line.</returns>
+    internal static bool IsOpeningOnDeclarationLine(SourceText text, SyntaxToken open, int openLine)
+    {
+        var before = open.GetPreviousToken();
+        return before.IsKind(SyntaxKind.None) || LayoutHelpers.EndLine(text, before) == openLine;
+    }
+
     /// <summary>Reports the layout violations for one parameter or argument list.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
@@ -110,22 +121,22 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
         var lineNumber = openLine;
         var line = text.Lines[lineNumber];
         var firstItem = items[0];
-        GetLineSpanOfOrLater(text, firstItem.SpanStart, firstItem.Span.End, ref lineNumber, ref line, out var firstStartLine, out var lastItemEndLine);
+        LayoutHelpers.GetLineSpanOfOrLater(text, firstItem.SpanStart, firstItem.Span.End, ref lineNumber, ref line, out var firstStartLine, out var lastItemEndLine);
         CheckFirstItem(context, firstItem, openLine, firstStartLine, lastItemEndLine);
 
         for (var index = 1; index < items.Count; index++)
         {
             var comma = items.GetSeparator(index - 1);
-            var commaLine = LineOfOrLater(text, comma.SpanStart, ref lineNumber, ref line);
+            var commaLine = LayoutHelpers.LineOfOrLater(text, comma.SpanStart, ref lineNumber, ref line);
             CheckComma(context, comma, true, lastItemEndLine, commaLine);
 
             var item = items[index];
-            GetLineSpanOfOrLater(text, item.SpanStart, item.Span.End, ref lineNumber, ref line, out var startLine, out var endLine);
+            LayoutHelpers.GetLineSpanOfOrLater(text, item.SpanStart, item.Span.End, ref lineNumber, ref line, out var startLine, out var endLine);
             CheckTrailingItem(context, item, startLine, endLine, commaLine);
             lastItemEndLine = endLine;
         }
 
-        var closeLine = LineOfOrLater(text, close.SpanStart, ref lineNumber, ref line);
+        var closeLine = LayoutHelpers.LineOfOrLater(text, close.SpanStart, ref lineNumber, ref line);
         CheckClosing(context, close, openLine, closeLine, hasItems: true, lastItemEndLine);
     }
 
@@ -136,8 +147,7 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <param name="openLine">The opening bracket's line.</param>
     private static void CheckOpening(SyntaxNodeAnalysisContext context, SourceText text, SyntaxToken open, int openLine)
     {
-        var before = open.GetPreviousToken();
-        if (before.IsKind(SyntaxKind.None) || text.Lines.GetLineFromPosition(before.Span.End).LineNumber == openLine)
+        if (IsOpeningOnDeclarationLine(text, open, openLine))
         {
             return;
         }
@@ -298,55 +308,4 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
         => kind is SyntaxKind.SwitchExpression
             or SyntaxKind.QueryExpression
             or SyntaxKind.InterpolatedStringExpression;
-
-    /// <summary>Returns the zero-based start and end line numbers for a span on or after the current cursor.</summary>
-    /// <param name="text">The source text.</param>
-    /// <param name="start">The span start to look up.</param>
-    /// <param name="end">The span end to look up.</param>
-    /// <param name="lineNumber">The current line number cursor.</param>
-    /// <param name="line">The current line cursor.</param>
-    /// <param name="startLine">The resolved start line.</param>
-    /// <param name="endLine">The resolved end line.</param>
-    private static void GetLineSpanOfOrLater(
-        SourceText text,
-        int start,
-        int end,
-        ref int lineNumber,
-        ref TextLine line,
-        out int startLine,
-        out int endLine)
-    {
-        while (start >= line.EndIncludingLineBreak && lineNumber + 1 < text.Lines.Count)
-        {
-            lineNumber++;
-            line = text.Lines[lineNumber];
-        }
-
-        startLine = lineNumber;
-        if (end <= line.EndIncludingLineBreak)
-        {
-            endLine = lineNumber;
-            return;
-        }
-
-        while (end >= line.EndIncludingLineBreak && lineNumber + 1 < text.Lines.Count)
-        {
-            lineNumber++;
-            line = text.Lines[lineNumber];
-        }
-
-        endLine = lineNumber;
-    }
-
-    /// <summary>Returns the zero-based line number for a position on or after the current cursor.</summary>
-    /// <param name="text">The source text.</param>
-    /// <param name="position">The position to look up.</param>
-    /// <param name="lineNumber">The current line number cursor.</param>
-    /// <param name="line">The current line cursor.</param>
-    /// <returns>The resolved line number.</returns>
-    private static int LineOfOrLater(SourceText text, int position, ref int lineNumber, ref TextLine line)
-    {
-        GetLineSpanOfOrLater(text, position, position, ref lineNumber, ref line, out var resolvedLine, out _);
-        return resolvedLine;
-    }
 }

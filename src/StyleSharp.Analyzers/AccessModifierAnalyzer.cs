@@ -34,6 +34,12 @@ public sealed class AccessModifierAnalyzer : DiagnosticAnalyzer
         SyntaxKind.IndexerDeclaration,
         SyntaxKind.ConstructorDeclaration);
 
+    /// <summary>The cached diagnostic properties for top-level declarations that default to internal.</summary>
+    private static readonly ImmutableDictionary<string, string?> InternalModifierProperties = ImmutableDictionary<string, string?>.Empty.Add(ModifierKey, "internal");
+
+    /// <summary>The cached diagnostic properties for nested declarations that default to private.</summary>
+    private static readonly ImmutableDictionary<string, string?> PrivateModifierProperties = ImmutableDictionary<string, string?>.Empty.Add(ModifierKey, "private");
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.AccessModifierDeclared);
 
@@ -46,33 +52,30 @@ public sealed class AccessModifierAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(Analyze, HandledKinds);
     }
 
-    /// <summary>Reports a declaration that omits an access modifier where one is allowed.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context)
-    {
-        var member = (MemberDeclarationSyntax)context.Node;
-        if (HasAccessModifier(member.Modifiers) || !RequiresModifier(member))
-        {
-            return;
-        }
-
-        var token = MemberOrder.NameToken(member);
-        var properties = ImmutableDictionary<string, string?>.Empty.Add(ModifierKey, DefaultModifier(member));
-        context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.AccessModifierDeclared, token.GetLocation(), properties, token.ValueText));
-    }
-
     /// <summary>Returns whether the modifier list already declares accessibility (including <c>file</c>).</summary>
     /// <param name="modifiers">The declaration modifiers.</param>
     /// <returns><see langword="true"/> when an access modifier is present.</returns>
-    private static bool HasAccessModifier(SyntaxTokenList modifiers)
-        => ModifierListHelper.ContainsEither(modifiers, SyntaxKind.PublicKeyword, SyntaxKind.PrivateKeyword)
-            || ModifierListHelper.ContainsEither(modifiers, SyntaxKind.ProtectedKeyword, SyntaxKind.InternalKeyword)
-            || ModifierListHelper.Contains(modifiers, SyntaxKind.FileKeyword);
+    internal static bool HasAccessModifierFast(SyntaxTokenList modifiers)
+    {
+        for (var i = 0; i < modifiers.Count; i++)
+        {
+            if (modifiers[i].Kind() is SyntaxKind.PublicKeyword
+                or SyntaxKind.PrivateKeyword
+                or SyntaxKind.ProtectedKeyword
+                or SyntaxKind.InternalKeyword
+                or SyntaxKind.FileKeyword)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Returns whether an access modifier may and should be declared on the member.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns><see langword="true"/> when a modifier is required.</returns>
-    private static bool RequiresModifier(MemberDeclarationSyntax member)
+    internal static bool RequiresModifierFast(MemberDeclarationSyntax member)
     {
         if (member.Parent is InterfaceDeclarationSyntax)
         {
@@ -90,9 +93,30 @@ public sealed class AccessModifierAnalyzer : DiagnosticAnalyzer
         };
     }
 
-    /// <summary>Returns the implicit default access modifier for a member's context.</summary>
+    /// <summary>Returns whether the declaration is top-level and therefore defaults to <c>internal</c>.</summary>
     /// <param name="member">The member declaration.</param>
-    /// <returns><c>internal</c> for top-level types, otherwise <c>private</c>.</returns>
-    private static string DefaultModifier(MemberDeclarationSyntax member)
-        => member.Parent is BaseNamespaceDeclarationSyntax or CompilationUnitSyntax ? "internal" : "private";
+    /// <returns><see langword="true"/> for compilation-unit and namespace children.</returns>
+    internal static bool IsTopLevelDeclaration(MemberDeclarationSyntax member)
+        => member.Parent is BaseNamespaceDeclarationSyntax or CompilationUnitSyntax;
+
+    /// <summary>Returns the cached diagnostic properties for the member's implicit default access modifier.</summary>
+    /// <param name="member">The member declaration.</param>
+    /// <returns>The cached diagnostic properties dictionary.</returns>
+    internal static ImmutableDictionary<string, string?> ModifierProperties(MemberDeclarationSyntax member)
+        => IsTopLevelDeclaration(member) ? InternalModifierProperties : PrivateModifierProperties;
+
+    /// <summary>Reports a declaration that omits an access modifier where one is allowed.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        var member = (MemberDeclarationSyntax)context.Node;
+        if (HasAccessModifierFast(member.Modifiers) || !RequiresModifierFast(member))
+        {
+            return;
+        }
+
+        var token = MemberOrder.NameToken(member);
+        var properties = ModifierProperties(member);
+        context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.AccessModifierDeclared, token.GetLocation(), properties, token.ValueText));
+    }
 }

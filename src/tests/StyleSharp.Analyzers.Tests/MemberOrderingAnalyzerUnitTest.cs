@@ -201,6 +201,45 @@ public class MemberOrderingAnalyzerUnitTest
         await Assert.That(facts.IsReadOnly).IsTrue();
     }
 
+    /// <summary>Verifies kind ranking maps ordered member declarations to their StyleCop families.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task KindRankMapsOrderedMemberKindsAsync()
+    {
+        await Assert.That(MemberOrder.KindRank(SyntaxKind.FieldDeclaration, isUnion: false)).IsEqualTo(0);
+        await Assert.That(MemberOrder.KindRank(SyntaxKind.MethodDeclaration, isUnion: false)).IsEqualTo(9);
+        await Assert.That(MemberOrder.KindRank(SyntaxKind.RecordDeclaration, isUnion: false)).IsEqualTo(12);
+    }
+
+    /// <summary>Verifies kind ranking places nested unions after records and classes.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task KindRankMapsUnionAfterRecordAsync()
+        => await Assert.That(MemberOrder.KindRank(SyntaxKind.ClassDeclaration, isUnion: true)).IsEqualTo(13);
+
+    /// <summary>Verifies direct member-order comparisons stop at the first differing dimension.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CompareDimensionsUsesFirstDifferenceAsync()
+    {
+        var left = new MemberOrder(7, 0, 1, 1, 1);
+        var right = new MemberOrder(7, 3, 0, 0, 0);
+
+        await Assert.That(MemberOrder.CompareDimensions(left, right)).IsLessThan(0);
+    }
+
+    /// <summary>Verifies readonly violations map to the instance-specific rule for instance fields.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SelectViolationRuleUsesInstanceReadonlyRuleAsync()
+    {
+        var previous = new MemberOrder(0, 5, 1, 1, 1);
+        var current = new MemberOrder(0, 5, 1, 1, 0);
+
+        await Assert.That(MemberOrder.SelectViolationRule(current, previous)?.Id)
+            .IsEqualTo(OrderingRules.InstanceReadonlyBeforeNonReadonly.Id);
+    }
+
     /// <summary>Parses one type declaration for helper-level member-ordering tests.</summary>
     /// <param name="source">The type declaration source.</param>
     /// <returns>The parsed type declaration.</returns>

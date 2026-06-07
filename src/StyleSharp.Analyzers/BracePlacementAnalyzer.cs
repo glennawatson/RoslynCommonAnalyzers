@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis.Text;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -45,11 +43,12 @@ public sealed class BracePlacementAnalyzer : DiagnosticAnalyzer
         var text = context.Node.SyntaxTree.GetText(context.CancellationToken);
         var openLine = LayoutHelpers.StartLine(text, open);
         var closeLine = LayoutHelpers.StartLine(text, close);
+        var openFacts = LayoutHelpers.GetTokenLineFacts(text, open, openLine);
 
         // Only a brace that starts its own line can be "preceded by a blank line"; a brace that
         // shares its line with earlier code (e.g. an auto-property's '{') is not, even when the
         // member itself is separated from the previous member by a blank line.
-        if (LayoutHelpers.IsBlankLine(text, openLine - 1) && OpenBraceStartsLine(text, open, openLine))
+        if (LayoutHelpers.IsBlankLine(text, openLine - 1) && openFacts.StartsLine)
         {
             context.ReportDiagnostic(Diagnostic.Create(LayoutRules.OpenBraceNotPrecededByBlankLine, open.GetLocation()));
         }
@@ -70,55 +69,16 @@ public sealed class BracePlacementAnalyzer : DiagnosticAnalyzer
             context.ReportDiagnostic(Diagnostic.Create(LayoutRules.CloseBraceNotPrecededByBlankLine, close.GetLocation()));
         }
 
-        if (OpenBraceSharesLine(text, open, openLine))
+        if (openFacts.SharesLineWithPrevious || openFacts.SharesLineWithNext)
         {
             context.ReportDiagnostic(Diagnostic.Create(LayoutRules.BracesOnOwnLine, open.GetLocation()));
         }
 
-        if (!CloseBraceSharesLine(text, close, closeLine))
+        if (!LayoutHelpers.TokenSharesLineWithPrevious(text, close, closeLine))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(LayoutRules.BracesOnOwnLine, close.GetLocation()));
-    }
-
-    /// <summary>Returns whether the opening brace is the first token on its line.</summary>
-    /// <param name="text">The source text.</param>
-    /// <param name="open">The opening brace.</param>
-    /// <param name="openLine">The line the opening brace is on.</param>
-    /// <returns><see langword="true"/> when no earlier token shares the brace's line.</returns>
-    private static bool OpenBraceStartsLine(SourceText text, SyntaxToken open, int openLine)
-    {
-        var previous = open.GetPreviousToken();
-        return previous.IsKind(SyntaxKind.None) || LayoutHelpers.EndLine(text, previous) < openLine;
-    }
-
-    /// <summary>Returns whether the opening brace shares its line with the token before or after it.</summary>
-    /// <param name="text">The source text.</param>
-    /// <param name="open">The opening brace.</param>
-    /// <param name="openLine">The line the opening brace is on.</param>
-    /// <returns><see langword="true"/> when the brace is not alone on its line.</returns>
-    private static bool OpenBraceSharesLine(SourceText text, SyntaxToken open, int openLine)
-    {
-        var previous = open.GetPreviousToken();
-        if (!previous.IsKind(SyntaxKind.None) && LayoutHelpers.EndLine(text, previous) == openLine)
-        {
-            return true;
-        }
-
-        var next = open.GetNextToken();
-        return !next.IsKind(SyntaxKind.None) && LayoutHelpers.StartLine(text, next) == openLine;
-    }
-
-    /// <summary>Returns whether the closing brace shares its line with the token before it.</summary>
-    /// <param name="text">The source text.</param>
-    /// <param name="close">The closing brace.</param>
-    /// <param name="closeLine">The line the closing brace is on.</param>
-    /// <returns><see langword="true"/> when code precedes the brace on its line.</returns>
-    private static bool CloseBraceSharesLine(SourceText text, SyntaxToken close, int closeLine)
-    {
-        var previous = close.GetPreviousToken();
-        return !previous.IsKind(SyntaxKind.None) && LayoutHelpers.EndLine(text, previous) == closeLine;
     }
 }

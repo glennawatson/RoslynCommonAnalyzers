@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -82,38 +84,6 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <summary>The accessibility rank for a private member.</summary>
     private const int PrivateAccess = 5;
 
-    /// <summary>The kind rank of each member declaration, keyed by syntax kind.</summary>
-    private static readonly Dictionary<SyntaxKind, int> KindRanks = new()
-    {
-        [SyntaxKind.FieldDeclaration] = FieldKind,
-        [SyntaxKind.ConstructorDeclaration] = ConstructorKind,
-        [SyntaxKind.DestructorDeclaration] = DestructorKind,
-        [SyntaxKind.DelegateDeclaration] = DelegateKind,
-        [SyntaxKind.EventDeclaration] = EventKind,
-        [SyntaxKind.EventFieldDeclaration] = EventKind,
-        [SyntaxKind.EnumDeclaration] = EnumKind,
-        [SyntaxKind.InterfaceDeclaration] = InterfaceKind,
-        [SyntaxKind.PropertyDeclaration] = PropertyKind,
-        [SyntaxKind.IndexerDeclaration] = IndexerKind,
-        [SyntaxKind.MethodDeclaration] = MethodKind,
-        [SyntaxKind.OperatorDeclaration] = MethodKind,
-        [SyntaxKind.ConversionOperatorDeclaration] = MethodKind,
-        [SyntaxKind.StructDeclaration] = StructKind,
-        [SyntaxKind.RecordStructDeclaration] = StructKind,
-        [SyntaxKind.ClassDeclaration] = ClassKind,
-        [SyntaxKind.RecordDeclaration] = RecordKind,
-    };
-
-    /// <summary>The ordering dimensions, in precedence order, paired with the rule each violates.</summary>
-    private static readonly (Func<MemberOrder, int> Select, DiagnosticDescriptor Rule)[] Dimensions =
-    [
-        (static order => order.Kind, OrderingRules.OrderByKind),
-        (static order => order.Access, OrderingRules.OrderByAccess),
-        (static order => order.Constant, OrderingRules.ConstantsBeforeFields),
-        (static order => order.Static, OrderingRules.StaticBeforeInstance),
-        (static order => order.ReadOnly, OrderingRules.ReadonlyBeforeNonReadonly),
-    ];
-
     /// <summary>Classifies a member's ordering rank, or returns <see langword="null"/> to skip it (e.g. explicit interface impls).</summary>
     /// <param name="member">The member declaration.</param>
     /// <param name="isUnion">Whether a nested class/record member is a union (detected semantically by the caller).</param>
@@ -125,7 +95,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
             return null;
         }
 
-        var kind = isUnion ? UnionKind : KindRank(member);
+        var kind = KindRank(member.Kind(), isUnion);
         if (kind == NoKind)
         {
             return null;
@@ -183,37 +153,12 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <summary>Compares this rank with another in StyleCop's precedence order.</summary>
     /// <param name="other">The rank to compare against.</param>
     /// <returns>Negative when this sorts first, positive when last, zero when equal.</returns>
-    public int CompareTo(in MemberOrder other)
-    {
-        foreach (var (select, _) in Dimensions)
-        {
-            var difference = select(this) - select(other);
-            if (difference != 0)
-            {
-                return difference;
-            }
-        }
-
-        return 0;
-    }
+    public int CompareTo(in MemberOrder other) => CompareDimensions(this, other);
 
     /// <summary>Returns the rule violated when this member follows <paramref name="previous"/>, or <see langword="null"/> when in order.</summary>
     /// <param name="previous">The preceding member's rank.</param>
     /// <returns>The violated rule, or <see langword="null"/>.</returns>
-    public DiagnosticDescriptor? ViolationAfter(in MemberOrder previous)
-    {
-        foreach (var (select, rule) in Dimensions)
-        {
-            var mine = select(this);
-            var prior = select(previous);
-            if (mine != prior)
-            {
-                return mine < prior ? ReadonlyAwareRule(rule) : null;
-            }
-        }
-
-        return null;
-    }
+    public DiagnosticDescriptor? ViolationAfter(in MemberOrder previous) => SelectViolationRule(this, previous);
 
     /// <summary>Returns the token to report on (and name) for a member.</summary>
     /// <param name="member">The member declaration.</param>
@@ -293,6 +238,89 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         return new(isPublic, isInternal, isProtected, isPrivate, isConst, isStatic, isReadOnly);
     }
 
+    /// <summary>Compares two member-order values in StyleCop's precedence order.</summary>
+    /// <param name="left">The left order.</param>
+    /// <param name="right">The right order.</param>
+    /// <returns>Negative when <paramref name="left"/> sorts first, positive when last, zero when equal.</returns>
+    internal static int CompareDimensions(in MemberOrder left, in MemberOrder right)
+    {
+        var difference = left.Kind - right.Kind;
+        if (difference != 0)
+        {
+            return difference;
+        }
+
+        difference = left.Access - right.Access;
+        if (difference != 0)
+        {
+            return difference;
+        }
+
+        difference = left.Constant - right.Constant;
+        if (difference != 0)
+        {
+            return difference;
+        }
+
+        difference = left.Static - right.Static;
+        if (difference != 0)
+        {
+            return difference;
+        }
+
+        return left.ReadOnly - right.ReadOnly;
+    }
+
+    /// <summary>Returns the member-kind rank for a syntax kind, or <see cref="NoKind"/> when it is not ordered.</summary>
+    /// <param name="kind">The member declaration kind.</param>
+    /// <param name="isUnion">Whether a nested class/record member is a union.</param>
+    /// <returns>The kind rank.</returns>
+    [SuppressMessage(
+        "Major Code Smell",
+        "S1541:Cyclomatic Complexity of methods should not be too high",
+        Justification = "A direct switch-based kind map benchmarked better than the dictionary-backed alternatives on the MemberOrdering hot path.")]
+    internal static int KindRank(SyntaxKind kind, bool isUnion)
+    {
+        if (isUnion)
+        {
+            return UnionKind;
+        }
+
+        return kind switch
+        {
+            SyntaxKind.FieldDeclaration => FieldKind,
+            SyntaxKind.ConstructorDeclaration => ConstructorKind,
+            SyntaxKind.DestructorDeclaration => DestructorKind,
+            SyntaxKind.DelegateDeclaration => DelegateKind,
+            SyntaxKind.EventDeclaration or SyntaxKind.EventFieldDeclaration => EventKind,
+            SyntaxKind.EnumDeclaration => EnumKind,
+            SyntaxKind.InterfaceDeclaration => InterfaceKind,
+            SyntaxKind.PropertyDeclaration => PropertyKind,
+            SyntaxKind.IndexerDeclaration => IndexerKind,
+            SyntaxKind.MethodDeclaration or SyntaxKind.OperatorDeclaration or SyntaxKind.ConversionOperatorDeclaration => MethodKind,
+            SyntaxKind.StructDeclaration or SyntaxKind.RecordStructDeclaration => StructKind,
+            SyntaxKind.ClassDeclaration => ClassKind,
+            SyntaxKind.RecordDeclaration => RecordKind,
+            _ => NoKind,
+        };
+    }
+
+    /// <summary>Returns the violated ordering rule when the current member follows the previous member.</summary>
+    /// <param name="current">The current member order.</param>
+    /// <param name="previous">The previous member order.</param>
+    /// <returns>The violated rule, or <see langword="null"/> when the members are already ordered.</returns>
+    internal static DiagnosticDescriptor? SelectViolationRule(in MemberOrder current, in MemberOrder previous)
+    {
+        var rule = SelectNonReadonlyViolationRule(current, previous);
+        if (rule is not null)
+        {
+            return rule;
+        }
+
+        var difference = current.ReadOnly - previous.ReadOnly;
+        return difference is >= 0 ? null : ReadonlyViolationRule(current);
+    }
+
     /// <summary>Returns the identifier token for the member kinds that carry a plain name.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns>The identifier token, or the member's first token as a fallback.</returns>
@@ -325,19 +353,56 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         _ => false,
     };
 
-    /// <summary>Returns the member-kind rank for a declaration, or <see cref="NoKind"/> when it is not ordered.</summary>
-    /// <param name="member">The member declaration.</param>
-    /// <returns>The kind rank.</returns>
-    private static int KindRank(MemberDeclarationSyntax member)
-        => KindRanks.TryGetValue(member.Kind(), out var rank) ? rank : NoKind;
-
     /// <summary>Routes a readonly-ordering violation to the instance variant (SST1215) for instance fields.</summary>
-    /// <param name="rule">The rule for the violated dimension.</param>
-    /// <returns>SST1215 for an instance readonly violation, otherwise <paramref name="rule"/>.</returns>
-    private DiagnosticDescriptor ReadonlyAwareRule(DiagnosticDescriptor rule)
-        => ReferenceEquals(rule, OrderingRules.ReadonlyBeforeNonReadonly) && Static == 1
+    /// <param name="order">The member order that violated readonly ordering.</param>
+    /// <returns>SST1215 for an instance readonly violation, otherwise SST1214.</returns>
+    private static DiagnosticDescriptor ReadonlyViolationRule(in MemberOrder order)
+        => order.Static == 1
             ? OrderingRules.InstanceReadonlyBeforeNonReadonly
-            : rule;
+            : OrderingRules.ReadonlyBeforeNonReadonly;
+
+    /// <summary>Returns the first violated non-readonly ordering rule between two member orders.</summary>
+    /// <param name="current">The current member order.</param>
+    /// <param name="previous">The previous member order.</param>
+    /// <returns>The violated rule, or <see langword="null"/> when earlier dimensions match.</returns>
+    private static DiagnosticDescriptor? SelectNonReadonlyViolationRule(in MemberOrder current, in MemberOrder previous)
+    {
+        if (TrySelectRuleForDifference(current.Kind - previous.Kind, OrderingRules.OrderByKind, out var rule))
+        {
+            return rule;
+        }
+
+        if (TrySelectRuleForDifference(current.Access - previous.Access, OrderingRules.OrderByAccess, out rule))
+        {
+            return rule;
+        }
+
+        if (TrySelectRuleForDifference(current.Constant - previous.Constant, OrderingRules.ConstantsBeforeFields, out rule))
+        {
+            return rule;
+        }
+
+        return TrySelectRuleForDifference(current.Static - previous.Static, OrderingRules.StaticBeforeInstance, out rule)
+            ? rule
+            : null;
+    }
+
+    /// <summary>Returns whether a dimension difference determines ordering, and selects its rule when violated.</summary>
+    /// <param name="difference">The difference between the current and previous dimension values.</param>
+    /// <param name="rule">The rule associated with the dimension.</param>
+    /// <param name="selectedRule">The selected rule when the current member sorts earlier; otherwise <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when this dimension determines ordering and later dimensions must not be consulted.</returns>
+    private static bool TrySelectRuleForDifference(int difference, DiagnosticDescriptor rule, out DiagnosticDescriptor? selectedRule)
+    {
+        if (difference == 0)
+        {
+            selectedRule = null;
+            return false;
+        }
+
+        selectedRule = difference < 0 ? rule : null;
+        return true;
+    }
 
     /// <summary>Computes the accessibility rank from a member's modifiers.</summary>
     /// <param name="facts">The gathered member modifier facts.</param>

@@ -180,4 +180,47 @@ public class ExtensionBlockAnalyzerUnitTest
         await Assert.That(ExtensionBlockHelper.TryClassifyReceiverShape(receiverType, out var shape)).IsFalse();
         await Assert.That(shape).IsNull();
     }
+
+    /// <summary>Verifies simple broad receivers are classified without extra string comparisons in the analyzer.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReceiverClassificationFastPathMarksBroadObjectAsync()
+    {
+        var receiverType = SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ObjectKeyword));
+
+        await Assert.That(ExtensionBlockHelper.TryClassifyReceiver(receiverType, out var shape, out var isBroadReceiver)).IsTrue();
+        await Assert.That(shape).IsEqualTo("object");
+        await Assert.That(isBroadReceiver).IsTrue();
+    }
+
+    /// <summary>Verifies simple non-broad receivers stay on the cheap classified path.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReceiverClassificationFastPathKeepsNonBroadStringAsync()
+    {
+        var receiverType = SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword));
+
+        await Assert.That(ExtensionBlockHelper.TryClassifyReceiver(receiverType, out var shape, out var isBroadReceiver)).IsTrue();
+        await Assert.That(shape).IsEqualTo("string");
+        await Assert.That(isBroadReceiver).IsFalse();
+    }
+
+    /// <summary>Verifies receiver ordering skips the first block and reports only descending lexical order.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReceiverOrderHelperClassifiesDescendingOnlyAsync()
+    {
+        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver("string", null)).IsFalse();
+        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver("string", "int")).IsFalse();
+        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver("int", "string")).IsTrue();
+    }
+
+    /// <summary>Verifies duplicate detection only reports equal immediate receivers.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DuplicateReceiverHelperMatchesOrdinalEqualityAsync()
+    {
+        await Assert.That(ExtensionBlockAnalyzer.IsDuplicateImmediateReceiver("string", "string")).IsTrue();
+        await Assert.That(ExtensionBlockAnalyzer.IsDuplicateImmediateReceiver("string", "int")).IsFalse();
+    }
 }

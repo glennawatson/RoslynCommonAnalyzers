@@ -63,6 +63,68 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         return first > LastAsciiChar && char.IsUpper(first);
     }
 
+    /// <summary>Returns whether a positional parameter name should produce SST1801 for the given convention.</summary>
+    /// <param name="name">The positional parameter name.</param>
+    /// <param name="convention">The configured naming convention.</param>
+    /// <returns><see langword="true"/> when the analyzer should report a naming diagnostic.</returns>
+    internal static bool ShouldReportPositionalParameterNaming(string name, NamingConvention convention)
+    {
+        if (convention == NamingConvention.PascalCase && IsPascalCaseFastPathCompliant(name))
+        {
+            return false;
+        }
+
+        if (name.Length == 0 || NamingHelper.IsAllUnderscores(name))
+        {
+            return false;
+        }
+
+        return convention == NamingConvention.PascalCase
+            ? !IsPascalCaseFastPathCompliant(name)
+            : !NamingConventions.Conforms(name, convention);
+    }
+
+    /// <summary>Returns the set accessor that should produce SST1802, or <see langword="null"/> for clean shapes.</summary>
+    /// <param name="accessors">The property's accessor list.</param>
+    /// <returns>The set accessor to report, or <see langword="null"/>.</returns>
+    internal static AccessorDeclarationSyntax? TryGetSetAccessorToReport(SyntaxList<AccessorDeclarationSyntax> accessors)
+    {
+        if (accessors.Count == 2)
+        {
+            if (accessors[0].IsKind(SyntaxKind.GetAccessorDeclaration) && accessors[1].IsKind(SyntaxKind.InitAccessorDeclaration))
+            {
+                return null;
+            }
+
+            if (accessors[0].IsKind(SyntaxKind.SetAccessorDeclaration))
+            {
+                return accessors[0];
+            }
+
+            if (accessors[1].IsKind(SyntaxKind.SetAccessorDeclaration))
+            {
+                return accessors[1];
+            }
+
+            return null;
+        }
+
+        if (accessors.Count == 1)
+        {
+            return accessors[0].IsKind(SyntaxKind.SetAccessorDeclaration) ? accessors[0] : null;
+        }
+
+        for (var i = 0; i < accessors.Count; i++)
+        {
+            if (accessors[i].IsKind(SyntaxKind.SetAccessorDeclaration))
+            {
+                return accessors[i];
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Applies the record-class rules to a single record declaration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="parameterConventionCache">The per-tree positional-parameter convention cache.</param>
@@ -126,19 +188,13 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         }
 
         var convention = parameterConventionCache.Get(context, record.SyntaxTree);
-        var usePascalCaseFastPath = convention == NamingConvention.PascalCase;
 
         var parameters = list.Parameters;
         for (var i = 0; i < parameters.Count; i++)
         {
             var parameter = parameters[i];
             var name = parameter.Identifier.ValueText;
-            if (name.Length == 0 || NamingHelper.IsAllUnderscores(name))
-            {
-                continue;
-            }
-
-            if (usePascalCaseFastPath ? IsPascalCaseFastPathCompliant(name) : NamingConventions.Conforms(name, convention))
+            if (!ShouldReportPositionalParameterNaming(name, convention))
             {
                 continue;
             }
@@ -160,57 +216,13 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            var accessors = accessorList.Accessors;
-            if (accessors.Count == 2 && accessors[0].IsKind(SyntaxKind.GetAccessorDeclaration) && accessors[1].IsKind(SyntaxKind.InitAccessorDeclaration))
+            var setAccessor = TryGetSetAccessorToReport(accessorList.Accessors);
+            if (setAccessor is null)
             {
                 continue;
             }
 
-            ReportSetAccessor(context, property, accessors);
-        }
-    }
-
-    /// <summary>Reports SST1802 on the first set accessor in a property's accessor list.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="property">The property declaration.</param>
-    /// <param name="accessors">The property's accessor list.</param>
-    private static void ReportSetAccessor(
-        SyntaxNodeAnalysisContext context,
-        PropertyDeclarationSyntax property,
-        SyntaxList<AccessorDeclarationSyntax> accessors)
-    {
-        if (accessors.Count == 1)
-        {
-            if (accessors[0].IsKind(SyntaxKind.SetAccessorDeclaration))
-            {
-                ReportSetAccessor(context, property, accessors[0]);
-            }
-
-            return;
-        }
-
-        if (accessors.Count == 2)
-        {
-            if (accessors[0].IsKind(SyntaxKind.SetAccessorDeclaration))
-            {
-                ReportSetAccessor(context, property, accessors[0]);
-                return;
-            }
-
-            if (accessors[1].IsKind(SyntaxKind.SetAccessorDeclaration))
-            {
-                ReportSetAccessor(context, property, accessors[1]);
-                return;
-            }
-        }
-
-        for (var i = 0; i < accessors.Count; i++)
-        {
-            if (accessors[i].IsKind(SyntaxKind.SetAccessorDeclaration))
-            {
-                ReportSetAccessor(context, property, accessors[i]);
-                return;
-            }
+            ReportSetAccessor(context, property, setAccessor);
         }
     }
 

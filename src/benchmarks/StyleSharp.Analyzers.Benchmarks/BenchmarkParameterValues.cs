@@ -11,7 +11,7 @@ internal static class BenchmarkParameterValues
     public const int SmallNodeCount = 100;
 
     /// <summary>The larger per-analyzer node count.</summary>
-    public const int LargeNodeCount = 1000;
+    public const int LargeNodeCount = 3000;
 
     /// <summary>The smaller analyzer-throughput type count.</summary>
     public const int SmallTypeCount = 50;

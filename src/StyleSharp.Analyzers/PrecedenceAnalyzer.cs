@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -12,17 +14,23 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class PrecedenceAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The precedence family of the multiplicative operators (* / %).</summary>
-    private const int MultiplicativeFamily = 0;
+    /// <summary>The sentinel for an operator that is not part of the precedence rules.</summary>
+    private const int NoCategory = 0;
 
-    /// <summary>The precedence family of the additive operators (+ -).</summary>
-    private const int AdditiveFamily = 1;
+    /// <summary>The precedence category for <c>&amp;&amp;</c>.</summary>
+    private const int ConditionalAndCategory = 1;
 
-    /// <summary>The precedence family of the shift operators (&lt;&lt; &gt;&gt;).</summary>
-    private const int ShiftFamily = 2;
+    /// <summary>The precedence category for <c>||</c>.</summary>
+    private const int ConditionalOrCategory = 2;
 
-    /// <summary>The sentinel for an operator that is not an arithmetic/shift operator.</summary>
-    private const int NoFamily = -1;
+    /// <summary>The precedence category for multiplicative operators.</summary>
+    private const int MultiplicativeCategory = 3;
+
+    /// <summary>The precedence category for additive operators.</summary>
+    private const int AdditiveCategory = 4;
+
+    /// <summary>The precedence category for shift operators.</summary>
+    private const int ShiftCategory = 5;
 
     /// <summary>The operator kinds the rule inspects.</summary>
     private static readonly ImmutableArray<SyntaxKind> HandledKinds = ImmutableArrays.Of(
@@ -36,10 +44,13 @@ public sealed class PrecedenceAnalyzer : DiagnosticAnalyzer
         SyntaxKind.LogicalAndExpression,
         SyntaxKind.LogicalOrExpression);
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The rules this analyzer can report.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> Rules = ImmutableArrays.Of(
         MaintainabilityRules.ArithmeticPrecedence,
         MaintainabilityRules.ConditionalPrecedence);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => Rules;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -49,6 +60,48 @@ public sealed class PrecedenceAnalyzer : DiagnosticAnalyzer
 
         context.RegisterSyntaxNodeAction(Analyze, HandledKinds);
     }
+
+    /// <summary>Returns the rule a parent/child operator pair violates, or <see langword="null"/> when none.</summary>
+    /// <param name="inner">The inner operator kind.</param>
+    /// <param name="parent">The parent operator kind.</param>
+    /// <returns>The violated rule, or <see langword="null"/>.</returns>
+    internal static DiagnosticDescriptor? SelectRule(SyntaxKind inner, SyntaxKind parent)
+    {
+        var innerCategory = ClassifyOperator(inner);
+        var parentCategory = ClassifyOperator(parent);
+        if (innerCategory == parentCategory)
+        {
+            return null;
+        }
+
+        if (innerCategory is ConditionalAndCategory or ConditionalOrCategory)
+        {
+            return parentCategory is ConditionalAndCategory or ConditionalOrCategory
+                ? MaintainabilityRules.ConditionalPrecedence
+                : null;
+        }
+
+        return innerCategory >= MultiplicativeCategory && parentCategory >= MultiplicativeCategory
+            ? MaintainabilityRules.ArithmeticPrecedence
+            : null;
+    }
+
+    /// <summary>Classifies an operator kind into one precedence-rule category.</summary>
+    /// <param name="kind">The operator kind.</param>
+    /// <returns>The category id used for cheap precedence comparisons.</returns>
+    [SuppressMessage(
+        "Major Code Smell",
+        "S1541:Cyclomatic Complexity of methods should not be too high",
+        Justification = "A direct switch-based operator map is the lowest-overhead classification shape on the PrecedenceAnalyzer hot path.")]
+    internal static int ClassifyOperator(SyntaxKind kind) => kind switch
+    {
+        SyntaxKind.LogicalAndExpression => ConditionalAndCategory,
+        SyntaxKind.LogicalOrExpression => ConditionalOrCategory,
+        SyntaxKind.MultiplyExpression or SyntaxKind.DivideExpression or SyntaxKind.ModuloExpression => MultiplicativeCategory,
+        SyntaxKind.AddExpression or SyntaxKind.SubtractExpression => AdditiveCategory,
+        SyntaxKind.LeftShiftExpression or SyntaxKind.RightShiftExpression => ShiftCategory,
+        _ => NoCategory,
+    };
 
     /// <summary>Reports an inner binary expression whose precedence against its parent is implicit.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -60,49 +113,12 @@ public sealed class PrecedenceAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (SelectRule(inner.Kind(), parent.Kind()) is not { } rule)
+        var rule = SelectRule(inner.Kind(), parent.Kind());
+        if (rule is null)
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(rule, inner.GetLocation()));
     }
-
-    /// <summary>Returns the rule a parent/child operator pair violates, or <see langword="null"/> when none.</summary>
-    /// <param name="inner">The inner operator kind.</param>
-    /// <param name="parent">The parent operator kind.</param>
-    /// <returns>The violated rule, or <see langword="null"/>.</returns>
-    private static DiagnosticDescriptor? SelectRule(SyntaxKind inner, SyntaxKind parent)
-    {
-        if (IsConditional(inner) && IsConditional(parent))
-        {
-            return inner == parent ? null : MaintainabilityRules.ConditionalPrecedence;
-        }
-
-        var innerFamily = ArithmeticFamily(inner);
-        var parentFamily = ArithmeticFamily(parent);
-        if (innerFamily == NoFamily || parentFamily == NoFamily || innerFamily == parentFamily)
-        {
-            return null;
-        }
-
-        return MaintainabilityRules.ArithmeticPrecedence;
-    }
-
-    /// <summary>Returns whether the operator is a short-circuiting logical operator.</summary>
-    /// <param name="kind">The operator kind.</param>
-    /// <returns><see langword="true"/> for <c>&amp;&amp;</c> or <c>||</c>.</returns>
-    private static bool IsConditional(SyntaxKind kind)
-        => kind is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression;
-
-    /// <summary>Returns the arithmetic precedence family of an operator, or <see cref="NoFamily"/>.</summary>
-    /// <param name="kind">The operator kind.</param>
-    /// <returns>The family rank.</returns>
-    private static int ArithmeticFamily(SyntaxKind kind) => kind switch
-    {
-        SyntaxKind.MultiplyExpression or SyntaxKind.DivideExpression or SyntaxKind.ModuloExpression => MultiplicativeFamily,
-        SyntaxKind.AddExpression or SyntaxKind.SubtractExpression => AdditiveFamily,
-        SyntaxKind.LeftShiftExpression or SyntaxKind.RightShiftExpression => ShiftFamily,
-        _ => NoFamily,
-    };
 }

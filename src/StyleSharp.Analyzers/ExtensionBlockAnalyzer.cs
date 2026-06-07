@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.Text;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -36,6 +38,20 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
 
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ClassDeclaration);
     }
+
+    /// <summary>Returns whether the current receiver sorts before the previous receiver.</summary>
+    /// <param name="receiver">The current receiver text.</param>
+    /// <param name="previousReceiver">The previous receiver text, when any.</param>
+    /// <returns><see langword="true"/> when the current receiver is out of lexical order.</returns>
+    internal static bool IsOutOfOrderReceiver(string receiver, string? previousReceiver)
+        => previousReceiver is not null && string.CompareOrdinal(receiver, previousReceiver) < 0;
+
+    /// <summary>Returns whether a second extension block repeats the immediately previous receiver.</summary>
+    /// <param name="receiver">The current receiver text.</param>
+    /// <param name="previousReceiver">The previous receiver text.</param>
+    /// <returns><see langword="true"/> when both receivers are ordinally equal.</returns>
+    internal static bool IsDuplicateImmediateReceiver(string receiver, string previousReceiver)
+        => string.Equals(receiver, previousReceiver, StringComparison.Ordinal);
 
     /// <summary>Reports extension-block issues among a class's direct members.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -99,28 +115,31 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         ref string? previousReceiver,
         ref HashSet<string>? seenReceivers)
     {
-        var extensionKeyword = block.GetFirstToken();
+        var extensionKeyword = default(SyntaxToken);
         var receiverType = ExtensionBlockHelper.ReceiverType(block);
 
         if (groupEnded)
         {
-            context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.GroupExtensionBlocks, block.SyntaxTree, extensionKeyword.Span));
+            context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.GroupExtensionBlocks, block.SyntaxTree, ExtensionKeywordSpan(block, ref extensionKeyword)));
         }
 
         if (block.Members.Count == 0)
         {
-            context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.EmptyExtensionBlock, block.SyntaxTree, extensionKeyword.Span));
+            context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.EmptyExtensionBlock, block.SyntaxTree, ExtensionKeywordSpan(block, ref extensionKeyword)));
         }
 
         string? receiver;
-        if (ExtensionBlockHelper.TryClassifyReceiverShape(receiverType, out var classifiedReceiver))
+        if (ExtensionBlockHelper.TryClassifyReceiver(receiverType, out var classifiedReceiver, out var isBroadReceiver))
         {
             receiver = classifiedReceiver!;
-            ReportBroadReceiver(context, block, extensionKeyword, receiver);
+            if (isBroadReceiver)
+            {
+                context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.BroadExtensionReceiver, block.SyntaxTree, ExtensionKeywordSpan(block, ref extensionKeyword), receiver));
+            }
         }
         else if (ExtensionBlockHelper.IsBroadReceiver(receiverType, out var broadReceiverText))
         {
-            context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.BroadExtensionReceiver, block.SyntaxTree, extensionKeyword.Span, broadReceiverText));
+            context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.BroadExtensionReceiver, block.SyntaxTree, ExtensionKeywordSpan(block, ref extensionKeyword), broadReceiverText));
             receiver = broadReceiverText;
         }
         else
@@ -132,36 +151,16 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        ReportOutOfOrderReceiver(context, block, extensionKeyword, receiver, previousReceiver);
-        if (TryHandleFirstReceivers(context, block, extensionKeyword, receiver, ref extensionCount, ref firstReceiver, ref previousReceiver))
+        ReportOutOfOrderReceiver(context, block, ref extensionKeyword, receiver, previousReceiver);
+        if (TryHandleFirstReceivers(context, block, ref extensionKeyword, receiver, ref extensionCount, ref firstReceiver, ref previousReceiver))
         {
             return;
         }
 
         seenReceivers ??= CreateSeenReceivers(firstReceiver!, previousReceiver!);
-        ReportDuplicateReceiver(context, block, extensionKeyword, receiver, seenReceivers);
+        ReportDuplicateReceiver(context, block, ref extensionKeyword, receiver, seenReceivers);
         previousReceiver = receiver;
         extensionCount++;
-    }
-
-    /// <summary>Reports SST1706 for broad receiver texts that can be detected on the simple fast path.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="block">The extension block.</param>
-    /// <param name="extensionKeyword">The block's extension keyword.</param>
-    /// <param name="receiver">The simple receiver text.</param>
-    private static void ReportBroadReceiver(
-        SyntaxNodeAnalysisContext context,
-        TypeDeclarationSyntax block,
-        SyntaxToken extensionKeyword,
-        string receiver)
-    {
-        if (!string.Equals(receiver, "object", StringComparison.Ordinal)
-            && !string.Equals(receiver, "dynamic", StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.BroadExtensionReceiver, block.SyntaxTree, extensionKeyword.Span, receiver));
     }
 
     /// <summary>Reports SST1707 when the current receiver sorts before the previous receiver.</summary>
@@ -173,16 +172,16 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     private static void ReportOutOfOrderReceiver(
         SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax block,
-        SyntaxToken extensionKeyword,
+        ref SyntaxToken extensionKeyword,
         string receiver,
         string? previousReceiver)
     {
-        if (previousReceiver is null || string.CompareOrdinal(receiver, previousReceiver) >= 0)
+        if (!IsOutOfOrderReceiver(receiver, previousReceiver))
         {
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.OrderExtensionBlocks, block.SyntaxTree, extensionKeyword.Span));
+        context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.OrderExtensionBlocks, block.SyntaxTree, ExtensionKeywordSpan(block, ref extensionKeyword)));
     }
 
     /// <summary>Handles the first and second receivers without allocating the seen-receiver set.</summary>
@@ -197,7 +196,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     private static bool TryHandleFirstReceivers(
         SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax block,
-        SyntaxToken extensionKeyword,
+        ref SyntaxToken extensionKeyword,
         string receiver,
         ref int extensionCount,
         ref string? firstReceiver,
@@ -216,9 +215,9 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        if (string.Equals(receiver, previousReceiver, StringComparison.Ordinal))
+        if (IsDuplicateImmediateReceiver(receiver, previousReceiver!))
         {
-            context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.CombineExtensionBlocks, block.SyntaxTree, extensionKeyword.Span, receiver));
+            context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.CombineExtensionBlocks, block.SyntaxTree, ExtensionKeywordSpan(block, ref extensionKeyword), receiver));
         }
 
         previousReceiver = receiver;
@@ -246,7 +245,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     private static void ReportDuplicateReceiver(
         SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax block,
-        SyntaxToken extensionKeyword,
+        ref SyntaxToken extensionKeyword,
         string receiver,
         HashSet<string> seenReceivers)
     {
@@ -255,6 +254,20 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.CombineExtensionBlocks, block.SyntaxTree, extensionKeyword.Span, receiver));
+        context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.CombineExtensionBlocks, block.SyntaxTree, ExtensionKeywordSpan(block, ref extensionKeyword), receiver));
+    }
+
+    /// <summary>Returns the extension keyword span, reading the token lazily only when needed.</summary>
+    /// <param name="block">The extension block.</param>
+    /// <param name="extensionKeyword">The cached extension keyword token.</param>
+    /// <returns>The extension keyword span.</returns>
+    private static TextSpan ExtensionKeywordSpan(TypeDeclarationSyntax block, ref SyntaxToken extensionKeyword)
+    {
+        if (extensionKeyword.RawKind == 0)
+        {
+            extensionKeyword = block.GetFirstToken();
+        }
+
+        return extensionKeyword.Span;
     }
 }

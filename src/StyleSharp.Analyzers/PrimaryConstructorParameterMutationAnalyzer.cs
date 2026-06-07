@@ -45,6 +45,29 @@ public sealed class PrimaryConstructorParameterMutationAnalyzer : DiagnosticAnal
         context.RegisterSyntaxNodeAction(AnalyzeArgument, SyntaxKind.Argument);
     }
 
+    /// <summary>Returns whether the expression could syntactically name a class or struct primary-constructor parameter.</summary>
+    /// <param name="expression">The potentially mutated expression.</param>
+    /// <returns><see langword="true"/> when semantic binding is still required.</returns>
+    internal static bool CouldReferencePrimaryConstructorParameter(ExpressionSyntax expression)
+    {
+        if (expression is not IdentifierNameSyntax identifier
+            || !TryGetPrimaryConstructorParameters(expression, out var parameters))
+        {
+            return false;
+        }
+
+        var identifierText = identifier.Identifier.ValueText;
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            if (parameters[i].Identifier.ValueText == identifierText)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Reports SST1425 for assignments whose target is a primary-constructor parameter.</summary>
     /// <param name="context">The syntax node context.</param>
     private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context)
@@ -85,7 +108,8 @@ public sealed class PrimaryConstructorParameterMutationAnalyzer : DiagnosticAnal
     /// <param name="expression">The mutated expression.</param>
     private static void ReportIfPrimaryConstructorParameter(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
     {
-        if (context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is not IParameterSymbol parameter
+        if (!CouldReferencePrimaryConstructorParameter(expression)
+            || context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is not IParameterSymbol parameter
             || !IsPrimaryConstructorParameter(parameter))
         {
             return;
@@ -121,6 +145,35 @@ public sealed class PrimaryConstructorParameterMutationAnalyzer : DiagnosticAnal
             }
         }
 
+        return false;
+    }
+
+    /// <summary>Returns the containing class or struct primary-constructor parameters, when present.</summary>
+    /// <param name="expression">The expression being checked.</param>
+    /// <param name="parameters">The containing primary-constructor parameters.</param>
+    /// <returns><see langword="true"/> when the expression is inside a class or struct primary constructor.</returns>
+    private static bool TryGetPrimaryConstructorParameters(ExpressionSyntax expression, out SeparatedSyntaxList<ParameterSyntax> parameters)
+    {
+        for (var current = expression.Parent; current is not null; current = current.Parent)
+        {
+            if (current is not TypeDeclarationSyntax type)
+            {
+                continue;
+            }
+
+            if (type is RecordDeclarationSyntax
+                || type is not ClassDeclarationSyntax and not StructDeclarationSyntax
+                || type.ParameterList is not { Parameters.Count: > 0 } parameterList)
+            {
+                parameters = default;
+                return false;
+            }
+
+            parameters = parameterList.Parameters;
+            return true;
+        }
+
+        parameters = default;
         return false;
     }
 }

@@ -76,6 +76,38 @@ internal static class ExtensionBlockHelper
         }
     }
 
+    /// <summary>Classifies simple receiver shapes and whether they are broad receivers.</summary>
+    /// <param name="receiverType">The receiver type syntax.</param>
+    /// <param name="shape">The simple receiver text when classified.</param>
+    /// <param name="isBroadReceiver"><see langword="true"/> when the classified receiver is broad.</param>
+    /// <returns><see langword="true"/> when the receiver can be classified cheaply.</returns>
+    public static bool TryClassifyReceiver(TypeSyntax? receiverType, out string? shape, out bool isBroadReceiver)
+    {
+        switch (receiverType)
+        {
+            case PredefinedTypeSyntax predefined:
+            {
+                shape = predefined.Keyword.Text;
+                isBroadReceiver = predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword);
+                return true;
+            }
+
+            case IdentifierNameSyntax identifier:
+            {
+                shape = identifier.Identifier.ValueText;
+                isBroadReceiver = identifier.Identifier.ValueText == "dynamic";
+                return true;
+            }
+
+            default:
+            {
+                shape = null;
+                isBroadReceiver = false;
+                return false;
+            }
+        }
+    }
+
     /// <summary>Returns whether a receiver type is one that attaches extension members to every type.</summary>
     /// <param name="receiverType">The receiver type syntax.</param>
     /// <param name="receiverText">The display text used in the diagnostic message.</param>

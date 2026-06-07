@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.Text;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -25,6 +27,16 @@ public sealed class SingleLineStatementAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.Block);
     }
 
+    /// <summary>Returns whether a block's opening and closing braces appear on the same physical line.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="block">The block to inspect.</param>
+    /// <returns><see langword="true"/> when the brace pair is single-line.</returns>
+    internal static bool IsSingleLineBlock(SourceText text, BlockSyntax block)
+    {
+        var openLine = text.Lines.GetLineFromPosition(block.OpenBraceToken.SpanStart);
+        return block.CloseBraceToken.SpanStart <= openLine.EndIncludingLineBreak;
+    }
+
     /// <summary>Reports a non-empty embedded block whose braces and content share one line.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
@@ -36,7 +48,7 @@ public sealed class SingleLineStatementAnalyzer : DiagnosticAnalyzer
         }
 
         var text = context.Node.SyntaxTree.GetText(context.CancellationToken);
-        if (LayoutHelpers.StartLine(text, block.OpenBraceToken) != LayoutHelpers.StartLine(text, block.CloseBraceToken))
+        if (!IsSingleLineBlock(text, block))
         {
             return;
         }

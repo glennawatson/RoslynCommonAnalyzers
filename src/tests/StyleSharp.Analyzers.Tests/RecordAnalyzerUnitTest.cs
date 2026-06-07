@@ -2,6 +2,9 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
 using TUnit.Assertions;
 
 using VerifyRecord = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -74,4 +77,46 @@ public class RecordAnalyzerUnitTest
     [Arguments("1Value")]
     public async Task PascalCaseFastPathRejectsNonCompliantNames(string name)
         => await Assert.That(RecordAnalyzer.IsPascalCaseFastPathCompliant(name)).IsFalse();
+
+    /// <summary>Verifies the clean PascalCase fast path short-circuits without needing later naming scans.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PositionalParameterNamingSkipsCleanPascalCaseFastPathAsync()
+        => await Assert.That(RecordAnalyzer.ShouldReportPositionalParameterNaming("Value", NamingConvention.PascalCase)).IsFalse();
+
+    /// <summary>Verifies underscore placeholders remain exempt from positional-parameter naming diagnostics.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PositionalParameterNamingSkipsAllUnderscoresAsync()
+        => await Assert.That(RecordAnalyzer.ShouldReportPositionalParameterNaming("___", NamingConvention.PascalCase)).IsFalse();
+
+    /// <summary>Verifies the clean get/init property shape skips SST1802 without scanning for set accessors.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InitOnlyPropertyFastPathSkipsCleanShapeAsync()
+    {
+        var property = ParseProperty("public string Name { get; init; }");
+
+        await Assert.That(RecordAnalyzer.TryGetSetAccessorToReport(property.AccessorList!.Accessors)).IsNull();
+    }
+
+    /// <summary>Verifies a set accessor is selected for SST1802 reporting.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InitOnlyPropertyFastPathFindsSetAccessorAsync()
+    {
+        var property = ParseProperty("public string Name { get; set; }");
+
+        await Assert.That(RecordAnalyzer.TryGetSetAccessorToReport(property.AccessorList!.Accessors)?.Kind())
+            .IsEqualTo(SyntaxKind.SetAccessorDeclaration);
+    }
+
+    /// <summary>Parses a single property declaration for helper-level tests.</summary>
+    /// <param name="source">The property declaration source.</param>
+    /// <returns>The parsed property declaration.</returns>
+    private static PropertyDeclarationSyntax ParseProperty(string source)
+        => (PropertyDeclarationSyntax)SyntaxFactory.ParseCompilationUnit("public sealed record Person { " + source + " }")
+            .Members[0]
+            .ChildNodes()
+            .Single();
 }

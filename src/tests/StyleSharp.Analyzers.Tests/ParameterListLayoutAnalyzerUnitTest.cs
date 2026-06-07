@@ -2,6 +2,10 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
 using VerifyParameterLayout = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.ParameterListLayoutAnalyzer>;
 
@@ -131,4 +135,34 @@ public class ParameterListLayoutAnalyzerUnitTest
                 private static void M(int x, int y) => _ = x + y;
             }
             """);
+
+    /// <summary>Verifies the opening-bracket helper stays clean when the previous token is on the same line.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task OpeningHelperRecognizesDeclarationLineAsync()
+    {
+        var open = ParseOpenParenToken("class C { void M(int x) { } }");
+        var text = await open.SyntaxTree!.GetTextAsync();
+        var openLine = LayoutHelpers.StartLine(text, open);
+
+        await Assert.That(ParameterListLayoutAnalyzer.IsOpeningOnDeclarationLine(text, open, openLine)).IsTrue();
+    }
+
+    /// <summary>Verifies the opening-bracket helper rejects an opening token that moved to the next line.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task OpeningHelperRejectsOffLineDeclarationAsync()
+    {
+        var open = ParseOpenParenToken("class C { void M\n(int x) { } }");
+        var text = await open.SyntaxTree!.GetTextAsync();
+        var openLine = LayoutHelpers.StartLine(text, open);
+
+        await Assert.That(ParameterListLayoutAnalyzer.IsOpeningOnDeclarationLine(text, open, openLine)).IsFalse();
+    }
+
+    /// <summary>Parses the first parameter-list opening parenthesis token from the source.</summary>
+    /// <param name="source">The source containing the parameter list.</param>
+    /// <returns>The opening parenthesis token.</returns>
+    private static SyntaxToken ParseOpenParenToken(string source)
+        => SyntaxFactory.ParseCompilationUnit(source).DescendantNodes().OfType<ParameterListSyntax>().First().OpenParenToken;
 }

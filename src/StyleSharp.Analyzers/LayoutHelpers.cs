@@ -64,18 +64,161 @@ internal static class LayoutHelpers
     /// <returns>The zero-based line index of the member's first documentation/comment trivia or first token.</returns>
     public static int ContentStartLine(SourceText text, SyntaxNode member)
     {
-        foreach (var trivia in member.GetLeadingTrivia())
+        if (TryGetHeaderStartLine(text, member, out var startLine))
+        {
+            return startLine;
+        }
+
+        return StartLine(text, member.GetFirstToken());
+    }
+
+    /// <summary>Returns the starting line of leading comment or documentation trivia, when present.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="member">The member node.</param>
+    /// <param name="startLine">The line of the first leading header trivia.</param>
+    /// <returns><see langword="true"/> when the member has a leading comment or documentation header.</returns>
+    public static bool TryGetHeaderStartLine(SourceText text, SyntaxNode member, out int startLine)
+    {
+        var leadingTrivia = member.GetLeadingTrivia();
+        if (leadingTrivia.Count == 0)
+        {
+            startLine = default;
+            return false;
+        }
+
+        foreach (var trivia in leadingTrivia)
         {
             if (trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
                 || trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia)
                 || trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
                 || trivia.IsKind(SyntaxKind.MultiLineCommentTrivia))
             {
-                return LineOf(text, trivia.SpanStart);
+                startLine = LineOf(text, trivia.SpanStart);
+                return true;
             }
         }
 
-        return StartLine(text, member.GetFirstToken());
+        startLine = default;
+        return false;
+    }
+
+    /// <summary>Returns the line on which a member's content begins, using the running line cursor when practical.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="member">The member node.</param>
+    /// <param name="lineNumber">The current line number cursor.</param>
+    /// <param name="line">The current line cursor.</param>
+    /// <returns>The zero-based line index of the member's first header trivia or first token.</returns>
+    public static int ContentStartLineOrLater(SourceText text, SyntaxNode member, ref int lineNumber, ref TextLine line)
+    {
+        var leadingTrivia = member.GetLeadingTrivia();
+        if (leadingTrivia.Count == 0)
+        {
+            return LineOfOrLater(text, member.GetFirstToken().SpanStart, ref lineNumber, ref line);
+        }
+
+        foreach (var trivia in leadingTrivia)
+        {
+            if (trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
+                || trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia)
+                || trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
+                || trivia.IsKind(SyntaxKind.MultiLineCommentTrivia))
+            {
+                return LineOfOrLater(text, trivia.SpanStart, ref lineNumber, ref line);
+            }
+        }
+
+        return LineOfOrLater(text, member.GetFirstToken().SpanStart, ref lineNumber, ref line);
+    }
+
+    /// <summary>Returns the zero-based line number for a position on or after the current cursor.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="position">The position to look up.</param>
+    /// <param name="lineNumber">The current line number cursor.</param>
+    /// <param name="line">The current line cursor.</param>
+    /// <returns>The resolved line number.</returns>
+    public static int LineOfOrLater(SourceText text, int position, ref int lineNumber, ref TextLine line)
+    {
+        while (position >= line.EndIncludingLineBreak && lineNumber + 1 < text.Lines.Count)
+        {
+            lineNumber++;
+            line = text.Lines[lineNumber];
+        }
+
+        return lineNumber;
+    }
+
+    /// <summary>Returns the zero-based start and end line numbers for a span on or after the current cursor.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="start">The span start to look up.</param>
+    /// <param name="end">The span end to look up.</param>
+    /// <param name="lineNumber">The current line number cursor.</param>
+    /// <param name="line">The current line cursor.</param>
+    /// <param name="startLine">The resolved start line.</param>
+    /// <param name="endLine">The resolved end line.</param>
+    public static void GetLineSpanOfOrLater(
+        SourceText text,
+        int start,
+        int end,
+        ref int lineNumber,
+        ref TextLine line,
+        out int startLine,
+        out int endLine)
+    {
+        startLine = LineOfOrLater(text, start, ref lineNumber, ref line);
+        if (end <= line.EndIncludingLineBreak)
+        {
+            endLine = lineNumber;
+            return;
+        }
+
+        endLine = LineOfOrLater(text, end, ref lineNumber, ref line);
+    }
+
+    /// <summary>Returns whether a token is the first token on its line.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="token">The token to inspect.</param>
+    /// <param name="tokenLine">The token's line.</param>
+    /// <returns><see langword="true"/> when no earlier token shares the line.</returns>
+    public static bool TokenStartsLine(SourceText text, SyntaxToken token, int tokenLine)
+    {
+        var previous = token.GetPreviousToken();
+        return previous.IsKind(SyntaxKind.None) || EndLine(text, previous) < tokenLine;
+    }
+
+    /// <summary>Returns whether a token shares its line with the token before it.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="token">The token to inspect.</param>
+    /// <param name="tokenLine">The token's line.</param>
+    /// <returns><see langword="true"/> when code precedes the token on its line.</returns>
+    public static bool TokenSharesLineWithPrevious(SourceText text, SyntaxToken token, int tokenLine)
+    {
+        var previous = token.GetPreviousToken();
+        return !previous.IsKind(SyntaxKind.None) && EndLine(text, previous) == tokenLine;
+    }
+
+    /// <summary>Returns whether a token shares its line with the token after it.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="token">The token to inspect.</param>
+    /// <param name="tokenLine">The token's line.</param>
+    /// <returns><see langword="true"/> when code follows the token on its line.</returns>
+    public static bool TokenSharesLineWithNext(SourceText text, SyntaxToken token, int tokenLine)
+    {
+        var next = token.GetNextToken();
+        return !next.IsKind(SyntaxKind.None) && StartLine(text, next) == tokenLine;
+    }
+
+    /// <summary>Returns the combined line-sharing facts for a token in one neighbor scan.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="token">The token to inspect.</param>
+    /// <param name="tokenLine">The token's line.</param>
+    /// <returns>The token's line-sharing facts.</returns>
+    public static TokenLineFacts GetTokenLineFacts(SourceText text, SyntaxToken token, int tokenLine)
+    {
+        var previous = token.GetPreviousToken();
+        var sharesLineWithPrevious = !previous.IsKind(SyntaxKind.None) && EndLine(text, previous) == tokenLine;
+        var next = token.GetNextToken();
+        var sharesLineWithNext = !next.IsKind(SyntaxKind.None) && StartLine(text, next) == tokenLine;
+        return new(!sharesLineWithPrevious, sharesLineWithPrevious, sharesLineWithNext);
     }
 
     /// <summary>The control-flow statement kinds that carry a single embedded child statement.</summary>
@@ -243,4 +386,10 @@ internal static class LayoutHelpers
         FixedStatementSyntax @fixed => @fixed.Statement,
         _ => null,
     };
+
+    /// <summary>Summarizes how a token relates to other tokens on its line.</summary>
+    /// <param name="StartsLine">Whether the token is the first token on its line.</param>
+    /// <param name="SharesLineWithPrevious">Whether code precedes the token on its line.</param>
+    /// <param name="SharesLineWithNext">Whether code follows the token on its line.</param>
+    public readonly record struct TokenLineFacts(bool StartsLine, bool SharesLineWithPrevious, bool SharesLineWithNext);
 }

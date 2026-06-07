@@ -35,6 +35,13 @@ public sealed class ElementSpacingAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(Analyze, HandledKinds);
     }
 
+    /// <summary>Returns whether a current member should report for lacking a blank separating line.</summary>
+    /// <param name="previousEndLine">The previous member's ending line.</param>
+    /// <param name="currentStartLine">The current member's content starting line.</param>
+    /// <returns><see langword="true"/> when the current member is not separated by a blank line.</returns>
+    internal static bool ShouldReportSpacing(int previousEndLine, int currentStartLine)
+        => currentStartLine <= previousEndLine + 1;
+
     /// <summary>Walks the container's members and reports any pair without a blank line between them.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
@@ -46,14 +53,17 @@ public sealed class ElementSpacingAnalyzer : DiagnosticAnalyzer
         }
 
         var text = context.Node.SyntaxTree.GetText(context.CancellationToken);
+        var lineNumber = 0;
+        var line = text.Lines[0];
         var previous = members[0];
         for (var index = 1; index < members.Count; index++)
         {
             var current = members[index];
-            var previousEndLine = LayoutHelpers.EndLine(text, previous.GetLastToken());
-            var currentStartLine = LayoutHelpers.ContentStartLine(text, current);
+            var previousEnd = previous.GetLastToken().Span.End;
+            var previousEndLine = LayoutHelpers.LineOfOrLater(text, previousEnd > 0 ? previousEnd - 1 : 0, ref lineNumber, ref line);
+            var currentStartLine = LayoutHelpers.ContentStartLineOrLater(text, current, ref lineNumber, ref line);
 
-            if (currentStartLine <= previousEndLine + 1)
+            if (ShouldReportSpacing(previousEndLine, currentStartLine))
             {
                 context.ReportDiagnostic(Diagnostic.Create(LayoutRules.ElementsSeparatedByBlankLine, current.GetFirstToken().GetLocation()));
             }

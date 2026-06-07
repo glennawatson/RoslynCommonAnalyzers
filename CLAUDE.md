@@ -39,11 +39,14 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
 
 ## Conventions (follow these)
 
-- **No suppressions.** Never use `#pragma warning disable`, `<NoWarn>`,
+- **No suppressions by default.** Never use `#pragma warning disable`, `<NoWarn>`,
   `[SuppressMessage]`, or `.editorconfig` severity downgrades to silence a rule —
-  fix the underlying issue. The repo builds its own source with StyleCop +
-  Roslynator + SonarAnalyzer under `TreatWarningsAsErrors`, including the
-  benchmark project.
+  fix the underlying issue. The one allowed exception is a
+  `SuppressMessageAttribute` on a proven perf-motivated large `switch` statement
+  when the switch is measurably better than the non-suppressed alternatives.
+  Keep that exception narrow, document the justification inline, and do not use it
+  for anything else. The repo builds its own source with StyleCop + Roslynator +
+  SonarAnalyzer under `TreatWarningsAsErrors`, including the benchmark project.
 
 - **Repo layout:** repo metadata stays at the repository root, but build entry
   points live under `src/`. Run `dotnet` commands from `src/`; projects are

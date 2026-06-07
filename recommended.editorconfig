@@ -1,0 +1,282 @@
+# StyleSharp.Analyzers — recommended .editorconfig preset
+#
+# Drop this in (or merge it into) the .editorconfig at your repository root to adopt
+# the StyleSharp rule set with sensible defaults. Every rule below is already enabled
+# by default at Warning severity — listing them explicitly just gives you a single
+# place to tune severities (warning / suggestion / error / none) per rule.
+#
+# Lines that are commented out are the OPT-IN rules: off by default because they are
+# opinionated or situational. Uncomment one to turn it on. See docs/CONFIGURATION.md
+# and docs/rules/SSTxxxx.md for what each rule does.
+#
+# Configurable options (uncomment and adjust):
+# stylesharp.tuple_element_naming = pascal_case            # SST1316
+# stylesharp.union_member_naming = pascal_case             # SST1315
+# stylesharp.record_parameter_naming = pascal_case         # SST1801
+# stylesharp.conditional_operator_placement = leading      # SST1145
+# stylesharp.summary_single_line_max_length = 100          # SST1653
+# stylesharp.namespace_root = MyCompany.MyProduct          # SST1417 (also reads MSBuild RootNamespace)
+# stylesharp.max_switch_sections = 30                      # SST1423
+
+[*.cs]
+
+# Concurrency
+dotnet_diagnostic.SST1900.severity = warning # A dedicated object lock field should be a System.Threading.Lock
+dotnet_diagnostic.SST1901.severity = warning # A lock targets a field or property reachable from outside the declaring type
+# dotnet_diagnostic.SST1902.severity = warning # A lock targets this, a Type, or a string (opt-in)
+
+# Documentation
+dotnet_diagnostic.SST1600.severity = warning # Externally visible members should be documented
+dotnet_diagnostic.SST1601.severity = warning # Partial elements should be documented
+dotnet_diagnostic.SST1602.severity = warning # Enumeration members should be documented
+dotnet_diagnostic.SST1604.severity = warning # Element documentation should contain a summary
+# dotnet_diagnostic.SST1605.severity = warning # Partial element documentation should have a summary (opt-in)
+dotnet_diagnostic.SST1606.severity = warning # The summary should have text
+# dotnet_diagnostic.SST1607.severity = warning # Partial element summary should have text (opt-in)
+dotnet_diagnostic.SST1608.severity = warning # Documentation should not use the default placeholder summary
+# dotnet_diagnostic.SST1609.severity = warning # Property documentation should have a value element (opt-in)
+# dotnet_diagnostic.SST1610.severity = warning # Property value element should have text (opt-in)
+dotnet_diagnostic.SST1611.severity = warning # Parameters should be documented
+dotnet_diagnostic.SST1612.severity = warning # Parameter documentation should match the parameters
+dotnet_diagnostic.SST1613.severity = warning # Parameter documentation should declare a name
+dotnet_diagnostic.SST1614.severity = warning # Parameter documentation should have text
+dotnet_diagnostic.SST1615.severity = warning # The return value should be documented
+dotnet_diagnostic.SST1616.severity = warning # Return value documentation should have text
+dotnet_diagnostic.SST1617.severity = warning # A void return value should not be documented
+dotnet_diagnostic.SST1618.severity = warning # Generic type parameters should be documented
+# dotnet_diagnostic.SST1619.severity = warning # Generic type parameters of a partial type should be documented (opt-in)
+dotnet_diagnostic.SST1620.severity = warning # Type parameter documentation should match the type parameters
+dotnet_diagnostic.SST1621.severity = warning # Type parameter documentation should declare a name
+dotnet_diagnostic.SST1622.severity = warning # Type parameter documentation should have text
+dotnet_diagnostic.SST1623.severity = warning # Property summaries should describe their accessors ("Gets", "Sets", "Gets or sets")
+# dotnet_diagnostic.SST1624.severity = warning # A property summary mentions a restricted setter (opt-in)
+dotnet_diagnostic.SST1625.severity = warning # Element documentation should not be copy-pasted
+dotnet_diagnostic.SST1626.severity = warning # A documentation-style comment is used where it does not document an element
+# dotnet_diagnostic.SST1627.severity = warning # A documentation section contains no text (opt-in)
+# dotnet_diagnostic.SST1628.severity = warning # Documentation text should begin with a capital letter (opt-in)
+dotnet_diagnostic.SST1629.severity = warning # Documentation text should end with a period
+# dotnet_diagnostic.SST1630.severity = warning # Documentation text should contain whitespace between words (opt-in)
+# dotnet_diagnostic.SST1631.severity = warning # Documentation text should be mostly letters (opt-in)
+# dotnet_diagnostic.SST1632.severity = warning # Documentation text should meet a minimum length (opt-in)
+dotnet_diagnostic.SST1633.severity = warning # Files should begin with the configured header
+dotnet_diagnostic.SST1642.severity = warning # Constructor summaries should begin with the standard text
+dotnet_diagnostic.SST1643.severity = warning # Destructor summaries should begin with the standard text
+# dotnet_diagnostic.SST1644.severity = warning # A documentation comment contains an interior blank line (opt-in)
+dotnet_diagnostic.SST1648.severity = warning # Inheritdoc should only be used on inheriting elements
+dotnet_diagnostic.SST1649.severity = warning # The file name should match the first type name
+dotnet_diagnostic.SST1651.severity = warning # Placeholder documentation elements should be removed
+dotnet_diagnostic.SST1653.severity = warning # Keep short documentation summaries on a single line
+
+# Extensions
+dotnet_diagnostic.SST1700.severity = warning # An extension block declares no members
+dotnet_diagnostic.SST1701.severity = warning # Two extension blocks in a type share the same receiver type
+dotnet_diagnostic.SST1702.severity = warning # Extension blocks in a type are separated by other members
+# dotnet_diagnostic.SST1703.severity = warning # A classic 'this'-parameter extension method is used where an extension block could be (opt-in)
+dotnet_diagnostic.SST1704.severity = warning # A class declaring extension blocks is not named with an 'Extensions' suffix
+dotnet_diagnostic.SST1705.severity = warning # A class mixes classic extension methods with extension blocks
+dotnet_diagnostic.SST1706.severity = warning # An extension block targets a broad receiver type such as object or dynamic
+# dotnet_diagnostic.SST1707.severity = warning # Extension blocks in a type are not ordered by receiver type (opt-in)
+
+# Layout
+dotnet_diagnostic.SST1500.severity = warning # A brace in a multi-line construct shares its line with other code
+dotnet_diagnostic.SST1501.severity = warning # A statement block is collapsed onto a single line
+dotnet_diagnostic.SST1502.severity = warning # An element body is collapsed onto a single line
+dotnet_diagnostic.SST1503.severity = warning # A control-flow statement omits the braces around its child statement
+dotnet_diagnostic.SST1504.severity = warning # The accessors of a property/event mix single-line and multi-line forms
+dotnet_diagnostic.SST1505.severity = warning # An opening brace is followed by a blank line
+dotnet_diagnostic.SST1506.severity = warning # An element documentation header is followed by a blank line
+dotnet_diagnostic.SST1507.severity = warning # Two or more blank lines appear in a row
+dotnet_diagnostic.SST1508.severity = warning # A closing brace is preceded by a blank line
+dotnet_diagnostic.SST1509.severity = warning # An opening brace is preceded by a blank line
+dotnet_diagnostic.SST1510.severity = warning # A chained block (else/catch/finally) is preceded by a blank line
+dotnet_diagnostic.SST1511.severity = warning # The 'while' footer of a do/while loop is preceded by a blank line
+dotnet_diagnostic.SST1512.severity = warning # A single-line comment is followed by a blank line
+dotnet_diagnostic.SST1513.severity = warning # A closing brace is not followed by a blank line
+dotnet_diagnostic.SST1514.severity = warning # An element documentation header is not preceded by a blank line
+dotnet_diagnostic.SST1515.severity = warning # A single-line comment is not preceded by a blank line
+dotnet_diagnostic.SST1516.severity = warning # Adjacent members or namespace elements are not separated by a blank line
+dotnet_diagnostic.SST1517.severity = warning # The file begins with one or more blank lines
+dotnet_diagnostic.SST1518.severity = warning # The file does not end with exactly one newline
+dotnet_diagnostic.SST1519.severity = warning # A multi-line child statement of a control-flow keyword omits its braces
+dotnet_diagnostic.SST1520.severity = warning # The clauses of an if/else chain use braces inconsistently
+
+# Maintainability
+dotnet_diagnostic.SST1400.severity = warning # An element does not declare an access modifier
+dotnet_diagnostic.SST1401.severity = warning # A non-private, non-constant field is exposed
+dotnet_diagnostic.SST1402.severity = warning # A file declares more than one top-level type
+dotnet_diagnostic.SST1403.severity = warning # A file declares more than one namespace
+dotnet_diagnostic.SST1404.severity = warning # A code-analysis suppression has no justification
+dotnet_diagnostic.SST1405.severity = warning # A Debug.Assert call provides no message
+dotnet_diagnostic.SST1406.severity = warning # A Debug.Fail call provides no message
+dotnet_diagnostic.SST1407.severity = warning # Mixed-precedence arithmetic is not parenthesized
+dotnet_diagnostic.SST1408.severity = warning # Mixed conditional operators are not parenthesized
+dotnet_diagnostic.SST1410.severity = warning # An anonymous method has an empty parameter list
+dotnet_diagnostic.SST1411.severity = warning # An attribute uses an empty argument list
+# dotnet_diagnostic.SST1412.severity = warning # Files should be stored as UTF-8 with a byte order mark (opt-in)
+dotnet_diagnostic.SST1413.severity = warning # A multi-line initializer omits the trailing comma
+dotnet_diagnostic.SST1414.severity = warning # A tuple type in a member signature has an unnamed element (mirrors SA1414)
+dotnet_diagnostic.SST1415.severity = warning # An argument-exception constructor uses a string literal where nameof would track renames (StyleSharp original)
+# dotnet_diagnostic.SST1416.severity = warning # A public member is declared in a type that is not externally visible (opt-in)
+# dotnet_diagnostic.SST1417.severity = warning # A namespace does not match the file's folder structure (opt-in)
+dotnet_diagnostic.SST1418.severity = warning # A binary expression is an operand of ?? without parentheses (StyleSharp original; extends SST1407/SST1408)
+dotnet_diagnostic.SST1419.severity = warning # A modifier has no effect in its declaration context
+dotnet_diagnostic.SST1420.severity = warning # A property trivially wraps a private backing field
+dotnet_diagnostic.SST1421.severity = warning # A property has a setter but no getter
+# dotnet_diagnostic.SST1422.severity = warning # A private field acts only as method-local temporary storage (opt-in)
+dotnet_diagnostic.SST1423.severity = warning # A switch statement exceeds the configured section count
+# dotnet_diagnostic.SST1424.severity = warning # A private field is never assigned outside construction (opt-in)
+# dotnet_diagnostic.SST1450.severity = warning # Files should be stored as UTF-8 without a byte order mark (opt-in)
+
+# Modernization
+dotnet_diagnostic.SST2000.severity = warning # A null check + throw should use ArgumentNullException.ThrowIfNull
+# dotnet_diagnostic.SST2001.severity = warning # An empty-string check + throw should use ArgumentException.ThrowIfNullOrEmpty (opt-in)
+# dotnet_diagnostic.SST2002.severity = warning # A whitespace check + throw should use ArgumentException.ThrowIfNullOrWhiteSpace (opt-in)
+dotnet_diagnostic.SST2003.severity = warning # A disposed check should use ObjectDisposedException.ThrowIf
+dotnet_diagnostic.SST2004.severity = warning # A range check should use an ArgumentOutOfRangeException.ThrowIf... helper
+
+# Collection expressions
+dotnet_diagnostic.SST2100.severity = warning # An empty collection creation can use []
+# dotnet_diagnostic.SST2101.severity = warning # An explicit collection creation can use [...] (opt-in)
+
+# Modern syntax
+# dotnet_diagnostic.SST2200.severity = warning # A single-use backing field can use the C# 14 field keyword (opt-in)
+
+# Naming
+dotnet_diagnostic.SST1300.severity = warning # Types and members should be PascalCase
+dotnet_diagnostic.SST1302.severity = warning # Interface names should begin with I
+dotnet_diagnostic.SST1303.severity = warning # Const names should be PascalCase
+dotnet_diagnostic.SST1304.severity = warning # Non-private readonly fields should be PascalCase
+# dotnet_diagnostic.SST1305.severity = warning # Names should not use Hungarian notation (opt-in)
+# dotnet_diagnostic.SST1306.severity = warning # Field names should begin with a lower-case letter (opt-in)
+dotnet_diagnostic.SST1307.severity = warning # Accessible fields should be PascalCase
+# dotnet_diagnostic.SST1308.severity = warning # Field names should not be prefixed with m_ or s_ (opt-in)
+dotnet_diagnostic.SST1309.severity = warning # Private fields should be _camelCase (runtime convention; inverts StyleCop SA1309)
+# dotnet_diagnostic.SST1310.severity = warning # Field names should not contain underscores (opt-in)
+dotnet_diagnostic.SST1311.severity = warning # Static readonly fields should be PascalCase
+dotnet_diagnostic.SST1312.severity = warning # Local variables should be camelCase
+dotnet_diagnostic.SST1313.severity = warning # Parameters should be camelCase
+dotnet_diagnostic.SST1314.severity = warning # Type parameters should begin with T
+dotnet_diagnostic.SST1315.severity = warning # Union member names should use the configured casing (default PascalCase)
+dotnet_diagnostic.SST1316.severity = warning # Tuple element names should use the configured casing (default PascalCase)
+
+# Ordering
+dotnet_diagnostic.SST1200.severity = warning # Using directives should be placed outside the namespace
+dotnet_diagnostic.SST1201.severity = warning # Members should be ordered by kind
+dotnet_diagnostic.SST1202.severity = warning # Members should be ordered by accessibility
+dotnet_diagnostic.SST1203.severity = warning # Constants should appear before fields
+dotnet_diagnostic.SST1204.severity = warning # Static members should appear before instance members
+dotnet_diagnostic.SST1205.severity = warning # Partial elements should declare an access modifier
+dotnet_diagnostic.SST1206.severity = warning # Declaration keywords should follow the standard order
+dotnet_diagnostic.SST1207.severity = warning # Place protected before internal
+dotnet_diagnostic.SST1208.severity = warning # System using directives should appear before other usings
+dotnet_diagnostic.SST1209.severity = warning # Using alias directives should appear after other usings
+dotnet_diagnostic.SST1210.severity = warning # Regular using directives should be ordered alphabetically
+dotnet_diagnostic.SST1211.severity = warning # Using alias directives should be ordered alphabetically by alias
+dotnet_diagnostic.SST1212.severity = warning # Property accessors should be ordered with get first
+dotnet_diagnostic.SST1213.severity = warning # Event accessors should be ordered with add first
+dotnet_diagnostic.SST1214.severity = warning # Static readonly fields should appear before static non-readonly fields
+dotnet_diagnostic.SST1215.severity = warning # Instance readonly fields should appear before instance non-readonly fields (mirrors SA1215)
+dotnet_diagnostic.SST1216.severity = warning # Using static directives should be placed after regular usings and before aliases
+dotnet_diagnostic.SST1217.severity = warning # Using static directives should be ordered alphabetically
+
+# Readability
+dotnet_diagnostic.SST1100.severity = warning # A base. prefix is used where the type does not override the member
+# dotnet_diagnostic.SST1101.severity = warning # An instance member is accessed without a this. prefix (opt-in)
+dotnet_diagnostic.SST1102.severity = warning # A query clause is separated from the previous clause by a blank line
+dotnet_diagnostic.SST1103.severity = warning # Query clauses mix single-line and multi-line layout
+dotnet_diagnostic.SST1104.severity = warning # A query clause shares the last line of a multi-line previous clause
+dotnet_diagnostic.SST1105.severity = warning # A multi-line query clause does not begin on its own line
+dotnet_diagnostic.SST1106.severity = warning # A statement is empty (a stray semicolon)
+dotnet_diagnostic.SST1107.severity = warning # More than one statement shares a line
+dotnet_diagnostic.SST1110.severity = warning # An opening parenthesis or bracket does not sit on the line of the preceding code
+dotnet_diagnostic.SST1111.severity = warning # A closing parenthesis or bracket does not sit on the last parameter's line
+dotnet_diagnostic.SST1112.severity = warning # An empty parameter list's closing parenthesis is on a different line
+dotnet_diagnostic.SST1113.severity = warning # A comma does not sit on the previous parameter's line
+dotnet_diagnostic.SST1114.severity = warning # A blank line separates the declaration from its parameter list
+dotnet_diagnostic.SST1115.severity = warning # A blank line separates a parameter from the preceding comma
+# dotnet_diagnostic.SST1118.severity = warning # A parameter or argument spans multiple lines (opt-in)
+dotnet_diagnostic.SST1120.severity = warning # A comment contains no text
+# dotnet_diagnostic.SST1121.severity = warning # A framework type name is used instead of its built-in alias (opt-in)
+dotnet_diagnostic.SST1122.severity = warning # An empty string literal is used instead of string.Empty
+dotnet_diagnostic.SST1123.severity = warning # A #region is placed inside a code element body
+dotnet_diagnostic.SST1124.severity = warning # A #region directive is used
+dotnet_diagnostic.SST1125.severity = warning # A Nullable<T> type is written in long form instead of the T? shorthand
+dotnet_diagnostic.SST1127.severity = warning # A generic type constraint shares a line with the declaration or another constraint
+dotnet_diagnostic.SST1128.severity = warning # A constructor initializer shares a line with the constructor signature
+dotnet_diagnostic.SST1129.severity = warning # A value type is created with a parameterless constructor call instead of default
+dotnet_diagnostic.SST1130.severity = warning # An anonymous delegate is used where a lambda expression is clearer
+dotnet_diagnostic.SST1131.severity = warning # A comparison places the constant on the left ("yoda" condition)
+dotnet_diagnostic.SST1132.severity = warning # Several fields are declared in a single statement
+dotnet_diagnostic.SST1133.severity = warning # Several attributes share one bracket list
+dotnet_diagnostic.SST1134.severity = warning # An attribute shares a line with another attribute or the element
+dotnet_diagnostic.SST1135.severity = warning # A using directive names a namespace or type that is not fully qualified
+dotnet_diagnostic.SST1136.severity = warning # Several enum members share a line
+dotnet_diagnostic.SST1137.severity = warning # Sibling elements are indented differently from one another
+dotnet_diagnostic.SST1139.severity = warning # A numeric literal is cast where a literal suffix would express the type
+dotnet_diagnostic.SST1141.severity = warning # An explicit ValueTuple<...> is used where tuple syntax would do (mirrors SA1141)
+dotnet_diagnostic.SST1142.severity = warning # A tuple element is accessed by ItemN where it has a name (mirrors SA1142)
+dotnet_diagnostic.SST1143.severity = warning # A boolean expression is compared to a true/false literal (StyleSharp original)
+# dotnet_diagnostic.SST1144.severity = warning # Stacked case labels could be combined into one or pattern (opt-in)
+dotnet_diagnostic.SST1145.severity = warning # A wrapped conditional expression places ?/: inconsistently (StyleSharp original)
+dotnet_diagnostic.SST1146.severity = warning # An if statement follows a closing brace on the same line
+# dotnet_diagnostic.SST1147.severity = warning # A conditional expression is nested inside another conditional expression (opt-in)
+# dotnet_diagnostic.SST1148.severity = warning # A regular comment appears to contain C# code (opt-in)
+dotnet_diagnostic.SST1150.severity = warning # Require each constructor parameter on a unique line
+dotnet_diagnostic.SST1151.severity = warning # Require each method parameter on a unique line
+dotnet_diagnostic.SST1152.severity = warning # Require each delegate parameter on a unique line
+dotnet_diagnostic.SST1153.severity = warning # Require each indexer parameter on a unique line
+dotnet_diagnostic.SST1154.severity = warning # Require each invocation argument on a unique line
+dotnet_diagnostic.SST1155.severity = warning # Require each object creation argument on a unique line
+dotnet_diagnostic.SST1156.severity = warning # Require each element access argument on a unique line
+dotnet_diagnostic.SST1157.severity = warning # Require each attribute argument on a unique line
+dotnet_diagnostic.SST1158.severity = warning # Require each anonymous method parameter on a unique line
+dotnet_diagnostic.SST1159.severity = warning # Require each parenthesized lambda parameter on a unique line
+dotnet_diagnostic.SST1160.severity = warning # Require each record primary-constructor parameter on a unique line
+dotnet_diagnostic.SST1161.severity = warning # Require each class primary-constructor parameter on a unique line
+dotnet_diagnostic.SST1162.severity = warning # Require each struct primary-constructor parameter on a unique line
+dotnet_diagnostic.SST1163.severity = warning # Require each target-typed object creation argument on a unique line
+dotnet_diagnostic.SST1164.severity = warning # Require each constructor initializer argument on a unique line
+dotnet_diagnostic.SST1165.severity = warning # Require each primary-constructor base argument on a unique line
+dotnet_diagnostic.SST1166.severity = warning # Require each local-function parameter on a unique line
+dotnet_diagnostic.SST1167.severity = warning # Require each operator parameter on a unique line
+dotnet_diagnostic.SST1168.severity = warning # Require each conversion-operator parameter on a unique line
+dotnet_diagnostic.SST1169.severity = warning # Require each type parameter on a unique line
+dotnet_diagnostic.SST1170.severity = warning # Require each type argument on a unique line
+dotnet_diagnostic.SST1171.severity = warning # Require each function-pointer parameter on a unique line
+
+# Records
+# dotnet_diagnostic.SST1800.severity = warning # A record class is neither sealed nor abstract (opt-in)
+dotnet_diagnostic.SST1801.severity = warning # A positional record parameter does not match the configured casing (default PascalCase)
+dotnet_diagnostic.SST1802.severity = warning # A record declares a settable (rather than init-only) instance property
+dotnet_diagnostic.SST1803.severity = warning # A record struct is not declared readonly
+
+# Spacing
+dotnet_diagnostic.SST1000.severity = warning # A control-flow keyword is not followed by a space
+dotnet_diagnostic.SST1001.severity = warning # A comma is spaced incorrectly
+dotnet_diagnostic.SST1002.severity = warning # A semicolon is spaced incorrectly
+dotnet_diagnostic.SST1003.severity = warning # A binary operator is not surrounded by spaces
+dotnet_diagnostic.SST1004.severity = warning # A documentation comment line does not begin with a single space after the '///'
+dotnet_diagnostic.SST1005.severity = warning # A single-line comment does not begin with a single space
+dotnet_diagnostic.SST1006.severity = warning # A preprocessor keyword is preceded by a space after the '#'
+dotnet_diagnostic.SST1007.severity = warning # An operator keyword is not followed by a space
+dotnet_diagnostic.SST1008.severity = warning # An opening parenthesis is followed by a space
+dotnet_diagnostic.SST1009.severity = warning # A closing parenthesis is preceded by a space
+# dotnet_diagnostic.SST1010.severity = warning # An opening square bracket has adjacent whitespace (opt-in)
+dotnet_diagnostic.SST1011.severity = warning # A closing square bracket is preceded by a space
+dotnet_diagnostic.SST1012.severity = warning # An opening brace is not followed by a space on a single line
+dotnet_diagnostic.SST1013.severity = warning # A closing brace is not preceded by a space on a single line
+dotnet_diagnostic.SST1014.severity = warning # An opening generic bracket is preceded or followed by a space
+dotnet_diagnostic.SST1015.severity = warning # A closing generic bracket is preceded by a space
+dotnet_diagnostic.SST1016.severity = warning # An opening attribute bracket is followed by a space
+dotnet_diagnostic.SST1017.severity = warning # A closing attribute bracket is preceded by a space
+dotnet_diagnostic.SST1018.severity = warning # A nullable type symbol is preceded by a space
+dotnet_diagnostic.SST1019.severity = warning # A member access symbol is surrounded by spaces
+dotnet_diagnostic.SST1020.severity = warning # An increment or decrement symbol is separated from its operand by a space
+dotnet_diagnostic.SST1021.severity = warning # A unary negative sign is followed by a space
+dotnet_diagnostic.SST1022.severity = warning # A unary positive sign is followed by a space
+# dotnet_diagnostic.SST1023.severity = warning # A dereference or address-of symbol is followed by a space (opt-in)
+dotnet_diagnostic.SST1024.severity = warning # A colon is spaced incorrectly for its context
+dotnet_diagnostic.SST1025.severity = warning # Two or more whitespace characters appear in a row within a line
+dotnet_diagnostic.SST1026.severity = warning # A space follows 'new' or 'stackalloc' in an implicit array creation
+dotnet_diagnostic.SST1027.severity = warning # A tab character is used where the project standardises on spaces
+dotnet_diagnostic.SST1028.severity = warning # A line ends with trailing whitespace

@@ -41,10 +41,13 @@ jobs:
                         10.0.x
 
             -   name: Restore
-                run: dotnet restore Blazor.Common.Analyzers.sln
+                working-directory: src
+                run: dotnet restore StyleSharp.Analyzers.slnx
 
             -   name: Build
-                run: dotnet build Blazor.Common.Analyzers.sln --no-restore --configuration Release
+                working-directory: src
+                run: dotnet build StyleSharp.Analyzers.slnx --no-restore --configuration Release
 
             -   name: Test
-                run: dotnet test --solution Blazor.Common.Analyzers.sln --no-build --configuration Release
+                working-directory: src
+                run: dotnet test --solution StyleSharp.Analyzers.slnx --no-build --configuration Release

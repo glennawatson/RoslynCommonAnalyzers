@@ -100,7 +100,10 @@ internal static class FieldReferenceAnalysis
         IFieldSymbol field,
         SyntaxNode allowed,
         CancellationToken cancellationToken)
-        => OnlyReferencedInside(model, type, field, allowed, declarationToSkip: null, cancellationToken);
+    {
+        var found = false;
+        return VisitFieldReferences(type, model, field, allowed.FullSpan, cancellationToken, ref found) && found;
+    }
 
     /// <summary>Returns whether an expression is syntactically known to reference a private object field declared in the same type.</summary>
     /// <param name="type">The containing type declaration.</param>
@@ -215,20 +218,64 @@ internal static class FieldReferenceAnalysis
         PropertyDeclarationSyntax property,
         CancellationToken cancellationToken)
     {
-        foreach (var node in property.DescendantNodes())
+        var children = property.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
         {
-            if (node is not IdentifierNameSyntax identifier)
+            var child = children[i];
+            if (!child.IsNode || child.AsNode() is not { } childNode)
             {
                 continue;
             }
 
-            if (model.GetSymbolInfo(identifier, cancellationToken).Symbol is IFieldSymbol field)
+            if (TryFindReferencedField(childNode, model, cancellationToken, out var field))
             {
                 return field;
             }
         }
 
         return null;
+    }
+
+    /// <summary>Finds the first field symbol referenced by a descendant node in preorder.</summary>
+    /// <param name="node">The subtree to inspect.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <param name="field">The discovered field symbol.</param>
+    /// <returns><see langword="true"/> when a field reference is found.</returns>
+    private static bool TryFindReferencedField(
+        SyntaxNode node,
+        SemanticModel model,
+        CancellationToken cancellationToken,
+        out IFieldSymbol? field)
+    {
+        field = null;
+        if (node is IdentifierNameSyntax identifier)
+        {
+            if (model.GetSymbolInfo(identifier, cancellationToken).Symbol is IFieldSymbol candidate)
+            {
+                field = candidate;
+                return true;
+            }
+
+            return false;
+        }
+
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
+        {
+            var child = children[i];
+            if (!child.IsNode || child.AsNode() is not { } childNode)
+            {
+                continue;
+            }
+
+            if (TryFindReferencedField(childNode, model, cancellationToken, out field))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether a syntax subtree contains an identifier bound to the field.</summary>
@@ -243,21 +290,104 @@ internal static class FieldReferenceAnalysis
         IFieldSymbol field,
         CancellationToken cancellationToken)
     {
-        foreach (var node in root.DescendantNodes())
+        var children = root.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
         {
-            if (node is not IdentifierNameSyntax identifier
-                || identifier.Identifier.ValueText != field.Name)
+            var child = children[i];
+            if (!child.IsNode || child.AsNode() is not { } childNode)
             {
                 continue;
             }
 
-            if (SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
+            if (ContainsFieldReference(childNode, model, field, cancellationToken))
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /// <summary>Returns whether a subtree contains a descendant identifier bound to the supplied field.</summary>
+    /// <param name="node">The subtree to inspect.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="field">The field symbol.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when a matching field reference is found.</returns>
+    private static bool ContainsFieldReference(
+        SyntaxNode node,
+        SemanticModel model,
+        IFieldSymbol field,
+        CancellationToken cancellationToken)
+    {
+        if (node is IdentifierNameSyntax identifier)
+        {
+            return identifier.Identifier.ValueText == field.Name
+                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field);
+        }
+
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
+        {
+            var child = children[i];
+            if (!child.IsNode || child.AsNode() is not { } childNode)
+            {
+                continue;
+            }
+
+            if (ContainsFieldReference(childNode, model, field, cancellationToken))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Walks a subtree using indexed child access, stopping on the first field reference outside the allowed span.</summary>
+    /// <param name="node">The current syntax node.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="field">The field symbol.</param>
+    /// <param name="allowedSpan">The span that may legally contain references.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <param name="found">Tracks whether at least one legal reference was encountered.</param>
+    /// <returns><see langword="true"/> when no reference falls outside the allowed span.</returns>
+    private static bool VisitFieldReferences(
+        SyntaxNode node,
+        SemanticModel model,
+        IFieldSymbol field,
+        Microsoft.CodeAnalysis.Text.TextSpan allowedSpan,
+        CancellationToken cancellationToken,
+        ref bool found)
+    {
+        if (node is IdentifierNameSyntax identifier
+            && identifier.Identifier.ValueText == field.Name
+            && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
+        {
+            if (!allowedSpan.Contains(identifier.Span))
+            {
+                return false;
+            }
+
+            found = true;
+        }
+
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
+        {
+            var child = children[i];
+            if (!child.IsNode || child.AsNode() is not { } childNode)
+            {
+                continue;
+            }
+
+            if (!VisitFieldReferences(childNode, model, field, allowedSpan, cancellationToken, ref found))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Finds the direct field declaration with the supplied name in the containing type.</summary>

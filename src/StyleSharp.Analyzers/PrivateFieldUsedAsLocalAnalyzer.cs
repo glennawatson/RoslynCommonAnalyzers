@@ -85,36 +85,87 @@ public sealed class PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
     {
         method = null;
         var methodStart = -1;
-        foreach (var node in type.DescendantNodes())
+        return VisitFieldReferences(type, model, field, cancellationToken, ref methodStart, ref method)
+            && methodStart >= 0;
+    }
+
+    /// <summary>Visits field references with an indexed subtree walk that exits on the first invalid use.</summary>
+    /// <param name="node">The current syntax node.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="field">The field symbol.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <param name="methodStart">The span start of the single using method.</param>
+    /// <param name="method">The single using method.</param>
+    /// <returns><see langword="true"/> when every reference belongs to one eligible method.</returns>
+    private static bool VisitFieldReferences(
+        SyntaxNode node,
+        SemanticModel model,
+        IFieldSymbol field,
+        CancellationToken cancellationToken,
+        ref int methodStart,
+        ref MethodDeclarationSyntax? method)
+    {
+        if (node is IdentifierNameSyntax identifier
+            && !TryRecordFieldReference(identifier, model, field, cancellationToken, ref methodStart, ref method))
         {
-            if (node is not IdentifierNameSyntax identifier)
-            {
-                continue;
-            }
-
-            if (identifier.Identifier.ValueText != field.Name
-                || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
-            {
-                continue;
-            }
-
-            if (identifier.FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>() is not null
-                || identifier.FirstAncestorOrSelf<LocalFunctionStatementSyntax>() is not null
-                || identifier.FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { } containing)
-            {
-                return false;
-            }
-
-            if (methodStart >= 0 && methodStart != containing.SpanStart)
-            {
-                return false;
-            }
-
-            methodStart = containing.SpanStart;
-            method = containing;
+            return false;
         }
 
-        return methodStart >= 0;
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
+        {
+            var child = children[i];
+            if (!child.IsNode || child.AsNode() is not { } childNode)
+            {
+                continue;
+            }
+
+            if (!VisitFieldReferences(childNode, model, field, cancellationToken, ref methodStart, ref method))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Records one matching field reference and rejects uses outside a single top-level method.</summary>
+    /// <param name="identifier">The identifier to inspect.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="field">The field symbol.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <param name="methodStart">The span start of the single using method.</param>
+    /// <param name="method">The single using method.</param>
+    /// <returns><see langword="true"/> when the identifier is either unrelated or a valid reference.</returns>
+    private static bool TryRecordFieldReference(
+        IdentifierNameSyntax identifier,
+        SemanticModel model,
+        IFieldSymbol field,
+        CancellationToken cancellationToken,
+        ref int methodStart,
+        ref MethodDeclarationSyntax? method)
+    {
+        if (identifier.Identifier.ValueText != field.Name
+            || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
+        {
+            return true;
+        }
+
+        if (identifier.FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>() is not null
+            || identifier.FirstAncestorOrSelf<LocalFunctionStatementSyntax>() is not null
+            || identifier.FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { } containing)
+        {
+            return false;
+        }
+
+        if (methodStart >= 0 && methodStart != containing.SpanStart)
+        {
+            return false;
+        }
+
+        methodStart = containing.SpanStart;
+        method = containing;
+        return true;
     }
 
     /// <summary>Returns whether an expression binds to the field.</summary>

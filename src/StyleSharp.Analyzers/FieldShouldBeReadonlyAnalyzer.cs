@@ -67,29 +67,53 @@ public sealed class FieldShouldBeReadonlyAnalyzer : DiagnosticAnalyzer
         IFieldSymbol field,
         CancellationToken cancellationToken)
     {
-        foreach (var node in type.DescendantNodes())
+        return Visit(type);
+
+        bool Visit(SyntaxNode node)
         {
-            if (node is not IdentifierNameSyntax identifier)
-            {
-                continue;
-            }
-
-            if (identifier.Identifier.ValueText != field.Name
-                || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field)
-                || !FieldReferenceAnalysis.IsWrite(identifier))
-            {
-                continue;
-            }
-
-            if (identifier.FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>() is not null
-                || identifier.FirstAncestorOrSelf<LocalFunctionStatementSyntax>() is not null
-                || identifier.FirstAncestorOrSelf<ConstructorDeclarationSyntax>() is not { } constructor
-                || constructor.Parent != type)
+            if (node is IdentifierNameSyntax identifier
+                && IsWriteOutsideConstructor(identifier, model, type, field, cancellationToken))
             {
                 return true;
             }
-        }
 
-        return false;
+            var children = node.ChildNodesAndTokens();
+            for (var i = 0; i < children.Count; i++)
+            {
+                var child = children[i];
+                if (!child.IsNode || child.AsNode() is not { } childNode)
+                {
+                    continue;
+                }
+
+                if (Visit(childNode))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
+
+    /// <summary>Returns whether an identifier writes to the target field outside an allowed instance constructor.</summary>
+    /// <param name="identifier">The identifier to inspect.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="type">The containing type.</param>
+    /// <param name="field">The field symbol.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when the identifier is an invalid write.</returns>
+    private static bool IsWriteOutsideConstructor(
+        IdentifierNameSyntax identifier,
+        SemanticModel model,
+        TypeDeclarationSyntax type,
+        IFieldSymbol field,
+        CancellationToken cancellationToken)
+        => identifier.Identifier.ValueText == field.Name
+            && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field)
+            && FieldReferenceAnalysis.IsWrite(identifier)
+            && (identifier.FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>() is not null
+                || identifier.FirstAncestorOrSelf<LocalFunctionStatementSyntax>() is not null
+                || identifier.FirstAncestorOrSelf<ConstructorDeclarationSyntax>() is not { } constructor
+                || constructor.Parent != type);
 }

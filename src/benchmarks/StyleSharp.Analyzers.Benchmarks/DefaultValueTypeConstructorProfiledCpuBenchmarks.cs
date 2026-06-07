@@ -12,17 +12,24 @@ namespace StyleSharp.Analyzers.Benchmarks;
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class DefaultValueTypeConstructorProfiledCpuBenchmarks
 {
+    /// <summary>The prepared benchmark state.</summary>
     private SingleAnalyzerBenchmarkState _state = null!;
 
+    /// <summary>Gets or sets the synthetic node count used for each benchmark corpus.</summary>
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
     public int Nodes { get; set; }
 
+    /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
     public void Setup() => _state = SemanticTypeBenchmarkCases.CreateDefaultValueTypeConstructor(Nodes);
 
+    /// <summary>Benchmarks the clean default-value-type-constructor path.</summary>
+    /// <returns>The number of diagnostics produced.</returns>
     [Benchmark]
     public Task<int> DefaultValueTypeConstructor_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
+    /// <summary>Benchmarks the violating default-value-type-constructor path.</summary>
+    /// <returns>The number of diagnostics produced.</returns>
     [Benchmark]
     public Task<int> DefaultValueTypeConstructor_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

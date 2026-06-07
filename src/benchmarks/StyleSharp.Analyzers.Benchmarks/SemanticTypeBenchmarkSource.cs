@@ -107,6 +107,10 @@ internal static class SemanticTypeBenchmarkSource
            }
            """;
 
+    /// <summary>Builds one clean or violating member for trivial-auto-property analysis.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="violating">Whether to emit a violating property wrapper.</param>
+    /// <returns>The generated member block.</returns>
     private static string GenerateTrivialAutoPropertyMember(int index, bool violating)
     {
         if (!violating)
@@ -127,6 +131,10 @@ internal static class SemanticTypeBenchmarkSource
                """;
     }
 
+    /// <summary>Builds one clean or violating declaration for redundant-modifier analysis.</summary>
+    /// <param name="index">The synthetic declaration index.</param>
+    /// <param name="violating">Whether to emit a redundant partial modifier.</param>
+    /// <returns>The generated declaration block.</returns>
     private static string GenerateRedundantModifierMember(int index, bool violating)
         => violating
             ? $$"""
@@ -140,6 +148,10 @@ internal static class SemanticTypeBenchmarkSource
                }
                """;
 
+    /// <summary>Builds one clean or violating member for default-value-type-constructor analysis.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="violating">Whether to emit a parameterless value-type construction.</param>
+    /// <returns>The generated member block.</returns>
     private static string GenerateDefaultValueTypeConstructorMember(int index, bool violating)
         => violating
             ? $$"""
@@ -149,6 +161,10 @@ internal static class SemanticTypeBenchmarkSource
                internal static object M{{index}}() => new object();
                """;
 
+    /// <summary>Builds one clean or violating member for use-string-empty analysis.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="violating">Whether to emit an empty string literal.</param>
+    /// <returns>The generated member block.</returns>
     private static string GenerateUseStringEmptyMember(int index, bool violating)
         => violating
             ? $$"""
@@ -158,24 +174,36 @@ internal static class SemanticTypeBenchmarkSource
                internal static string M{{index}}() => "value{{index}}";
                """;
 
+    /// <summary>Builds one clean or violating member for use-nullable-shorthand analysis.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="violating">Whether to emit a Nullable&lt;T&gt; spelling.</param>
+    /// <returns>The generated member block.</returns>
     private static string GenerateUseNullableShorthandMember(int index, bool violating)
         => violating
             ? $$"""
                private global::System.Nullable<int> _value{{index}} = {{index}};
                """
             : $$"""
-               private global::System.Collections.Generic.List<int> _value{{index}} = [];
+               private global::System.Collections.Generic.List<int> _value{{index}} = new();
                """;
 
+    /// <summary>Builds one clean or violating member for use-tuple-syntax analysis.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="violating">Whether to emit a ValueTuple spelling.</param>
+    /// <returns>The generated member block.</returns>
     private static string GenerateUseTupleSyntaxMember(int index, bool violating)
         => violating
             ? $$"""
                private global::System.ValueTuple<int, int> _value{{index}} = ({{index}}, {{index + 1}});
                """
             : $$"""
-               private global::System.Collections.Generic.Dictionary<int, int> _value{{index}} = [];
+               private global::System.Collections.Generic.Dictionary<int, int> _value{{index}} = new();
                """;
 
+    /// <summary>Builds one clean or violating nested type block for do-not-prefix-with-base analysis.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="violating">Whether to emit a redundant base member access.</param>
+    /// <returns>The generated nested type block.</returns>
     private static string GenerateDoNotPrefixWithBaseMember(int index, bool violating)
         => $$"""
            private class Base{{index}}

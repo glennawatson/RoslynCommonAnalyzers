@@ -12,17 +12,24 @@ namespace StyleSharp.Analyzers.Benchmarks;
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class TrivialAutoPropertyProfiledAllocBenchmarks
 {
+    /// <summary>The prepared benchmark state.</summary>
     private SingleAnalyzerBenchmarkState _state = null!;
 
+    /// <summary>Gets or sets the synthetic node count used for each benchmark corpus.</summary>
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
     public int Nodes { get; set; }
 
+    /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
     public void Setup() => _state = SemanticTypeBenchmarkCases.CreateTrivialAutoProperty(Nodes);
 
+    /// <summary>Benchmarks the clean trivial-auto-property path.</summary>
+    /// <returns>The number of diagnostics produced.</returns>
     [Benchmark]
     public Task<int> TrivialAutoProperty_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
+    /// <summary>Benchmarks the violating trivial-auto-property path.</summary>
+    /// <returns>The number of diagnostics produced.</returns>
     [Benchmark]
     public Task<int> TrivialAutoProperty_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

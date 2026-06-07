@@ -5,7 +5,6 @@
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsPublishable>false</IsPublishable>
-
   </PropertyGroup>
 
   <ItemGroup>

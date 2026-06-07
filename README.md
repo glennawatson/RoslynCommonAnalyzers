@@ -17,47 +17,9 @@
 
 # StyleSharp.Analyzers
 
-A small set of Roslyn analyzers and code fixes that enforce **one** readability
-convention everywhere it can apply: a comma-delimited list — method/constructor
-parameters, call/`new` arguments, attribute arguments, primary-constructor
-parameters, generic type-parameter and type-argument lists, function-pointer
-parameter lists, and more — must either sit **entirely on one line** or have
-**each item on its own line**. A "jagged" layout (some items sharing a line,
-others wrapped) is reported, and the accompanying code fix rewrites the list so
-every item is on its own line.
+`StyleSharp.Analyzers` is a performance-focused Roslyn analyzer and code-fix package for .NET codebases. What started as the unique-line list family has grown into a broader ruleset covering spacing, readability, ordering, layout, naming, maintainability, documentation, extension blocks, records, concurrency, modernization, collection expressions, and modern C# syntax.
 
-```csharp
-// 👎 jagged — flagged
-void Configure(string host, int port,
-    bool useTls);
-
-// 👍 each parameter on its own line
-void Configure(
-    string host,
-    int port,
-    bool useTls);
-
-// 👍 all on one line
-void Configure(string host, int port, bool useTls);
-```
-
-The analyzers target `netstandard2.0`, have **no runtime dependencies**, ship as
-a development-only NuGet package, and are built against the Roslyn that ships
-with Visual Studio 2022 17.14 (`Microsoft.CodeAnalysis.*` 4.14.0). The package
-id is **`StyleSharp.Analyzers`**; the repository is `RoslynCommonAnalyzers`.
-
-> Diagnostics share the `SST` prefix. Every rule is category `Readability`,
-> default severity `Warning`, and ships with a code fix.
-
-## Table of contents
-
-- [Installation](#installation)
-- [Rules](#rules)
-- [Configuring severity](#configuring-severity)
-- [How it works](#how-it-works)
-- [Building and testing](#building-and-testing)
-- [Contributing](#contributing)
-- [License](#license)
+The package is analyzer-only, targets `netstandard2.0`, ships as a `DevelopmentDependency`, and packs analyzer/code-fix assemblies for multiple Roslyn slots under one NuGet package.
 
 ## Installation
 
@@ -65,108 +27,87 @@ id is **`StyleSharp.Analyzers`**; the repository is `RoslynCommonAnalyzers`.
 dotnet add package StyleSharp.Analyzers
 ```
 
-It is a `DevelopmentDependency` analyzer package — it adds no assemblies to your
-output and is not transitive to consumers of your library.
+The package adds no runtime assemblies to your output and is not transitive to consumers of your library.
 
-## Rules
+## Documentation
 
-Each rule has a documentation page under [`docs/rules`](docs/rules); the
-`helpLinkUri` on every diagnostic points there.
+- Full rule catalog: [`docs/README.md`](docs/README.md)
+- Configuration: [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
+- Performance guidance: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md)
+- Ready-to-use preset: [`recommended.editorconfig`](recommended.editorconfig)
 
-| Rule | Applies to |
-| --- | --- |
-| [SST0001](docs/rules/SST0001.md) | Constructor declaration parameters |
-| [SST0002](docs/rules/SST0002.md) | Method declaration parameters |
-| [SST0003](docs/rules/SST0003.md) | Delegate declaration parameters |
-| [SST0004](docs/rules/SST0004.md) | Indexer declaration parameters |
-| [SST0005](docs/rules/SST0005.md) | Invocation (method call) arguments |
-| [SST0006](docs/rules/SST0006.md) | Object creation (`new T(...)`) arguments |
-| [SST0007](docs/rules/SST0007.md) | Element access (`x[...]`) arguments |
-| [SST0008](docs/rules/SST0008.md) | Attribute arguments |
-| [SST0009](docs/rules/SST0009.md) | Anonymous method (`delegate(...)`) parameters |
-| [SST0010](docs/rules/SST0010.md) | Parenthesized lambda parameters |
-| [SST0011](docs/rules/SST0011.md) | `record` / `record struct` primary-constructor parameters |
-| [SST0012](docs/rules/SST0012.md) | `class` primary-constructor parameters (C# 12) |
-| [SST0013](docs/rules/SST0013.md) | `struct` primary-constructor parameters (C# 12) |
-| [SST0014](docs/rules/SST0014.md) | Target-typed `new(...)` arguments |
-| [SST0015](docs/rules/SST0015.md) | `: base(...)` / `: this(...)` constructor-initializer arguments |
-| [SST0016](docs/rules/SST0016.md) | `record Foo(...) : Bar(args)` base-type arguments |
-| [SST0017](docs/rules/SST0017.md) | Local function parameters |
-| [SST0018](docs/rules/SST0018.md) | `operator` declaration parameters |
-| [SST0019](docs/rules/SST0019.md) | Conversion-operator declaration parameters (never reports — conversion ops always have one parameter; kept for symmetry) |
-| [SST0020](docs/rules/SST0020.md) | Generic type-parameter lists — `class Foo<T1, T2>`, `void M<T1, T2>()` |
-| [SST0021](docs/rules/SST0021.md) | Generic type-argument lists — `Foo<int, string>` |
-| [SST0022](docs/rules/SST0022.md) | Function-pointer parameter lists — `delegate*<int, string, void>` |
+The rule catalog is intentionally split out of this README so the GitHub landing page stays readable while the detailed rule index can grow with the project.
 
-## Configuring
+## Rule Categories
 
-StyleSharp is configured entirely through **`.editorconfig`** — there is no
-`stylecop.json`-style file. Severity is set the standard way:
+- `Spacing` for token and whitespace conventions
+- `Readability` for query layout, unique-line lists, tuple/null/style conventions, and similar readability rules
+- `Ordering` for using ordering, modifier ordering, accessor ordering, and member ordering
+- `Layout` for brace placement, blank-line rules, and block consistency
+- `Naming` for .NET naming conventions
+- `Maintainability` for access modifiers, precedence, auto-properties, nameof, trailing commas, and related rules
+- `Documentation` for XML docs, file headers, and documentation quality rules
+- `Extensions` for C# 14 extension-block conventions
+- `Records` for record and record-struct conventions
+- `Concurrency` for lock usage rules
+- `Modernization` for runtime throw-helper adoption
+- `CollectionExpressions` for collection-expression usage
+- `ModernSyntax` for new language features such as the C# 14 `field` keyword
 
-```ini
-# bump everything to a build error
-dotnet_diagnostic.SST0001.severity = error
-# … or turn one rule off
-dotnet_diagnostic.SST0007.severity = none
-```
+Unless a rule is marked opt-in, it is enabled by default at `Warning` severity.
 
-Rules that expose options read them from `.editorconfig` too, following the .NET
-CA-analyzer convention (`stylesharp.<option>` general, `stylesharp.<RuleId>.<option>`
-rule-specific):
+## Configuration
+
+StyleSharp is configured entirely through `.editorconfig`. Severity uses the standard `dotnet_diagnostic.<RuleId>.severity` keys, and rule options use the compiler-provided analyzer config system.
 
 ```ini
 [*.cs]
-stylesharp.tuple_element_naming = pascal_case   # SST1316
-stylesharp.union_member_naming = pascal_case    # SST1315
+dotnet_diagnostic.SST1309.severity = warning
+stylesharp.tuple_element_naming = pascal_case
+stylesharp.union_member_naming = pascal_case
 ```
 
-See **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** for the full list and the
-rationale for using `.editorconfig` over a separate JSON file. Prefer
-`.editorconfig` over scattering `#pragma warning disable` / `[SuppressMessage]`.
+See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for the full option list and the recommended configuration approach.
 
-## How it works
-
-Every rule is a `SyntaxNodeAnalysisContext`-based `DiagnosticAnalyzer` registered
-for a specific `SyntaxKind` (or two — e.g. `RecordDeclaration` +
-`RecordStructDeclaration`). It pulls the relevant `SeparatedSyntaxList`, and
-reports when the items are split across lines such that they are neither all on
-one line nor all on separate lines. The code fix rebuilds the list with a newline
-after the opening token and each separator (and re-indents one level deeper than
-the owning declaration), via the shared helpers in `ArgumentsOrParameterOnSameLineHelper`
-and `UniqueLineCodeFixerHelper`.
-
-The solution follows the standard analyzer layout:
+## Repository Layout
 
 | Project | Purpose |
 | --- | --- |
-| `src/StyleSharp.Analyzers` | the `DiagnosticAnalyzer`s (`netstandard2.0`) |
-| `src/StyleSharp.Analyzers.CodeFixes` | the `CodeFixProvider`s (`netstandard2.0`) |
-| `src/StyleSharp.Analyzers.Package` | packs the two above into the `StyleSharp.Analyzers` NuGet package |
-| `src/tests/StyleSharp.Analyzers.Tests` | TUnit tests using `Microsoft.CodeAnalysis.Testing` |
+| `src/StyleSharp.Analyzers` | analyzer implementations |
+| `src/StyleSharp.Analyzers.CodeFixes` | code-fix implementations |
+| `src/StyleSharp.Analyzers.Package` | NuGet packaging |
+| `src/tests/StyleSharp.Analyzers.Tests` | TUnit + `Microsoft.CodeAnalysis.Testing` test suite |
+| `src/benchmarks/StyleSharp.Analyzers.Benchmarks` | BenchmarkDotNet perf harness |
 
-## Building and testing
+## Building And Testing
+
+Run these commands from `src/`:
 
 ```bash
-# run from src/
-dotnet restore StyleSharp.Analyzers.slnx
-dotnet build StyleSharp.Analyzers.slnx --configuration Release
-dotnet test --solution StyleSharp.Analyzers.slnx --configuration Release
+dotnet build StyleSharp.Analyzers.slnx -c Release
+dotnet test --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release
 ```
 
-`TreatWarningsAsErrors` is on and the repo's `.editorconfig` is strict — the
-build is clean only when every analyzer (StyleCop, Roslynator, SonarAnalyzer,
-the .NET analyzers) is satisfied. Fix issues rather than suppressing them.
+To pack every Roslyn slot into the published NuGet package:
+
+```bash
+dotnet pack StyleSharp.Analyzers.Package/StyleSharp.Analyzers.Packages.csproj -c Release
+```
 
 ## Contributing
 
-Issues and PRs welcome. Adding a rule means: a `Sst####…Analyzer.cs`, a
-matching `…CodeFixProvider.cs`, a `Sst####…AnalyzersUnitTest.cs` (markup-based
-`CSharpCodeFixVerifier` tests), a `docs/rules/SST####.md` page, and a row in
-`AnalyzerReleases.Unshipped.md`.
+Issues and pull requests are welcome.
 
-Performance is a first-class requirement: read the **[performance
-guide](docs/PERFORMANCE.md)** before writing or reviewing a rule, and benchmark
-with `src/benchmarks/StyleSharp.Analyzers.Benchmarks`.
+When adding a rule, update all of the following:
+
+- analyzer implementation
+- code-fix implementation if the rule is fixable
+- tests
+- `docs/rules/SST####.md`
+- `src/StyleSharp.Analyzers/AnalyzerReleases.Unshipped.md`
+- `recommended.editorconfig` if the rule should appear in the preset
+
+Performance is a first-class requirement. Read [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) before changing analyzer hot paths, and benchmark changes rather than guessing.
 
 ## License
 

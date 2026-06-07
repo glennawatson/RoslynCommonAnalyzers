@@ -408,27 +408,8 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
         Dictionary<string, CandidateFieldState> candidates,
         CancellationToken cancellationToken)
     {
-        foreach (var node in type.DescendantNodes())
-        {
-            if (node is not IdentifierNameSyntax identifier)
-            {
-                continue;
-            }
-
-            if (!candidates.TryGetValue(identifier.Identifier.ValueText, out var candidate)
-                || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, candidate.FieldSymbol))
-            {
-                continue;
-            }
-
-            if (IsLockTarget(identifier))
-            {
-                candidate.HasLockUse = true;
-                continue;
-            }
-
-            candidate.HasNonLockUse = true;
-        }
+        var state = new LockFieldReferenceScanState(model, candidates, cancellationToken);
+        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, LockFieldReferenceScanState>(type, ref state, VisitFieldReference);
     }
 
     /// <summary>Returns whether an identifier reference is the expression locked by a <c>lock</c> statement.</summary>
@@ -444,6 +425,34 @@ public sealed class PreferLockTypeAnalyzer : DiagnosticAnalyzer
 
         return expression.Parent is LockStatementSyntax lockStatement && lockStatement.Expression == expression;
     }
+
+    /// <summary>Records one candidate field reference encountered during the type scan.</summary>
+    /// <param name="identifier">The visited identifier.</param>
+    /// <param name="state">The current scan state.</param>
+    /// <returns><see langword="true"/> to continue scanning.</returns>
+    private static bool VisitFieldReference(IdentifierNameSyntax identifier, ref LockFieldReferenceScanState state)
+    {
+        if (!state.Candidates.TryGetValue(identifier.Identifier.ValueText, out var candidate)
+            || !SymbolEqualityComparer.Default.Equals(state.Model.GetSymbolInfo(identifier, state.CancellationToken).Symbol, candidate.FieldSymbol))
+        {
+            return true;
+        }
+
+        if (IsLockTarget(identifier))
+        {
+            candidate.HasLockUse = true;
+            return true;
+        }
+
+        candidate.HasNonLockUse = true;
+        return true;
+    }
+
+    /// <summary>Captures the state required while scanning candidate field references.</summary>
+    private readonly record struct LockFieldReferenceScanState(
+        SemanticModel Model,
+        Dictionary<string, CandidateFieldState> Candidates,
+        CancellationToken CancellationToken);
 
     /// <summary>Tracks the lock-only usage state for one candidate field.</summary>
     private sealed class CandidateFieldState

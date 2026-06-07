@@ -48,6 +48,9 @@ dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --
 # Hot-path micro-benchmarks for the most common analyzer pipelines
 dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathBenchmarks*"
 
+# Descendant traversal rewrites (`DescendantNodes()` vs helper/direct-member scans)
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*DescendantTraversalBenchmarks*"
+
 # Opt-in EventPipe profiling for allocation and CPU hot spots
 dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathProfiledAllocBenchmarks*"
 dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathProfiledCpuBenchmarks*"
@@ -65,6 +68,11 @@ Two complementary lenses:
 
 - **Micro** (`LineScanBenchmarks`) — the decision logic in isolation. Use it to
   prove a rewrite is allocation-free and faster than what it replaced.
+- **Traversal micro** (`DescendantTraversalBenchmarks`) — compares iterator-based
+  `DescendantNodes()` walks against helper/direct-member scans for the remaining
+  syntax-navigation hot paths. The current benchmark suite shows the helper-based
+  rewrites winning across all measured sites, so prefer this shape when a rule
+  needs preorder descendant traversal with early exit.
 - **Hot-path micro** (`HotPathBenchmarks`) — focused clean/violating corpora for
   the hottest analyzer pipelines (`SpacingAnalyzer`, tuple element access,
   `UseNameofAnalyzer`, `ArgumentGuardAnalyzer`, and the shared jagged-list helper).

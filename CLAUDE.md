@@ -79,6 +79,15 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   over repeated rescans when the same syntax/token collection is being queried for
   multiple facts.
 
+- **Avoid `DescendantNodes()` on analyzer/code-fix hot paths.** We have measured
+  Roslyn's iterator-based descendant walks as a recurring perf problem in this
+  repo. When a rule needs preorder descendant traversal, prefer a shared static
+  helper over `ChildNodesAndTokens()` or a direct-member scan that avoids walking
+  into irrelevant subtrees. Keep `DescendantNodes()` only when a benchmark shows
+  no better alternative for that site; use
+  `DescendantTraversalBenchmarks` in `StyleSharp.Analyzers.Benchmarks` when
+  evaluating rewrites.
+
 - **Roslyn syntax-list helpers are allowed.** `SyntaxTokenList.Any(SyntaxKind.X)` and
   similar Roslyn helpers are not LINQ. Do not rewrite them solely to satisfy the
   no-LINQ rule; only replace them when a real repeated-scan perf win is justified.

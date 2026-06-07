@@ -35,9 +35,39 @@ public sealed class FileTypeNamespaceAnalyzer : DiagnosticAnalyzer
         var firstTypeSeen = false;
         var firstNamespaceSeen = false;
 
-        foreach (var node in root.DescendantNodes(static descend => descend is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax))
+        if (root is not CompilationUnitSyntax compilationUnit)
         {
-            switch (node)
+            return;
+        }
+
+        ScanMembers(compilationUnit.Members, context, typeKeys, ref firstTypeSeen, ref firstNamespaceSeen);
+    }
+
+    /// <summary>Returns a name-and-arity key so partial declarations of the same type count once.</summary>
+    /// <param name="type">The type declaration.</param>
+    /// <returns>The type key.</returns>
+    private static string TypeKey(BaseTypeDeclarationSyntax type)
+    {
+        var arity = type is TypeDeclarationSyntax declaration ? declaration.TypeParameterList?.Parameters.Count ?? 0 : 0;
+        return $"{type.Identifier.ValueText}`{arity}";
+    }
+
+    /// <summary>Scans top-level members and nested namespaces without descending into type bodies.</summary>
+    /// <param name="members">The current member list.</param>
+    /// <param name="context">The syntax tree analysis context.</param>
+    /// <param name="typeKeys">The distinct top-level type keys seen so far.</param>
+    /// <param name="firstTypeSeen">Whether the first distinct top-level type has been seen.</param>
+    /// <param name="firstNamespaceSeen">Whether the first namespace has been seen.</param>
+    private static void ScanMembers(
+        SyntaxList<MemberDeclarationSyntax> members,
+        SyntaxTreeAnalysisContext context,
+        HashSet<string> typeKeys,
+        ref bool firstTypeSeen,
+        ref bool firstNamespaceSeen)
+    {
+        for (var i = 0; i < members.Count; i++)
+        {
+            switch (members[i])
             {
                 case BaseNamespaceDeclarationSyntax namespaceDeclaration:
                     {
@@ -48,6 +78,7 @@ public sealed class FileTypeNamespaceAnalyzer : DiagnosticAnalyzer
                         }
 
                         firstNamespaceSeen = true;
+                        ScanMembers(namespaceDeclaration.Members, context, typeKeys, ref firstTypeSeen, ref firstNamespaceSeen);
                         break;
                     }
 
@@ -63,14 +94,5 @@ public sealed class FileTypeNamespaceAnalyzer : DiagnosticAnalyzer
                     }
             }
         }
-    }
-
-    /// <summary>Returns a name-and-arity key so partial declarations of the same type count once.</summary>
-    /// <param name="type">The type declaration.</param>
-    /// <returns>The type key.</returns>
-    private static string TypeKey(BaseTypeDeclarationSyntax type)
-    {
-        var arity = type is TypeDeclarationSyntax declaration ? declaration.TypeParameterList?.Parameters.Count ?? 0 : 0;
-        return $"{type.Identifier.ValueText}`{arity}";
     }
 }

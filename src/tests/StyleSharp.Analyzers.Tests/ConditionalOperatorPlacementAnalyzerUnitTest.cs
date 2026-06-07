@@ -58,7 +58,13 @@ public class ConditionalOperatorPlacementAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", "root = true\n[*.cs]\nstylesharp.conditional_operator_placement = trailing\n"));
+            ("/.editorconfig",
+             """
+             root = true
+             [*.cs]
+             stylesharp.conditional_operator_placement = trailing
+
+             """));
 
         await test.RunAsync(CancellationToken.None);
     }

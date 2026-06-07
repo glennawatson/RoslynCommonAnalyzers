@@ -45,7 +45,12 @@ public class TupleElementNamingAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", "root = true\n[*.cs]\nstylesharp.tuple_element_naming = camel_case\n"));
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.tuple_element_naming = camel_case
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }

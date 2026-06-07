@@ -5,9 +5,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
-
-using TUnit.Assertions;
-
 using VerifyGuard = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ArgumentGuardAnalyzer,
     StyleSharp.Analyzers.ArgumentGuardCodeFixProvider>;

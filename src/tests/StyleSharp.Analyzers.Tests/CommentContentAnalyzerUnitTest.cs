@@ -84,7 +84,15 @@ public class CommentContentAnalyzerUnitTest
     [Test]
     public async Task ShouldReportCommentDetectsEmptySingleLineCommentAsync()
     {
-        var comment = ParseCommentTrivia("class C\n{\n    //   \n}\n", SyntaxKind.SingleLineCommentTrivia);
+        var comment = ParseCommentTrivia(
+            """
+            class C
+            {
+                //   
+            }
+
+            """,
+            SyntaxKind.SingleLineCommentTrivia);
         var text = await comment.SyntaxTree!.GetTextAsync();
 
         await Assert.That(CommentContentAnalyzer.ShouldReportComment(text, comment)).IsTrue();

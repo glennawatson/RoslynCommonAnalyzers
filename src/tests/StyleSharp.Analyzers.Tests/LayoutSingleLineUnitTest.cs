@@ -22,8 +22,27 @@ public class LayoutSingleLineUnitTest
     [Test]
     public async Task SingleLineEmbeddedBlockExpandedAsync()
     {
-        const string Source = "internal class C\n{\n    private void M(bool b)\n    {\n        if (b) {|SST1501:{|} b = false; }\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    private void M(bool b)\n    {\n        if (b)\n        {\n            b = false;\n        }\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void M(bool b)
+                {
+                    if (b) {|SST1501:{|} b = false; }
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M(bool b)
+                {
+                    if (b)
+                    {
+                        b = false;
+                    }
+                }
+            }
+            """;
         await VerifyStatement.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -32,15 +51,39 @@ public class LayoutSingleLineUnitTest
     [Test]
     public async Task MultiLineEmbeddedBlockIsCleanAsync()
         => await VerifyStatement.VerifyAnalyzerAsync(
-            "internal class C\n{\n    private void M(bool b)\n    {\n        if (b)\n        {\n            b = false;\n        }\n    }\n}");
+            """
+            internal class C
+            {
+                private void M(bool b)
+                {
+                    if (b)
+                    {
+                        b = false;
+                    }
+                }
+            }
+            """);
 
     /// <summary>Verifies a single-line method body is reported (SST1502) and expanded.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task SingleLineMethodBodyExpandedAsync()
     {
-        const string Source = "internal class C\n{\n    private void M() {|SST1502:{|} System.Console.WriteLine(); }\n}";
-        const string FixedSource = "internal class C\n{\n    private void M()\n    {\n        System.Console.WriteLine();\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void M() {|SST1502:{|} System.Console.WriteLine(); }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M()
+                {
+                    System.Console.WriteLine();
+                }
+            }
+            """;
         await VerifyElement.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -48,17 +91,52 @@ public class LayoutSingleLineUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task EmptySingleLineBodyIsCleanAsync()
-        => await VerifyElement.VerifyAnalyzerAsync("internal class C\n{\n    private void M() { }\n}");
+        => await VerifyElement.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private void M() { }
+            }
+            """);
 
     /// <summary>Verifies mixed single-line and multi-line accessors are reported (SST1504) and made consistent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task MixedAccessorsExpandedAsync()
     {
-        const string Source = "internal class C\n{\n    private int x;\n\n    public int X\n    {|SST1504:{|}\n"
-            + "        get { return x; }\n        set\n        {\n            x = value;\n        }\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    private int x;\n\n    public int X\n    {\n        get\n        {\n            return x;\n        }\n"
-            + "        set\n        {\n            x = value;\n        }\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private int x;
+
+                public int X
+                {|SST1504:{|}
+                    get { return x; }
+                    set
+                    {
+                        x = value;
+                    }
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private int x;
+
+                public int X
+                {
+                    get
+                    {
+                        return x;
+                    }
+                    set
+                    {
+                        x = value;
+                    }
+                }
+            }
+            """;
         await VerifyAccessor.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -67,5 +145,16 @@ public class LayoutSingleLineUnitTest
     [Test]
     public async Task ConsistentAccessorsAreCleanAsync()
         => await VerifyAccessor.VerifyAnalyzerAsync(
-            "internal class C\n{\n    private int x;\n\n    public int X\n    {\n        get { return x; }\n        set { x = value; }\n    }\n}");
+            """
+            internal class C
+            {
+                private int x;
+
+                public int X
+                {
+                    get { return x; }
+                    set { x = value; }
+                }
+            }
+            """);
 }

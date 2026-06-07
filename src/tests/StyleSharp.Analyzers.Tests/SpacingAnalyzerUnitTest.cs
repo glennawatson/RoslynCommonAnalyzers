@@ -38,28 +38,71 @@ public class SpacingAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task TrailingWhitespaceRemovedAsync()
-        => await VerifySpacing.VerifyCodeFixAsync(
-            "internal class C \n{\n}",
+    {
+        const string source = """
+                              internal class C 
+                              {
+                              }
+                              """;
+        const string fixedSource = """
+                                   internal class C
+                                   {
+                                   }
+                                   """;
+
+        await VerifySpacing.VerifyCodeFixAsync(
+            source,
             VerifySpacing.Diagnostic("SST1028").WithSpan(1, 17, 1, 18),
-            "internal class C\n{\n}");
+            fixedSource);
+    }
 
     /// <summary>Verifies a tab in indentation is reported (SST1027) and replaced with spaces.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task TabReplacedWithSpacesAsync()
-        => await VerifySpacing.VerifyCodeFixAsync(
-            "internal class C\n{\n\tprivate int x;\n}",
+    {
+        var source = $$"""
+                      internal class C
+                      {
+                      {{'\t'}}private int x;
+                      }
+                      """;
+        const string fixedSource = """
+                                   internal class C
+                                   {
+                                       private int x;
+                                   }
+                                   """;
+
+        await VerifySpacing.VerifyCodeFixAsync(
+            source,
             VerifySpacing.Diagnostic("SST1027").WithSpan(3, 1, 3, 2),
-            "internal class C\n{\n    private int x;\n}");
+            fixedSource);
+    }
 
     /// <summary>Verifies multiple whitespace between tokens is reported (SST1025) and collapsed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task MultipleWhitespaceCollapsedAsync()
-        => await VerifySpacing.VerifyCodeFixAsync(
-            "internal class C\n{\n    private  int x;\n}",
+    {
+        const string source = """
+                              internal class C
+                              {
+                                  private  int x;
+                              }
+                              """;
+        const string fixedSource = """
+                                   internal class C
+                                   {
+                                       private int x;
+                                   }
+                                   """;
+
+        await VerifySpacing.VerifyCodeFixAsync(
+            source,
             VerifySpacing.Diagnostic("SST1025").WithSpan(3, 12, 3, 14),
-            "internal class C\n{\n    private int x;\n}");
+            fixedSource);
+    }
 
     /// <summary>Verifies a space before a comma is reported (SST1001) and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

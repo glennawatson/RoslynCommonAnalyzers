@@ -49,38 +49,40 @@ public sealed class SingleLineSummaryCodeFixProvider : CodeFixProvider
     /// <param name="summary">The summary element to collapse.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> CollapseAsync(Document document, XmlElementSyntax summary, CancellationToken cancellationToken)
+    internal static async Task<Document> CollapseAsync(Document document, XmlElementSyntax summary, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
 
         var innerSpan = TextSpan.FromBounds(summary.StartTag.Span.End, summary.EndTag.Span.Start);
-        var collapsed = Collapse(text.ToString(innerSpan));
+        var collapsed = Collapse(text, innerSpan);
 
-        return document.WithText(text.Replace(summary.Span, "<summary>" + collapsed + "</summary>"));
+        return document.WithText(text.WithChanges(new TextChange(summary.Span, "<summary>" + collapsed + "</summary>")));
     }
 
     /// <summary>Strips <c>///</c> exteriors and collapses whitespace runs to single spaces, trimming the ends.</summary>
-    /// <param name="inner">The raw text between the summary tags.</param>
+    /// <param name="text">The source text.</param>
+    /// <param name="innerSpan">The raw span between the summary tags.</param>
     /// <returns>The single-line inner text.</returns>
-    private static string Collapse(string inner)
+    private static string Collapse(SourceText text, TextSpan innerSpan)
     {
-        const string exterior = "///";
+        const string Exterior = "///";
 
-        var builder = new StringBuilder(inner.Length);
+        var builder = new StringBuilder(innerSpan.Length);
         var started = false;
         var pendingSpace = false;
-        var i = 0;
+        var i = innerSpan.Start;
+        var end = innerSpan.End;
 
-        while (i < inner.Length)
+        while (i < end)
         {
             // Skip the '///' documentation exterior that prefixes each line.
-            if (StartsWith(inner, i, exterior))
+            if (StartsWith(text, i, end, Exterior))
             {
-                i += exterior.Length;
+                i += Exterior.Length;
                 continue;
             }
 
-            var character = inner[i];
+            var character = text[i];
             i++;
 
             if (char.IsWhiteSpace(character))
@@ -105,9 +107,24 @@ public sealed class SingleLineSummaryCodeFixProvider : CodeFixProvider
     /// <summary>Returns whether <paramref name="text"/> contains <paramref name="value"/> starting at <paramref name="index"/>.</summary>
     /// <param name="text">The text to test.</param>
     /// <param name="index">The position to test at.</param>
+    /// <param name="end">The exclusive end position of the tested span.</param>
     /// <param name="value">The substring to look for.</param>
     /// <returns><see langword="true"/> on a match.</returns>
-    private static bool StartsWith(string text, int index, string value)
-        => index + value.Length <= text.Length
-            && string.CompareOrdinal(text, index, value, 0, value.Length) == 0;
+    private static bool StartsWith(SourceText text, int index, int end, string value)
+    {
+        if (index + value.Length > end)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (text[index + i] != value[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

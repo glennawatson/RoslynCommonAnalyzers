@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
-using System.Threading;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.CodeAnalysis.Text;
 
@@ -22,7 +21,12 @@ public class FileEncodingAnalyzerUnitTest
     {
         var test = new VerifyEncoding.Test
         {
-            TestCode = "internal class C\n{\n}\n",
+            TestCode = """
+                internal class C
+                {
+                }
+
+                """,
 
             // A file-start (position 0) diagnostic cannot be suppressed by a #pragma, so skip the suppression check.
             TestBehaviors = TestBehaviors.SkipSuppressionCheck
@@ -36,7 +40,14 @@ public class FileEncodingAnalyzerUnitTest
     [Test]
     public async Task FileWithBomReportedAsync()
     {
-        var content = SourceText.From("internal class C\n{\n}\n", new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+        var content = SourceText.From(
+            """
+            internal class C
+            {
+            }
+
+            """,
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
         var test = new VerifyEncoding.Test
         {
             TestState = { Sources = { ("/0/Test0.cs", content) } },

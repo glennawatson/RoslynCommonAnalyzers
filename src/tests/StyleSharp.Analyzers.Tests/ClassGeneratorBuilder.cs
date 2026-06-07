@@ -599,7 +599,8 @@ internal sealed class ClassGeneratorBuilder
     /// <summary>Builds a comma-separated parameter list rendered on a single line.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
     /// <returns>The single-line parameter list text.</returns>
-    private static string GenerateOneLineParameters(int parameterCount) => string.Join(", ", Enumerable.Range(0, parameterCount).Select(static i => $"int a{i}"));
+    private static string GenerateOneLineParameters(int parameterCount) => string.Join(", ", Enumerable.Range(0, parameterCount).Select(static i =>
+        $"int a{i}"));
 
     /// <summary>Builds a parameter list split unevenly across two lines.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>

@@ -15,31 +15,53 @@ public class SingleLineSummaryAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task ValidSingleLineAsync()
-        => await Verify.VerifyAnalyzerAsync("/// <summary>Short text.</summary>\npublic class C { }");
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary>Short text.</summary>
+            public class C { }
+            """);
 
     /// <summary>Verifies a long multi-line summary (over the limit) produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task ValidLongMultiLineAsync()
         => await Verify.VerifyAnalyzerAsync(
-            "/// <summary>\n"
-            + "/// This is a deliberately long summary that comfortably exceeds the configured one hundred character single-line limit.\n"
-            + "/// </summary>\n"
-            + "public class C { }");
+            """
+            /// <summary>
+            /// This is a deliberately long summary that comfortably exceeds the configured one hundred character single-line limit.
+            /// </summary>
+            public class C { }
+            """);
 
     /// <summary>Verifies an empty multi-line summary is ignored.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task EmptySummaryIgnoredAsync()
-        => await Verify.VerifyAnalyzerAsync("/// <summary>\n/// </summary>\npublic class C { }");
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary>
+            /// </summary>
+            public class C { }
+            """);
 
     /// <summary>Verifies a short multi-line summary is reported and collapsed onto one line.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task ShortMultiLineCollapsedAsync()
-        => await Verify.VerifyCodeFixAsync(
-            "/// {|SST1653:<summary>\n/// Short text.\n/// </summary>|}\npublic class C { }",
-            "/// <summary>Short text.</summary>\npublic class C { }");
+    {
+        const string source = """
+                              /// {|SST1653:<summary>
+                              /// Short text.
+                              /// </summary>|}
+                              public class C { }
+                              """;
+        const string fixedSource = """
+                                   /// <summary>Short text.</summary>
+                                   public class C { }
+                                   """;
+
+        await Verify.VerifyCodeFixAsync(source, fixedSource);
+    }
 
     /// <summary>Verifies lowering the limit via editorconfig stops a short summary from being reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -48,11 +70,21 @@ public class SingleLineSummaryAnalyzerUnitTest
     {
         var test = new Verify.Test
         {
-            TestCode = "/// <summary>\n/// Short text.\n/// </summary>\npublic class C { }"
+            TestCode = """
+                       /// <summary>
+                       /// Short text.
+                       /// </summary>
+                       public class C { }
+                       """
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", "root = true\n[*.cs]\nstylesharp.summary_single_line_max_length = 5\n"));
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.summary_single_line_max_length = 5
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -16,17 +16,25 @@ public class DocumentationStubFixUnitTest
     [Test]
     public async Task ParameterAsync()
     {
-        const string Source = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Does a thing.</summary>\n"
-            + "    public void M(int {|SST1611:value|}) { }\n}";
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Does a thing.</summary>
+                public void M(int {|SST1611:value|}) { }
+            }
+            """;
 
         // The stub is a scaffold; the now-empty <param> raises SST1614 to be filled in.
-        const string FixedSource = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Does a thing.</summary>\n"
-            + "    /// <param name=\"value\"></param>\n"
-            + "    public void M(int {|SST1614:value|}) { }\n}";
+        const string FixedSource = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Does a thing.</summary>
+                /// <param name="value"></param>
+                public void M(int {|SST1614:value|}) { }
+            }
+            """;
 
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
@@ -36,15 +44,23 @@ public class DocumentationStubFixUnitTest
     [Test]
     public async Task ReturnsAsync()
     {
-        const string Source = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Gets a value.</summary>\n"
-            + "    public int {|SST1615:M|}() => 0;\n}";
-        const string FixedSource = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Gets a value.</summary>\n"
-            + "    /// {|SST1616:<returns></returns>|}\n"
-            + "    public int M() => 0;\n}";
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Gets a value.</summary>
+                public int {|SST1615:M|}() => 0;
+            }
+            """;
+        const string FixedSource = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Gets a value.</summary>
+                /// {|SST1616:<returns></returns>|}
+                public int M() => 0;
+            }
+            """;
 
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
@@ -54,15 +70,23 @@ public class DocumentationStubFixUnitTest
     [Test]
     public async Task TypeParameterAsync()
     {
-        const string Source = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Does a thing.</summary>\n"
-            + "    public void M<{|SST1618:T|}>() { }\n}";
-        const string FixedSource = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Does a thing.</summary>\n"
-            + "    /// <typeparam name=\"T\"></typeparam>\n"
-            + "    public void M<{|SST1622:T|}>() { }\n}";
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Does a thing.</summary>
+                public void M<{|SST1618:T|}>() { }
+            }
+            """;
+        const string FixedSource = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Does a thing.</summary>
+                /// <typeparam name="T"></typeparam>
+                public void M<{|SST1622:T|}>() { }
+            }
+            """;
 
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
@@ -72,15 +96,23 @@ public class DocumentationStubFixUnitTest
     [Test]
     public async Task RemoveReturnsAsync()
     {
-        const string Source = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Does a thing.</summary>\n"
-            + "    /// <returns>Nothing.</returns>\n"
-            + "    public void {|SST1617:M|}() { }\n}";
-        const string FixedSource = "/// <summary>A container.</summary>\n"
-            + "public class C\n{\n"
-            + "    /// <summary>Does a thing.</summary>\n"
-            + "    public void M() { }\n}";
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Does a thing.</summary>
+                /// <returns>Nothing.</returns>
+                public void {|SST1617:M|}() { }
+            }
+            """;
+        const string FixedSource = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Does a thing.</summary>
+                public void M() { }
+            }
+            """;
 
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }

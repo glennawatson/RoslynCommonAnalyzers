@@ -26,7 +26,13 @@ public sealed class SingleLineStatementAnalyzerUnitTest
     [Test]
     public async Task IsSingleLineBlockRejectsMultiLineBracePairAsync()
     {
-        var block = ParseBlock("class C { void M() { if (true)\n{\n    return;\n} } }");
+        var block = ParseBlock(
+            """
+            class C { void M() { if (true)
+            {
+                return;
+            } } }
+            """);
         var text = await block.SyntaxTree.GetTextAsync();
 
         await Assert.That(SingleLineStatementAnalyzer.IsSingleLineBlock(text, block)).IsFalse();

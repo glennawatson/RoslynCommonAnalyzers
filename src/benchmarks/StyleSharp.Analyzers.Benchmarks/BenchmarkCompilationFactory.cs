@@ -16,6 +16,9 @@ internal static class BenchmarkCompilationFactory
     /// <summary>The parse options used for all benchmark syntax trees.</summary>
     private static readonly CSharpParseOptions ParseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
 
+    /// <summary>Gets the metadata references loaded from the current host runtime.</summary>
+    public static IReadOnlyList<MetadataReference> MetadataReferences => References;
+
     /// <summary>Parses C# source with the benchmark project's default parse options.</summary>
     /// <param name="source">The source text to parse.</param>
     /// <param name="filePath">The file path to use for the syntax tree.</param>

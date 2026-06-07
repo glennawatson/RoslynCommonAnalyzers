@@ -19,8 +19,30 @@ public class LayoutBraceRequirementUnitTest
     [Test]
     public async Task MultiLineChildWrappedAsync()
     {
-        const string Source = "internal class C\n{\n    private void M(bool x)\n    {\n        {|SST1519:if|} (x)\n            System.Console\n                .WriteLine();\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    private void M(bool x)\n    {\n        if (x)\n        {\n            System.Console\n                .WriteLine();\n        }\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    {|SST1519:if|} (x)
+                        System.Console
+                            .WriteLine();
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    if (x)
+                    {
+                        System.Console
+                            .WriteLine();
+                    }
+                }
+            }
+            """;
         await VerifyMultiLine.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -29,17 +51,52 @@ public class LayoutBraceRequirementUnitTest
     [Test]
     public async Task SingleLineChildIsCleanAsync()
         => await VerifyMultiLine.VerifyAnalyzerAsync(
-            "internal class C\n{\n    private void M(bool x)\n    {\n        if (x)\n            System.Console.WriteLine();\n    }\n}");
+            """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    if (x)
+                        System.Console.WriteLine();
+                }
+            }
+            """);
 
     /// <summary>Verifies an if/else chain with mixed braces is reported (SST1520) and made consistent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task InconsistentBracesAddedAsync()
     {
-        const string Source = "internal class C\n{\n    private void M(bool x)\n    {\n        {|SST1520:if|} (x)\n        {\n"
-            + "            System.Console.WriteLine();\n        }\n        else\n            System.Console.WriteLine();\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    private void M(bool x)\n    {\n        if (x)\n        {\n            System.Console.WriteLine();\n        }\n"
-            + "        else\n        {\n            System.Console.WriteLine();\n        }\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    {|SST1520:if|} (x)
+                    {
+                        System.Console.WriteLine();
+                    }
+                    else
+                        System.Console.WriteLine();
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    if (x)
+                    {
+                        System.Console.WriteLine();
+                    }
+                    else
+                    {
+                        System.Console.WriteLine();
+                    }
+                }
+            }
+            """;
         await VerifyConsistent.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -48,5 +105,18 @@ public class LayoutBraceRequirementUnitTest
     [Test]
     public async Task ConsistentBracesAreCleanAsync()
         => await VerifyConsistent.VerifyAnalyzerAsync(
-            "internal class C\n{\n    private void M(bool x)\n    {\n        if (x)\n        {\n        }\n        else\n        {\n        }\n    }\n}");
+            """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    if (x)
+                    {
+                    }
+                    else
+                    {
+                    }
+                }
+            }
+            """);
 }

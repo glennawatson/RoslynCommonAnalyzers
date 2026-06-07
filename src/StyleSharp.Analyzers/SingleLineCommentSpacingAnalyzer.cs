@@ -56,7 +56,7 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
     {
         var text = context.Tree.GetText(context.CancellationToken);
         var root = context.Tree.GetRoot(context.CancellationToken);
-        var lineCount = text.Lines.Count;
+        var firstTokenStart = root.GetFirstToken().SpanStart;
 
         var start = -1;
         var end = -1;
@@ -87,7 +87,7 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            ReportBlock(context, text, start, end, first, last, lineCount);
+            ReportBlock(context, text, start, end, first, last, firstTokenStart);
             start = line;
             end = line;
             first = trivia;
@@ -99,7 +99,7 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        ReportBlock(context, text, start, end, first, last, lineCount);
+        ReportBlock(context, text, start, end, first, last, firstTokenStart);
     }
 
     /// <summary>Reports the preceding- and following-blank-line violations for a comment block.</summary>
@@ -109,21 +109,28 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="end">The last line of the comment block.</param>
     /// <param name="first">The first comment trivia.</param>
     /// <param name="last">The last comment trivia.</param>
-    /// <param name="lineCount">The total line count.</param>
-    private static void ReportBlock(SyntaxTreeAnalysisContext context, SourceText text, int start, int end, SyntaxTrivia first, SyntaxTrivia last, int lineCount)
+    /// <param name="firstTokenStart">The start position of the first token in the file.</param>
+    private static void ReportBlock(SyntaxTreeAnalysisContext context, SourceText text, int start, int end, SyntaxTrivia first, SyntaxTrivia last, int firstTokenStart)
     {
         if (start > 0 && !LayoutHelpers.IsBlankLine(text, start - 1) && !PreviousLineOpensBlock(text, start - 1))
         {
             context.ReportDiagnostic(Diagnostic.Create(LayoutRules.SingleLineCommentPrecededByBlankLine, Location.Create(context.Tree, first.Span)));
         }
 
-        if (end + 1 >= lineCount || !LayoutHelpers.IsBlankLine(text, end + 1))
+        if (end + 1 >= text.Lines.Count || !LayoutHelpers.IsBlankLine(text, end + 1) || IsFileHeaderBlock(last, firstTokenStart))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(LayoutRules.SingleLineCommentNotFollowedByBlankLine, Location.Create(context.Tree, last.Span)));
     }
+
+    /// <summary>Returns whether the comment block belongs to the leading file header rather than an interior comment block.</summary>
+    /// <param name="last">The last comment trivia in the block.</param>
+    /// <param name="firstTokenStart">The start position of the first token in the file.</param>
+    /// <returns><see langword="true"/> when the block sits before the file's first token.</returns>
+    private static bool IsFileHeaderBlock(SyntaxTrivia last, int firstTokenStart)
+        => last.SpanStart < firstTokenStart;
 
     /// <summary>Returns whether the last non-whitespace character of the line is an opening brace.</summary>
     /// <param name="text">The source text.</param>

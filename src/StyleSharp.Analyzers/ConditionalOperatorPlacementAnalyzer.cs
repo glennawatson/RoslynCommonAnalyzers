@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis.Text;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -39,29 +37,33 @@ public sealed class ConditionalOperatorPlacementAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var conditional = (ConditionalExpressionSyntax)context.Node;
-        var text = context.Node.SyntaxTree.GetText(context.CancellationToken);
-        if (LineOf(text, conditional.SpanStart) == LineOf(text, conditional.Span.End))
+        var breakBeforeQuestion = HasLineBreakBefore(conditional.Condition.GetLastToken(), conditional.QuestionToken);
+        var breakAfterQuestion = HasLineBreakAfter(conditional.QuestionToken, conditional.WhenTrue.GetFirstToken());
+        var breakBeforeColon = HasLineBreakBefore(conditional.WhenTrue.GetLastToken(), conditional.ColonToken);
+        var breakAfterColon = HasLineBreakAfter(conditional.ColonToken, conditional.WhenFalse.GetFirstToken());
+        if (!breakBeforeQuestion && !breakAfterQuestion && !breakBeforeColon && !breakAfterColon)
         {
             return;
         }
 
         var leading = ReadLeadingPlacement(context);
-        CheckOperator(context, text, conditional.QuestionToken, conditional.Condition.GetLastToken(), conditional.WhenTrue.GetFirstToken(), leading);
-        CheckOperator(context, text, conditional.ColonToken, conditional.WhenTrue.GetLastToken(), conditional.WhenFalse.GetFirstToken(), leading);
+        CheckOperator(context, conditional.QuestionToken, breakBeforeQuestion, breakAfterQuestion, leading);
+        CheckOperator(context, conditional.ColonToken, breakBeforeColon, breakAfterColon, leading);
     }
 
     /// <summary>Reports an operator that wraps onto the wrong end of its line.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="text">The source text.</param>
     /// <param name="operatorToken">The <c>?</c> or <c>:</c> token.</param>
-    /// <param name="previous">The token preceding the operator.</param>
-    /// <param name="next">The token following the operator.</param>
+    /// <param name="breakBefore">Whether the operator starts on a new line relative to the previous token.</param>
+    /// <param name="breakAfter">Whether the following token starts on a new line relative to the operator.</param>
     /// <param name="leading">Whether the operator should begin its line.</param>
-    private static void CheckOperator(SyntaxNodeAnalysisContext context, SourceText text, SyntaxToken operatorToken, SyntaxToken previous, SyntaxToken next, bool leading)
+    private static void CheckOperator(
+        SyntaxNodeAnalysisContext context,
+        SyntaxToken operatorToken,
+        bool breakBefore,
+        bool breakAfter,
+        bool leading)
     {
-        var breakBefore = LineOf(text, operatorToken.SpanStart) > LineOf(text, previous.Span.End);
-        var breakAfter = LineOf(text, next.SpanStart) > LineOf(text, operatorToken.Span.End);
-
         switch (leading)
         {
             case true when breakAfter:
@@ -89,9 +91,19 @@ public sealed class ConditionalOperatorPlacementAnalyzer : DiagnosticAnalyzer
         return !hasValue || !string.Equals(value, "trailing", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Returns the zero-based line number containing a position.</summary>
-    /// <param name="text">The source text.</param>
-    /// <param name="position">The character position.</param>
-    /// <returns>The line number.</returns>
-    private static int LineOf(SourceText text, int position) => text.Lines.GetLinePosition(position).Line;
+    /// <summary>Returns whether a line break separates the previous token from the operator.</summary>
+    /// <param name="previous">The token preceding the operator.</param>
+    /// <param name="operatorToken">The operator token.</param>
+    /// <returns><see langword="true"/> when the operator begins a new line.</returns>
+    private static bool HasLineBreakBefore(SyntaxToken previous, SyntaxToken operatorToken)
+        => TriviaLineBreakHelper.HasLineBreak(previous.TrailingTrivia)
+            || TriviaLineBreakHelper.HasLineBreak(operatorToken.LeadingTrivia);
+
+    /// <summary>Returns whether a line break separates the operator from the following token.</summary>
+    /// <param name="operatorToken">The operator token.</param>
+    /// <param name="next">The token following the operator.</param>
+    /// <returns><see langword="true"/> when the following token begins a new line.</returns>
+    private static bool HasLineBreakAfter(SyntaxToken operatorToken, SyntaxToken next)
+        => TriviaLineBreakHelper.HasLineBreak(operatorToken.TrailingTrivia)
+            || TriviaLineBreakHelper.HasLineBreak(next.LeadingTrivia);
 }

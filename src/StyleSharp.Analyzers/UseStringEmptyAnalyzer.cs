@@ -30,7 +30,7 @@ public sealed class UseStringEmptyAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var literal = (LiteralExpressionSyntax)context.Node;
-        if (literal.Token.ValueText.Length != 0 || IsConstantContext(literal))
+        if (!IsEmptyStringLiteral(literal.Token) || IsConstantContext(literal))
         {
             return;
         }
@@ -65,4 +65,10 @@ public sealed class UseStringEmptyAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
+
+    /// <summary>Returns whether a token spells an empty string literal.</summary>
+    /// <param name="token">The literal token.</param>
+    /// <returns><see langword="true"/> for <c>""</c> and <c>@""</c>.</returns>
+    private static bool IsEmptyStringLiteral(SyntaxToken token)
+        => token.Text is ['"', '"'] or ['@', '"', '"'];
 }

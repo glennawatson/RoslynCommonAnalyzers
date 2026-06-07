@@ -39,20 +39,32 @@ public sealed class RedundantModifierAnalyzer : DiagnosticAnalyzer
         }
 
         var modifiers = declaration.Modifiers;
+        var sealedModifier = default(SyntaxToken);
+        var partialModifier = default(SyntaxToken);
         for (var i = 0; i < modifiers.Count; i++)
         {
             var modifier = modifiers[i];
-            if (modifier.IsKind(SyntaxKind.SealedKeyword) && IsRedundantSealed(declaration))
+            if (modifier.IsKind(SyntaxKind.SealedKeyword))
             {
-                Report(context, modifier);
-                continue;
+                sealedModifier = modifier;
             }
-
-            if (modifier.IsKind(SyntaxKind.PartialKeyword) && IsSinglePart(context, declaration))
+            else if (modifier.IsKind(SyntaxKind.PartialKeyword))
             {
-                Report(context, modifier);
+                partialModifier = modifier;
             }
         }
+
+        if (sealedModifier.RawKind != 0 && IsRedundantSealed(declaration))
+        {
+            Report(context, sealedModifier);
+        }
+
+        if (partialModifier.RawKind == 0 || !IsSinglePart(context, declaration))
+        {
+            return;
+        }
+
+        Report(context, partialModifier);
     }
 
     /// <summary>Returns whether a sealed modifier has no effect.</summary>

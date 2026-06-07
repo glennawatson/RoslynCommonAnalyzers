@@ -29,7 +29,7 @@ public sealed class UseNullableShorthandAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var generic = (GenericNameSyntax)context.Node;
-        if (generic.Identifier.ValueText != "Nullable" || generic.TypeArgumentList.Arguments.Count != 1)
+        if (!IsNullableIdentifier(generic.Identifier) || generic.TypeArgumentList.Arguments.Count != 1)
         {
             return;
         }
@@ -55,4 +55,11 @@ public sealed class UseNullableShorthandAnalyzer : DiagnosticAnalyzer
 
         return node;
     }
+
+    /// <summary>Returns whether an identifier token spells <c>Nullable</c>.</summary>
+    /// <param name="identifier">The identifier token.</param>
+    /// <returns><see langword="true"/> when the token denotes <c>Nullable</c>.</returns>
+    private static bool IsNullableIdentifier(SyntaxToken identifier)
+        => identifier.Text == "Nullable"
+            || (identifier.Text is ['@', ..] && identifier.ValueText == "Nullable");
 }

@@ -47,6 +47,46 @@ internal static class FieldReferenceAnalysis
         return true;
     }
 
+    /// <summary>Finds a private single-variable backing field with the supplied name referenced by a property and nowhere else.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="property">The property declaration.</param>
+    /// <param name="fieldName">The expected backing-field name.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <param name="field">The backing-field declaration.</param>
+    /// <param name="variable">The backing-field variable.</param>
+    /// <param name="symbol">The backing-field symbol.</param>
+    /// <returns><see langword="true"/> when a suitable single-use field is found.</returns>
+    public static bool TryFindSingleUseBackingField(
+        SemanticModel model,
+        PropertyDeclarationSyntax property,
+        string fieldName,
+        CancellationToken cancellationToken,
+        out FieldDeclarationSyntax? field,
+        out VariableDeclaratorSyntax? variable,
+        out IFieldSymbol? symbol)
+    {
+        field = null;
+        variable = null;
+        symbol = null;
+        if (property.Parent is not TypeDeclarationSyntax type
+            || ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword)
+            || property.AccessorList is null
+            || !TryFindFieldDeclaration(type, fieldName, out var declaration, out var declarator)
+            || declaration is null
+            || declarator is null
+            || model.GetDeclaredSymbol(declarator, cancellationToken) is not IFieldSymbol candidate
+            || !IsEligible(candidate, declaration)
+            || !OnlyReferencedInside(model, type, candidate, property, declaration, cancellationToken))
+        {
+            return false;
+        }
+
+        field = declaration;
+        variable = declarator;
+        symbol = candidate;
+        return true;
+    }
+
     /// <summary>Returns whether every bound reference to a field lies inside one allowed node.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="type">The containing type.</param>
@@ -60,31 +100,7 @@ internal static class FieldReferenceAnalysis
         IFieldSymbol field,
         SyntaxNode allowed,
         CancellationToken cancellationToken)
-    {
-        var found = false;
-        foreach (var node in type.DescendantNodes())
-        {
-            if (node is not IdentifierNameSyntax identifier)
-            {
-                continue;
-            }
-
-            if (identifier.Identifier.ValueText != field.Name
-                || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
-            {
-                continue;
-            }
-
-            if (!allowed.FullSpan.Contains(identifier.Span))
-            {
-                return false;
-            }
-
-            found = true;
-        }
-
-        return found;
-    }
+        => OnlyReferencedInside(model, type, field, allowed, declarationToSkip: null, cancellationToken);
 
     /// <summary>Returns whether an expression is syntactically known to reference a private object field declared in the same type.</summary>
     /// <param name="type">The containing type declaration.</param>
@@ -112,6 +128,44 @@ internal static class FieldReferenceAnalysis
                                                   prefix.IsKind(SyntaxKind.PreDecrementExpression),
             _ => expression.Parent is PostfixUnaryExpressionSyntax or ArgumentSyntax { RefOrOutKeyword.RawKind: not 0 }
         };
+    }
+
+    /// <summary>Returns whether every bound reference to a field lies inside one allowed node, skipping one declaration.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="type">The containing type.</param>
+    /// <param name="field">The field symbol.</param>
+    /// <param name="allowed">The node allowed to contain references.</param>
+    /// <param name="declarationToSkip">The declaration to skip while scanning siblings.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when all references are inside the allowed node.</returns>
+    private static bool OnlyReferencedInside(
+        SemanticModel model,
+        TypeDeclarationSyntax type,
+        IFieldSymbol field,
+        SyntaxNode allowed,
+        FieldDeclarationSyntax? declarationToSkip,
+        CancellationToken cancellationToken)
+    {
+        if (!ContainsFieldReference(model, allowed, field, cancellationToken))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < type.Members.Count; i++)
+        {
+            var member = type.Members[i];
+            if (member == allowed || member == declarationToSkip)
+            {
+                continue;
+            }
+
+            if (ContainsFieldReference(model, member, field, cancellationToken))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Returns whether a field and declaration meet the shared eligibility requirements.</summary>
@@ -175,6 +229,72 @@ internal static class FieldReferenceAnalysis
         }
 
         return null;
+    }
+
+    /// <summary>Returns whether a syntax subtree contains an identifier bound to the field.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="root">The subtree to inspect.</param>
+    /// <param name="field">The field symbol.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when the subtree contains a bound field reference.</returns>
+    private static bool ContainsFieldReference(
+        SemanticModel model,
+        SyntaxNode root,
+        IFieldSymbol field,
+        CancellationToken cancellationToken)
+    {
+        foreach (var node in root.DescendantNodes())
+        {
+            if (node is not IdentifierNameSyntax identifier
+                || identifier.Identifier.ValueText != field.Name)
+            {
+                continue;
+            }
+
+            if (SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Finds the direct field declaration with the supplied name in the containing type.</summary>
+    /// <param name="type">The containing type.</param>
+    /// <param name="name">The field name.</param>
+    /// <param name="declaration">The matching field declaration.</param>
+    /// <param name="declarator">The matching variable declarator.</param>
+    /// <returns><see langword="true"/> when the field declaration is found.</returns>
+    private static bool TryFindFieldDeclaration(
+        TypeDeclarationSyntax type,
+        string name,
+        out FieldDeclarationSyntax? declaration,
+        out VariableDeclaratorSyntax? declarator)
+    {
+        declaration = null;
+        declarator = null;
+        for (var memberIndex = 0; memberIndex < type.Members.Count; memberIndex++)
+        {
+            if (type.Members[memberIndex] is not FieldDeclarationSyntax field)
+            {
+                continue;
+            }
+
+            var variables = field.Declaration.Variables;
+            for (var variableIndex = 0; variableIndex < variables.Count; variableIndex++)
+            {
+                var variable = variables[variableIndex];
+                if (variable.Identifier.ValueText == name)
+                {
+                    declaration = field;
+                    declarator = variable;
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether the type contains a matching private object field.</summary>

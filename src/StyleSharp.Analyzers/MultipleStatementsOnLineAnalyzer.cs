@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis.Text;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -47,18 +45,22 @@ public sealed class MultipleStatementsOnLineAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var text = context.Node.SyntaxTree.GetText(context.CancellationToken);
-        var previousEndLine = text.Lines.GetLineFromPosition(statements[0].Span.End).LineNumber;
         for (var index = 1; index < statements.Count; index++)
         {
+            var previous = statements[index - 1];
             var statement = statements[index];
-            var startLine = text.Lines.GetLineFromPosition(statement.SpanStart).LineNumber;
-            if (startLine == previousEndLine && statement is not EmptyStatementSyntax)
+            if (statement is not EmptyStatementSyntax && AreOnSameLine(previous, statement))
             {
                 context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.MultipleStatementsOnLine, statement.GetLocation()));
             }
-
-            previousEndLine = text.Lines.GetLineFromPosition(statement.Span.End).LineNumber;
         }
     }
+
+    /// <summary>Returns whether two consecutive statements are separated without a line break.</summary>
+    /// <param name="previous">The earlier statement.</param>
+    /// <param name="current">The later statement.</param>
+    /// <returns><see langword="true"/> when both statements share a line.</returns>
+    private static bool AreOnSameLine(StatementSyntax previous, StatementSyntax current)
+        => !TriviaLineBreakHelper.HasLineBreak(previous.GetLastToken().TrailingTrivia)
+            && !TriviaLineBreakHelper.HasLineBreak(current.GetFirstToken().LeadingTrivia);
 }

@@ -102,13 +102,13 @@ public sealed class ElementNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="identifier">The identifier token to check.</param>
     private static void CheckPascalCase(SyntaxNodeAnalysisContext context, SyntaxToken identifier)
     {
-        var name = identifier.ValueText;
+        var name = GetIdentifierText(identifier);
         if (NamingHelper.IsAllUnderscores(name) || NamingHelper.BeginsWithUpperCase(name))
         {
             return;
         }
 
-        NamingDiagnostic.Report(context, NamingRules.ElementPascalCase, identifier, NamingHelper.SuggestPascalCase(name));
+        NamingDiagnostic.Report(context, NamingRules.ElementPascalCase, identifier, name, NamingHelper.SuggestPascalCase(name));
     }
 
     /// <summary>Returns whether a member is an override or explicit interface implementation (its name is dictated elsewhere).</summary>
@@ -117,4 +117,10 @@ public sealed class ElementNamingAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the member should be skipped.</returns>
     private static bool IsInherited(SyntaxTokenList modifiers, ExplicitInterfaceSpecifierSyntax? explicitInterface)
         => explicitInterface is not null || ModifierListHelper.Contains(modifiers, SyntaxKind.OverrideKeyword);
+
+    /// <summary>Returns the source identifier text, unescaping verbatim identifiers only when needed.</summary>
+    /// <param name="identifier">The identifier token.</param>
+    /// <returns>The comparison-ready identifier text.</returns>
+    private static string GetIdentifierText(SyntaxToken identifier)
+        => identifier.Text is ['@', ..] ? identifier.ValueText : identifier.Text;
 }

@@ -54,7 +54,7 @@ public sealed class FieldNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="identifier">The field variable's identifier.</param>
     private static void Check(SyntaxNodeAnalysisContext context, DiagnosticDescriptor? pascalCaseRule, SyntaxToken identifier)
     {
-        var name = identifier.ValueText;
+        var name = GetIdentifierText(identifier);
         if (NamingHelper.IsAllUnderscores(name))
         {
             return;
@@ -63,7 +63,7 @@ public sealed class FieldNamingAnalyzer : DiagnosticAnalyzer
         // Private, non-const, not static-readonly fields use the runtime _camelCase form.
         if (pascalCaseRule is null && !NamingHelper.IsUnderscoreCamelCase(name))
         {
-            NamingDiagnostic.Report(context, NamingRules.PrivateFieldUnderscoreCamelCase, identifier, NamingHelper.SuggestUnderscoreCamelCase(name));
+            NamingDiagnostic.Report(context, NamingRules.PrivateFieldUnderscoreCamelCase, identifier, name, NamingHelper.SuggestUnderscoreCamelCase(name));
             return;
         }
 
@@ -72,7 +72,7 @@ public sealed class FieldNamingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        NamingDiagnostic.Report(context, pascalCaseRule, identifier, NamingHelper.SuggestPascalCase(name));
+        NamingDiagnostic.Report(context, pascalCaseRule, identifier, name, NamingHelper.SuggestPascalCase(name));
     }
 
     /// <summary>Returns the PascalCase rule the field falls under, or <see langword="null"/> for private (_camelCase) fields.</summary>
@@ -97,4 +97,10 @@ public sealed class FieldNamingAnalyzer : DiagnosticAnalyzer
 
         return classification.IsReadOnly ? NamingRules.NonPrivateReadonlyPascalCase : NamingRules.AccessibleFieldPascalCase;
     }
+
+    /// <summary>Returns the source identifier text, unescaping verbatim identifiers only when needed.</summary>
+    /// <param name="identifier">The identifier token.</param>
+    /// <returns>The comparison-ready identifier text.</returns>
+    private static string GetIdentifierText(SyntaxToken identifier)
+        => identifier.Text is ['@', ..] ? identifier.ValueText : identifier.Text;
 }

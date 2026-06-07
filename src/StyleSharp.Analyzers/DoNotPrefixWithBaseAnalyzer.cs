@@ -24,6 +24,32 @@ public sealed class DoNotPrefixWithBaseAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.SimpleMemberAccessExpression);
     }
 
+    /// <summary>Returns whether the type declares an override with the supplied member name.</summary>
+    /// <param name="type">The containing type declaration.</param>
+    /// <param name="name">The member name to inspect.</param>
+    /// <returns><see langword="true"/> when a matching override exists.</returns>
+    internal static bool HasOverrideNamed(TypeDeclarationSyntax type, string name)
+    {
+        for (var i = 0; i < type.Members.Count; i++)
+        {
+            switch (type.Members[i])
+            {
+                case MethodDeclarationSyntax method
+                    when method.Identifier.ValueText == name
+                    && ModifierListHelper.Contains(method.Modifiers, SyntaxKind.OverrideKeyword):
+                case PropertyDeclarationSyntax property
+                    when property.Identifier.ValueText == name
+                    && ModifierListHelper.Contains(property.Modifiers, SyntaxKind.OverrideKeyword):
+                case EventDeclarationSyntax @event
+                    when @event.Identifier.ValueText == name
+                    && ModifierListHelper.Contains(@event.Modifiers, SyntaxKind.OverrideKeyword):
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Reports a redundant <c>base.</c> member access.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
@@ -31,6 +57,14 @@ public sealed class DoNotPrefixWithBaseAnalyzer : DiagnosticAnalyzer
         var access = (MemberAccessExpressionSyntax)context.Node;
         if (access.Expression is not BaseExpressionSyntax)
         {
+            return;
+        }
+
+        if (access.Name is SimpleNameSyntax simpleName
+            && access.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } typeDeclaration
+            && !HasOverrideNamed(typeDeclaration, GetIdentifierText(simpleName.Identifier)))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.DoNotPrefixWithBase, access.Expression.GetLocation()));
             return;
         }
 
@@ -83,4 +117,10 @@ public sealed class DoNotPrefixWithBaseAnalyzer : DiagnosticAnalyzer
         IEventSymbol @event => @event.OverriddenEvent,
         _ => null
     };
+
+    /// <summary>Returns the source identifier text, unescaping verbatim identifiers only when needed.</summary>
+    /// <param name="identifier">The identifier token.</param>
+    /// <returns>The comparison-ready identifier text.</returns>
+    private static string GetIdentifierText(SyntaxToken identifier)
+        => identifier.Text is ['@', ..] ? identifier.ValueText : identifier.Text;
 }

@@ -114,11 +114,11 @@ public class LayoutCommentUnitTest
     public async Task StandaloneCommentHelperAcceptsIndentedCommentAsync()
     {
         var comment = ParseSingleLineComment(
-            """
+            $$"""
             class C
             {
                 // comment
-            }
+            }{{"\n"}}
             """);
         var text = await comment.SyntaxTree!.GetTextAsync();
 
@@ -131,11 +131,11 @@ public class LayoutCommentUnitTest
     public async Task StandaloneCommentHelperRejectsTrailingCommentAsync()
     {
         var comment = ParseSingleLineComment(
-            """
+            $$"""
             class C
             {
                 void M() { var value = 0; // comment }
-            }
+            }{{"\n"}}
             """);
         var text = await comment.SyntaxTree!.GetTextAsync();
 

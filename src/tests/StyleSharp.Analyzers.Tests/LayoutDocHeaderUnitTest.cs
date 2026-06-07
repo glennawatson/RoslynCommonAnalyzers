@@ -16,8 +16,25 @@ public class LayoutDocHeaderUnitTest
     [Test]
     public async Task BlankAfterHeaderRemovedAsync()
     {
-        const string Source = "internal class C\n{\n    /// <summary>Does A.</summary>\n\n    {|SST1506:private|} void A()\n    {\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    /// <summary>Does A.</summary>\n    private void A()\n    {\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                /// <summary>Does A.</summary>
+
+                {|SST1506:private|} void A()
+                {
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                /// <summary>Does A.</summary>
+                private void A()
+                {
+                }
+            }
+            """;
         await VerifyDoc.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -26,8 +43,23 @@ public class LayoutDocHeaderUnitTest
     [Test]
     public async Task MissingBlankBeforeHeaderInsertedAsync()
     {
-        const string Source = "internal class C\n{\n    private int x;\n    /// <summary>Gets X.</summary>\n    {|SST1514:public|} int X => x;\n}";
-        const string FixedSource = "internal class C\n{\n    private int x;\n\n    /// <summary>Gets X.</summary>\n    public int X => x;\n}";
+        const string Source = """
+            internal class C
+            {
+                private int x;
+                /// <summary>Gets X.</summary>
+                {|SST1514:public|} int X => x;
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private int x;
+
+                /// <summary>Gets X.</summary>
+                public int X => x;
+            }
+            """;
         await VerifyDoc.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -36,5 +68,13 @@ public class LayoutDocHeaderUnitTest
     [Test]
     public async Task WellSpacedHeaderIsCleanAsync()
         => await VerifyDoc.VerifyAnalyzerAsync(
-            "internal class C\n{\n    private int x;\n\n    /// <summary>Gets X.</summary>\n    public int X => x;\n}");
+            """
+            internal class C
+            {
+                private int x;
+
+                /// <summary>Gets X.</summary>
+                public int X => x;
+            }
+            """);
 }

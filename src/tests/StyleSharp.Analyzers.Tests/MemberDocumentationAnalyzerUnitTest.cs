@@ -15,7 +15,11 @@ public class MemberDocumentationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task ValidAsync()
-        => await Verify.VerifyAnalyzerAsync("/// <summary>A widget.</summary>\npublic class Widget { }");
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary>A widget.</summary>
+            public class Widget { }
+            """);
 
     /// <summary>Verifies an exposed, undocumented type is reported (SST1600).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -33,19 +37,31 @@ public class MemberDocumentationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task EnumMemberAsync()
-        => await Verify.VerifyAnalyzerAsync("/// <summary>Colors.</summary>\npublic enum Color { {|SST1602:Red|} }");
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary>Colors.</summary>
+            public enum Color { {|SST1602:Red|} }
+            """);
 
     /// <summary>Verifies documentation without a summary is reported (SST1604).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task MissingSummaryAsync()
-        => await Verify.VerifyAnalyzerAsync("/// <remarks>Notes.</remarks>\npublic class {|SST1604:Widget|} { }");
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            /// <remarks>Notes.</remarks>
+            public class {|SST1604:Widget|} { }
+            """);
 
     /// <summary>Verifies an empty summary is reported (SST1606).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task EmptySummaryAsync()
-        => await Verify.VerifyAnalyzerAsync("/// <summary></summary>\npublic class {|SST1606:Widget|} { }");
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary></summary>
+            public class {|SST1606:Widget|} { }
+            """);
 
     /// <summary>Verifies an undocumented parameter is reported (SST1611).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -108,7 +124,16 @@ public class MemberDocumentationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task TerminalPeriodAsync()
-        => await Verify.VerifyCodeFixAsync(
-            "/// {|SST1629:<summary>A widget</summary>|}\npublic class Widget { }",
-            "/// <summary>A widget.</summary>\npublic class Widget { }");
+    {
+        const string Source = """
+                              /// {|SST1629:<summary>A widget</summary>|}
+                              public class Widget { }
+                              """;
+        const string FixedSource = """
+                                   /// <summary>A widget.</summary>
+                                   public class Widget { }
+                                   """;
+
+        await Verify.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

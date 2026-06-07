@@ -5,8 +5,6 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-using TUnit.Assertions;
-
 using VerifyRecord = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.RecordAnalyzer>;
 
@@ -16,7 +14,10 @@ namespace StyleSharp.Analyzers.Tests;
 public class RecordAnalyzerUnitTest
 {
     /// <summary>The <c>init</c>-accessor polyfill positional records require on the test reference assemblies.</summary>
-    private const string IsExternalInit = "\nnamespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }";
+    private const string IsExternalInit = """
+
+        namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+        """;
 
     /// <summary>Verifies a record class that is neither sealed nor abstract is reported (SST1800, force-enabled here).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -28,7 +29,11 @@ public class RecordAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task SealedAndAbstractRecordClassesAreCleanAsync()
-        => await VerifyRecord.VerifyAnalyzerAsync("public sealed record Cat;\npublic abstract record Shape;");
+        => await VerifyRecord.VerifyAnalyzerAsync(
+            """
+            public sealed record Cat;
+            public abstract record Shape;
+            """);
 
     /// <summary>Verifies camelCase positional record parameters are reported (SST1801, default PascalCase).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -61,7 +66,12 @@ public class RecordAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", "root = true\n[*.cs]\nstylesharp.record_parameter_naming = camel_case\n"));
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.record_parameter_naming = camel_case
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }

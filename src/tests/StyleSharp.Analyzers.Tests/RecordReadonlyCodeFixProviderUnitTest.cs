@@ -12,7 +12,10 @@ namespace StyleSharp.Analyzers.Tests;
 public class RecordReadonlyCodeFixProviderUnitTest
 {
     /// <summary>The <c>init</c>-accessor polyfill positional records require on the test reference assemblies.</summary>
-    private const string IsExternalInit = "\nnamespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }";
+    private const string IsExternalInit = """
+
+        namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+        """;
 
     /// <summary>Verifies a non-readonly record struct is reported (SST1803) and the readonly modifier is added.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

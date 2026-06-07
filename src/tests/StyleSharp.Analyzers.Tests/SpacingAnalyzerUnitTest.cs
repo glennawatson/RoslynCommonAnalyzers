@@ -39,21 +39,21 @@ public class SpacingAnalyzerUnitTest
     [Test]
     public async Task TrailingWhitespaceRemovedAsync()
     {
-        const string source = """
+        const string Source = """
                               internal class C 
                               {
                               }
                               """;
-        const string fixedSource = """
+        const string FixedSource = """
                                    internal class C
                                    {
                                    }
                                    """;
 
         await VerifySpacing.VerifyCodeFixAsync(
-            source,
+            Source,
             VerifySpacing.Diagnostic("SST1028").WithSpan(1, 17, 1, 18),
-            fixedSource);
+            FixedSource);
     }
 
     /// <summary>Verifies a tab in indentation is reported (SST1027) and replaced with spaces.</summary>
@@ -67,7 +67,7 @@ public class SpacingAnalyzerUnitTest
                       {{'\t'}}private int x;
                       }
                       """;
-        const string fixedSource = """
+        const string FixedSource = """
                                    internal class C
                                    {
                                        private int x;
@@ -77,7 +77,7 @@ public class SpacingAnalyzerUnitTest
         await VerifySpacing.VerifyCodeFixAsync(
             source,
             VerifySpacing.Diagnostic("SST1027").WithSpan(3, 1, 3, 2),
-            fixedSource);
+            FixedSource);
     }
 
     /// <summary>Verifies multiple whitespace between tokens is reported (SST1025) and collapsed.</summary>
@@ -85,13 +85,13 @@ public class SpacingAnalyzerUnitTest
     [Test]
     public async Task MultipleWhitespaceCollapsedAsync()
     {
-        const string source = """
+        const string Source = """
                               internal class C
                               {
                                   private  int x;
                               }
                               """;
-        const string fixedSource = """
+        const string FixedSource = """
                                    internal class C
                                    {
                                        private int x;
@@ -99,9 +99,9 @@ public class SpacingAnalyzerUnitTest
                                    """;
 
         await VerifySpacing.VerifyCodeFixAsync(
-            source,
+            Source,
             VerifySpacing.Diagnostic("SST1025").WithSpan(3, 12, 3, 14),
-            fixedSource);
+            FixedSource);
     }
 
     /// <summary>Verifies a space before a comma is reported (SST1001) and removed.</summary>

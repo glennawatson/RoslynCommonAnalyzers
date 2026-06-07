@@ -19,14 +19,27 @@ public class LayoutBracePlacementUnitTest
     [Test]
     public async Task AllmanBlockIsCleanAsync()
         => await VerifyBrace.VerifyAnalyzerAsync(
-            "internal class C\n{\n    private void M()\n    {\n        return;\n    }\n}");
+            """
+            internal class C
+            {
+                private void M()
+                {
+                    return;
+                }
+            }
+            """);
 
     /// <summary>Verifies a single-line auto-property accessor list is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task SingleLineAccessorListIsCleanAsync()
         => await VerifyBrace.VerifyAnalyzerAsync(
-            "internal class C\n{\n    public int X { get; set; }\n}");
+            """
+            internal class C
+            {
+                public int X { get; set; }
+            }
+            """);
 
     /// <summary>Verifies a property with an initializer below a blank line is not flagged (the '{' is mid-line).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -47,8 +60,23 @@ public class LayoutBracePlacementUnitTest
     [Test]
     public async Task SharedLineBraceMovedAsync()
     {
-        const string Source = "internal class C\n{\n    private void M() {|SST1500:{|}\n        return;\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    private void M()\n    {\n        return;\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void M() {|SST1500:{|}
+                    return;
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M()
+                {
+                    return;
+                }
+            }
+            """;
         await VerifyBrace.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -57,8 +85,25 @@ public class LayoutBracePlacementUnitTest
     [Test]
     public async Task BlankLineBeforeOpenBraceRemovedAsync()
     {
-        const string Source = "internal class C\n{\n    private void M()\n\n    {|SST1509:{|}\n        return;\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    private void M()\n    {\n        return;\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void M()
+
+                {|SST1509:{|}
+                    return;
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M()
+                {
+                    return;
+                }
+            }
+            """;
         await VerifyBlank.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -67,8 +112,25 @@ public class LayoutBracePlacementUnitTest
     [Test]
     public async Task BlankLineAfterOpenBraceRemovedAsync()
     {
-        const string Source = "internal class C\n{\n    private void M()\n    {|SST1505:{|}\n\n        return;\n    }\n}";
-        const string FixedSource = "internal class C\n{\n    private void M()\n    {\n        return;\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void M()
+                {|SST1505:{|}
+
+                    return;
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M()
+                {
+                    return;
+                }
+            }
+            """;
         await VerifyBlank.VerifyCodeFixAsync(Source, FixedSource);
     }
 
@@ -77,8 +139,25 @@ public class LayoutBracePlacementUnitTest
     [Test]
     public async Task BlankLineBeforeCloseBraceRemovedAsync()
     {
-        const string Source = "internal class C\n{\n    private void M()\n    {\n        return;\n\n    {|SST1508:}|}\n}";
-        const string FixedSource = "internal class C\n{\n    private void M()\n    {\n        return;\n    }\n}";
+        const string Source = """
+            internal class C
+            {
+                private void M()
+                {
+                    return;
+
+                {|SST1508:}|}
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M()
+                {
+                    return;
+                }
+            }
+            """;
         await VerifyBlank.VerifyCodeFixAsync(Source, FixedSource);
     }
 }

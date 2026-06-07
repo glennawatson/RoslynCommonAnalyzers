@@ -153,7 +153,11 @@ public class ParameterListLayoutAnalyzerUnitTest
     [Test]
     public async Task OpeningHelperRejectsOffLineDeclarationAsync()
     {
-        var open = ParseOpenParenToken("class C { void M\n(int x) { } }");
+        var open = ParseOpenParenToken(
+            """
+            class C { void M
+            (int x) { } }
+            """);
         var text = await open.SyntaxTree!.GetTextAsync();
         var openLine = LayoutHelpers.StartLine(text, open);
 

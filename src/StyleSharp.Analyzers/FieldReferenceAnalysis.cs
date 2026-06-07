@@ -531,24 +531,9 @@ internal static class FieldReferenceAnalysis
     /// <returns><see langword="true"/> when an earlier local declaration shadows the field.</returns>
     private static bool HasEarlierLocalNamed(SyntaxNode scope, int position, string name)
     {
-        foreach (var node in scope.DescendantNodes())
-        {
-            if (node.SpanStart >= position)
-            {
-                continue;
-            }
-
-            switch (node)
-            {
-                case VariableDeclaratorSyntax variable when variable.Identifier.ValueText == name:
-                case SingleVariableDesignationSyntax designation when designation.Identifier.ValueText == name:
-                case ForEachStatementSyntax foreachStatement when foreachStatement.Identifier.ValueText == name:
-                case CatchDeclarationSyntax catchDeclaration when catchDeclaration.Identifier.ValueText == name:
-                    return true;
-            }
-        }
-
-        return false;
+        var state = new EarlierLocalSearchState(position, name, Found: false);
+        DescendantTraversalHelper.VisitDescendants<SyntaxNode, EarlierLocalSearchState>(scope, ref state, VisitEarlierLocalCandidate);
+        return state.Found;
     }
 
     /// <summary>Returns whether a type syntax unambiguously denotes <c>System.Object</c> without semantic binding.</summary>
@@ -557,6 +542,33 @@ internal static class FieldReferenceAnalysis
     private static bool IsUnambiguousObjectType(TypeSyntax type)
         => (type is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword))
             || (type is QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } && IsSystemNamespace(left));
+
+    /// <summary>Records whether the scan has found a matching local declared before the reference.</summary>
+    /// <param name="node">The visited syntax node.</param>
+    /// <param name="state">The current search state.</param>
+    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> to stop.</returns>
+    private static bool VisitEarlierLocalCandidate(SyntaxNode node, ref EarlierLocalSearchState state)
+    {
+        if (node.SpanStart >= state.Position)
+        {
+            return true;
+        }
+
+        switch (node)
+        {
+            case VariableDeclaratorSyntax variable when variable.Identifier.ValueText == state.Name:
+            case SingleVariableDesignationSyntax designation when designation.Identifier.ValueText == state.Name:
+            case ForEachStatementSyntax foreachStatement when foreachStatement.Identifier.ValueText == state.Name:
+            case CatchDeclarationSyntax catchDeclaration when catchDeclaration.Identifier.ValueText == state.Name:
+                {
+                    state = state with { Found = true };
+                    return false;
+                }
+
+            default:
+                return true;
+        }
+    }
 
     /// <summary>Returns whether a modifier list contains <c>private</c>.</summary>
     /// <param name="modifiers">The modifier list to inspect.</param>
@@ -580,4 +592,7 @@ internal static class FieldReferenceAnalysis
     private static bool IsSystemNamespace(NameSyntax name)
         => name is IdentifierNameSyntax { Identifier.ValueText: "System" }
             or AliasQualifiedNameSyntax { Alias.Identifier.ValueText: "global", Name.Identifier.ValueText: "System" };
+
+    /// <summary>Captures the state required while searching for earlier locals.</summary>
+    private readonly record struct EarlierLocalSearchState(int Position, string Name, bool Found);
 }

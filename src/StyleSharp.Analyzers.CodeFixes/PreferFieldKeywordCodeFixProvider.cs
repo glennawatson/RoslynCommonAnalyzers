@@ -92,14 +92,8 @@ public sealed class PreferFieldKeywordCodeFixProvider : CodeFixProvider
         CancellationToken cancellationToken)
     {
         var references = new List<IdentifierNameSyntax>(4);
-        foreach (var node in property.DescendantNodes())
-        {
-            if (node is IdentifierNameSyntax identifier
-                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, symbol))
-            {
-                references.Add(identifier);
-            }
-        }
+        var state = new FieldReferenceCollectionState(model, symbol, references, cancellationToken);
+        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, FieldReferenceCollectionState>(property, ref state, CollectFieldReference);
 
         var updated = property.ReplaceNodes(
             references,
@@ -135,4 +129,26 @@ public sealed class PreferFieldKeywordCodeFixProvider : CodeFixProvider
     private static IdentifierNameSyntax CreateFieldExpression()
         => SyntaxFactory.IdentifierName("field");
 #endif
+
+    /// <summary>Collects one property-local backing-field reference to rewrite.</summary>
+    /// <param name="identifier">The visited identifier.</param>
+    /// <param name="state">The current collection state.</param>
+    /// <returns><see langword="true"/> to continue scanning.</returns>
+    private static bool CollectFieldReference(IdentifierNameSyntax identifier, ref FieldReferenceCollectionState state)
+    {
+        if (!SymbolEqualityComparer.Default.Equals(state.Model.GetSymbolInfo(identifier, state.CancellationToken).Symbol, state.Symbol))
+        {
+            return true;
+        }
+
+        state.References.Add(identifier);
+        return true;
+    }
+
+    /// <summary>Captures the state required while collecting backing-field references.</summary>
+    private readonly record struct FieldReferenceCollectionState(
+        SemanticModel Model,
+        IFieldSymbol Symbol,
+        List<IdentifierNameSyntax> References,
+        CancellationToken CancellationToken);
 }

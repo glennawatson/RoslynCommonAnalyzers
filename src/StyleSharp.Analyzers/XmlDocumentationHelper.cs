@@ -64,15 +64,9 @@ internal static class XmlDocumentationHelper
     /// <returns><see langword="true"/> when an inheritdoc descendant is present.</returns>
     public static bool ContainsInheritDoc(XmlNodeSyntax element)
     {
-        foreach (var descendant in element.DescendantNodes())
-        {
-            if (descendant is XmlNodeSyntax node && GetElementName(node) == "inheritdoc")
-            {
-                return true;
-            }
-        }
-
-        return false;
+        var found = false;
+        DescendantTraversalHelper.VisitDescendants<XmlNodeSyntax, bool>(element, ref found, VisitInheritDocNode);
+        return found;
     }
 
     /// <summary>Returns the <c>&lt;param name="..."&gt;</c> element documenting <paramref name="parameterName"/>, or <see langword="null"/>.</summary>
@@ -441,6 +435,21 @@ internal static class XmlDocumentationHelper
             }
         }
 
+        return false;
+    }
+
+    /// <summary>Records whether the traversal encountered an inheritdoc element.</summary>
+    /// <param name="node">The visited XML node.</param>
+    /// <param name="found">Whether an inheritdoc element has been found.</param>
+    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> to stop.</returns>
+    private static bool VisitInheritDocNode(XmlNodeSyntax node, ref bool found)
+    {
+        if (GetElementName(node) != "inheritdoc")
+        {
+            return true;
+        }
+
+        found = true;
         return false;
     }
 }

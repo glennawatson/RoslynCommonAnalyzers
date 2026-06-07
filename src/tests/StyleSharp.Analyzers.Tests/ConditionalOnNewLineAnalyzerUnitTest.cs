@@ -38,6 +38,16 @@ public class ConditionalOnNewLineAnalyzerUnitTest
         await VerifyConditional.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies the code fix preserves CRLF line endings when it moves the independent if statement.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task SameLineIfIsFixedWithCrLfAsync()
+    {
+        const string Source = "public class C\r\n{\r\n    public void M(bool a, bool b)\r\n    {\r\n        if (a) { } {|SST1146:if|} (b) { }\r\n    }\r\n}";
+        const string FixedSource = "public class C\r\n{\r\n    public void M(bool a, bool b)\r\n    {\r\n        if (a) { }\r\n        if (b) { }\r\n    }\r\n}";
+        await VerifyConditional.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies normal multi-line and else-if forms are not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

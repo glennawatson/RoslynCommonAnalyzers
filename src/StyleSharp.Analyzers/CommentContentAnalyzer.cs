@@ -29,21 +29,46 @@ public sealed class CommentContentAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxTreeAction(Analyze);
     }
 
+    /// <summary>Returns whether the comment trivia should be reported as empty.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="comment">The comment trivia.</param>
+    /// <returns><see langword="true"/> when the comment has no content.</returns>
+    internal static bool ShouldReportComment(SourceText text, SyntaxTrivia comment)
+        => comment.Kind() switch
+        {
+            SyntaxKind.SingleLineCommentTrivia => IsEmptySingleLine(text, comment.Span),
+            SyntaxKind.MultiLineCommentTrivia => IsEmptyMultiLine(text, comment.Span),
+            _ => false,
+        };
+
     /// <summary>Reports every empty comment in the tree.</summary>
     /// <param name="context">The syntax tree analysis context.</param>
     private static void Analyze(SyntaxTreeAnalysisContext context)
     {
         var text = context.Tree.GetText(context.CancellationToken);
         var root = context.Tree.GetRoot(context.CancellationToken);
-        foreach (var trivia in root.DescendantTrivia())
+        foreach (var token in root.DescendantTokens())
         {
-            var isEmpty =
-                (trivia.IsKind(SyntaxKind.SingleLineCommentTrivia) && IsEmptySingleLine(text, trivia.Span))
-                || (trivia.IsKind(SyntaxKind.MultiLineCommentTrivia) && IsEmptyMultiLine(text, trivia.Span));
-            if (isEmpty)
+            AnalyzeTriviaList(context, text, token.LeadingTrivia);
+            AnalyzeTriviaList(context, text, token.TrailingTrivia);
+        }
+    }
+
+    /// <summary>Reports each empty comment inside the trivia list.</summary>
+    /// <param name="context">The syntax tree analysis context.</param>
+    /// <param name="text">The source text.</param>
+    /// <param name="triviaList">The trivia list to inspect.</param>
+    private static void AnalyzeTriviaList(SyntaxTreeAnalysisContext context, SourceText text, SyntaxTriviaList triviaList)
+    {
+        for (var i = 0; i < triviaList.Count; i++)
+        {
+            var trivia = triviaList[i];
+            if (!ShouldReportComment(text, trivia))
             {
-                context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.CommentMustContainText, Location.Create(context.Tree, trivia.Span)));
+                continue;
             }
+
+            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.CommentMustContainText, Location.Create(context.Tree, trivia.Span)));
         }
     }
 

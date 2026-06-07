@@ -59,6 +59,25 @@ internal static class UsingClassification
         return name?.ToString() ?? string.Empty;
     }
 
+    /// <summary>Compares two using directives by their alphabetical sort key without allocating for common name shapes.</summary>
+    /// <param name="left">The first directive.</param>
+    /// <param name="right">The second directive.</param>
+    /// <returns>A negative, zero, or positive value according to canonical alphabetical ordering.</returns>
+    public static int CompareSortKey(UsingDirectiveSyntax left, UsingDirectiveSyntax right)
+    {
+        if (left.Alias is { } leftAlias && right.Alias is { } rightAlias)
+        {
+            return string.CompareOrdinal(leftAlias.Name.Identifier.ValueText, rightAlias.Name.Identifier.ValueText);
+        }
+
+        if (left.Name is { } leftName && right.Name is { } rightName && IsIdentifierOrQualified(leftName) && IsIdentifierOrQualified(rightName))
+        {
+            return CompareIdentifierOrQualifiedName(leftName, rightName);
+        }
+
+        return string.CompareOrdinal(SortKey(left), SortKey(right));
+    }
+
     /// <summary>Compares two using directives by the canonical ordering.</summary>
     /// <param name="left">The first directive.</param>
     /// <param name="right">The second directive.</param>
@@ -80,7 +99,45 @@ internal static class UsingClassification
             }
         }
 
-        return string.CompareOrdinal(SortKey(left), SortKey(right));
+        return CompareSortKey(left, right);
+    }
+
+    /// <summary>Returns whether a name is composed only of identifiers separated by dots.</summary>
+    /// <param name="name">The name syntax.</param>
+    /// <returns><see langword="true"/> when the common fast comparison path applies.</returns>
+    private static bool IsIdentifierOrQualified(NameSyntax name)
+        => name is IdentifierNameSyntax or QualifiedNameSyntax;
+
+    /// <summary>Compares identifier-or-qualified names segment-by-segment.</summary>
+    /// <param name="left">The left name.</param>
+    /// <param name="right">The right name.</param>
+    /// <returns>A negative, zero, or positive value according to ordinal segment ordering.</returns>
+    private static int CompareIdentifierOrQualifiedName(NameSyntax left, NameSyntax right)
+    {
+        if (left is QualifiedNameSyntax leftQualified)
+        {
+            if (right is QualifiedNameSyntax rightQualified)
+            {
+                var compare = CompareIdentifierOrQualifiedName(leftQualified.Left, rightQualified.Left);
+                if (compare != 0)
+                {
+                    return compare;
+                }
+
+                return string.CompareOrdinal(leftQualified.Right.Identifier.ValueText, rightQualified.Right.Identifier.ValueText);
+            }
+
+            var leftPrefixCompare = CompareIdentifierOrQualifiedName(leftQualified.Left, right);
+            return leftPrefixCompare != 0 ? leftPrefixCompare : 1;
+        }
+
+        if (right is QualifiedNameSyntax rightOnlyQualified)
+        {
+            var rightPrefixCompare = CompareIdentifierOrQualifiedName(left, rightOnlyQualified.Left);
+            return rightPrefixCompare != 0 ? rightPrefixCompare : -1;
+        }
+
+        return string.CompareOrdinal(((IdentifierNameSyntax)left).Identifier.ValueText, ((IdentifierNameSyntax)right).Identifier.ValueText);
     }
 
     /// <summary>Returns whether a using target name starts with <c>System</c>.</summary>

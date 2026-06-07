@@ -30,6 +30,26 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxTreeAction(Analyze);
     }
 
+    /// <summary>Returns whether the trivia is a standalone single-line comment (only whitespace before the <c>//</c>).</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="comment">The comment trivia to inspect.</param>
+    /// <returns><see langword="true"/> when the line begins with a single-line comment.</returns>
+    internal static bool IsStandaloneComment(SourceText text, SyntaxTrivia comment)
+    {
+        var lineSpan = text.Lines.GetLineFromPosition(comment.SpanStart).Span;
+        for (var position = lineSpan.Start; position < comment.SpanStart; position++)
+        {
+            if (char.IsWhiteSpace(text[position]))
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
     /// <summary>Scans the file for standalone single-line comment blocks and checks their spacing.</summary>
     /// <param name="context">The syntax tree analysis context.</param>
     private static void Analyze(SyntaxTreeAnalysisContext context)
@@ -38,25 +58,48 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
         var root = context.Tree.GetRoot(context.CancellationToken);
         var lineCount = text.Lines.Count;
 
-        var line = 0;
-        while (line < lineCount)
+        var start = -1;
+        var end = -1;
+        var first = default(SyntaxTrivia);
+        var last = default(SyntaxTrivia);
+
+        foreach (var trivia in root.DescendantTrivia())
         {
-            if (!TryGetStandaloneComment(root, text, line, out var first))
+            if (!trivia.IsKind(SyntaxKind.SingleLineCommentTrivia) || !IsStandaloneComment(text, trivia))
             {
-                line++;
                 continue;
             }
 
-            var start = line;
-            while (line + 1 < lineCount && TryGetStandaloneComment(root, text, line + 1, out _))
+            var line = text.Lines.GetLineFromPosition(trivia.SpanStart).LineNumber;
+            if (start < 0)
             {
-                line++;
+                start = line;
+                end = line;
+                first = trivia;
+                last = trivia;
+                continue;
             }
 
-            TryGetStandaloneComment(root, text, line, out var last);
-            ReportBlock(context, text, start, line, first, last, lineCount);
-            line++;
+            if (line == end + 1)
+            {
+                end = line;
+                last = trivia;
+                continue;
+            }
+
+            ReportBlock(context, text, start, end, first, last, lineCount);
+            start = line;
+            end = line;
+            first = trivia;
+            last = trivia;
         }
+
+        if (start < 0)
+        {
+            return;
+        }
+
+        ReportBlock(context, text, start, end, first, last, lineCount);
     }
 
     /// <summary>Reports the preceding- and following-blank-line violations for a comment block.</summary>
@@ -80,36 +123,6 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
         }
 
         context.ReportDiagnostic(Diagnostic.Create(LayoutRules.SingleLineCommentNotFollowedByBlankLine, Location.Create(context.Tree, last.Span)));
-    }
-
-    /// <summary>Returns whether the line is a standalone single-line comment (only whitespace before the <c>//</c>).</summary>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="text">The source text.</param>
-    /// <param name="lineIndex">The line to inspect.</param>
-    /// <param name="comment">The comment trivia, when found.</param>
-    /// <returns><see langword="true"/> when the line begins with a single-line comment.</returns>
-    private static bool TryGetStandaloneComment(SyntaxNode root, SourceText text, int lineIndex, out SyntaxTrivia comment)
-    {
-        comment = default;
-        var lineSpan = text.Lines[lineIndex];
-        for (var position = lineSpan.Start; position < lineSpan.End; position++)
-        {
-            if (char.IsWhiteSpace(text[position]))
-            {
-                continue;
-            }
-
-            var trivia = root.FindTrivia(position);
-            if (!trivia.IsKind(SyntaxKind.SingleLineCommentTrivia))
-            {
-                return false;
-            }
-
-            comment = trivia;
-            return true;
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether the last non-whitespace character of the line is an opening brace.</summary>

@@ -2,6 +2,9 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
 using VerifyLockTarget = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.LockTargetAnalyzer>;
 
@@ -23,6 +26,25 @@ public class LockTargetAnalyzerUnitTest
                 public void M()
                 {
                     lock ({|SST1901:Gate|})
+                    {
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies an object cast does not hide an accessible field lock target (SST1901).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ObjectCastOnPublicFieldTargetReportedAsync()
+        => await VerifyLockTarget.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public readonly object Gate = new();
+
+                public void M()
+                {
+                    lock ((object){|SST1901:Gate|})
                     {
                     }
                 }
@@ -104,4 +126,34 @@ public class LockTargetAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies the syntax fast path recognizes a private object field lock target declared in the same type.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SyntaxFastPathRecognizesPrivateObjectFieldAsync()
+    {
+        var lockStatement = ParseLockStatement(
+            "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }");
+        var type = (TypeDeclarationSyntax)lockStatement.Parent!.Parent!.Parent!;
+
+        await Assert.That(LockTargetAnalyzer.IsPrivateObjectFieldLockTarget(type, lockStatement.Expression)).IsTrue();
+    }
+
+    /// <summary>Verifies the syntax fast path rejects a shadowed identifier so semantic binding still runs.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SyntaxFastPathRejectsShadowedIdentifierAsync()
+    {
+        var lockStatement = ParseLockStatement(
+            "public class C { private readonly object _gate = new(); void M(object _gate) { lock (_gate) { } } }");
+        var type = (TypeDeclarationSyntax)lockStatement.Parent!.Parent!.Parent!;
+
+        await Assert.That(LockTargetAnalyzer.IsPrivateObjectFieldLockTarget(type, lockStatement.Expression)).IsFalse();
+    }
+
+    /// <summary>Parses the first lock statement from the supplied source.</summary>
+    /// <param name="source">The source containing the lock statement.</param>
+    /// <returns>The parsed lock statement.</returns>
+    private static LockStatementSyntax ParseLockStatement(string source)
+        => SyntaxFactory.ParseCompilationUnit(source).DescendantNodes().OfType<LockStatementSyntax>().Single();
 }

@@ -35,32 +35,47 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
         });
     }
 
+    /// <summary>Returns whether the lock target is syntactically known to be a private object field declared in the same type.</summary>
+    /// <param name="type">The containing type declaration.</param>
+    /// <param name="expression">The lock target expression.</param>
+    /// <returns><see langword="true"/> when the target is a clean private object field use.</returns>
+    internal static bool IsPrivateObjectFieldLockTarget(TypeDeclarationSyntax type, ExpressionSyntax expression)
+        => FieldReferenceAnalysis.IsPrivateObjectFieldLockTarget(type, expression);
+
     /// <summary>Reports SST1901/SST1903 for a questionable lock target.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="typeSymbol">The resolved <c>System.Type</c> symbol, if any.</param>
     private static void AnalyzeLock(SyntaxNodeAnalysisContext context, INamedTypeSymbol? typeSymbol)
     {
-        var expression = UnwrapParentheses(((LockStatementSyntax)context.Node).Expression);
+        var expression = UnwrapLockTarget(((LockStatementSyntax)context.Node).Expression);
+
+        if (context.Node.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } type
+            && IsPrivateObjectFieldLockTarget(type, expression))
+        {
+            return;
+        }
+
+        var symbol = context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol;
 
         if (IsNewlyCreatedObject(expression, context.SemanticModel, context.CancellationToken))
         {
             context.ReportDiagnostic(Diagnostic.Create(ConcurrencyRules.DoNotLockOnNewlyCreatedObject, expression.GetLocation()));
         }
 
-        if (IsWeakIdentity(expression, context.SemanticModel, typeSymbol, context.CancellationToken))
+        if (IsWeakIdentity(expression, symbol, context.SemanticModel, typeSymbol, context.CancellationToken))
         {
             context.ReportDiagnostic(Diagnostic.Create(ConcurrencyRules.DoNotLockOnWeakIdentity, expression.GetLocation()));
         }
 
-        ReportAccessibleMember(context, expression);
+        ReportAccessibleMember(context, expression, symbol);
     }
 
     /// <summary>Reports SST1901 when the lock target is an externally-accessible field or property.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expression">The lock target expression.</param>
-    private static void ReportAccessibleMember(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
+    /// <param name="symbol">The bound symbol for the lock target, if any.</param>
+    private static void ReportAccessibleMember(SyntaxNodeAnalysisContext context, ExpressionSyntax expression, ISymbol? symbol)
     {
-        var symbol = context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol;
         if (symbol is not (IFieldSymbol or IPropertySymbol) || !IsExternallyAccessible(symbol.DeclaredAccessibility))
         {
             return;
@@ -80,18 +95,30 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether a lock expression is <c>this</c>, a <c>Type</c>, or a string.</summary>
     /// <param name="expression">The lock target expression.</param>
+    /// <param name="symbol">The bound symbol for the lock target, if any.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="typeSymbol">The resolved <c>System.Type</c> symbol, if any.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the target has weak identity.</returns>
-    private static bool IsWeakIdentity(ExpressionSyntax expression, SemanticModel model, INamedTypeSymbol? typeSymbol, CancellationToken cancellationToken)
+    private static bool IsWeakIdentity(
+        ExpressionSyntax expression,
+        ISymbol? symbol,
+        SemanticModel model,
+        INamedTypeSymbol? typeSymbol,
+        CancellationToken cancellationToken)
     {
         if (expression is ThisExpressionSyntax or TypeOfExpressionSyntax)
         {
             return true;
         }
 
-        var type = model.GetTypeInfo(expression, cancellationToken).Type;
+        var type = symbol switch
+        {
+            IFieldSymbol field => field.Type,
+            IPropertySymbol property => property.Type,
+            _ => model.GetTypeInfo(expression, cancellationToken).Type,
+        };
+
         if (type is null)
         {
             return false;
@@ -123,16 +150,66 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     private static bool IsExternallyAccessible(Accessibility accessibility)
         => accessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal;
 
-    /// <summary>Removes parentheses around a lock target so checks can reason about the underlying expression.</summary>
+    /// <summary>Removes wrappers that do not change the locked instance.</summary>
     /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The innermost non-parenthesized expression.</returns>
-    private static ExpressionSyntax UnwrapParentheses(ExpressionSyntax expression)
+    /// <returns>The innermost lock-target expression.</returns>
+    private static ExpressionSyntax UnwrapLockTarget(ExpressionSyntax expression)
     {
-        while (expression is ParenthesizedExpressionSyntax { Expression: { } inner })
+        var current = expression;
+
+        while (true)
         {
-            expression = inner;
+            switch (current)
+            {
+                case ParenthesizedExpressionSyntax { Expression: { } inner }:
+                {
+                    current = inner;
+                    break;
+                }
+
+                case CastExpressionSyntax { Type: { } type, Expression: { } inner } when IsObjectType(type):
+                {
+                    current = inner;
+                    break;
+                }
+
+                default:
+                    return current;
+            }
+        }
+    }
+
+    /// <summary>Returns whether a cast type is spelled as <c>object</c> or <c>System.Object</c>.</summary>
+    /// <param name="type">The cast target type syntax.</param>
+    /// <returns><see langword="true"/> when the cast target is object.</returns>
+    private static bool IsObjectType(TypeSyntax type)
+    {
+        if (type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ObjectKeyword })
+        {
+            return true;
         }
 
-        return expression;
+        if (type is not QualifiedNameSyntax qualifiedName
+            || qualifiedName.Right.Identifier.ValueText != "Object")
+        {
+            return false;
+        }
+
+        return IsSystemTypeName(qualifiedName.Left);
+    }
+
+    /// <summary>Returns whether a type name is spelled as <c>System</c> or <c>global::System</c>.</summary>
+    /// <param name="name">The name syntax to inspect.</param>
+    /// <returns><see langword="true"/> when the name refers to <c>System</c>.</returns>
+    private static bool IsSystemTypeName(NameSyntax name)
+    {
+        if (name is IdentifierNameSyntax { Identifier.ValueText: "System" })
+        {
+            return true;
+        }
+
+        return name is AliasQualifiedNameSyntax aliasQualifiedName
+            && aliasQualifiedName.Alias.Identifier.ValueText == "global"
+            && aliasQualifiedName.Name.Identifier.ValueText == "System";
     }
 }

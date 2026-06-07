@@ -86,10 +86,24 @@ internal static class FieldReferenceAnalysis
         return found;
     }
 
+    /// <summary>Returns whether an expression is syntactically known to reference a private object field declared in the same type.</summary>
+    /// <param name="type">The containing type declaration.</param>
+    /// <param name="expression">The already-unwrapped expression to inspect.</param>
+    /// <returns><see langword="true"/> when the expression safely names a private object field.</returns>
+    internal static bool IsPrivateObjectFieldLockTarget(TypeDeclarationSyntax type, ExpressionSyntax expression)
+    {
+        if (expression is not IdentifierNameSyntax identifier || IsShadowed(identifier))
+        {
+            return false;
+        }
+
+        return TryFindPrivateObjectField(type, identifier.Identifier.ValueText);
+    }
+
     /// <summary>Returns whether a reference writes to a field.</summary>
     /// <param name="identifier">The field reference.</param>
     /// <returns><see langword="true"/> when the reference is a write.</returns>
-    public static bool IsWrite(IdentifierNameSyntax identifier)
+    internal static bool IsWrite(IdentifierNameSyntax identifier)
     {
         SyntaxNode expression = identifier;
         if (identifier.Parent is MemberAccessExpressionSyntax access && access.Name == identifier)
@@ -176,4 +190,158 @@ internal static class FieldReferenceAnalysis
 
         return null;
     }
+
+    /// <summary>Returns whether the type contains a matching private object field.</summary>
+    /// <param name="type">The containing type declaration.</param>
+    /// <param name="name">The expected field name.</param>
+    /// <returns><see langword="true"/> when the field exists.</returns>
+    private static bool TryFindPrivateObjectField(TypeDeclarationSyntax type, string name)
+    {
+        for (var i = 0; i < type.Members.Count; i++)
+        {
+            if (type.Members[i] is FieldDeclarationSyntax field && IsPrivateObjectField(field, name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a field declaration defines the named private object field.</summary>
+    /// <param name="field">The field declaration.</param>
+    /// <param name="name">The expected field name.</param>
+    /// <returns><see langword="true"/> when the field matches the private object pattern.</returns>
+    private static bool IsPrivateObjectField(FieldDeclarationSyntax field, string name)
+    {
+        if (!IsUnambiguousObjectType(field.Declaration.Type) || !HasPrivateModifier(field.Modifiers))
+        {
+            return false;
+        }
+
+        var variables = field.Declaration.Variables;
+        for (var i = 0; i < variables.Count; i++)
+        {
+            if (variables[i].Identifier.ValueText == name)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether the identifier is shadowed by a parameter or earlier local declaration in the current callable scope.</summary>
+    /// <param name="identifier">The identifier to inspect.</param>
+    /// <returns><see langword="true"/> when syntax alone cannot safely bind the field.</returns>
+    private static bool IsShadowed(IdentifierNameSyntax identifier)
+    {
+        var name = identifier.Identifier.ValueText;
+        for (var current = identifier.Parent; current is not null; current = current.Parent)
+        {
+            switch (current)
+            {
+                case BaseMethodDeclarationSyntax method when HasParameterNamed(method.ParameterList.Parameters, name):
+                case LocalFunctionStatementSyntax localFunction when HasParameterNamed(localFunction.ParameterList.Parameters, name):
+                case SimpleLambdaExpressionSyntax lambda when lambda.Parameter.Identifier.ValueText == name:
+                case ParenthesizedLambdaExpressionSyntax parenthesizedLambda when HasParameterNamed(parenthesizedLambda.ParameterList.Parameters, name):
+                case AnonymousMethodExpressionSyntax anonymousMethod when anonymousMethod.ParameterList is not null && HasParameterNamed(anonymousMethod.ParameterList.Parameters, name):
+                    return true;
+
+                case AccessorDeclarationSyntax accessor:
+                    return HasEarlierLocalNamed(accessor, identifier.SpanStart, name);
+
+                case BaseMethodDeclarationSyntax method:
+                    return HasEarlierLocalNamed(method, identifier.SpanStart, name);
+
+                case LocalFunctionStatementSyntax localFunction:
+                    return HasEarlierLocalNamed(localFunction, identifier.SpanStart, name);
+
+                case ParenthesizedLambdaExpressionSyntax parenthesizedLambda:
+                    return HasEarlierLocalNamed(parenthesizedLambda, identifier.SpanStart, name);
+
+                case SimpleLambdaExpressionSyntax simpleLambda:
+                    return HasEarlierLocalNamed(simpleLambda, identifier.SpanStart, name);
+
+                case AnonymousMethodExpressionSyntax anonymousMethod:
+                    return HasEarlierLocalNamed(anonymousMethod, identifier.SpanStart, name);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a parameter list contains the specified name.</summary>
+    /// <param name="parameters">The parameters to inspect.</param>
+    /// <param name="name">The expected parameter name.</param>
+    /// <returns><see langword="true"/> when a parameter matches.</returns>
+    private static bool HasParameterNamed(SeparatedSyntaxList<ParameterSyntax> parameters, string name)
+    {
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            if (parameters[i].Identifier.ValueText == name)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a callable scope declares a matching local before the field reference.</summary>
+    /// <param name="scope">The scope to inspect.</param>
+    /// <param name="position">The reference position.</param>
+    /// <param name="name">The identifier name.</param>
+    /// <returns><see langword="true"/> when an earlier local declaration shadows the field.</returns>
+    private static bool HasEarlierLocalNamed(SyntaxNode scope, int position, string name)
+    {
+        foreach (var node in scope.DescendantNodes())
+        {
+            if (node.SpanStart >= position)
+            {
+                continue;
+            }
+
+            switch (node)
+            {
+                case VariableDeclaratorSyntax variable when variable.Identifier.ValueText == name:
+                case SingleVariableDesignationSyntax designation when designation.Identifier.ValueText == name:
+                case ForEachStatementSyntax foreachStatement when foreachStatement.Identifier.ValueText == name:
+                case CatchDeclarationSyntax catchDeclaration when catchDeclaration.Identifier.ValueText == name:
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a type syntax unambiguously denotes <c>System.Object</c> without semantic binding.</summary>
+    /// <param name="type">The type syntax.</param>
+    /// <returns><see langword="true"/> for unambiguous object spellings.</returns>
+    private static bool IsUnambiguousObjectType(TypeSyntax type)
+        => (type is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword))
+            || (type is QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } && IsSystemNamespace(left));
+
+    /// <summary>Returns whether a modifier list contains <c>private</c>.</summary>
+    /// <param name="modifiers">The modifier list to inspect.</param>
+    /// <returns><see langword="true"/> when the field is private.</returns>
+    private static bool HasPrivateModifier(SyntaxTokenList modifiers)
+    {
+        for (var i = 0; i < modifiers.Count; i++)
+        {
+            if (modifiers[i].IsKind(SyntaxKind.PrivateKeyword))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a name syntax denotes the <c>System</c> namespace.</summary>
+    /// <param name="name">The syntax to inspect.</param>
+    /// <returns><see langword="true"/> when the syntax denotes <c>System</c>.</returns>
+    private static bool IsSystemNamespace(NameSyntax name)
+        => name is IdentifierNameSyntax { Identifier.ValueText: "System" }
+            or AliasQualifiedNameSyntax { Alias.Identifier.ValueText: "global", Name.Identifier.ValueText: "System" };
 }

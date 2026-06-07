@@ -2,6 +2,9 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
 using VerifyUsing = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.UsingOrderingAnalyzer,
     StyleSharp.Analyzers.UsingSortCodeFixProvider>;
@@ -180,4 +183,32 @@ public class OrderingUsingUnitTest
             {
             }
             """);
+
+    /// <summary>Verifies qualified using names are compared segment-by-segment without changing sort order.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CompareSortKeyOrdersQualifiedPrefixesAsync()
+    {
+        var left = ParseUsingDirective("using System;");
+        var right = ParseUsingDirective("using System.Collections;");
+
+        await Assert.That(UsingClassification.CompareSortKey(left, right)).IsLessThan(0);
+    }
+
+    /// <summary>Verifies alias using names are compared by alias identifier.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CompareSortKeyOrdersAliasesByNameAsync()
+    {
+        var left = ParseUsingDirective("using Alpha = System.Console;");
+        var right = ParseUsingDirective("using Beta = System.Console;");
+
+        await Assert.That(UsingClassification.CompareSortKey(left, right)).IsLessThan(0);
+    }
+
+    /// <summary>Parses a single using directive from the supplied compilation unit text.</summary>
+    /// <param name="source">The source containing the using directive.</param>
+    /// <returns>The parsed using directive.</returns>
+    private static UsingDirectiveSyntax ParseUsingDirective(string source)
+        => SyntaxFactory.ParseCompilationUnit(source).Usings[0];
 }

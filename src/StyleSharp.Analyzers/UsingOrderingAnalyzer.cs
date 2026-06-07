@@ -77,7 +77,7 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
     private static UsingDirectiveData CreateDirectiveData(UsingDirectiveSyntax directive)
     {
         var group = UsingClassification.Group(directive);
-        return new(directive, group, group == UsingClassification.RegularGroup && UsingClassification.IsSystem(directive), UsingClassification.SortKey(directive));
+        return new(directive, group, group == UsingClassification.RegularGroup && UsingClassification.IsSystem(directive));
     }
 
     /// <summary>Returns the using list of a supported container.</summary>
@@ -114,7 +114,7 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
         var rule = previousGroup == UsingClassification.StaticGroup
             ? OrderingRules.StaticUsingsAlphabetical
             : OrderingRules.AliasUsingsAlphabetical;
-        if (string.CompareOrdinal(previous.SortKey, current.SortKey) <= 0)
+        if (UsingClassification.CompareSortKey(previous.Directive, current.Directive) <= 0)
         {
             return;
         }
@@ -158,7 +158,7 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (string.CompareOrdinal(previous.SortKey, current.SortKey) <= 0)
+        if (UsingClassification.CompareSortKey(previous.Directive, current.Directive) <= 0)
         {
             return;
         }
@@ -170,6 +170,5 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
     /// <param name="Directive">The using directive syntax.</param>
     /// <param name="Group">The directive's ordering group.</param>
     /// <param name="IsSystem">Whether the directive targets <c>System</c>.</param>
-    /// <param name="SortKey">The directive's alphabetical sort key.</param>
-    private readonly record struct UsingDirectiveData(UsingDirectiveSyntax Directive, int Group, bool IsSystem, string SortKey);
+    private readonly record struct UsingDirectiveData(UsingDirectiveSyntax Directive, int Group, bool IsSystem);
 }

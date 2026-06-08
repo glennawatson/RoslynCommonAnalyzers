@@ -166,6 +166,19 @@ public class MemberOrderingAnalyzerUnitTest
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a <c>const</c> before a readonly field is not a readonly-ordering violation (no SST1215).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConstBeforeReadonlyFieldIsCleanAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private const int Capacity = 4;
+                private readonly int _value;
+            }
+            """);
+
     /// <summary>Verifies a struct's <c>readonly</c> method is not treated as a readonly field (no SST1215).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

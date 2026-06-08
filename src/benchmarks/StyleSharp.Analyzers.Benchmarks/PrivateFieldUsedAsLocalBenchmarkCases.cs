@@ -11,5 +11,5 @@ internal static class PrivateFieldUsedAsLocalBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState Create(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new PrivateFieldUsedAsLocalAnalyzer(), PrivateFieldUsedAsLocalBenchmarkSource.Generate, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new PrivateFieldUsedAsLocalAnalyzer(), PrivateFieldUsedAsLocalBenchmarkSource.Generate, nodes, ["SST1422"]);
 }

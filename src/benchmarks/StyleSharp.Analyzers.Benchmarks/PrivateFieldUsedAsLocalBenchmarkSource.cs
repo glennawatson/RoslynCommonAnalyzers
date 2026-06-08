@@ -5,57 +5,69 @@
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Builds synthetic source for private-field-used-as-local analyzer benchmarks.</summary>
+/// <remarks>
+/// The fields are packed into a single large type rather than many one-field types, because the
+/// analyzer's cost is per-field re-scanning of the whole containing type to confirm the field is
+/// used by a single method. A single type with N candidate fields is the realistic worst case.
+/// </remarks>
 internal static class PrivateFieldUsedAsLocalBenchmarkSource
 {
     /// <summary>Builds a compilation unit that exercises clean or violating resettable-field patterns.</summary>
-    /// <param name="types">The number of synthetic types to emit.</param>
+    /// <param name="fields">The number of private fields to emit in the single synthetic type.</param>
     /// <param name="violating">Whether to emit private-field-used-as-local violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
+    public static string Generate(int fields, bool violating)
+        => violating ? GenerateViolating(fields) : GenerateClean(fields);
+
+    /// <summary>Builds one type whose fields are each used as method-local scratch state (every field is reported).</summary>
+    /// <param name="fields">The number of private fields to emit.</param>
+    /// <returns>The generated source text.</returns>
+    private static string GenerateViolating(int fields)
         => $$"""
            namespace Bench;
 
-           {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
-           """;
-
-    /// <summary>Builds one clean or violating type declaration.</summary>
-    /// <param name="index">The synthetic type index.</param>
-    /// <param name="violating">Whether to emit a violation.</param>
-    /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
-
-    /// <summary>Builds one clean type that is rejected before the expensive single-method check.</summary>
-    /// <param name="index">The synthetic type index.</param>
-    /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
-           internal sealed class C{{index}}
+           internal sealed class Big
            {
-               private int _scratch = {{index}};
-
-               internal int M()
-               {
-                   return _scratch;
-               }
+           {{BenchmarkSourceText.JoinBlocks(fields, GenerateScratchMember)}}
            }
            """;
 
-    /// <summary>Builds one violating type that uses a private field as method-local scratch state.</summary>
-    /// <param name="index">The synthetic type index.</param>
-    /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
+    /// <summary>Builds one type whose fields carry initializers, so each is rejected before the single-method scan.</summary>
+    /// <param name="fields">The number of private fields to emit.</param>
+    /// <returns>The generated source text.</returns>
+    private static string GenerateClean(int fields)
         => $$"""
-           internal sealed class C{{index}}
-           {
-               private int _scratch;
+           namespace Bench;
 
-               internal int M(int value)
-               {
-                   _scratch = value;
-                   _scratch += 1;
-                   return _scratch;
-               }
+           internal sealed class Big
+           {
+           {{BenchmarkSourceText.JoinBlocks(fields, GenerateInitializedMember)}}
+           }
+           """;
+
+    /// <summary>Builds one field reset and used as scratch by its own method.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateScratchMember(int index)
+        => $$"""
+           private int _f{{index}};
+           internal int M{{index}}(int value)
+           {
+           _f{{index}} = 0;
+           _f{{index}} += value;
+           return _f{{index}};
+           }
+           """;
+
+    /// <summary>Builds one initialized field with a trivial reader, rejected before the expensive scan.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateInitializedMember(int index)
+        => $$"""
+           private int _f{{index}} = {{index}};
+           internal int M{{index}}()
+           {
+           return _f{{index}};
            }
            """;
 }

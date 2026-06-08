@@ -5,65 +5,55 @@
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Builds synthetic source for field-should-be-readonly analyzer benchmarks.</summary>
+/// <remarks>
+/// The fields are packed into a single large type rather than many one-field types, because the
+/// analyzer's cost is per-field re-scanning of the whole containing type. A single type with N
+/// candidate fields is the realistic worst case the rule pays and is what this benchmark measures.
+/// </remarks>
 internal static class FieldShouldBeReadonlyBenchmarkSource
 {
     /// <summary>Builds a compilation unit that exercises clean or violating readonly-field patterns.</summary>
-    /// <param name="types">The number of synthetic types to emit.</param>
+    /// <param name="fields">The number of private fields to emit in the single synthetic type.</param>
     /// <param name="violating">Whether to emit readonly-field violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
+    public static string Generate(int fields, bool violating)
+        => violating ? GenerateViolating(fields) : GenerateClean(fields);
+
+    /// <summary>Builds one type whose fields are all assigned only in the constructor (every field is reported).</summary>
+    /// <param name="fields">The number of private fields to emit.</param>
+    /// <returns>The generated source text.</returns>
+    private static string GenerateViolating(int fields)
         => $$"""
            namespace Bench;
 
-           {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
-           """;
-
-    /// <summary>Builds one clean or violating type declaration.</summary>
-    /// <param name="index">The synthetic type index.</param>
-    /// <param name="violating">Whether to emit a violation.</param>
-    /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
-
-    /// <summary>Builds one clean type with writes outside the constructor.</summary>
-    /// <param name="index">The synthetic type index.</param>
-    /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
-           internal sealed class C{{index}}
+           internal sealed class Big
            {
-               private int _value;
-
-               internal C{{index}}(int value)
-               {
-                   _value = value;
-               }
-
-               internal void Update(int value)
-               {
-                   _value = value;
-               }
+           {{BenchmarkSourceText.JoinLines(fields, i => $"private int _f{i};")}}
+           internal Big(int value)
+           {
+           {{BenchmarkSourceText.JoinLines(fields, i => $"_f{i} = value;")}}
+           }
            }
            """;
 
-    /// <summary>Builds one violating type whose field is only assigned in the constructor.</summary>
-    /// <param name="index">The synthetic type index.</param>
-    /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
+    /// <summary>Builds one type whose fields are also written in a method, so none are reported.</summary>
+    /// <param name="fields">The number of private fields to emit.</param>
+    /// <returns>The generated source text.</returns>
+    private static string GenerateClean(int fields)
         => $$"""
-           internal sealed class C{{index}}
+           namespace Bench;
+
+           internal sealed class Big
            {
-               private int _value;
-
-               internal C{{index}}(int value)
-               {
-                   _value = value;
-               }
-
-               internal int GetValue()
-               {
-                   return _value;
-               }
+           {{BenchmarkSourceText.JoinLines(fields, i => $"private int _f{i};")}}
+           internal Big(int value)
+           {
+           {{BenchmarkSourceText.JoinLines(fields, i => $"_f{i} = value;")}}
+           }
+           internal void Reset(int value)
+           {
+           {{BenchmarkSourceText.JoinLines(fields, i => $"_f{i} = value;")}}
+           }
            }
            """;
 }

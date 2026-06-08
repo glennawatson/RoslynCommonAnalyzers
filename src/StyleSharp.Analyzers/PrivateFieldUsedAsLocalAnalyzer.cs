@@ -85,48 +85,17 @@ public sealed class PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
     {
         method = null;
         var methodStart = -1;
-        return VisitFieldReferences(type, model, field, cancellationToken, ref methodStart, ref method)
-            && methodStart >= 0;
-    }
-
-    /// <summary>Visits field references with an indexed subtree walk that exits on the first invalid use.</summary>
-    /// <param name="node">The current syntax node.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="field">The field symbol.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <param name="methodStart">The span start of the single using method.</param>
-    /// <param name="method">The single using method.</param>
-    /// <returns><see langword="true"/> when every reference belongs to one eligible method.</returns>
-    private static bool VisitFieldReferences(
-        SyntaxNode node,
-        SemanticModel model,
-        IFieldSymbol field,
-        CancellationToken cancellationToken,
-        ref int methodStart,
-        ref MethodDeclarationSyntax? method)
-    {
-        if (node is IdentifierNameSyntax identifier
-            && !TryRecordFieldReference(identifier, model, field, cancellationToken, ref methodStart, ref method))
+        var references = FieldReferenceAnalysis.FieldNameReferences(type, field.Name);
+        for (var i = 0; i < references.Count; i++)
         {
-            return false;
-        }
-
-        var children = node.ChildNodesAndTokens();
-        for (var i = 0; i < children.Count; i++)
-        {
-            var child = children[i];
-            if (!child.IsNode || child.AsNode() is not { } childNode)
+            if (!TryRecordFieldReference(references[i], model, field, cancellationToken, ref methodStart, ref method))
             {
-                continue;
-            }
-
-            if (!VisitFieldReferences(childNode, model, field, cancellationToken, ref methodStart, ref method))
-            {
+                method = null;
                 return false;
             }
         }
 
-        return true;
+        return methodStart >= 0;
     }
 
     /// <summary>Records one matching field reference and rejects uses outside a single top-level method.</summary>

@@ -62,6 +62,20 @@ public class OrderingUsingUnitTest
         await VerifyUsing.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies directives of differing depth are ordered by their first diverging segment (no SST1210).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DifferingDepthOrderedByDivergingSegmentAsync()
+        => await VerifyUsing.VerifyAnalyzerAsync(
+            """
+            using System.Collections.Generic;
+            using System.Text;
+
+            internal class C
+            {
+            }
+            """);
+
     /// <summary>Verifies a using alias before a regular directive is reported (SST1209) and sorted last.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

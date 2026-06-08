@@ -59,6 +59,54 @@ public class DocumentationSummaryTextUnitTest
         await VerifyProperty.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies an init-only property summary should begin with "Gets" (matching StyleCop), not "Gets or sets".</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InitOnlyPropertyExpectsGetsAsync()
+    {
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Gets the count.</summary>
+                public int Count { get; init; }
+            }
+
+            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            """;
+
+        await VerifyProperty.VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies the fix prefixes an init-only property summary with "Gets" (matching StyleCop).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InitOnlyPropertyFixedWithGetsAsync()
+    {
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// {|SST1623:<summary>The count.</summary>|}
+                public int Count { get; init; }
+            }
+
+            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            """;
+        const string FixedSource = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Gets the count.</summary>
+                public int Count { get; init; }
+            }
+
+            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            """;
+
+        await VerifyProperty.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a constructor summary with the standard text is accepted.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

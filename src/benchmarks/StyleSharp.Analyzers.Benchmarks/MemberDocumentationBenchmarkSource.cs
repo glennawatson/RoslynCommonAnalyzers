@@ -27,7 +27,7 @@ internal static class MemberDocumentationBenchmarkSource
     private static string GenerateMember(int index, bool violating)
         => violating ? GenerateViolatingMember(index) : GenerateCleanMember(index);
 
-    /// <summary>Builds one clean documented member.</summary>
+    /// <summary>Builds one clean documented member (a method and an accessor-prefixed property).</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
     private static string GenerateCleanMember(int index)
@@ -36,14 +36,20 @@ internal static class MemberDocumentationBenchmarkSource
            /// <param name="value">The input value.</param>
            /// <returns>The input value.</returns>
            internal int M{{index}}(int value) => value;
+
+           /// <summary>Gets or sets the value {{index}}.</summary>
+           internal int Value{{index}} { get; set; }
            """;
 
-    /// <summary>Builds one violating documented member.</summary>
+    /// <summary>Builds one violating documented member (missing docs and a non-conforming property summary).</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
     private static string GenerateViolatingMember(int index)
         => $$"""
            /// <summary>Does the work.</summary>
            internal int M{{index}}(int value) => value;
+
+           /// <summary>The value {{index}}.</summary>
+           internal int Value{{index}} { get; set; }
            """;
 }

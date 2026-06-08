@@ -102,35 +102,82 @@ internal static class UsingClassification
     private static bool IsIdentifierOrQualified(NameSyntax name)
         => name is IdentifierNameSyntax or QualifiedNameSyntax;
 
-    /// <summary>Compares identifier-or-qualified names segment-by-segment.</summary>
+    /// <summary>
+    /// Compares identifier-or-qualified names by their dotted segments from the left, without allocating.
+    /// Names of differing depth are aligned to their shared leading length first (the syntax tree is
+    /// left-associative, so the last segment is the outermost node); when every shared segment is equal,
+    /// the shorter name sorts first.
+    /// </summary>
     /// <param name="left">The left name.</param>
     /// <param name="right">The right name.</param>
     /// <returns>A negative, zero, or positive value according to ordinal segment ordering.</returns>
     private static int CompareIdentifierOrQualifiedName(NameSyntax left, NameSyntax right)
     {
-        if (left is QualifiedNameSyntax leftQualified)
-        {
-            if (right is QualifiedNameSyntax rightQualified)
-            {
-                var compare = CompareIdentifierOrQualifiedName(leftQualified.Left, rightQualified.Left);
-                return compare != 0
-                    ? compare
-                    : string.CompareOrdinal(leftQualified.Right.Identifier.ValueText, rightQualified.Right.Identifier.ValueText);
-            }
+        var leftDepth = SegmentCount(left);
+        var rightDepth = SegmentCount(right);
 
-            var leftPrefixCompare = CompareIdentifierOrQualifiedName(leftQualified.Left, right);
-            return leftPrefixCompare != 0 ? leftPrefixCompare : 1;
+        if (leftDepth > rightDepth)
+        {
+            var compare = CompareSameDepth(PrefixOfLength(left, leftDepth, rightDepth), right);
+            return compare != 0 ? compare : 1;
         }
 
-        if (right is not QualifiedNameSyntax rightOnlyQualified)
+        if (rightDepth > leftDepth)
         {
-            return string.CompareOrdinal(
-                ((IdentifierNameSyntax)left).Identifier.ValueText,
-                ((IdentifierNameSyntax)right).Identifier.ValueText);
+            var compare = CompareSameDepth(left, PrefixOfLength(right, rightDepth, leftDepth));
+            return compare != 0 ? compare : -1;
         }
 
-        var rightPrefixCompare = CompareIdentifierOrQualifiedName(left, rightOnlyQualified.Left);
-        return rightPrefixCompare != 0 ? rightPrefixCompare : -1;
+        return CompareSameDepth(left, right);
+    }
+
+    /// <summary>Compares two names known to have the same segment depth, segment-by-segment from the left.</summary>
+    /// <param name="left">The left name.</param>
+    /// <param name="right">The right name (same depth as <paramref name="left"/>).</param>
+    /// <returns>A negative, zero, or positive value according to ordinal segment ordering.</returns>
+    private static int CompareSameDepth(NameSyntax left, NameSyntax right)
+    {
+        if (left is QualifiedNameSyntax leftQualified && right is QualifiedNameSyntax rightQualified)
+        {
+            var compare = CompareSameDepth(leftQualified.Left, rightQualified.Left);
+            return compare != 0
+                ? compare
+                : string.CompareOrdinal(leftQualified.Right.Identifier.ValueText, rightQualified.Right.Identifier.ValueText);
+        }
+
+        return string.CompareOrdinal(
+            ((IdentifierNameSyntax)left).Identifier.ValueText,
+            ((IdentifierNameSyntax)right).Identifier.ValueText);
+    }
+
+    /// <summary>Returns the number of dotted segments in an identifier-or-qualified name.</summary>
+    /// <param name="name">The name to measure.</param>
+    /// <returns>The segment count (one for a simple identifier).</returns>
+    private static int SegmentCount(NameSyntax name)
+    {
+        var count = 1;
+        while (name is QualifiedNameSyntax qualified)
+        {
+            count++;
+            name = qualified.Left;
+        }
+
+        return count;
+    }
+
+    /// <summary>Returns the leading prefix of a name reduced to the requested number of segments.</summary>
+    /// <param name="name">The name to reduce.</param>
+    /// <param name="depth">The name's current segment depth.</param>
+    /// <param name="length">The desired number of leading segments.</param>
+    /// <returns>The prefix name spanning the first <paramref name="length"/> segments.</returns>
+    private static NameSyntax PrefixOfLength(NameSyntax name, int depth, int length)
+    {
+        for (var remaining = depth; remaining > length; remaining--)
+        {
+            name = ((QualifiedNameSyntax)name).Left;
+        }
+
+        return name;
     }
 
     /// <summary>Returns whether a using target name starts with <c>System</c>.</summary>

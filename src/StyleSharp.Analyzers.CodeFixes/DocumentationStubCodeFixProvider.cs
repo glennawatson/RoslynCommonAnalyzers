@@ -10,8 +10,10 @@ namespace StyleSharp.Analyzers;
 /// Inserts (or removes) documentation stub elements for the coverage rules:
 /// <c>&lt;param&gt;</c> (SST1611), <c>&lt;returns&gt;</c> (SST1615), a stray
 /// <c>&lt;returns&gt;</c> removal (SST1617), and <c>&lt;typeparam&gt;</c>
-/// (SST1618). The summary rules are intentionally not fixed — an empty summary
-/// stub would just re-trigger SST1606.
+/// (SST1618), plus the extension-block coverage rules <c>&lt;param&gt;</c>
+/// (SST1655) and <c>&lt;typeparam&gt;</c> (SST1656). The summary rules (including
+/// the extension-block SST1654) are intentionally not fixed — an empty summary
+/// stub adds no value, and for members it would just re-trigger SST1606.
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(DocumentationStubCodeFixProvider))]
 [Shared]
@@ -22,7 +24,9 @@ public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
         DocumentationRules.ParametersMustBeDocumented.Id,
         DocumentationRules.ReturnValueMustBeDocumented.Id,
         DocumentationRules.VoidMustNotHaveReturn.Id,
-        DocumentationRules.TypeParametersMustBeDocumented.Id);
+        DocumentationRules.TypeParametersMustBeDocumented.Id,
+        DocumentationRules.ExtensionBlockParametersMustBeDocumented.Id,
+        DocumentationRules.ExtensionBlockTypeParametersMustBeDocumented.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -98,14 +102,14 @@ public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
             return "<returns></returns>";
         }
 
-        if (id == DocumentationRules.ParametersMustBeDocumented.Id)
+        if (id == DocumentationRules.ParametersMustBeDocumented.Id || id == DocumentationRules.ExtensionBlockParametersMustBeDocumented.Id)
         {
             return node.FirstAncestorOrSelf<ParameterSyntax>() is { } parameter
                 ? "<param name=\"" + parameter.Identifier.ValueText + "\"></param>"
                 : null;
         }
 
-        if (id != DocumentationRules.TypeParametersMustBeDocumented.Id)
+        if (id != DocumentationRules.TypeParametersMustBeDocumented.Id && id != DocumentationRules.ExtensionBlockTypeParametersMustBeDocumented.Id)
         {
             return null;
         }

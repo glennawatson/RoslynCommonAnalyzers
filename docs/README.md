@@ -62,6 +62,10 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST1649](rules/SST1649.md) | The file name should match the first type name. |
 | [SST1651](rules/SST1651.md) | Placeholder documentation elements should be removed. |
 | [SST1653](rules/SST1653.md) | Keep short documentation summaries on a single line. |
+| [SST1654](rules/SST1654.md) | Extension blocks should be documented with a summary. |
+| [SST1655](rules/SST1655.md) | Extension block parameters should be documented. |
+| [SST1656](rules/SST1656.md) | Extension block type parameters should be documented. |
+| [SST1657](rules/SST1657.md) | Extension block documentation should reference a real parameter or type parameter. |
 
 ## Extensions
 

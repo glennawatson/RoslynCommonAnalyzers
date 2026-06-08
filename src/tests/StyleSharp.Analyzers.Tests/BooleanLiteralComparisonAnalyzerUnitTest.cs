@@ -76,6 +76,8 @@ public class BooleanLiteralComparisonAnalyzerUnitTest
                 public bool M2(bool? x) => x != false;
 
                 public bool M3() => _task?.IsCompleted != false;
+
+                public bool M4() => _task?.IsCompleted == true;
             }
             """);
 }

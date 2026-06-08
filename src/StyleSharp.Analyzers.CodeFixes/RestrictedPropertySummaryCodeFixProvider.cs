@@ -52,7 +52,7 @@ public sealed class RestrictedPropertySummaryCodeFixProvider : CodeFixProvider
     /// <param name="summary">The summary element.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> ApplyAsync(Document document, XmlElementSyntax summary, CancellationToken cancellationToken)
+    internal static async Task<Document> ApplyAsync(Document document, XmlElementSyntax summary, CancellationToken cancellationToken)
     {
         foreach (var token in summary.DescendantTokens())
         {

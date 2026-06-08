@@ -32,13 +32,23 @@ public sealed class FieldShouldBeReadonlyCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var updated = field.WithModifiers(field.Modifiers.Add(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)));
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Make field readonly",
-                    cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(field, updated))),
+                    cancellationToken => Task.FromResult(AddReadonly(context.Document, root, field)),
                     equivalenceKey: nameof(FieldShouldBeReadonlyCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <summary>Adds the readonly modifier to the field declaration.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The current syntax root.</param>
+    /// <param name="field">The field declaration to update.</param>
+    /// <returns>The updated document.</returns>
+    internal static Document AddReadonly(Document document, SyntaxNode root, FieldDeclarationSyntax field)
+    {
+        var updated = field.WithModifiers(field.Modifiers.Add(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)));
+        return document.WithSyntaxRoot(root.ReplaceNode(field, updated));
     }
 }

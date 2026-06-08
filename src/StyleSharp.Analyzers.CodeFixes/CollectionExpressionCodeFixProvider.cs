@@ -49,7 +49,7 @@ public sealed class CollectionExpressionCodeFixProvider : CodeFixProvider
     /// <param name="expression">The expression to replace.</param>
     /// <param name="diagnosticId">The diagnostic id.</param>
     /// <returns>The updated document.</returns>
-    private static Task<Document> ReplaceAsync(Document document, SyntaxNode root, ExpressionSyntax expression, string diagnosticId)
+    internal static Task<Document> ReplaceAsync(Document document, SyntaxNode root, ExpressionSyntax expression, string diagnosticId)
     {
         var replacementText = "[]";
         if (diagnosticId == CollectionExpressionRules.UseExplicitCollectionExpression.Id

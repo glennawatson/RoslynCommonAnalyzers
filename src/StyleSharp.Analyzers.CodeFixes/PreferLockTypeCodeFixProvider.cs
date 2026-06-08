@@ -37,11 +37,19 @@ public sealed class PreferLockTypeCodeFixProvider : CodeFixProvider
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Use System.Threading.Lock",
-                    cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(field, Rewrite(field)))),
+                    cancellationToken => Task.FromResult(Apply(context.Document, root, field)),
                     equivalenceKey: nameof(PreferLockTypeCodeFixProvider)),
                 diagnostic);
         }
     }
+
+    /// <summary>Replaces the reported lock field with its <c>System.Threading.Lock</c> form.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="field">The field declaration to rewrite.</param>
+    /// <returns>The updated document.</returns>
+    internal static Document Apply(Document document, SyntaxNode root, FieldDeclarationSyntax field)
+        => document.WithSyntaxRoot(root.ReplaceNode(field, Rewrite(field)));
 
     /// <summary>Rewrites the field's type to System.Threading.Lock and its initializer to <c>new()</c>.</summary>
     /// <param name="field">The field declaration to rewrite.</param>

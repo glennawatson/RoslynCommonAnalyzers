@@ -49,7 +49,7 @@ public sealed class UseLiteralSuffixCodeFixProvider : CodeFixProvider
     /// <param name="cast">The cast expression.</param>
     /// <param name="suffix">The literal suffix to apply.</param>
     /// <returns>The updated document.</returns>
-    private static Document Replace(Document document, SyntaxNode root, CastExpressionSyntax cast, string suffix)
+    internal static Document Replace(Document document, SyntaxNode root, CastExpressionSyntax cast, string suffix)
     {
         var literal = (LiteralExpressionSyntax)UseLiteralSuffixAnalyzer.Unwrap(cast.Expression);
         var suffixed = SyntaxFactory.ParseExpression(literal.Token.Text + suffix).WithTriviaFrom(cast);

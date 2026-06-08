@@ -50,7 +50,7 @@ public sealed class Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLinesCo
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The object creation expression to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
-    private static Task<Document> FixAsync(Document document, SyntaxNode root, ObjectCreationExpressionSyntax node)
+    internal static Task<Document> FixAsync(Document document, SyntaxNode root, ObjectCreationExpressionSyntax node)
     {
         var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(

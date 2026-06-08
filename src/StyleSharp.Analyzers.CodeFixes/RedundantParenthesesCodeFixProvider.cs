@@ -38,10 +38,21 @@ public sealed class RedundantParenthesesCodeFixProvider : CodeFixProvider
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Remove empty parentheses",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(rewritten.Value.Original, rewritten.Value.Replacement))),
+                    _ => Task.FromResult(Apply(context.Document, root, node)),
                     equivalenceKey: nameof(RedundantParenthesesCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <summary>Removes the empty parentheses from the reported node when it still matches.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="node">The reported node.</param>
+    /// <returns>The updated document, or the original document when the node no longer matches.</returns>
+    internal static Document Apply(Document document, SyntaxNode root, SyntaxNode node)
+    {
+        var rewritten = Rewrite(node);
+        return rewritten is null ? document : document.WithSyntaxRoot(root.ReplaceNode(rewritten.Value.Original, rewritten.Value.Replacement));
     }
 
     /// <summary>Computes the node replacement that drops the empty parentheses, or <see langword="null"/>.</summary>

@@ -38,7 +38,7 @@ public sealed class FileEndingCodeFixProvider : CodeFixProvider
     /// <param name="span">The trailing whitespace span.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> NormaliseAsync(Document document, TextSpan span, CancellationToken cancellationToken)
+    internal static async Task<Document> NormaliseAsync(Document document, TextSpan span, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         return document.WithText(text.WithChanges(new TextChange(span, LayoutFixHelpers.DetectNewLine(text))));

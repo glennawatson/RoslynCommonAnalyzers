@@ -38,7 +38,7 @@ public sealed class MultipleBlankLinesCodeFixProvider : CodeFixProvider
     /// <param name="span">The span covering the extra blank lines.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> RemoveAsync(Document document, TextSpan span, CancellationToken cancellationToken)
+    internal static async Task<Document> RemoveAsync(Document document, TextSpan span, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         return document.WithText(text.WithChanges(new TextChange(span, string.Empty)));

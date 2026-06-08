@@ -50,7 +50,7 @@ public sealed class Sst1168ConversionOperatorDeclarationParameterMustBeOnUniqueL
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The declaration to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
-    private static Task<Document> FixAsync(Document document, SyntaxNode root, ConversionOperatorDeclarationSyntax node)
+    internal static Task<Document> FixAsync(Document document, SyntaxNode root, ConversionOperatorDeclarationSyntax node)
     {
         var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(

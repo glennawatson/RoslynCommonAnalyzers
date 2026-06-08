@@ -47,7 +47,7 @@ public sealed class NoPublicOnInternalTypeCodeFixProvider : CodeFixProvider
     /// <param name="member">The public member to demote.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> MakeInternalAsync(Document document, MemberDeclarationSyntax member, CancellationToken cancellationToken)
+    internal static async Task<Document> MakeInternalAsync(Document document, MemberDeclarationSyntax member, CancellationToken cancellationToken)
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var generator = SyntaxGenerator.GetGenerator(document);

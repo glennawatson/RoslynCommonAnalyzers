@@ -43,6 +43,19 @@ public sealed class UseNullableShorthandCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <summary>Replaces the nullable type node with its <c>T?</c> shorthand.</summary>
+    /// <param name="document">The document to fix.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="outer">The full type node to replace.</param>
+    /// <param name="generic">The <c>Nullable&lt;T&gt;</c> generic name.</param>
+    /// <returns>The updated document.</returns>
+    internal static Document Replace(Document document, SyntaxNode root, SyntaxNode outer, GenericNameSyntax generic)
+    {
+        var elementType = generic.TypeArgumentList.Arguments[0].WithoutTrivia();
+        var shorthand = SyntaxFactory.NullableType(elementType).WithTriviaFrom(outer);
+        return document.WithSyntaxRoot(root.ReplaceNode(outer, shorthand));
+    }
+
     /// <summary>Finds the <c>Nullable&lt;T&gt;</c> generic name inside the reported type node.</summary>
     /// <param name="outer">The reported type node.</param>
     /// <returns>The generic name, or <see langword="null"/> when none is present.</returns>
@@ -52,17 +65,4 @@ public sealed class UseNullableShorthandCodeFixProvider : CodeFixProvider
         QualifiedNameSyntax { Right: GenericNameSyntax generic } => generic,
         _ => null
     };
-
-    /// <summary>Replaces the nullable type node with its <c>T?</c> shorthand.</summary>
-    /// <param name="document">The document to fix.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="outer">The full type node to replace.</param>
-    /// <param name="generic">The <c>Nullable&lt;T&gt;</c> generic name.</param>
-    /// <returns>The updated document.</returns>
-    private static Document Replace(Document document, SyntaxNode root, SyntaxNode outer, GenericNameSyntax generic)
-    {
-        var elementType = generic.TypeArgumentList.Arguments[0].WithoutTrivia();
-        var shorthand = SyntaxFactory.NullableType(elementType).WithTriviaFrom(outer);
-        return document.WithSyntaxRoot(root.ReplaceNode(outer, shorthand));
-    }
 }

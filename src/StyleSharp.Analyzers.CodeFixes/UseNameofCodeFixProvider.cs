@@ -31,14 +31,23 @@ public sealed class UseNameofCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var nameofExpression = SyntaxFactory.ParseExpression($"nameof({literal.Token.ValueText})").WithTriviaFrom(literal);
-
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Use 'nameof({literal.Token.ValueText})'",
-                    cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(literal, nameofExpression))),
+                    cancellationToken => Task.FromResult(Replace(context.Document, root, literal)),
                     equivalenceKey: nameof(UseNameofCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <summary>Replaces the string literal with the corresponding <c>nameof</c> expression.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="literal">The parameter-name literal.</param>
+    /// <returns>The updated document.</returns>
+    internal static Document Replace(Document document, SyntaxNode root, LiteralExpressionSyntax literal)
+    {
+        var nameofExpression = SyntaxFactory.ParseExpression($"nameof({literal.Token.ValueText})").WithTriviaFrom(literal);
+        return document.WithSyntaxRoot(root.ReplaceNode(literal, nameofExpression));
     }
 }

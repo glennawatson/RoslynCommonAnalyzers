@@ -45,18 +45,12 @@ public sealed class AccessorOrderCodeFixProvider : CodeFixProvider
         }
     }
 
-    /// <summary>Returns the canonical rank of an accessor — get/add before set/init/remove.</summary>
-    /// <param name="accessor">The accessor.</param>
-    /// <returns>0 for the primary accessor, 1 otherwise.</returns>
-    private static int Rank(AccessorDeclarationSyntax accessor)
-        => accessor.Keyword.IsKind(SyntaxKind.GetKeyword) || accessor.Keyword.IsKind(SyntaxKind.AddKeyword) ? 0 : 1;
-
     /// <summary>Reorders the accessor list into canonical order, keeping each slot's trivia.</summary>
     /// <param name="document">The document to fix.</param>
     /// <param name="list">The accessor list.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> ReorderAsync(Document document, AccessorListSyntax list, CancellationToken cancellationToken)
+    internal static async Task<Document> ReorderAsync(Document document, AccessorListSyntax list, CancellationToken cancellationToken)
     {
         var original = list.Accessors;
         var ordered = new AccessorDeclarationSyntax[original.Count];
@@ -79,6 +73,12 @@ public sealed class AccessorOrderCodeFixProvider : CodeFixProvider
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         return document.WithSyntaxRoot(root!.ReplaceNode(list, newList));
     }
+
+    /// <summary>Returns the canonical rank of an accessor — get/add before set/init/remove.</summary>
+    /// <param name="accessor">The accessor.</param>
+    /// <returns>0 for the primary accessor, 1 otherwise.</returns>
+    private static int Rank(AccessorDeclarationSyntax accessor)
+        => accessor.Keyword.IsKind(SyntaxKind.GetKeyword) || accessor.Keyword.IsKind(SyntaxKind.AddKeyword) ? 0 : 1;
 
     /// <summary>Compares two accessors by the canonical accessor order.</summary>
     /// <param name="left">The left accessor.</param>

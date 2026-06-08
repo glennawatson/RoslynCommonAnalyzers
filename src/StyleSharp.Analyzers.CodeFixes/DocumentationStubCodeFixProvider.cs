@@ -48,6 +48,19 @@ public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <summary>Inserts a new documentation line for <paramref name="element"/> just above the member.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="member">The member declaration.</param>
+    /// <param name="element">The documentation element text.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The updated document.</returns>
+    internal static async Task<Document> InsertElementAsync(Document document, SyntaxNode member, string element, CancellationToken cancellationToken)
+    {
+        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        var insertion = "/// " + element + NewLine(member) + Indent(member);
+        return document.WithText(text.WithChanges(new TextChange(new(member.GetFirstToken().SpanStart, 0), insertion)));
+    }
+
     /// <summary>Registers the appropriate stub fix for one diagnostic.</summary>
     /// <param name="context">The code fix context.</param>
     /// <param name="diagnostic">The diagnostic being fixed.</param>
@@ -100,19 +113,6 @@ public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
         return node.FirstAncestorOrSelf<TypeParameterSyntax>() is { } typeParameter
             ? "<typeparam name=\"" + typeParameter.Identifier.ValueText + "\"></typeparam>"
             : null;
-    }
-
-    /// <summary>Inserts a new documentation line for <paramref name="element"/> just above the member.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="member">The member declaration.</param>
-    /// <param name="element">The documentation element text.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated document.</returns>
-    private static async Task<Document> InsertElementAsync(Document document, SyntaxNode member, string element, CancellationToken cancellationToken)
-    {
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var insertion = "/// " + element + NewLine(member) + Indent(member);
-        return document.WithText(text.WithChanges(new TextChange(new(member.GetFirstToken().SpanStart, 0), insertion)));
     }
 
     /// <summary>Returns the end-of-line sequence used around a member declaration.</summary>

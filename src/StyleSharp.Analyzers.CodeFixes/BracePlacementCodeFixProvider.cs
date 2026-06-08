@@ -48,6 +48,24 @@ public sealed class BracePlacementCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <summary>Builds the text changes that move the brace and its line-mates onto separate lines.</summary>
+    /// <param name="document">The document to fix.</param>
+    /// <param name="brace">The reported brace token.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The updated document.</returns>
+    internal static async Task<Document> PlaceOnOwnLineAsync(Document document, SyntaxToken brace, CancellationToken cancellationToken)
+    {
+        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        var braceLine = text.Lines.GetLineFromPosition(brace.SpanStart).LineNumber;
+        var newLine = LayoutFixHelpers.DetectNewLine(text);
+        var changes = new List<TextChange>(2);
+
+        AddLeadingBreak(text, brace, braceLine, newLine, changes);
+        AddTrailingBreak(text, brace, braceLine, newLine, changes);
+
+        return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
+    }
+
     /// <summary>Returns the indent the brace should sit at on its own line.</summary>
     /// <param name="text">The source text.</param>
     /// <param name="brace">The brace token.</param>
@@ -98,23 +116,5 @@ public sealed class BracePlacementCodeFixProvider : CodeFixProvider
         }
 
         changes.Add(new(TextSpan.FromBounds(brace.Span.End, next.SpanStart), newLine + LayoutFixHelpers.IndentOfLine(text, brace.SpanStart) + LayoutFixHelpers.IndentStep));
-    }
-
-    /// <summary>Builds the text changes that move the brace and its line-mates onto separate lines.</summary>
-    /// <param name="document">The document to fix.</param>
-    /// <param name="brace">The reported brace token.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The updated document.</returns>
-    private static async Task<Document> PlaceOnOwnLineAsync(Document document, SyntaxToken brace, CancellationToken cancellationToken)
-    {
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var braceLine = text.Lines.GetLineFromPosition(brace.SpanStart).LineNumber;
-        var newLine = LayoutFixHelpers.DetectNewLine(text);
-        var changes = new List<TextChange>(2);
-
-        AddLeadingBreak(text, brace, braceLine, newLine, changes);
-        AddTrailingBreak(text, brace, braceLine, newLine, changes);
-
-        return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
     }
 }

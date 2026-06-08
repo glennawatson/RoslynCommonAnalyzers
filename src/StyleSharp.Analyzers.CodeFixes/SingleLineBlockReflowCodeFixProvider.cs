@@ -54,7 +54,7 @@ public sealed class SingleLineBlockReflowCodeFixProvider : CodeFixProvider
     /// <param name="block">The single-line block to expand.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document, unchanged when a comment blocks the rewrite.</returns>
-    private static async Task<Document> ReflowAsync(Document document, BlockSyntax block, CancellationToken cancellationToken)
+    internal static async Task<Document> ReflowAsync(Document document, BlockSyntax block, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var newLine = LayoutFixHelpers.DetectNewLine(text);

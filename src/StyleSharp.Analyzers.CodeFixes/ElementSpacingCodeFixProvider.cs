@@ -47,7 +47,7 @@ public sealed class ElementSpacingCodeFixProvider : CodeFixProvider
     /// <param name="member">The member to separate.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> InsertBlankLineAsync(Document document, MemberDeclarationSyntax member, CancellationToken cancellationToken)
+    internal static async Task<Document> InsertBlankLineAsync(Document document, MemberDeclarationSyntax member, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var newLine = LayoutFixHelpers.DetectNewLine(text);

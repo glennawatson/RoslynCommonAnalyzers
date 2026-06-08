@@ -50,7 +50,7 @@ public sealed class UseReadableConditionsCodeFixProvider : CodeFixProvider
     /// <param name="root">The syntax root.</param>
     /// <param name="comparison">The comparison to rewrite.</param>
     /// <returns>The updated document.</returns>
-    private static Document Swap(Document document, SyntaxNode root, BinaryExpressionSyntax comparison)
+    internal static Document Swap(Document document, SyntaxNode root, BinaryExpressionSyntax comparison)
     {
         var newLeft = comparison.Right
             .WithLeadingTrivia(comparison.Left.GetLeadingTrivia())

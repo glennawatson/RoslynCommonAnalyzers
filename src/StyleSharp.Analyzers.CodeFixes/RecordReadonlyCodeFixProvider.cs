@@ -47,7 +47,7 @@ public sealed class RecordReadonlyCodeFixProvider : CodeFixProvider
     /// <param name="record">The record struct declaration.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> AddReadonlyAsync(Document document, RecordDeclarationSyntax record, CancellationToken cancellationToken)
+    internal static async Task<Document> AddReadonlyAsync(Document document, RecordDeclarationSyntax record, CancellationToken cancellationToken)
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var generator = SyntaxGenerator.GetGenerator(document);

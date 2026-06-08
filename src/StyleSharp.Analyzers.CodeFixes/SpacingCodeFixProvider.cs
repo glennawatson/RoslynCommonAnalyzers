@@ -84,7 +84,7 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider
     /// <param name="action">The stashed punctuation fix action, when present.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> FixAsync(Document document, string id, TextSpan span, string? action, CancellationToken cancellationToken)
+    internal static async Task<Document> FixAsync(Document document, string id, TextSpan span, string? action, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var change = action is null ? TriviaChange(id, span, text) : PunctuationChange(action, span, text);

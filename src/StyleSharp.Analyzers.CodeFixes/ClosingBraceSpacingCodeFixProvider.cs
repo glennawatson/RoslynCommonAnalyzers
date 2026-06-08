@@ -48,7 +48,7 @@ public sealed class ClosingBraceSpacingCodeFixProvider : CodeFixProvider
     /// <param name="brace">The closing brace token.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> InsertBlankLineAsync(Document document, SyntaxToken brace, CancellationToken cancellationToken)
+    internal static async Task<Document> InsertBlankLineAsync(Document document, SyntaxToken brace, CancellationToken cancellationToken)
     {
         var next = brace.GetNextToken();
         if (next.IsKind(SyntaxKind.None))

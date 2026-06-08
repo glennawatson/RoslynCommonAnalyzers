@@ -50,7 +50,7 @@ public sealed class Sst1157AttributeArgumentMustBeOnUniqueLinesCodeFixProvider :
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The attribute to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
-    private static Task<Document> FixAsync(Document document, SyntaxNode root, AttributeSyntax node)
+    internal static Task<Document> FixAsync(Document document, SyntaxNode root, AttributeSyntax node)
     {
         var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(

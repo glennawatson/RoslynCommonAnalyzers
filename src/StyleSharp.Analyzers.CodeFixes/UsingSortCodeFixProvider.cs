@@ -13,6 +13,9 @@ namespace StyleSharp.Analyzers;
 [Shared]
 public sealed class UsingSortCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Compares using directives by the shared canonical ordering.</summary>
+    private static readonly IComparer<UsingDirectiveSyntax> ComparerInstance = new UsingDirectiveComparer();
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         OrderingRules.SystemUsingsFirst.Id,
@@ -50,6 +53,40 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <summary>Sorts the container's using directives, keeping each slot's trivia.</summary>
+    /// <param name="document">The document to fix.</param>
+    /// <param name="container">The container whose usings are sorted.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The updated document.</returns>
+    internal static async Task<Document> SortAsync(Document document, SyntaxNode container, CancellationToken cancellationToken)
+    {
+        var original = Usings(container);
+        if (original.Count <= 1)
+        {
+            return document;
+        }
+
+        var ordered = new UsingDirectiveSyntax[original.Count];
+        for (var i = 0; i < original.Count; i++)
+        {
+            ordered[i] = original[i];
+        }
+
+        Array.Sort(ordered, ComparerInstance);
+
+        var rebuilt = new UsingDirectiveSyntax[ordered.Length];
+        for (var index = 0; index < ordered.Length; index++)
+        {
+            rebuilt[index] = ordered[index]
+                .WithLeadingTrivia(original[index].GetLeadingTrivia())
+                .WithTrailingTrivia(original[index].GetTrailingTrivia());
+        }
+
+        var newContainer = WithUsings(container, SyntaxFactory.List(rebuilt));
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        return document.WithSyntaxRoot(root!.ReplaceNode(container, newContainer));
+    }
+
     /// <summary>Returns the using list of a container that holds using directives.</summary>
     /// <param name="container">The container node.</param>
     /// <returns>The using directives.</returns>
@@ -73,33 +110,31 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
         _ => container
     };
 
-    /// <summary>Sorts the container's using directives, keeping each slot's trivia.</summary>
-    /// <param name="document">The document to fix.</param>
-    /// <param name="container">The container whose usings are sorted.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The updated document.</returns>
-    private static async Task<Document> SortAsync(Document document, SyntaxNode container, CancellationToken cancellationToken)
+    /// <summary>Provides a reusable comparer instance for array sorting.</summary>
+    private sealed class UsingDirectiveComparer : IComparer<UsingDirectiveSyntax>
     {
-        var original = Usings(container);
-        var comparer = Comparer<UsingDirectiveSyntax>.Create(UsingClassification.Compare);
-        var ordered = new UsingDirectiveSyntax[original.Count];
-        for (var i = 0; i < original.Count; i++)
+        /// <summary>Compares two using directives according to the canonical ordering rules.</summary>
+        /// <param name="left">The left directive.</param>
+        /// <param name="right">The right directive.</param>
+        /// <returns>A negative, zero, or positive value according to canonical ordering.</returns>
+        public int Compare(UsingDirectiveSyntax? left, UsingDirectiveSyntax? right)
         {
-            ordered[i] = original[i];
+            if (ReferenceEquals(left, right))
+            {
+                return 0;
+            }
+
+            if (left is null)
+            {
+                return -1;
+            }
+
+            if (right is null)
+            {
+                return 1;
+            }
+
+            return UsingClassification.Compare(left, right);
         }
-
-        Array.Sort(ordered, comparer);
-
-        var rebuilt = new UsingDirectiveSyntax[ordered.Length];
-        for (var index = 0; index < ordered.Length; index++)
-        {
-            rebuilt[index] = ordered[index]
-                .WithLeadingTrivia(original[index].GetLeadingTrivia())
-                .WithTrailingTrivia(original[index].GetTrailingTrivia());
-        }
-
-        var newContainer = WithUsings(container, SyntaxFactory.List(rebuilt));
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        return document.WithSyntaxRoot(root!.ReplaceNode(container, newContainer));
     }
 }

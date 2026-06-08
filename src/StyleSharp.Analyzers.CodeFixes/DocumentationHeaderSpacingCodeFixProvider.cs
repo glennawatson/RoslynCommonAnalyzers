@@ -55,7 +55,7 @@ public sealed class DocumentationHeaderSpacingCodeFixProvider : CodeFixProvider
     /// <param name="insertBefore">When <see langword="true"/>, inserts a blank line before the header; otherwise removes the blank line after it.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> FixAsync(Document document, MemberDeclarationSyntax member, bool insertBefore, CancellationToken cancellationToken)
+    internal static async Task<Document> FixAsync(Document document, MemberDeclarationSyntax member, bool insertBefore, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         LayoutHelpers.TryGetDocHeader(member, out var header);

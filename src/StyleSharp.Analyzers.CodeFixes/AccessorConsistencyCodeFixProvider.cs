@@ -54,7 +54,7 @@ public sealed class AccessorConsistencyCodeFixProvider : CodeFixProvider
     /// <param name="list">The accessor list to normalise.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document, unchanged when a comment blocks the rewrite.</returns>
-    private static async Task<Document> ExpandAsync(Document document, AccessorListSyntax list, CancellationToken cancellationToken)
+    internal static async Task<Document> ExpandAsync(Document document, AccessorListSyntax list, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var newLine = LayoutFixHelpers.DetectNewLine(text);

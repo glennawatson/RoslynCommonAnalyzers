@@ -34,11 +34,19 @@ public sealed class PreferOrPatternCodeFixProvider : CodeFixProvider
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Combine into an 'or' pattern",
-                    cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(section, Merge(section)))),
+                    cancellationToken => Task.FromResult(Apply(context.Document, root, section)),
                     equivalenceKey: nameof(PreferOrPatternCodeFixProvider)),
                 diagnostic);
         }
     }
+
+    /// <summary>Replaces the switch section with its combined <c>or</c>-pattern form.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="section">The switch section to rewrite.</param>
+    /// <returns>The updated document.</returns>
+    internal static Document Apply(Document document, SyntaxNode root, SwitchSectionSyntax section)
+        => document.WithSyntaxRoot(root.ReplaceNode(section, Merge(section)));
 
     /// <summary>Builds the section with its labels merged into one <c>or</c>-pattern label.</summary>
     /// <param name="section">The switch section to rewrite.</param>

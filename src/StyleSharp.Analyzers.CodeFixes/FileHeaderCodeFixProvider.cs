@@ -43,7 +43,7 @@ public sealed class FileHeaderCodeFixProvider : CodeFixProvider
     /// <param name="header">The rendered header, lines joined by "\n".</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> AddHeaderAsync(Document document, string header, CancellationToken cancellationToken)
+    internal static async Task<Document> AddHeaderAsync(Document document, string header, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var newLine = DetectNewLine(text);

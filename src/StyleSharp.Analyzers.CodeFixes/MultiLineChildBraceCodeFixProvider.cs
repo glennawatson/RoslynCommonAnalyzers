@@ -49,7 +49,7 @@ public sealed class MultiLineChildBraceCodeFixProvider : CodeFixProvider
     /// <param name="statement">The embedded statement.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> WrapAsync(Document document, StatementSyntax statement, CancellationToken cancellationToken)
+    internal static async Task<Document> WrapAsync(Document document, StatementSyntax statement, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var changes = new List<TextChange>(2);

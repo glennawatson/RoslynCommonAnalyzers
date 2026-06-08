@@ -52,7 +52,7 @@ public sealed class PropertySummaryCodeFixProvider : CodeFixProvider
     /// <param name="prefix">The accessor prefix.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> ApplyAsync(Document document, XmlElementSyntax summary, string prefix, CancellationToken cancellationToken)
+    internal static async Task<Document> ApplyAsync(Document document, XmlElementSyntax summary, string prefix, CancellationToken cancellationToken)
     {
         if (!XmlDocumentationHelper.TryGetFirstTextCharacter(summary, out var first, out var position))
         {

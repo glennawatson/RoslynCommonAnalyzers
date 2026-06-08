@@ -56,7 +56,7 @@ public sealed class AccessModifierCodeFixProvider : CodeFixProvider
     /// <param name="accessibility">The accessibility to declare.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> AddAsync(Document document, MemberDeclarationSyntax member, Accessibility accessibility, CancellationToken cancellationToken)
+    internal static async Task<Document> AddAsync(Document document, MemberDeclarationSyntax member, Accessibility accessibility, CancellationToken cancellationToken)
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var generator = SyntaxGenerator.GetGenerator(document);

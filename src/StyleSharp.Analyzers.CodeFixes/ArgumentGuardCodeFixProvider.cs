@@ -36,20 +36,36 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider
         foreach (var diagnostic in context.Diagnostics)
         {
             if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>() is not { } ifStatement
-                || BuildReplacementCall(diagnostic.Id, ifStatement) is not { } call)
+                || BuildReplacementCall(diagnostic.Id, ifStatement) is null)
             {
                 continue;
             }
 
-            var replacement = SyntaxFactory.ParseStatement(call).WithTriviaFrom(ifStatement);
-
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Use guard helper",
-                    cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(ifStatement, replacement))),
+                    cancellationToken => Task.FromResult(Apply(context.Document, root, ifStatement, diagnostic.Id)),
                     equivalenceKey: nameof(ArgumentGuardCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <summary>Replaces the matched guard statement with the corresponding throw-helper call.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="ifStatement">The guard statement.</param>
+    /// <param name="diagnosticId">The diagnostic id selecting the replacement helper.</param>
+    /// <returns>The updated document, or the original document when the statement no longer matches.</returns>
+    internal static Document Apply(Document document, SyntaxNode root, IfStatementSyntax ifStatement, string diagnosticId)
+    {
+        var call = BuildReplacementCall(diagnosticId, ifStatement);
+        if (call is null)
+        {
+            return document;
+        }
+
+        var replacement = SyntaxFactory.ParseStatement(call).WithTriviaFrom(ifStatement);
+        return document.WithSyntaxRoot(root.ReplaceNode(ifStatement, replacement));
     }
 
     /// <summary>Builds the throw-helper statement text for the matched guard, or null when it no longer matches.</summary>

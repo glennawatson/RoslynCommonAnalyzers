@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyHungarian = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.HungarianNotationAnalyzer>;
+    StyleSharp.Analyzers.Sst1305HungarianNotationAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

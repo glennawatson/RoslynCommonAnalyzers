@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyUseStringEmpty = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.UseStringEmptyAnalyzer,
-    StyleSharp.Analyzers.UseStringEmptyCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1122UseStringEmptyAnalyzer,
+    StyleSharp.Analyzers.Sst1122UseStringEmptyCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

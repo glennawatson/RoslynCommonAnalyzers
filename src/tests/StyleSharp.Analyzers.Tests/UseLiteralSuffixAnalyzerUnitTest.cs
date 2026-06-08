@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyLiteralSuffix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.UseLiteralSuffixAnalyzer,
-    StyleSharp.Analyzers.UseLiteralSuffixCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1139UseLiteralSuffixAnalyzer,
+    StyleSharp.Analyzers.Sst1139UseLiteralSuffixCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

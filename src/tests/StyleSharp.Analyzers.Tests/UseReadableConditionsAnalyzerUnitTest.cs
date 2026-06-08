@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyReadableConditions = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.UseReadableConditionsAnalyzer,
-    StyleSharp.Analyzers.UseReadableConditionsCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1131UseReadableConditionsAnalyzer,
+    StyleSharp.Analyzers.Sst1131UseReadableConditionsCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

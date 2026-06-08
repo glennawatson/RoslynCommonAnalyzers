@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyModifier = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.RedundantModifierAnalyzer,
+    StyleSharp.Analyzers.Sst1419RedundantModifierAnalyzer,
     StyleSharp.Analyzers.RemoveModifierCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;

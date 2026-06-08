@@ -63,7 +63,7 @@ public class PreferOrPatternCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> PreferOrPattern_ApplyFixAsync()
     {
-        var updated = PreferOrPatternCodeFixProvider.Apply(_document, _root, _section);
+        var updated = Sst1144PreferOrPatternCodeFixProvider.Apply(_document, _root, _section);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

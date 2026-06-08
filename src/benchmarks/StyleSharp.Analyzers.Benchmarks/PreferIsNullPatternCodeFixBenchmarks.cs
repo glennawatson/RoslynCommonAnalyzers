@@ -63,7 +63,7 @@ public class PreferIsNullPatternCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> PreferIsNullPattern_ApplyFixAsync()
     {
-        var updated = PreferIsNullPatternCodeFixProvider.Apply(_document, _root, _comparison);
+        var updated = Sst1149PreferIsNullPatternCodeFixProvider.Apply(_document, _root, _comparison);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

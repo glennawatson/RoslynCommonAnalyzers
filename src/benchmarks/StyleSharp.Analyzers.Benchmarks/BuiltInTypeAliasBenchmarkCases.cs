@@ -11,5 +11,5 @@ internal static class BuiltInTypeAliasBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState Create(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new BuiltInTypeAliasAnalyzer(), BuiltInTypeAliasBenchmarkSource.Generate, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1121BuiltInTypeAliasAnalyzer(), BuiltInTypeAliasBenchmarkSource.Generate, nodes);
 }

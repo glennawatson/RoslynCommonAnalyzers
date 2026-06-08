@@ -5,8 +5,8 @@
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyTupleName = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.TupleElementNameAnalyzer,
-    StyleSharp.Analyzers.TupleElementNameCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1142TupleElementNameAnalyzer,
+    StyleSharp.Analyzers.Sst1142TupleElementNameCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

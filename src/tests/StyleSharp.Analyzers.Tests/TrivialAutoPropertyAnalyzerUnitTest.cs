@@ -5,8 +5,8 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using VerifyAutoProperty = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.TrivialAutoPropertyAnalyzer,
-    StyleSharp.Analyzers.TrivialAutoPropertyCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1420TrivialAutoPropertyAnalyzer,
+    StyleSharp.Analyzers.Sst1420TrivialAutoPropertyCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 
@@ -59,7 +59,7 @@ public class TrivialAutoPropertyAnalyzerUnitTest
         var property = ParseProperty(
             "public class C { private int _value; public int Value { get => this._value; set => this._value = value; } }");
 
-        var success = TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out var fieldName);
+        var success = Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out var fieldName);
 
         await Assert.That(success).IsTrue();
         await Assert.That(fieldName).IsEqualTo("_value");
@@ -73,7 +73,7 @@ public class TrivialAutoPropertyAnalyzerUnitTest
         var property = ParseProperty(
             "public class C { private int _a; private int _b; public int Value { get => _a; set => _b = value; } }");
 
-        var success = TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out _);
+        var success = Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out _);
 
         await Assert.That(success).IsFalse();
     }

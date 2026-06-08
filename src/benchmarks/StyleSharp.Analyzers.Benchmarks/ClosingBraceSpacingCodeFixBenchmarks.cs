@@ -38,7 +38,7 @@ public class ClosingBraceSpacingCodeFixBenchmarks
     [Benchmark]
     public async Task<int> ClosingBraceSpacing_ApplyFixAsync()
     {
-        var updated = await ClosingBraceSpacingCodeFixProvider.InsertBlankLineAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst1513ClosingBraceSpacingCodeFixProvider.InsertBlankLineAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

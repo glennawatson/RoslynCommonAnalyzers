@@ -18,7 +18,7 @@ public sealed class AccessModifierAnalyzerUnitTest
     {
         var modifiers = SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.StaticKeyword));
 
-        await Assert.That(AccessModifierAnalyzer.HasAccessModifierFast(modifiers)).IsTrue();
+        await Assert.That(Sst1400AccessModifierAnalyzer.HasAccessModifierFast(modifiers)).IsTrue();
     }
 
     /// <summary>Verifies the access-modifier scan recognizes the file modifier.</summary>
@@ -28,7 +28,7 @@ public sealed class AccessModifierAnalyzerUnitTest
     {
         var modifiers = SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.FileKeyword));
 
-        await Assert.That(AccessModifierAnalyzer.HasAccessModifierFast(modifiers)).IsTrue();
+        await Assert.That(Sst1400AccessModifierAnalyzer.HasAccessModifierFast(modifiers)).IsTrue();
     }
 
     /// <summary>Verifies the access-modifier scan stays false when no accessibility modifier is present.</summary>
@@ -38,7 +38,7 @@ public sealed class AccessModifierAnalyzerUnitTest
     {
         var modifiers = SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.StaticKeyword), SyntaxFactory.Token(SyntaxKind.PartialKeyword));
 
-        await Assert.That(AccessModifierAnalyzer.HasAccessModifierFast(modifiers)).IsFalse();
+        await Assert.That(Sst1400AccessModifierAnalyzer.HasAccessModifierFast(modifiers)).IsFalse();
     }
 
     /// <summary>Verifies static constructors do not require an explicit access modifier.</summary>
@@ -48,7 +48,7 @@ public sealed class AccessModifierAnalyzerUnitTest
     {
         var constructor = ParseMember<ConstructorDeclarationSyntax>("class C { static C() { } }", SyntaxKind.ConstructorDeclaration);
 
-        await Assert.That(AccessModifierAnalyzer.RequiresModifierFast(constructor)).IsFalse();
+        await Assert.That(Sst1400AccessModifierAnalyzer.RequiresModifierFast(constructor)).IsFalse();
     }
 
     /// <summary>Verifies ordinary methods still require an explicit access modifier.</summary>
@@ -58,7 +58,7 @@ public sealed class AccessModifierAnalyzerUnitTest
     {
         var method = ParseMember<MethodDeclarationSyntax>("class C { void M() { } }", SyntaxKind.MethodDeclaration);
 
-        await Assert.That(AccessModifierAnalyzer.RequiresModifierFast(method)).IsTrue();
+        await Assert.That(Sst1400AccessModifierAnalyzer.RequiresModifierFast(method)).IsTrue();
     }
 
     /// <summary>Verifies top-level types reuse the cached internal-modifier diagnostic properties.</summary>
@@ -67,8 +67,8 @@ public sealed class AccessModifierAnalyzerUnitTest
     public async Task ModifierPropertiesReuseInternalCacheAsync()
     {
         var type = ParseMember<ClassDeclarationSyntax>("class C { }", SyntaxKind.ClassDeclaration);
-        var first = AccessModifierAnalyzer.ModifierProperties(type);
-        var second = AccessModifierAnalyzer.ModifierProperties(type);
+        var first = Sst1400AccessModifierAnalyzer.ModifierProperties(type);
+        var second = Sst1400AccessModifierAnalyzer.ModifierProperties(type);
 
         await Assert.That(ReferenceEquals(first, second)).IsTrue();
     }
@@ -79,8 +79,8 @@ public sealed class AccessModifierAnalyzerUnitTest
     public async Task ModifierPropertiesReusePrivateCacheAsync()
     {
         var method = ParseMember<MethodDeclarationSyntax>("class C { void M() { } }", SyntaxKind.MethodDeclaration);
-        var first = AccessModifierAnalyzer.ModifierProperties(method);
-        var second = AccessModifierAnalyzer.ModifierProperties(method);
+        var first = Sst1400AccessModifierAnalyzer.ModifierProperties(method);
+        var second = Sst1400AccessModifierAnalyzer.ModifierProperties(method);
 
         await Assert.That(ReferenceEquals(first, second)).IsTrue();
     }
@@ -92,7 +92,7 @@ public sealed class AccessModifierAnalyzerUnitTest
     {
         var type = ParseMember<ClassDeclarationSyntax>("class C { }", SyntaxKind.ClassDeclaration);
 
-        await Assert.That(AccessModifierAnalyzer.IsTopLevelDeclaration(type)).IsTrue();
+        await Assert.That(Sst1400AccessModifierAnalyzer.IsTopLevelDeclaration(type)).IsTrue();
     }
 
     /// <summary>Verifies nested declarations are not treated as top-level.</summary>
@@ -102,7 +102,7 @@ public sealed class AccessModifierAnalyzerUnitTest
     {
         var method = ParseMember<MethodDeclarationSyntax>("class C { void M() { } }", SyntaxKind.MethodDeclaration);
 
-        await Assert.That(AccessModifierAnalyzer.IsTopLevelDeclaration(method)).IsFalse();
+        await Assert.That(Sst1400AccessModifierAnalyzer.IsTopLevelDeclaration(method)).IsFalse();
     }
 
     /// <summary>Parses a single member declaration from a compilation unit or container type.</summary>

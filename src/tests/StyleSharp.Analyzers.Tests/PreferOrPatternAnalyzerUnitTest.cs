@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyOrPattern = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.PreferOrPatternAnalyzer,
-    StyleSharp.Analyzers.PreferOrPatternCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1144PreferOrPatternAnalyzer,
+    StyleSharp.Analyzers.Sst1144PreferOrPatternCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

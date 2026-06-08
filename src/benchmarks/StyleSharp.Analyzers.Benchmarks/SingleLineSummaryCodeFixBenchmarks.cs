@@ -64,7 +64,7 @@ public class SingleLineSummaryCodeFixBenchmarks : IDisposable
         var root = await _document.GetSyntaxRootAsync().ConfigureAwait(false);
         var node = root!.FindNode(_summarySpan, findInsideTrivia: true, getInnermostNodeForTie: true);
         var summary = node.FirstAncestorOrSelf<XmlElementSyntax>()!;
-        var updated = await SingleLineSummaryCodeFixProvider.CollapseAsync(_document, summary, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst1653SingleLineSummaryCodeFixProvider.CollapseAsync(_document, summary, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

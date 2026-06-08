@@ -12,7 +12,7 @@ internal static class ElementIndentationBenchmarkCases
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState Create(int nodes)
         => SingleAnalyzerBenchmarkHelper.Create(
-            new ElementIndentationAnalyzer(),
+            new Sst1137ElementIndentationAnalyzer(),
             new(BenchmarkCompilationFactory.CreateCompilation(ElementIndentationBenchmarkSource.Generate(nodes, violating: false)).Compilation),
             new(BenchmarkCompilationFactory.CreateCompilation(ElementIndentationBenchmarkSource.Generate(nodes, violating: true)).Compilation));
 }

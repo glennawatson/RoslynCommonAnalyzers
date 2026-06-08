@@ -37,7 +37,7 @@ public class NoPublicOnInternalTypeCodeFixBenchmarks
     [Benchmark]
     public async Task<int> NoPublicOnInternalType_ApplyFixAsync()
     {
-        var updated = await NoPublicOnInternalTypeCodeFixProvider.MakeInternalAsync(_context.Document, _context.Node, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst1416NoPublicOnInternalTypeCodeFixProvider.MakeInternalAsync(_context.Document, _context.Node, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyPartial = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.PartialElementAccessAnalyzer,
-    StyleSharp.Analyzers.AccessModifierCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1205PartialElementAccessAnalyzer,
+    StyleSharp.Analyzers.Sst1400AccessModifierCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyLambdaSyntax = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.UseLambdaSyntaxAnalyzer>;
+    StyleSharp.Analyzers.Sst1130UseLambdaSyntaxAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyFieldLocal = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.PrivateFieldUsedAsLocalAnalyzer>;
+    StyleSharp.Analyzers.Sst1422PrivateFieldUsedAsLocalAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

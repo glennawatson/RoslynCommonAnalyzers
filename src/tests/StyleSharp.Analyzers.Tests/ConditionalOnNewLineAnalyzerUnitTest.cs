@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyConditional = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.ConditionalOnNewLineAnalyzer,
-    StyleSharp.Analyzers.ConditionalOnNewLineCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1146ConditionalOnNewLineAnalyzer,
+    StyleSharp.Analyzers.Sst1146ConditionalOnNewLineCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

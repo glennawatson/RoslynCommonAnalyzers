@@ -37,7 +37,7 @@ public class MultiLineChildBraceCodeFixBenchmarks
     [Benchmark]
     public async Task<int> MultiLineChildBrace_ApplyFixAsync()
     {
-        var updated = await MultiLineChildBraceCodeFixProvider.WrapAsync(
+        var updated = await Sst1519MultiLineChildBraceCodeFixProvider.WrapAsync(
             _context.Document,
             ((IfStatementSyntax)_context.Node.Body!.Statements[0]).Statement,
             CancellationToken.None).ConfigureAwait(false);

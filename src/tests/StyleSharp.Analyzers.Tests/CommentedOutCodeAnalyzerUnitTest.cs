@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyCommentedCode = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.CommentedOutCodeAnalyzer>;
+    StyleSharp.Analyzers.Sst1148CommentedOutCodeAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

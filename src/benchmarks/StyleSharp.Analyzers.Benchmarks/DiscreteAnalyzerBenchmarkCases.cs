@@ -11,29 +11,29 @@ internal static class DiscreteAnalyzerBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateMultipleStatementsOnLine(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new MultipleStatementsOnLineAnalyzer(), DiscreteAnalyzerBenchmarkSource.GenerateMultipleStatementsOnLine, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1107MultipleStatementsOnLineAnalyzer(), DiscreteAnalyzerBenchmarkSource.GenerateMultipleStatementsOnLine, nodes);
 
     /// <summary>Creates the prepared benchmark state for conditional-operator-placement analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateConditionalOperatorPlacement(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new ConditionalOperatorPlacementAnalyzer(), DiscreteAnalyzerBenchmarkSource.GenerateConditionalOperatorPlacement, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1145ConditionalOperatorPlacementAnalyzer(), DiscreteAnalyzerBenchmarkSource.GenerateConditionalOperatorPlacement, nodes);
 
     /// <summary>Creates the prepared benchmark state for trailing-comma analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateTrailingComma(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new TrailingCommaAnalyzer(), DiscreteAnalyzerBenchmarkSource.GenerateTrailingComma, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1413TrailingCommaAnalyzer(), DiscreteAnalyzerBenchmarkSource.GenerateTrailingComma, nodes);
 
     /// <summary>Creates the prepared benchmark state for single-line-element analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateSingleLineElement(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new SingleLineElementAnalyzer(), DiscreteAnalyzerBenchmarkSource.GenerateSingleLineElement, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1502SingleLineElementAnalyzer(), DiscreteAnalyzerBenchmarkSource.GenerateSingleLineElement, nodes);
 
     /// <summary>Creates the prepared benchmark state for readable-conditions analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateUseReadableConditions(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new UseReadableConditionsAnalyzer(), DiscreteAnalyzerBenchmarkSource.GenerateUseReadableConditions, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1131UseReadableConditionsAnalyzer(), DiscreteAnalyzerBenchmarkSource.GenerateUseReadableConditions, nodes);
 }

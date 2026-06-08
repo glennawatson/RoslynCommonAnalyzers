@@ -38,7 +38,7 @@ public class AccessModifierCodeFixBenchmarks
     [Benchmark]
     public async Task<int> AccessModifier_ApplyFixAsync()
     {
-        var updated = await AccessModifierCodeFixProvider.AddAsync(_context.Document, _context.Root, _context.Node, Accessibility.Private, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst1400AccessModifierCodeFixProvider.AddAsync(_context.Document, _context.Root, _context.Node, Accessibility.Private, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

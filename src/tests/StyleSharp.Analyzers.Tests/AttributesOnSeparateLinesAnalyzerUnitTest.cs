@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyAttributeLines = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.AttributesOnSeparateLinesAnalyzer>;
+    StyleSharp.Analyzers.Sst1134AttributesOnSeparateLinesAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

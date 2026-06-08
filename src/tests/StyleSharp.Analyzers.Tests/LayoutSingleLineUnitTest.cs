@@ -3,13 +3,13 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyAccessor = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.AccessorConsistencyAnalyzer,
-    StyleSharp.Analyzers.AccessorConsistencyCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1504AccessorConsistencyAnalyzer,
+    StyleSharp.Analyzers.Sst1504AccessorConsistencyCodeFixProvider>;
 using VerifyElement = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.SingleLineElementAnalyzer,
+    StyleSharp.Analyzers.Sst1502SingleLineElementAnalyzer,
     StyleSharp.Analyzers.SingleLineBlockReflowCodeFixProvider>;
 using VerifyStatement = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.SingleLineStatementAnalyzer,
+    StyleSharp.Analyzers.Sst1501SingleLineStatementAnalyzer,
     StyleSharp.Analyzers.SingleLineBlockReflowCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;

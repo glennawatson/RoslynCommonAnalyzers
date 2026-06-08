@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyCombineFields = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.DoNotCombineFieldsAnalyzer>;
+    StyleSharp.Analyzers.Sst1132DoNotCombineFieldsAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

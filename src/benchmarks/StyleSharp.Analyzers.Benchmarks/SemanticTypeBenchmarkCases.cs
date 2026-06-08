@@ -11,41 +11,41 @@ internal static class SemanticTypeBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateTrivialAutoProperty(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new TrivialAutoPropertyAnalyzer(), SemanticTypeBenchmarkSource.GenerateTrivialAutoProperty, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1420TrivialAutoPropertyAnalyzer(), SemanticTypeBenchmarkSource.GenerateTrivialAutoProperty, nodes);
 
     /// <summary>Creates the prepared benchmark state for redundant-modifier analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateRedundantModifier(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new RedundantModifierAnalyzer(), SemanticTypeBenchmarkSource.GenerateRedundantModifier, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1419RedundantModifierAnalyzer(), SemanticTypeBenchmarkSource.GenerateRedundantModifier, nodes);
 
     /// <summary>Creates the prepared benchmark state for default-value-type-constructor analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateDefaultValueTypeConstructor(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new DefaultValueTypeConstructorAnalyzer(), SemanticTypeBenchmarkSource.GenerateDefaultValueTypeConstructor, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1129DefaultValueTypeConstructorAnalyzer(), SemanticTypeBenchmarkSource.GenerateDefaultValueTypeConstructor, nodes);
 
     /// <summary>Creates the prepared benchmark state for use-string-empty analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateUseStringEmpty(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new UseStringEmptyAnalyzer(), SemanticTypeBenchmarkSource.GenerateUseStringEmpty, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1122UseStringEmptyAnalyzer(), SemanticTypeBenchmarkSource.GenerateUseStringEmpty, nodes);
 
     /// <summary>Creates the prepared benchmark state for use-nullable-shorthand analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateUseNullableShorthand(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new UseNullableShorthandAnalyzer(), SemanticTypeBenchmarkSource.GenerateUseNullableShorthand, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1125UseNullableShorthandAnalyzer(), SemanticTypeBenchmarkSource.GenerateUseNullableShorthand, nodes);
 
     /// <summary>Creates the prepared benchmark state for use-tuple-syntax analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateUseTupleSyntax(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new UseTupleSyntaxAnalyzer(), SemanticTypeBenchmarkSource.GenerateUseTupleSyntax, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1141UseTupleSyntaxAnalyzer(), SemanticTypeBenchmarkSource.GenerateUseTupleSyntax, nodes);
 
     /// <summary>Creates the prepared benchmark state for do-not-prefix-with-base analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateDoNotPrefixWithBase(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new DoNotPrefixWithBaseAnalyzer(), SemanticTypeBenchmarkSource.GenerateDoNotPrefixWithBase, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1100DoNotPrefixWithBaseAnalyzer(), SemanticTypeBenchmarkSource.GenerateDoNotPrefixWithBase, nodes);
 }

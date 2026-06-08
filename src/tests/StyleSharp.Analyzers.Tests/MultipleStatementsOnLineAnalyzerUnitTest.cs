@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyMultipleStatements = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.MultipleStatementsOnLineAnalyzer>;
+    StyleSharp.Analyzers.Sst1107MultipleStatementsOnLineAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

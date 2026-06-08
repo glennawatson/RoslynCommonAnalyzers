@@ -4,7 +4,7 @@
 
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyPreferExtension = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.PreferExtensionBlockAnalyzer>;
+    StyleSharp.Analyzers.Sst1703PreferExtensionBlockAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

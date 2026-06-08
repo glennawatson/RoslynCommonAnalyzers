@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyNoPublic = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.NoPublicOnInternalTypeAnalyzer,
-    StyleSharp.Analyzers.NoPublicOnInternalTypeCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1416NoPublicOnInternalTypeAnalyzer,
+    StyleSharp.Analyzers.Sst1416NoPublicOnInternalTypeCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

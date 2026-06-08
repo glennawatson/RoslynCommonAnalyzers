@@ -48,7 +48,7 @@ public class UseLiteralSuffixCodeFixBenchmarks : IDisposable
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var method = CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
         _cast = (CastExpressionSyntax)method.ExpressionBody!.Expression;
-        _suffix = UseLiteralSuffixAnalyzer.SuffixFor(_cast)!;
+        _suffix = Sst1139UseLiteralSuffixAnalyzer.SuffixFor(_cast)!;
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -67,7 +67,7 @@ public class UseLiteralSuffixCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseLiteralSuffix_ApplyFixAsync()
     {
-        var updated = UseLiteralSuffixCodeFixProvider.Replace(_document, _root, _cast, _suffix);
+        var updated = Sst1139UseLiteralSuffixCodeFixProvider.Replace(_document, _root, _cast, _suffix);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

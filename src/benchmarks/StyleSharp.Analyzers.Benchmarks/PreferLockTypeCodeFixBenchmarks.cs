@@ -63,7 +63,7 @@ public class PreferLockTypeCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> PreferLockType_ApplyFixAsync()
     {
-        var updated = PreferLockTypeCodeFixProvider.Apply(_document, _root, _field);
+        var updated = Sst1900PreferLockTypeCodeFixProvider.Apply(_document, _root, _field);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

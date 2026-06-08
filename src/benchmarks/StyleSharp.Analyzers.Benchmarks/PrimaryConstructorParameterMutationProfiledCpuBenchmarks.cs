@@ -21,7 +21,7 @@ public class PrimaryConstructorParameterMutationProfiledCpuBenchmarks
 
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new PrimaryConstructorParameterMutationAnalyzer(), ExpressionHotspotBenchmarkSource.Generate, Nodes);
+    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new Sst1425PrimaryConstructorParameterMutationAnalyzer(), ExpressionHotspotBenchmarkSource.Generate, Nodes);
 
     /// <summary>Benchmarks the clean primary-constructor-parameter-mutation path.</summary>
     /// <returns>The number of diagnostics produced.</returns>

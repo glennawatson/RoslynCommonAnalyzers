@@ -20,7 +20,7 @@ public class CommentedOutCodeBenchmarks
 
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new CommentedOutCodeAnalyzer(), CommentHotspotBenchmarkSource.Generate, Nodes);
+    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new Sst1148CommentedOutCodeAnalyzer(), CommentHotspotBenchmarkSource.Generate, Nodes);
 
     /// <summary>Benchmarks the clean commented-out-code path.</summary>
     /// <returns>The number of diagnostics produced.</returns>

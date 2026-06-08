@@ -3,11 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyConsistent = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.ConsistentBracesAnalyzer,
-    StyleSharp.Analyzers.ConsistentBracesCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1520ConsistentBracesAnalyzer,
+    StyleSharp.Analyzers.Sst1520ConsistentBracesCodeFixProvider>;
 using VerifyMultiLine = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.MultiLineChildBraceAnalyzer,
-    StyleSharp.Analyzers.MultiLineChildBraceCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1519MultiLineChildBraceAnalyzer,
+    StyleSharp.Analyzers.Sst1519MultiLineChildBraceCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

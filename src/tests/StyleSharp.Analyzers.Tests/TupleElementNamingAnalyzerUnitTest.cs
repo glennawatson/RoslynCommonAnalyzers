@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.TupleElementNamingAnalyzer>;
+    StyleSharp.Analyzers.Sst1316TupleElementNamingAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

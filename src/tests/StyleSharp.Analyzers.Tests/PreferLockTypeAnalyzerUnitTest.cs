@@ -9,8 +9,8 @@ using Microsoft.CodeAnalysis.Testing;
 using TUnit.Assertions;
 
 using VerifyLock = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.PreferLockTypeAnalyzer,
-    StyleSharp.Analyzers.PreferLockTypeCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1900PreferLockTypeAnalyzer,
+    StyleSharp.Analyzers.Sst1900PreferLockTypeCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 
@@ -170,7 +170,7 @@ public class PreferLockTypeAnalyzerUnitTest
     {
         var field = ParseField("private readonly System.Threading.Lock _gate = new();");
 
-        await Assert.That(PreferLockTypeAnalyzer.CouldBeCandidateLockField(field)).IsFalse();
+        await Assert.That(Sst1900PreferLockTypeAnalyzer.CouldBeCandidateLockField(field)).IsFalse();
     }
 
     /// <summary>Verifies a partial containing type is rejected by the syntax-only candidate fast path.</summary>
@@ -181,7 +181,7 @@ public class PreferLockTypeAnalyzerUnitTest
         var field = ParseFieldFromType(
             "public partial class C { private readonly object _gate = new(); }");
 
-        await Assert.That(PreferLockTypeAnalyzer.CouldBeCandidateLockField(field)).IsFalse();
+        await Assert.That(Sst1900PreferLockTypeAnalyzer.CouldBeCandidateLockField(field)).IsFalse();
     }
 
     /// <summary>Verifies object spellings still flow through the syntax-only candidate fast path.</summary>
@@ -194,7 +194,7 @@ public class PreferLockTypeAnalyzerUnitTest
     {
         var field = ParseField(source);
 
-        await Assert.That(PreferLockTypeAnalyzer.CouldBeCandidateLockField(field)).IsTrue();
+        await Assert.That(Sst1900PreferLockTypeAnalyzer.CouldBeCandidateLockField(field)).IsTrue();
     }
 
     /// <summary>Verifies the syntax-only usage fast path accepts a simple lock-only field use.</summary>
@@ -205,7 +205,7 @@ public class PreferLockTypeAnalyzerUnitTest
         var type = ParseType(
             "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }");
 
-        await Assert.That(PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, "_gate")).IsTrue();
+        await Assert.That(Sst1900PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, "_gate")).IsTrue();
     }
 
     /// <summary>Verifies the syntax-only usage fast path rejects non-lock field uses.</summary>
@@ -216,7 +216,7 @@ public class PreferLockTypeAnalyzerUnitTest
         var type = ParseType(
             "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } System.Console.WriteLine(_gate); } }");
 
-        await Assert.That(PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, "_gate")).IsFalse();
+        await Assert.That(Sst1900PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, "_gate")).IsFalse();
     }
 
     /// <summary>Verifies the syntax-only usage fast path rejects shadowed identifiers.</summary>
@@ -227,7 +227,7 @@ public class PreferLockTypeAnalyzerUnitTest
         var type = ParseType(
             "public class C { private readonly object _gate = new(); void M(object _gate) { lock (_gate) { } } }");
 
-        await Assert.That(PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, "_gate")).IsFalse();
+        await Assert.That(Sst1900PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, "_gate")).IsFalse();
     }
 
     /// <summary>Verifies the single-candidate syntax prepass accepts an unambiguous object field.</summary>
@@ -238,7 +238,7 @@ public class PreferLockTypeAnalyzerUnitTest
         var type = ParseType(
             "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }");
 
-        await Assert.That(PreferLockTypeAnalyzer.TryGetSingleSyntaxOnlyCandidate(type, out var variable)).IsTrue();
+        await Assert.That(Sst1900PreferLockTypeAnalyzer.TryGetSingleSyntaxOnlyCandidate(type, out var variable)).IsTrue();
         await Assert.That(variable!.Identifier.ValueText).IsEqualTo("_gate");
     }
 
@@ -250,7 +250,7 @@ public class PreferLockTypeAnalyzerUnitTest
         var type = ParseType(
             "public class Object { } public class C { private readonly Object _gate = new(); void M() { lock (_gate) { } } }");
 
-        await Assert.That(PreferLockTypeAnalyzer.TryGetSingleSyntaxOnlyCandidate(type, out _)).IsFalse();
+        await Assert.That(Sst1900PreferLockTypeAnalyzer.TryGetSingleSyntaxOnlyCandidate(type, out _)).IsFalse();
     }
 
     /// <summary>Verifies field-name token classification recognizes a direct lock use.</summary>
@@ -262,8 +262,8 @@ public class PreferLockTypeAnalyzerUnitTest
             "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }");
         var token = type.DescendantTokens().Single(static t => t.ValueText == "_gate" && t.Parent is IdentifierNameSyntax);
 
-        await Assert.That(PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, "_gate")).IsEqualTo(
-            PreferLockTypeAnalyzer.FieldNameTokenKind.LockUse);
+        await Assert.That(Sst1900PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, "_gate")).IsEqualTo(
+            Sst1900PreferLockTypeAnalyzer.FieldNameTokenKind.LockUse);
     }
 
     /// <summary>Verifies field-name token classification ignores the field declaration token.</summary>
@@ -275,8 +275,8 @@ public class PreferLockTypeAnalyzerUnitTest
             "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }");
         var token = type.DescendantTokens().Single(static t => t.ValueText == "_gate" && t.Parent is VariableDeclaratorSyntax);
 
-        await Assert.That(PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, "_gate")).IsEqualTo(
-            PreferLockTypeAnalyzer.FieldNameTokenKind.Ignore);
+        await Assert.That(Sst1900PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, "_gate")).IsEqualTo(
+            Sst1900PreferLockTypeAnalyzer.FieldNameTokenKind.Ignore);
     }
 
     /// <summary>Verifies field-name token classification flags a shadowing parameter declaration as a conflict.</summary>
@@ -288,8 +288,8 @@ public class PreferLockTypeAnalyzerUnitTest
             "public class C { private readonly object _gate = new(); void M(object _gate) { lock (_gate) { } } }");
         var token = type.DescendantTokens().Single(static t => t.ValueText == "_gate" && t.Parent is ParameterSyntax);
 
-        await Assert.That(PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, "_gate")).IsEqualTo(
-            PreferLockTypeAnalyzer.FieldNameTokenKind.Conflict);
+        await Assert.That(Sst1900PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, "_gate")).IsEqualTo(
+            Sst1900PreferLockTypeAnalyzer.FieldNameTokenKind.Conflict);
     }
 
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies (where the Lock type exists).</summary>

@@ -20,7 +20,7 @@ public class MultipleBlankLinesBenchmarks
 
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new MultipleBlankLinesAnalyzer(), CommentHotspotBenchmarkSource.Generate, Nodes);
+    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new Sst1507MultipleBlankLinesAnalyzer(), CommentHotspotBenchmarkSource.Generate, Nodes);
 
     /// <summary>Benchmarks the clean multiple-blank-lines path.</summary>
     /// <returns>The number of diagnostics produced.</returns>

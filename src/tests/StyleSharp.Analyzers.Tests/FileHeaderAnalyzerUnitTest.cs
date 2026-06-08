@@ -5,8 +5,8 @@
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.FileHeaderAnalyzer,
-    StyleSharp.Analyzers.FileHeaderCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1633FileHeaderAnalyzer,
+    StyleSharp.Analyzers.Sst1633FileHeaderCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

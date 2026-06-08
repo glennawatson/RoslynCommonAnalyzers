@@ -12,7 +12,7 @@ internal static class BooleanLiteralComparisonBenchmarkCases
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState Create(int nodes)
         => SingleAnalyzerBenchmarkHelper.Create(
-            new BooleanLiteralComparisonAnalyzer(),
+            new Sst1143BooleanLiteralComparisonAnalyzer(),
             new(BenchmarkCompilationFactory.CreateCompilation(BooleanLiteralComparisonBenchmarkSource.Generate(nodes, violating: false)).Compilation),
             new(BenchmarkCompilationFactory.CreateCompilation(BooleanLiteralComparisonBenchmarkSource.Generate(nodes, violating: true)).Compilation));
 }

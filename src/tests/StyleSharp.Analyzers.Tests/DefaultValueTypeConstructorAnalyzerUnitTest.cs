@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyDefaultCtor = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.DefaultValueTypeConstructorAnalyzer,
-    StyleSharp.Analyzers.DefaultValueTypeConstructorCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1129DefaultValueTypeConstructorAnalyzer,
+    StyleSharp.Analyzers.Sst1129DefaultValueTypeConstructorCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

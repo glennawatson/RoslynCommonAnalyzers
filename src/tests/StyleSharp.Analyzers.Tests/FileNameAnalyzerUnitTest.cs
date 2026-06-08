@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.FileNameAnalyzer>;
+    StyleSharp.Analyzers.Sst1649FileNameAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

@@ -37,7 +37,7 @@ public class ElementSpacingCodeFixBenchmarks
     [Benchmark]
     public async Task<int> ElementSpacing_ApplyFixAsync()
     {
-        var updated = await ElementSpacingCodeFixProvider.InsertBlankLineAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst1516ElementSpacingCodeFixProvider.InsertBlankLineAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

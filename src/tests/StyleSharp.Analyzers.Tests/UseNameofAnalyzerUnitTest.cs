@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyNameof = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.UseNameofAnalyzer,
-    StyleSharp.Analyzers.UseNameofCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1415UseNameofAnalyzer,
+    StyleSharp.Analyzers.Sst1415UseNameofCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

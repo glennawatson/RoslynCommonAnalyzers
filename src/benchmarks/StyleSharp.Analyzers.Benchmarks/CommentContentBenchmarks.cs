@@ -20,7 +20,7 @@ public class CommentContentBenchmarks
 
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new CommentContentAnalyzer(), CommentHotspotBenchmarkSource.Generate, Nodes);
+    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new Sst1120CommentContentAnalyzer(), CommentHotspotBenchmarkSource.Generate, Nodes);
 
     /// <summary>Benchmarks the clean comment-content path.</summary>
     /// <returns>The number of diagnostics produced.</returns>

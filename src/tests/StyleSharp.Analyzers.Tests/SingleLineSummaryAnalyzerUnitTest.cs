@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.SingleLineSummaryAnalyzer,
-    StyleSharp.Analyzers.SingleLineSummaryCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1653SingleLineSummaryAnalyzer,
+    StyleSharp.Analyzers.Sst1653SingleLineSummaryCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

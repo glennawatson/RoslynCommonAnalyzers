@@ -3,12 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyAccess = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.AccessModifierAnalyzer,
-    StyleSharp.Analyzers.AccessModifierCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1400AccessModifierAnalyzer,
+    StyleSharp.Analyzers.Sst1400AccessModifierCodeFixProvider>;
 using VerifyDebug = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.DebugMessageAnalyzer>;
 using VerifyField = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.FieldVisibilityAnalyzer>;
+    StyleSharp.Analyzers.Sst1401FieldVisibilityAnalyzer>;
 using VerifyFile = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.FileTypeNamespaceAnalyzer>;
 using VerifyParens = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -18,7 +18,7 @@ using VerifyPrecedence = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.PrecedenceAnalyzer,
     StyleSharp.Analyzers.PrecedenceCodeFixProvider>;
 using VerifySuppress = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.SuppressionJustificationAnalyzer>;
+    StyleSharp.Analyzers.Sst1404SuppressionJustificationAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

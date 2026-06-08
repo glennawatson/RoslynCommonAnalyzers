@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyReadonlyField = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.FieldShouldBeReadonlyAnalyzer,
-    StyleSharp.Analyzers.FieldShouldBeReadonlyCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1424FieldShouldBeReadonlyAnalyzer,
+    StyleSharp.Analyzers.Sst1424FieldShouldBeReadonlyCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

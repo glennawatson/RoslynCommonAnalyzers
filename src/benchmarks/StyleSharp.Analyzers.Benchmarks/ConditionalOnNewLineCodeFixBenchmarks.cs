@@ -38,7 +38,7 @@ public class ConditionalOnNewLineCodeFixBenchmarks
     public async Task<int> ConditionalOnNewLine_ApplyFixAsync()
     {
         var targetIf = (IfStatementSyntax)_context.Node.Body!.Statements[1];
-        var updated = await ConditionalOnNewLineCodeFixProvider.MoveAsync(_context.Document, _context.Root, targetIf.IfKeyword, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst1146ConditionalOnNewLineCodeFixProvider.MoveAsync(_context.Document, _context.Root, targetIf.IfKeyword, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

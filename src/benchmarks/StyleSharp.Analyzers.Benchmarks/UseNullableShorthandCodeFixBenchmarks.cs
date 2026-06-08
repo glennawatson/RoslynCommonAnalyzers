@@ -69,7 +69,7 @@ public class UseNullableShorthandCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseNullableShorthand_ApplyFixAsync()
     {
-        var updated = UseNullableShorthandCodeFixProvider.Replace(_document, _root, _outer, _generic);
+        var updated = Sst1125UseNullableShorthandCodeFixProvider.Replace(_document, _root, _outer, _generic);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyDocBlankLine = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.DocumentationHeaderBlankLineAnalyzer>;
+    StyleSharp.Analyzers.Sst1644DocumentationHeaderBlankLineAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

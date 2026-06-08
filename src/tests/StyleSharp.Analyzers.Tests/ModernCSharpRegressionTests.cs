@@ -17,21 +17,21 @@ public class ModernCSharpRegressionTests
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task DiscardParameterIsCleanAsync()
-        => await CSharpAnalyzerVerifier<ParameterNamingAnalyzer>.VerifyAnalyzerAsync(
+        => await CSharpAnalyzerVerifier<Sst1313ParameterNamingAnalyzer>.VerifyAnalyzerAsync(
             "public class C { public void M(int _, int __) { } }");
 
     /// <summary>A discard local '_' is not a naming violation (cf. the analyzer #3057).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task DiscardLocalIsCleanAsync()
-        => await CSharpAnalyzerVerifier<LocalVariableNamingAnalyzer>.VerifyAnalyzerAsync(
+        => await CSharpAnalyzerVerifier<Sst1312LocalVariableNamingAnalyzer>.VerifyAnalyzerAsync(
             "public class C { public void M() { _ = System.Math.Abs(-1); } }");
 
     /// <summary>A multi-line collection expression does not trip element indentation (cf. the analyzer #3904).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task CollectionExpressionIndentationIsCleanAsync()
-        => await CSharpAnalyzerVerifier<ElementIndentationAnalyzer>.VerifyAnalyzerAsync(
+        => await CSharpAnalyzerVerifier<Sst1137ElementIndentationAnalyzer>.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -65,7 +65,7 @@ public class ModernCSharpRegressionTests
     [Test]
     public async Task DeconstructionDiscardIsCleanAsync()
     {
-        var test = new CSharpAnalyzerVerifier<TupleElementNamingAnalyzer>.Test
+        var test = new CSharpAnalyzerVerifier<Sst1316TupleElementNamingAnalyzer>.Test
         {
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
             TestCode = "public class C { public void M() { var (a, _) = (1, 2); System.Console.WriteLine(a); } }"

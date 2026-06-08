@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 using VerifyPrimaryCtor = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.PrimaryConstructorParameterMutationAnalyzer>;
+    StyleSharp.Analyzers.Sst1425PrimaryConstructorParameterMutationAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 
@@ -22,7 +22,7 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
             "public class Counter(int count) { private int _value; public void Reset() { _value = 0; } }",
             SelectSecondMemberAssignmentLeft);
 
-        await Assert.That(PrimaryConstructorParameterMutationAnalyzer.CouldReferencePrimaryConstructorParameter(expression)).IsFalse();
+        await Assert.That(Sst1425PrimaryConstructorParameterMutationAnalyzer.CouldReferencePrimaryConstructorParameter(expression)).IsFalse();
     }
 
     /// <summary>Verifies the syntax precheck keeps matching identifiers inside class primary constructors.</summary>
@@ -34,7 +34,7 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
             "public class Counter(int count) { public void Reset() { count = 0; } }",
             SelectFirstMemberAssignmentLeft);
 
-        await Assert.That(PrimaryConstructorParameterMutationAnalyzer.CouldReferencePrimaryConstructorParameter(expression)).IsTrue();
+        await Assert.That(Sst1425PrimaryConstructorParameterMutationAnalyzer.CouldReferencePrimaryConstructorParameter(expression)).IsTrue();
     }
 
     /// <summary>Verifies the syntax precheck ignores record primary constructor parameters.</summary>
@@ -46,7 +46,7 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
             "public record Counter(int Count) { public Counter Reset() => this with { Count = 0 }; }",
             SelectRecordWithExpressionIdentifier);
 
-        await Assert.That(PrimaryConstructorParameterMutationAnalyzer.CouldReferencePrimaryConstructorParameter(expression)).IsFalse();
+        await Assert.That(Sst1425PrimaryConstructorParameterMutationAnalyzer.CouldReferencePrimaryConstructorParameter(expression)).IsFalse();
     }
 
     /// <summary>Verifies assignment and increment on a class primary-constructor parameter are reported.</summary>

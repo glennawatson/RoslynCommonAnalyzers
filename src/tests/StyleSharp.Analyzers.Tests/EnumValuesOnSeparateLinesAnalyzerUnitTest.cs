@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyEnumLines = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.EnumValuesOnSeparateLinesAnalyzer>;
+    StyleSharp.Analyzers.Sst1136EnumValuesOnSeparateLinesAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

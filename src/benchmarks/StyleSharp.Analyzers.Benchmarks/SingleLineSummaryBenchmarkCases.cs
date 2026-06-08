@@ -11,5 +11,5 @@ internal static class SingleLineSummaryBenchmarkCases
     /// <param name="types">The synthetic type count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState Create(int types)
-        => SingleAnalyzerBenchmarkCases.Create(new SingleLineSummaryAnalyzer(), SingleLineSummaryBenchmarkSource.Generate, types);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1653SingleLineSummaryAnalyzer(), SingleLineSummaryBenchmarkSource.Generate, types);
 }

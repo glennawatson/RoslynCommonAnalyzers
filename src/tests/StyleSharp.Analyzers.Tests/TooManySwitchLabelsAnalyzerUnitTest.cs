@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifySwitch = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.TooManySwitchLabelsAnalyzer>;
+    StyleSharp.Analyzers.Sst1423TooManySwitchLabelsAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

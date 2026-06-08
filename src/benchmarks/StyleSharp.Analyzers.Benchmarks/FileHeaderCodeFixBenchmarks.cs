@@ -36,7 +36,7 @@ public class FileHeaderCodeFixBenchmarks
     [Benchmark]
     public async Task<int> FileHeader_ApplyFixAsync()
     {
-        var updated = await FileHeaderCodeFixProvider.AddHeaderAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst1633FileHeaderCodeFixProvider.AddHeaderAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

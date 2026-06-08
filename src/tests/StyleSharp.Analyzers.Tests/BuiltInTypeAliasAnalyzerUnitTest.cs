@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyBuiltInAlias = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.BuiltInTypeAliasAnalyzer,
-    StyleSharp.Analyzers.BuiltInTypeAliasCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1121BuiltInTypeAliasAnalyzer,
+    StyleSharp.Analyzers.Sst1121BuiltInTypeAliasCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

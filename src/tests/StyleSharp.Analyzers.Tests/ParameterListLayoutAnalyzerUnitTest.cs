@@ -139,6 +139,25 @@ public class ParameterListLayoutAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a dictionary-initializer indexer element starting its own line is clean (SST1110 false positive).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DictionaryInitializerIndexerElementIsCleanAsync()
+        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+            """
+            using System.Collections.Generic;
+
+            internal class C
+            {
+                private static readonly Dictionary<string, string> Map =
+                    new()
+                    {
+                        ["a"] = "x",
+                        ["b"] = "y",
+                    };
+            }
+            """);
+
     /// <summary>Verifies the code fix moves a method parameter list opening parenthesis onto the declaration line.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

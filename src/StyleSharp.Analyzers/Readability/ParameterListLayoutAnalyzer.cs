@@ -58,6 +58,13 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
+        // A dictionary/collection initializer key (`["k"] = v`) is an implicit element access whose
+        // opening bracket legitimately starts its own line under the initializer brace or a comma.
+        if (open.Parent?.Parent is ImplicitElementAccessSyntax)
+        {
+            return true;
+        }
+
         var before = open.GetPreviousToken();
         return before.IsKind(SyntaxKind.None) || LayoutHelpers.EndLine(text, before) == openLine;
     }

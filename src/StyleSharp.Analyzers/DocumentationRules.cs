@@ -293,6 +293,34 @@ internal static class DocumentationRules
         "'{0}' uses <inheritdoc> but does not inherit from or implement a documented base",
         "An <inheritdoc> element is only used where the element inherits or implements a base member to inherit documentation from.");
 
+    /// <summary>SST1654 — externally visible C# 14 extension blocks should carry a summary.</summary>
+    public static readonly DiagnosticDescriptor ExtensionBlockMustBeDocumented = Create(
+        "SST1654",
+        "Extension blocks should be documented",
+        "This extension block is externally visible and should have a <summary>",
+        "An externally visible C# 14 extension block carries a <summary> describing the members it adds (unless it uses <inheritdoc>).");
+
+    /// <summary>SST1655 — extension block parameters should be documented.</summary>
+    public static readonly DiagnosticDescriptor ExtensionBlockParametersMustBeDocumented = Create(
+        "SST1655",
+        "Extension block parameters should be documented",
+        "Extension block parameter '{0}' should have a <param> documentation element",
+        "Each parameter of a documented extension block has a matching <param> element.");
+
+    /// <summary>SST1656 — extension block type parameters should be documented.</summary>
+    public static readonly DiagnosticDescriptor ExtensionBlockTypeParametersMustBeDocumented = Create(
+        "SST1656",
+        "Extension block type parameters should be documented",
+        "Extension block type parameter '{0}' should have a <typeparam> documentation element",
+        "Each generic type parameter of a documented extension block has a matching <typeparam> element.");
+
+    /// <summary>SST1657 — extension block documentation should reference a real parameter or type parameter.</summary>
+    public static readonly DiagnosticDescriptor ExtensionBlockDocumentationReferenceMustMatch = Create(
+        "SST1657",
+        "Extension block documentation should reference a real parameter or type parameter",
+        "'{0}' does not match any parameter or type parameter of the extension block",
+        "Each <param> and <typeparam> element in an extension block's documentation refers to a name the block declares (the StyleSharp counterpart of the analyzer's the rule for extension blocks).");
+
     /// <summary>Creates a Warning-severity Documentation descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

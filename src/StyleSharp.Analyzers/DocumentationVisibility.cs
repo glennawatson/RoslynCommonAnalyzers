@@ -39,6 +39,31 @@ internal static class DocumentationVisibility
         return true;
     }
 
+    /// <summary>
+    /// Returns whether every type containing <paramref name="node"/> is exposed (<c>public</c> or
+    /// <c>protected</c>). Used for declarations that carry no accessibility of their own — such as a
+    /// C# 14 extension block — whose external visibility is decided solely by their containing types.
+    /// </summary>
+    /// <param name="node">The declaration whose containers to inspect.</param>
+    /// <returns><see langword="true"/> when no containing type hides the declaration.</returns>
+    public static bool HasExposedContainingTypes(SyntaxNode node)
+    {
+        for (var parent = node.Parent; parent is not null; parent = parent.Parent)
+        {
+            switch (parent)
+            {
+                case TypeDeclarationSyntax type when !ExposesMembers(type.Modifiers):
+                case EnumDeclarationSyntax @enum when !ExposesMembers(@enum.Modifiers):
+                    return false;
+                case BaseNamespaceDeclarationSyntax:
+                case CompilationUnitSyntax:
+                    return true;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Returns whether a modifier list exposes the element (<c>public</c> or <c>protected</c>).</summary>
     /// <param name="modifiers">The modifiers.</param>
     /// <returns><see langword="true"/> when exposed.</returns>

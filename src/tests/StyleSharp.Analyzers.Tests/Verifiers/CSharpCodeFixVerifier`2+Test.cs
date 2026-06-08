@@ -24,18 +24,13 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
         /// <summary>
         /// Initializes a new instance of the <see cref="Test"/> class.
         /// </summary>
-        public Test() => SolutionTransforms.Add(CSharpVerifierHelper.ConfigureSolution);
-
-        /// <inheritdoc/>
-        protected override async Task RunImplAsync(CancellationToken cancellationToken)
-        {
-            // Normalize every snippet to \n so the test (and its expected fix output) never depends on the line
-            // endings git checked the file out with. Done centrally here so it also covers tests that build the
-            // Test directly instead of going through the VerifyCodeFixAsync helpers.
-            CSharpVerifierHelper.NormalizeLineEndings(TestState.Sources);
-            CSharpVerifierHelper.NormalizeLineEndings(FixedState.Sources);
-            CSharpVerifierHelper.NormalizeLineEndings(BatchFixedState.Sources);
-            await base.RunImplAsync(cancellationToken).ConfigureAwait(false);
-        }
+        public Test() =>
+            SolutionTransforms.Add(static (solution, projectId) =>
+            {
+                var compilationOptions = solution.GetProject(projectId)!.CompilationOptions!;
+                compilationOptions = compilationOptions.WithSpecificDiagnosticOptions(
+                    compilationOptions.SpecificDiagnosticOptions.SetItems(CSharpVerifierHelper.NullableWarnings));
+                return solution.WithProjectCompilationOptions(projectId, compilationOptions);
+            });
     }
 }

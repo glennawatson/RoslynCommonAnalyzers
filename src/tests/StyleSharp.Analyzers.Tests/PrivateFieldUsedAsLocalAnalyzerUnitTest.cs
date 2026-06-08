@@ -44,4 +44,78 @@ public class PrivateFieldUsedAsLocalAnalyzerUnitTest
                 public int Read() => _total;
             }
             """);
+
+    /// <summary>Verifies several scratch fields in one type are each reported independently.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MultipleScratchFieldsAreEachReportedAsync()
+        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int {|SST1422:_a|};
+                private int {|SST1422:_b|};
+
+                public int First(int value)
+                {
+                    _a = 0;
+                    _a += value;
+                    return _a;
+                }
+
+                public int Second(int value)
+                {
+                    _b = 0;
+                    _b += value;
+                    return _b;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a same-named local in another method does not count as a second using method.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task SameNameLocalInOtherMethodDoesNotBlockReportAsync()
+        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int {|SST1422:_total|};
+
+                public int Sum(int value)
+                {
+                    _total = 0;
+                    _total += value;
+                    return _total;
+                }
+
+                public int Other()
+                {
+                    int _total = 7;
+                    return _total;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a field referenced inside a lambda is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task FieldReferencedInsideLambdaIsCleanAsync()
+        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public class C
+            {
+                private int _total;
+
+                public int Sum(int value)
+                {
+                    _total = 0;
+                    Action add = () => _total += value;
+                    add();
+                    return _total;
+                }
+            }
+            """);
 }

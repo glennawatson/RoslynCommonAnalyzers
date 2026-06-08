@@ -67,33 +67,16 @@ public sealed class FieldShouldBeReadonlyAnalyzer : DiagnosticAnalyzer
         IFieldSymbol field,
         CancellationToken cancellationToken)
     {
-        return Visit(type);
-
-        bool Visit(SyntaxNode node)
+        var references = FieldReferenceAnalysis.FieldNameReferences(type, field.Name);
+        for (var i = 0; i < references.Count; i++)
         {
-            if (node is IdentifierNameSyntax identifier
-                && IsWriteOutsideConstructor(identifier, model, type, field, cancellationToken))
+            if (IsWriteOutsideConstructor(references[i], model, type, field, cancellationToken))
             {
                 return true;
             }
-
-            var children = node.ChildNodesAndTokens();
-            for (var i = 0; i < children.Count; i++)
-            {
-                var child = children[i];
-                if (!child.IsNode || child.AsNode() is not { } childNode)
-                {
-                    continue;
-                }
-
-                if (Visit(childNode))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
+
+        return false;
     }
 
     /// <summary>Returns whether an identifier writes to the target field outside an allowed instance constructor.</summary>

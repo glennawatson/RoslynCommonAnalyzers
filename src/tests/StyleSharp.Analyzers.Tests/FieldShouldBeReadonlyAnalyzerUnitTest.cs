@@ -48,4 +48,66 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
                 public void Set(int value) => _value = value;
             }
             """);
+
+    /// <summary>Verifies several constructor-only fields in one type are each reported independently.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MultipleConstructorOnlyFieldsAreEachReportedAsync()
+        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int {|SST1424:_a|};
+                private int {|SST1424:_b|};
+                private int {|SST1424:_c|};
+
+                public C(int value)
+                {
+                    _a = value;
+                    _b = value;
+                    _c = value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a same-named local written in another method does not block the report.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task SameNameLocalWriteInOtherMethodDoesNotBlockReportAsync()
+        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int {|SST1424:_value|};
+
+                public C(int value) => _value = value;
+
+                public int Other()
+                {
+                    int _value = 3;
+                    _value = 5;
+                    return _value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a write inside a constructor lambda counts as outside the constructor and is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task WriteInsideConstructorLambdaIsCleanAsync()
+        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public class C
+            {
+                private int _value;
+
+                public C()
+                {
+                    Action set = () => _value = 5;
+                    set();
+                }
+            }
+            """);
 }

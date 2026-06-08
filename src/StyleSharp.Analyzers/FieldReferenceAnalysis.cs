@@ -132,6 +132,17 @@ internal static class FieldReferenceAnalysis
         return found;
     }
 
+    /// <summary>Returns every identifier in the type whose text matches a declared field name, scanning the type at most once per type.</summary>
+    /// <param name="type">The containing type.</param>
+    /// <param name="fieldName">The declared field name to look up.</param>
+    /// <returns>The matching identifiers, cached and shared across every rule that queries the same type.</returns>
+    /// <remarks>
+    /// Callers must still bind each returned identifier with their own semantic model to confirm it
+    /// references the intended field; the index is purely syntactic (name-matched) and compilation-agnostic.
+    /// </remarks>
+    internal static IReadOnlyList<IdentifierNameSyntax> FieldNameReferences(TypeDeclarationSyntax type, string fieldName)
+        => TypeFieldReferenceIndex.GetOrCreate(type).ReferencesFor(fieldName);
+
     /// <summary>Returns whether an expression is syntactically known to reference a private object field declared in the same type.</summary>
     /// <param name="type">The containing type declaration.</param>
     /// <param name="expression">The already-unwrapped expression to inspect.</param>

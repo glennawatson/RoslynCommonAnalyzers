@@ -166,6 +166,40 @@ public class MemberOrderingAnalyzerUnitTest
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a struct's <c>readonly</c> method is not treated as a readonly field (no SST1215).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReadonlyMethodIsNotReadonlyFieldAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            public struct S
+            {
+                public void Reset()
+                {
+                }
+
+                public readonly bool Equals(S other) => true;
+            }
+            """);
+
+    /// <summary>Verifies a nested <c>readonly struct</c> is not treated as a readonly field (no SST1215).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReadonlyStructIsNotReadonlyFieldAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public struct Mutable
+                {
+                }
+
+                public readonly struct Frozen
+                {
+                }
+            }
+            """);
+
     /// <summary>Verifies a nested record sorts before a nested union (records before unions).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

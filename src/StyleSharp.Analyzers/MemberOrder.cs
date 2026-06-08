@@ -105,12 +105,15 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         var isConst = facts.IsConst;
         var isStatic = isConst || facts.IsStatic;
 
+        // The readonly ordering rules (SST1214/SST1215) apply only to fields. 'readonly' on a method
+        // or struct (e.g. 'public readonly bool Equals(...)', 'readonly struct') must not be treated as
+        // a readonly field, so non-field members stay in the non-readonly rank.
         return new MemberOrder(
             kind,
             AccessRank(facts, member.Parent is InterfaceDeclarationSyntax),
             isConst ? 0 : 1,
             isStatic ? 0 : 1,
-            facts.IsReadOnly ? 0 : 1);
+            facts.IsReadOnly && kind == FieldKind ? 0 : 1);
     }
 
     /// <summary>Resolves the <c>IUnion</c> marker interface in a compilation, or <see langword="null"/> when no unions are present.</summary>

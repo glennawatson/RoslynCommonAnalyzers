@@ -58,6 +58,61 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies delegate arguments followed by a parameterless lambda are not misclassified as SST1100.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SubscribeLambdaSequenceIsCleanAsync()
+        => await VerifyBasePrefix.VerifyAnalyzerAsync(
+            """
+            using System;
+            using System.Threading.Tasks;
+
+            internal static class ObservableExtensions
+            {
+                private static IDisposable Subscribe<T>(
+                    this IObservable<T> source,
+                    Action<T> onNext,
+                    Action<Exception> onError,
+                    Action onCompleted)
+                    => throw new NotSupportedException();
+
+                private static Task<T> FirstOrDefaultCoreAsync<T>(this IObservable<T> source, bool hasDefault, T defaultValue)
+                {
+                    var completion = new TaskCompletionSource<T>();
+                    var seen = false;
+                    source.Subscribe(
+                        value =>
+                        {
+                            if (seen)
+                            {
+                                return;
+                            }
+
+                            seen = true;
+                            completion.TrySetResult(value);
+                        },
+                        error => completion.TrySetException(error),
+                        () =>
+                        {
+                            if (seen)
+                            {
+                                return;
+                            }
+
+                            if (hasDefault)
+                            {
+                                completion.TrySetResult(defaultValue);
+                            }
+                            else
+                            {
+                                completion.TrySetException(new InvalidOperationException("The source completed without producing a value."));
+                            }
+                        });
+                    return completion.Task;
+                }
+            }
+            """);
+
     /// <summary>Verifies the syntax fast path recognizes an override with the requested member name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -84,5 +139,5 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
     /// <param name="source">The source containing the type declarations.</param>
     /// <returns>The parsed containing type.</returns>
     private static TypeDeclarationSyntax ParseType(string source)
-        => SyntaxFactory.ParseCompilationUnit(source).DescendantNodes().OfType<TypeDeclarationSyntax>().Last();
+        => (TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[^1];
 }

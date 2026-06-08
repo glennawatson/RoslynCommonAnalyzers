@@ -114,11 +114,24 @@ public sealed class AccessModifierAnalyzerUnitTest
         where TMember : MemberDeclarationSyntax
     {
         var root = SyntaxFactory.ParseCompilationUnit(source);
-        foreach (var node in root.DescendantNodes())
+        for (var i = 0; i < root.Members.Count; i++)
         {
-            if (node is TMember member && member.Kind() == kind)
+            if (root.Members[i] is TMember topLevelMember && topLevelMember.Kind() == kind)
             {
-                return member;
+                return topLevelMember;
+            }
+
+            if (root.Members[i] is not TypeDeclarationSyntax type)
+            {
+                continue;
+            }
+
+            for (var memberIndex = 0; memberIndex < type.Members.Count; memberIndex++)
+            {
+                if (type.Members[memberIndex] is TMember nestedMember && nestedMember.Kind() == kind)
+                {
+                    return nestedMember;
+                }
             }
         }
 

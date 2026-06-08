@@ -7,6 +7,9 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// <summary>Builds synthetic source for extension-block analyzer benchmarks.</summary>
 internal static class ExtensionBlockBenchmarkSource
 {
+    /// <summary>The divisor used to alternate clean benchmark suffixes.</summary>
+    private const int AlternatingSuffixDivisor = 2;
+
     /// <summary>Builds a compilation unit containing many extension-block containers.</summary>
     /// <param name="members">The number of extension containers to emit.</param>
     /// <param name="violating">Whether to emit extension-block rule violations.</param>
@@ -28,7 +31,7 @@ internal static class ExtensionBlockBenchmarkSource
     /// <returns>The generated container block.</returns>
     private static string GenerateCleanContainer(int index)
         => $$"""
-           public static class Sample{{index}}Extensions
+           public static class Sample{{index}}{{(index % AlternatingSuffixDivisor == 0 ? ExtensionContainerNaming.ExtensionsSuffix : ExtensionContainerNaming.MixinsSuffix)}}
            {
                extension(int value)
                {

@@ -61,17 +61,16 @@ public class DescendantTraversalBenchmarks
             /// <summary><see cref="C"/><inheritdoc/></summary>
             public class C { }
             """).GetRoot();
-        _xmlSummary = (XmlElementSyntax)xmlRoot.DescendantNodes(descendIntoTrivia: true)
-            .First(static node => node is XmlElementSyntax element && element.StartTag.Name.LocalName.ValueText == "summary");
+        var xmlType = (TypeDeclarationSyntax)((CompilationUnitSyntax)xmlRoot).Members[0];
+        var documentation = XmlDocumentationHelper.GetDocumentationComment(xmlType)!;
+        _xmlSummary = (XmlElementSyntax)XmlDocumentationHelper.FindElement(documentation, "summary")!;
 
         var localRoot = (CompilationUnitSyntax)BenchmarkCompilationFactory.Parse(
             "class C { void M() { var first = 0; foreach (var item in new[] { 1, 2 }) { } try { } catch (System.Exception error) { } var target = 3; System.Console.WriteLine(target); } }").GetRoot();
-        var method = (MethodDeclarationSyntax)localRoot.DescendantNodes().First(static node => node is MethodDeclarationSyntax);
+        var method = (MethodDeclarationSyntax)((ClassDeclarationSyntax)localRoot.Members[0]).Members[0];
         _localScope = method.Body!;
-        _localPosition = _localScope.DescendantNodes()
-            .OfType<IdentifierNameSyntax>()
-            .First(static identifier => identifier.Identifier.ValueText == "target")
-            .SpanStart;
+        var invocation = (InvocationExpressionSyntax)((ExpressionStatementSyntax)_localScope.Statements[^1]).Expression;
+        _localPosition = invocation.ArgumentList.Arguments[0].Expression.SpanStart;
 
         var (lockTree, lockCompilation) = BenchmarkCompilationFactory.CreateCompilation(
             "class C { private readonly object _gate = new(); void M() { lock (_gate) { } lock (_gate) { } } }");
@@ -83,7 +82,7 @@ public class DescendantTraversalBenchmarks
         var (propertyTree, propertyCompilation) = BenchmarkCompilationFactory.CreateCompilation(
             "class C { private int _value; public int Value { get => _value; set => _value = value < 0 ? 0 : value; } }");
         var propertyRoot = (CompilationUnitSyntax)propertyTree.GetRoot();
-        _property = (PropertyDeclarationSyntax)propertyRoot.DescendantNodes().First(static node => node is PropertyDeclarationSyntax);
+        _property = (PropertyDeclarationSyntax)((TypeDeclarationSyntax)propertyRoot.Members[0]).Members[1];
         _propertyModel = propertyCompilation.GetSemanticModel(propertyTree);
         _propertyFieldSymbol = (IFieldSymbol)_propertyModel.GetDeclaredSymbol(
             ((FieldDeclarationSyntax)((TypeDeclarationSyntax)propertyRoot.Members[0]).Members[0]).Declaration.Variables[0])!;
@@ -155,6 +154,7 @@ public class DescendantTraversalBenchmarks
     /// <returns><see langword="true"/> when a type-like declaration is found.</returns>
     private static bool BaselineTryGetFirstTypeIdentifier(SyntaxNode root, out SyntaxToken identifier)
     {
+        // Intentional baseline: keep the original DescendantNodes() shape for comparison.
         identifier = default;
         foreach (var node in root.DescendantNodes())
         {
@@ -199,6 +199,7 @@ public class DescendantTraversalBenchmarks
     /// <returns>The number of excess namespaces or types.</returns>
     private static int BaselineCountTopLevelDiagnostics(CompilationUnitSyntax root)
     {
+        // Intentional baseline: keep the original DescendantNodes() shape for comparison.
         var typeKeys = new HashSet<string>(StringComparer.Ordinal);
         var firstTypeSeen = false;
         var firstNamespaceSeen = false;
@@ -254,6 +255,7 @@ public class DescendantTraversalBenchmarks
     /// <returns><see langword="true"/> when an inheritdoc descendant exists.</returns>
     private static bool BaselineContainsInheritDoc(XmlNodeSyntax element)
     {
+        // Intentional baseline: keep the original DescendantNodes() shape for comparison.
         foreach (var descendant in element.DescendantNodes())
         {
             if (descendant is XmlNodeSyntax node && GetElementName(node) == "inheritdoc")
@@ -282,6 +284,7 @@ public class DescendantTraversalBenchmarks
     /// <returns><see langword="true"/> when a matching earlier local exists.</returns>
     private static bool BaselineHasEarlierLocalNamed(SyntaxNode scope, int position, string name)
     {
+        // Intentional baseline: keep the original DescendantNodes() shape for comparison.
         foreach (var node in scope.DescendantNodes())
         {
             if (node.SpanStart >= position)
@@ -321,6 +324,7 @@ public class DescendantTraversalBenchmarks
     /// <returns><see langword="true"/> when the candidate remains lock-only.</returns>
     private static bool BaselineScanLockFieldReferences(TypeDeclarationSyntax type, SemanticModel model, IFieldSymbol fieldSymbol)
     {
+        // Intentional baseline: keep the original DescendantNodes() shape for comparison.
         var candidate = new LockCandidateState(fieldSymbol);
         var candidates = new Dictionary<string, LockCandidateState>(1, StringComparer.Ordinal)
         {
@@ -381,6 +385,7 @@ public class DescendantTraversalBenchmarks
     /// <returns>The number of references collected.</returns>
     private static int BaselineCollectFieldReferences(PropertyDeclarationSyntax property, SemanticModel model, IFieldSymbol symbol)
     {
+        // Intentional baseline: keep the original DescendantNodes() shape for comparison.
         var references = new List<IdentifierNameSyntax>(4);
         foreach (var node in property.DescendantNodes())
         {

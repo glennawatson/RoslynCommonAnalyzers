@@ -86,39 +86,21 @@ public class SingleLineSummaryCodeFixBenchmarks : IDisposable
     /// <returns>The selected summary element.</returns>
     private static XmlElementSyntax FindTargetSummary(SyntaxNode root)
     {
-        XmlElementSyntax? target = null;
-        var targetIndex = 0;
-        var count = 0;
-
-        foreach (var node in root.DescendantNodes(descendIntoTrivia: true))
+        var namespaceDeclaration = (BaseNamespaceDeclarationSyntax)((CompilationUnitSyntax)root).Members[0];
+        var targetIndex = namespaceDeclaration.Members.Count / MiddleSummaryDivisor;
+        for (var i = 0; i < namespaceDeclaration.Members.Count; i++)
         {
-            if (node is not XmlElementSyntax element || element.StartTag.Name.LocalName.ValueText != "summary")
+            if (i != targetIndex
+                || namespaceDeclaration.Members[i] is not TypeDeclarationSyntax type
+                || XmlDocumentationHelper.GetDocumentationComment(type) is not { } documentation
+                || XmlDocumentationHelper.FindElement(documentation, "summary") is not XmlElementSyntax summary)
             {
                 continue;
             }
 
-            count++;
+            return summary;
         }
 
-        targetIndex = count / MiddleSummaryDivisor;
-        count = 0;
-
-        foreach (var node in root.DescendantNodes(descendIntoTrivia: true))
-        {
-            if (node is not XmlElementSyntax element || element.StartTag.Name.LocalName.ValueText != "summary")
-            {
-                continue;
-            }
-
-            if (count == targetIndex)
-            {
-                target = element;
-                break;
-            }
-
-            count++;
-        }
-
-        return target!;
+        throw new InvalidOperationException("Summary element not found.");
     }
 }

@@ -82,5 +82,5 @@ public class TrivialAutoPropertyAnalyzerUnitTest
     /// <param name="source">The source containing the property declaration.</param>
     /// <returns>The parsed property declaration.</returns>
     private static PropertyDeclarationSyntax ParseProperty(string source)
-        => SyntaxFactory.ParseCompilationUnit(source).DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        => ((TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members.OfType<PropertyDeclarationSyntax>().Single();
 }

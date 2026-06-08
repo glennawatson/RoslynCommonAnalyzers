@@ -30,10 +30,6 @@
     <ProjectReference Include="..\StyleSharp.Analyzers\StyleSharp.Analyzers.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="tools\*.ps1" CopyToOutputDirectory="PreserveNewest" Pack="true" PackagePath="" />
-  </ItemGroup>
-
   <!-- Build the analyzer + code-fix assemblies once per Roslyn slot so a single
        pack emits every analyzers/dotnet/<slot>/cs folder. -->
   <Target Name="_BuildRoslynSlots">

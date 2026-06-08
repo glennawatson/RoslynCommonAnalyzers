@@ -44,7 +44,7 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
     {
         var test = new Test
         {
-            TestCode = source
+            TestCode = Normalize(source)
         };
 
         test.ExpectedDiagnostics.AddRange(expected);
@@ -75,11 +75,22 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
     {
         var test = new Test
         {
-            TestCode = source,
-            FixedCode = fixedSource
+            TestCode = Normalize(source),
+            FixedCode = Normalize(fixedSource)
         };
 
         test.ExpectedDiagnostics.AddRange(expected);
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>
+    /// Collapses CRLF and lone CR to <c>\n</c> so snippet comparisons never depend on the line
+    /// endings git happened to check the test file out with (CRLF on Windows, LF elsewhere).
+    /// The fixes pick up the document's newline themselves, so a normalized snippet exercises the
+    /// real behavior on every platform. Markup such as <c>{|SSTxxxx:name|}</c> is plain text and
+    /// is unaffected.
+    /// </summary>
+    /// <param name="value">The snippet to normalize.</param>
+    /// <returns>The snippet with <c>\n</c> line endings.</returns>
+    private static string Normalize(string value) => value.ReplaceLineEndings("\n");
 }

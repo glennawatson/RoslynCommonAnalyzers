@@ -16,12 +16,13 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task GetLineSpanOfOrLaterResolvesMultiLineSpanAsync()
     {
+        // Normalized to \n so the hard-coded character offsets below do not shift on a CRLF checkout.
         var text = SourceText.From(
             $$"""
             first
             second
             third{{"\n"}}
-            """);
+            """.ReplaceLineEndings("\n"));
         var lineNumber = 0;
         var line = text.Lines[0];
 
@@ -36,12 +37,13 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task LineOfOrLaterAdvancesAcrossLaterPositionsAsync()
     {
+        // Normalized to \n so the hard-coded character offsets below do not shift on a CRLF checkout.
         var text = SourceText.From(
             $$"""
             first
             second
             third{{"\n"}}
-            """);
+            """.ReplaceLineEndings("\n"));
         var lineNumber = 0;
         var line = text.Lines[0];
 

@@ -52,10 +52,14 @@ public class FileHeaderAnalyzerUnitTest
         var test = new Verify.Test
         {
             TestCode = "namespace N { }",
+
+            // Normalized to line feeds. The source is a single line with no break for the fix to
+            // detect, so it inserts its default line feed. A carriage-return checkout would otherwise
+            // leave the expected snippet with different breaks and never match.
             FixedCode = """
                 // Copyright text.
                 namespace N { }
-                """,
+                """.ReplaceLineEndings("\n"),
 
             // A file-start (position 0) diagnostic cannot be suppressed by a #pragma
             // that necessarily comes after it, so skip the harness's suppression check.

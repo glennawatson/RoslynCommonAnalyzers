@@ -44,20 +44,22 @@ public class LayoutFileAndChainUnitTest
     [Test]
     public async Task MissingFinalNewlineAddedAsync()
     {
-        const string Source = """
+        // Normalized to line feeds so the document, and the break the fix copies from it, stay the same
+        // on a carriage-return checkout. The file-ending fix reuses the document's break verbatim.
+        var source = """
             internal class C
             {
             }
-            """;
-        const string FixedSource = $$"""
+            """.ReplaceLineEndings("\n");
+        var fixedSource = $$"""
             internal class C
             {
             }{{"\n"}}
-            """;
+            """.ReplaceLineEndings("\n");
         await VerifyFileEnd.VerifyCodeFixAsync(
-            Source,
+            source,
             VerifyFileEnd.Diagnostic("SST1518").WithSpan(3, 2, 3, 2),
-            FixedSource);
+            fixedSource);
     }
 
     /// <summary>Verifies a blank line before 'else' is reported (SST1510) and removed.</summary>

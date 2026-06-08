@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyTrailingComma = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.TrailingCommaAnalyzer,
-    StyleSharp.Analyzers.TrailingCommaCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1413TrailingCommaAnalyzer,
+    StyleSharp.Analyzers.Sst1413TrailingCommaCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

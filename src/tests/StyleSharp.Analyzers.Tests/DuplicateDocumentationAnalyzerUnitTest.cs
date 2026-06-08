@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyDuplicate = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.DuplicateDocumentationAnalyzer>;
+    StyleSharp.Analyzers.Sst1625DuplicateDocumentationAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

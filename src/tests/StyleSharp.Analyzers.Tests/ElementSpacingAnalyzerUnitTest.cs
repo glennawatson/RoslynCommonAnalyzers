@@ -12,13 +12,13 @@ public sealed class ElementSpacingAnalyzerUnitTest
     [Test]
     public async Task ShouldReportSpacingWhenMembersTouchOrDifferByOneLineAsync()
     {
-        await Assert.That(ElementSpacingAnalyzer.ShouldReportSpacing(previousEndLine: 2, currentStartLine: 3)).IsTrue();
-        await Assert.That(ElementSpacingAnalyzer.ShouldReportSpacing(previousEndLine: 2, currentStartLine: 2)).IsTrue();
+        await Assert.That(Sst1516ElementSpacingAnalyzer.ShouldReportSpacing(previousEndLine: 2, currentStartLine: 3)).IsTrue();
+        await Assert.That(Sst1516ElementSpacingAnalyzer.ShouldReportSpacing(previousEndLine: 2, currentStartLine: 2)).IsTrue();
     }
 
     /// <summary>Verifies a blank intervening line stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task ShouldReportSpacingSkipsBlankLineSeparatedMembersAsync()
-        => await Assert.That(ElementSpacingAnalyzer.ShouldReportSpacing(previousEndLine: 2, currentStartLine: 4)).IsFalse();
+        => await Assert.That(Sst1516ElementSpacingAnalyzer.ShouldReportSpacing(previousEndLine: 2, currentStartLine: 4)).IsFalse();
 }

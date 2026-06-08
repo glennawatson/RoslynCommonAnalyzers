@@ -63,7 +63,7 @@ public class DefaultValueTypeConstructorCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> DefaultValueTypeConstructor_ApplyFixAsync()
     {
-        var updated = DefaultValueTypeConstructorCodeFixProvider.Replace(_document, _root, _creation);
+        var updated = Sst1129DefaultValueTypeConstructorCodeFixProvider.Replace(_document, _root, _creation);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

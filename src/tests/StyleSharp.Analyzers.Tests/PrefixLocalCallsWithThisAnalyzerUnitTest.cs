@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyThisPrefix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.PrefixLocalCallsWithThisAnalyzer,
-    StyleSharp.Analyzers.PrefixLocalCallsWithThisCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1101PrefixLocalCallsWithThisAnalyzer,
+    StyleSharp.Analyzers.Sst1101PrefixLocalCallsWithThisCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

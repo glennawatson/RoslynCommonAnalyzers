@@ -69,7 +69,7 @@ public class PrefixLocalCallsWithThisCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> PrefixLocalCallsWithThis_ApplyFixAsync()
     {
-        var updated = PrefixLocalCallsWithThisCodeFixProvider.Apply(_document, _root, _identifier);
+        var updated = Sst1101PrefixLocalCallsWithThisCodeFixProvider.Apply(_document, _root, _identifier);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

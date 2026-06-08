@@ -5,7 +5,7 @@
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyEmptyCollection = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.EmptyCollectionExpressionAnalyzer,
+    StyleSharp.Analyzers.Sst2100EmptyCollectionExpressionAnalyzer,
     StyleSharp.Analyzers.CollectionExpressionCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;

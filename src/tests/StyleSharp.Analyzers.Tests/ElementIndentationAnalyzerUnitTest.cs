@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyIndentation = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.ElementIndentationAnalyzer>;
+    StyleSharp.Analyzers.Sst1137ElementIndentationAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

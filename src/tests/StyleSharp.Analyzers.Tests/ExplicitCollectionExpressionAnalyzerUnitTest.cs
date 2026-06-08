@@ -5,7 +5,7 @@
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyExplicitCollection = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.ExplicitCollectionExpressionAnalyzer,
+    StyleSharp.Analyzers.Sst2101ExplicitCollectionExpressionAnalyzer,
     StyleSharp.Analyzers.CollectionExpressionCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;

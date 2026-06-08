@@ -18,7 +18,7 @@ public sealed class SingleLineStatementAnalyzerUnitTest
         var block = ParseBlock("class C { void M() { if (true) { return; } } }");
         var text = await block.SyntaxTree.GetTextAsync();
 
-        await Assert.That(SingleLineStatementAnalyzer.IsSingleLineBlock(text, block)).IsTrue();
+        await Assert.That(Sst1501SingleLineStatementAnalyzer.IsSingleLineBlock(text, block)).IsTrue();
     }
 
     /// <summary>Verifies a multi-line brace pair is not treated as a single-line block.</summary>
@@ -35,7 +35,7 @@ public sealed class SingleLineStatementAnalyzerUnitTest
             """);
         var text = await block.SyntaxTree.GetTextAsync();
 
-        await Assert.That(SingleLineStatementAnalyzer.IsSingleLineBlock(text, block)).IsFalse();
+        await Assert.That(Sst1501SingleLineStatementAnalyzer.IsSingleLineBlock(text, block)).IsFalse();
     }
 
     /// <summary>Parses the innermost block from the supplied compilation unit source.</summary>

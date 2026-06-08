@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyFieldKeyword = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.PreferFieldKeywordAnalyzer,
-    StyleSharp.Analyzers.PreferFieldKeywordCodeFixProvider>;
+    StyleSharp.Analyzers.Sst2200PreferFieldKeywordAnalyzer,
+    StyleSharp.Analyzers.Sst2200PreferFieldKeywordCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

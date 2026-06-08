@@ -20,7 +20,7 @@ public class ElementSpacingBenchmarks
 
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new ElementSpacingAnalyzer(), LayoutHotspotBenchmarkSource.Generate, Nodes);
+    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new Sst1516ElementSpacingAnalyzer(), LayoutHotspotBenchmarkSource.Generate, Nodes);
 
     /// <summary>Benchmarks the clean element-spacing path.</summary>
     /// <returns>The number of diagnostics produced.</returns>

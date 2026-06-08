@@ -11,13 +11,13 @@ internal static class NamingBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateParameter(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new ParameterNamingAnalyzer(), NamingBenchmarkSource.GenerateParameterSource, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1313ParameterNamingAnalyzer(), NamingBenchmarkSource.GenerateParameterSource, nodes);
 
     /// <summary>Creates the prepared benchmark state for local-variable naming analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateLocalVariable(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new LocalVariableNamingAnalyzer(), NamingBenchmarkSource.GenerateLocalVariableSource, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1312LocalVariableNamingAnalyzer(), NamingBenchmarkSource.GenerateLocalVariableSource, nodes);
 
     /// <summary>Creates the prepared benchmark state for field naming analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
@@ -29,5 +29,5 @@ internal static class NamingBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateElement(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new ElementNamingAnalyzer(), NamingBenchmarkSource.GenerateElementSource, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1300ElementNamingAnalyzer(), NamingBenchmarkSource.GenerateElementSource, nodes);
 }

@@ -21,7 +21,7 @@ public class AccessModifierProfiledAllocBenchmarks
 
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new AccessModifierAnalyzer(), LayoutHotspotBenchmarkSource.Generate, Nodes);
+    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new Sst1400AccessModifierAnalyzer(), LayoutHotspotBenchmarkSource.Generate, Nodes);
 
     /// <summary>Benchmarks the clean access-modifier path.</summary>
     /// <returns>The number of diagnostics produced.</returns>

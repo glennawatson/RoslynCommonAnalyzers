@@ -37,7 +37,7 @@ public class AccessorConsistencyCodeFixBenchmarks
     [Benchmark]
     public async Task<int> AccessorConsistency_ApplyFixAsync()
     {
-        var updated = await AccessorConsistencyCodeFixProvider.ExpandAsync(_context.Document, _context.Node.AccessorList!, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst1504AccessorConsistencyCodeFixProvider.ExpandAsync(_context.Document, _context.Node.AccessorList!, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

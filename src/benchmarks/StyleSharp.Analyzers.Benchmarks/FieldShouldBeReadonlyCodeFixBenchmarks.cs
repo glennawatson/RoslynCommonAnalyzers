@@ -37,7 +37,7 @@ public class FieldShouldBeReadonlyCodeFixBenchmarks
     [Benchmark]
     public async Task<int> FieldShouldBeReadonly_ApplyFixAsync()
     {
-        var updated = FieldShouldBeReadonlyCodeFixProvider.AddReadonly(_context.Document, _context.Root, _context.Node);
+        var updated = Sst1424FieldShouldBeReadonlyCodeFixProvider.AddReadonly(_context.Document, _context.Root, _context.Node);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

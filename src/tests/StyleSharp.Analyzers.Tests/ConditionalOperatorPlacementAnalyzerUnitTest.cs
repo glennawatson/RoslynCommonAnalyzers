@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyPlacement = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.ConditionalOperatorPlacementAnalyzer>;
+    StyleSharp.Analyzers.Sst1145ConditionalOperatorPlacementAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

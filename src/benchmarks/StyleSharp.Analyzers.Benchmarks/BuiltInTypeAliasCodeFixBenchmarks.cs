@@ -71,7 +71,7 @@ public class BuiltInTypeAliasCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> BuiltInTypeAlias_ApplyFixAsync()
     {
-        var updated = BuiltInTypeAliasCodeFixProvider.Replace(_document, _root, _typeNode, _keyword);
+        var updated = Sst1121BuiltInTypeAliasCodeFixProvider.Replace(_document, _root, _typeNode, _keyword);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

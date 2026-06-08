@@ -45,7 +45,7 @@ public class MultipleBlankLinesCodeFixBenchmarks
     [Benchmark]
     public async Task<int> MultipleBlankLines_ApplyFixAsync()
     {
-        var updated = await MultipleBlankLinesCodeFixProvider.RemoveAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst1507MultipleBlankLinesCodeFixProvider.RemoveAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

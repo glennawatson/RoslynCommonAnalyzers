@@ -37,7 +37,7 @@ public class EmptyStatementCodeFixBenchmarks
     [Benchmark]
     public async Task<int> EmptyStatement_ApplyFixAsync()
     {
-        var updated = await EmptyStatementCodeFixProvider.RemoveAsync(_context.Document, _context.Root, _context.Node).ConfigureAwait(false);
+        var updated = await Sst1106EmptyStatementCodeFixProvider.RemoveAsync(_context.Document, _context.Root, _context.Node).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

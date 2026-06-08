@@ -65,7 +65,7 @@ public class UseNameofCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseNameof_ApplyFixAsync()
     {
-        var updated = UseNameofCodeFixProvider.Replace(_document, _root, _literal);
+        var updated = Sst1415UseNameofCodeFixProvider.Replace(_document, _root, _literal);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

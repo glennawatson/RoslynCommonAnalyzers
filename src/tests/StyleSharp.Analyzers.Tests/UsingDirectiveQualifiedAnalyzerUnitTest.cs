@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyUsingQualified = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.UsingDirectiveQualifiedAnalyzer,
-    StyleSharp.Analyzers.UsingDirectiveQualifiedCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1135UsingDirectiveQualifiedAnalyzer,
+    StyleSharp.Analyzers.Sst1135UsingDirectiveQualifiedCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

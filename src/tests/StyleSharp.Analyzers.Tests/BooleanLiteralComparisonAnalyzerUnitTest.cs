@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyBool = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.BooleanLiteralComparisonAnalyzer,
-    StyleSharp.Analyzers.BooleanLiteralComparisonCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1143BooleanLiteralComparisonAnalyzer,
+    StyleSharp.Analyzers.Sst1143BooleanLiteralComparisonCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

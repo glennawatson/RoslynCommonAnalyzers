@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyCtorInitializer = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.ConstructorInitializerOnOwnLineAnalyzer>;
+    StyleSharp.Analyzers.Sst1128ConstructorInitializerOnOwnLineAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyNested = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.NestedTernaryAnalyzer>;
+    StyleSharp.Analyzers.Sst1147NestedTernaryAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

@@ -11,5 +11,5 @@ internal static class TupleElementNameBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState Create(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new TupleElementNameAnalyzer(), TupleElementNameBenchmarkSource.Generate, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1142TupleElementNameAnalyzer(), TupleElementNameBenchmarkSource.Generate, nodes);
 }

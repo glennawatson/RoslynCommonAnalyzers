@@ -5,8 +5,8 @@
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyTuple = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.UseTupleSyntaxAnalyzer,
-    StyleSharp.Analyzers.UseTupleSyntaxCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1141UseTupleSyntaxAnalyzer,
+    StyleSharp.Analyzers.Sst1141UseTupleSyntaxCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

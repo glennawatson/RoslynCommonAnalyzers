@@ -5,7 +5,7 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using VerifyBasePrefix = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.DoNotPrefixWithBaseAnalyzer>;
+    StyleSharp.Analyzers.Sst1100DoNotPrefixWithBaseAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 
@@ -187,7 +187,7 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
         var type = ParseType(
             "internal class Base { public virtual void Run() { } } internal class Derived : Base { public override void Run() { } }");
 
-        await Assert.That(DoNotPrefixWithBaseAnalyzer.HasOwnMemberNamed(type, "Run")).IsTrue();
+        await Assert.That(Sst1100DoNotPrefixWithBaseAnalyzer.HasOwnMemberNamed(type, "Run")).IsTrue();
     }
 
     /// <summary>Verifies the syntax fast path recognizes a hiding member with the requested member name.</summary>
@@ -198,7 +198,7 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
         var type = ParseType(
             "internal class Base { public int Value { get; set; } } internal class Derived : Base { public new int Value { get; set; } }");
 
-        await Assert.That(DoNotPrefixWithBaseAnalyzer.HasOwnMemberNamed(type, "Value")).IsTrue();
+        await Assert.That(Sst1100DoNotPrefixWithBaseAnalyzer.HasOwnMemberNamed(type, "Value")).IsTrue();
     }
 
     /// <summary>Verifies the syntax fast path rejects names the type does not declare.</summary>
@@ -209,7 +209,7 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
         var type = ParseType(
             "internal class Base { public void Help() { } } internal class Derived : Base { public void Call() { } }");
 
-        await Assert.That(DoNotPrefixWithBaseAnalyzer.HasOwnMemberNamed(type, "Help")).IsFalse();
+        await Assert.That(Sst1100DoNotPrefixWithBaseAnalyzer.HasOwnMemberNamed(type, "Help")).IsFalse();
     }
 
     /// <summary>Parses the last type declaration from the supplied source.</summary>

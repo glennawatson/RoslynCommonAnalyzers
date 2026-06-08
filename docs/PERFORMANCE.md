@@ -82,7 +82,7 @@ Two complementary lenses:
   needs preorder descendant traversal with early exit.
 - **Hot-path micro** (`HotPathBenchmarks`) — focused clean/violating corpora for
   the hottest analyzer pipelines (`SpacingAnalyzer`, tuple element access,
-  `UseNameofAnalyzer`, `ArgumentGuardAnalyzer`, and the shared jagged-list helper).
+  `Sst1415UseNameofAnalyzer`, `ArgumentGuardAnalyzer`, and the shared jagged-list helper).
 - **Single-analyzer hot suites** (`TupleElementNameBenchmarks`,
   `UseNameofBenchmarks`) — full `CompilationWithAnalyzers` runs for the specific
   hot analyzer families whose internal fast paths are already covered by
@@ -101,8 +101,8 @@ Use the profiled hot-path suites when a rule is known to do semantic work,
 token scans, or other non-trivial analysis:
 
 - `LineScan_*` — shared jagged-list helper used by the SST115x family.
-- `TupleElementName_*` — `TupleElementNameAnalyzer` name-rewrite detection.
-- `UseNameof_*` — `UseNameofAnalyzer` constructor-argument scanning.
+- `TupleElementName_*` — `Sst1142TupleElementNameAnalyzer` name-rewrite detection.
+- `UseNameof_*` — `Sst1415UseNameofAnalyzer` constructor-argument scanning.
 - `ArgumentGuard_*` — `ArgumentGuardAnalyzer` throw-helper matching.
 - `Spacing_*` — `SpacingAnalyzer` token-walk over a synthetic compilation.
 

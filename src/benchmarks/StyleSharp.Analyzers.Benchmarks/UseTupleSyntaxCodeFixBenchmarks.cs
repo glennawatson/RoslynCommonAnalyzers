@@ -65,7 +65,7 @@ public class UseTupleSyntaxCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseTupleSyntax_ApplyFixAsync()
     {
-        var updated = UseTupleSyntaxCodeFixProvider.Replace(_document, _root, _generic);
+        var updated = Sst1141UseTupleSyntaxCodeFixProvider.Replace(_document, _root, _generic);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

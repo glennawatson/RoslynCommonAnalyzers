@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyNamespace = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.NamespaceFolderAnalyzer>;
+    StyleSharp.Analyzers.Sst1417NamespaceFolderAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

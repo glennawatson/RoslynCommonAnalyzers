@@ -44,7 +44,7 @@ public class FileStartBlankLinesCodeFixBenchmarks
     [Benchmark]
     public async Task<int> FileStartBlankLines_ApplyFixAsync()
     {
-        var updated = await FileStartBlankLinesCodeFixProvider.RemoveAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst1517FileStartBlankLinesCodeFixProvider.RemoveAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

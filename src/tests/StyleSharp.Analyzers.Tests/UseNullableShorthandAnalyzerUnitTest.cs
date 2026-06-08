@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyNullableShorthand = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.UseNullableShorthandAnalyzer,
-    StyleSharp.Analyzers.UseNullableShorthandCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1125UseNullableShorthandAnalyzer,
+    StyleSharp.Analyzers.Sst1125UseNullableShorthandCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

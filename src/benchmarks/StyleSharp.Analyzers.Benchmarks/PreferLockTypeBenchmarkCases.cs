@@ -12,7 +12,7 @@ internal static class PreferLockTypeBenchmarkCases
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState Create(int nodes)
         => SingleAnalyzerBenchmarkHelper.Create(
-            new PreferLockTypeAnalyzer(),
+            new Sst1900PreferLockTypeAnalyzer(),
             new(BenchmarkCompilationFactory.CreateCompilation(PreferLockTypeBenchmarkSource.Generate(nodes, violating: false)).Compilation),
             new(BenchmarkCompilationFactory.CreateCompilation(PreferLockTypeBenchmarkSource.Generate(nodes, violating: true)).Compilation));
 }

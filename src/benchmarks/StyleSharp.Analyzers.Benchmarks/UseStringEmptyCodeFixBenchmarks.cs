@@ -63,7 +63,7 @@ public class UseStringEmptyCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseStringEmpty_ApplyFixAsync()
     {
-        var updated = UseStringEmptyCodeFixProvider.Replace(_document, _root, _literal);
+        var updated = Sst1122UseStringEmptyCodeFixProvider.Replace(_document, _root, _literal);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

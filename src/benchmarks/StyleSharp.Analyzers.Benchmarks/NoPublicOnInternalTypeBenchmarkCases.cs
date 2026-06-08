@@ -12,7 +12,7 @@ internal static class NoPublicOnInternalTypeBenchmarkCases
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState Create(int nodes)
         => SingleAnalyzerBenchmarkHelper.Create(
-            new NoPublicOnInternalTypeAnalyzer(),
+            new Sst1416NoPublicOnInternalTypeAnalyzer(),
             new(BenchmarkCompilationFactory.CreateCompilation(NoPublicOnInternalTypeBenchmarkSource.Generate(nodes, violating: false)).Compilation),
             new(BenchmarkCompilationFactory.CreateCompilation(NoPublicOnInternalTypeBenchmarkSource.Generate(nodes, violating: true)).Compilation));
 }

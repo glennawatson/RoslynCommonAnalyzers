@@ -6,7 +6,7 @@ using VerifyConstructor = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MemberDocumentationAnalyzer,
     StyleSharp.Analyzers.ConstructorSummaryCodeFixProvider>;
 using VerifyFileName = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.FileNameAnalyzer>;
+    StyleSharp.Analyzers.Sst1649FileNameAnalyzer>;
 using VerifyMember = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.MemberDocumentationAnalyzer>;
 

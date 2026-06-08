@@ -3,11 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyBlanks = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.MultipleBlankLinesAnalyzer,
-    StyleSharp.Analyzers.MultipleBlankLinesCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1507MultipleBlankLinesAnalyzer,
+    StyleSharp.Analyzers.Sst1507MultipleBlankLinesCodeFixProvider>;
 using VerifySpacing = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.ElementSpacingAnalyzer,
-    StyleSharp.Analyzers.ElementSpacingCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1516ElementSpacingAnalyzer,
+    StyleSharp.Analyzers.Sst1516ElementSpacingCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

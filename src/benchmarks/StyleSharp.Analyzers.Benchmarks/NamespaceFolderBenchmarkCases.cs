@@ -20,7 +20,7 @@ internal static class NamespaceFolderBenchmarkCases
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState Create(int nodes)
         => SingleAnalyzerBenchmarkHelper.Create(
-            new NamespaceFolderAnalyzer(),
+            new Sst1417NamespaceFolderAnalyzer(),
             new(
                 BenchmarkCompilationFactory.CreateCompilation(NamespaceFolderBenchmarkSource.Generate(nodes, violating: false), NamespaceFolderBenchmarkSource.FilePath).Compilation,
                 OptionsProvider),

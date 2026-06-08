@@ -20,7 +20,7 @@ public class SingleLineStatementBenchmarks
 
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new SingleLineStatementAnalyzer(), LayoutHotspotBenchmarkSource.Generate, Nodes);
+    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new Sst1501SingleLineStatementAnalyzer(), LayoutHotspotBenchmarkSource.Generate, Nodes);
 
     /// <summary>Benchmarks the clean single-line-statement path.</summary>
     /// <returns>The number of diagnostics produced.</returns>

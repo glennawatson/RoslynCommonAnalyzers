@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyInheritDoc = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.InheritDocAnalyzer>;
+    StyleSharp.Analyzers.Sst1648InheritDocAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

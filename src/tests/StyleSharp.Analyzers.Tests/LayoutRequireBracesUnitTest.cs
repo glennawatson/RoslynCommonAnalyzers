@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyRequireBraces = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.RequireBracesAnalyzer,
-    StyleSharp.Analyzers.RequireBracesCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1503RequireBracesAnalyzer,
+    StyleSharp.Analyzers.Sst1503RequireBracesCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

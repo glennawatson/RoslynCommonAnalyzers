@@ -71,7 +71,7 @@ public class PreferFieldKeywordCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> PreferFieldKeyword_ApplyFixAsync()
     {
-        var updated = await PreferFieldKeywordCodeFixProvider.ApplyAsync(_document, _root, _model, _property, _fieldName, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst2200PreferFieldKeywordCodeFixProvider.ApplyAsync(_document, _root, _model, _property, _fieldName, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

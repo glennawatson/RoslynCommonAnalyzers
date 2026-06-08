@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyConstraint = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.ConstraintOnOwnLineAnalyzer>;
+    StyleSharp.Analyzers.Sst1127ConstraintOnOwnLineAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

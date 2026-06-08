@@ -37,7 +37,10 @@ public class RequireBracesCodeFixBenchmarks
     [Benchmark]
     public async Task<int> RequireBraces_ApplyFixAsync()
     {
-        var updated = await RequireBracesCodeFixProvider.WrapAsync(_context.Document, ((IfStatementSyntax)_context.Node.Body!.Statements[0]).Statement, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst1503RequireBracesCodeFixProvider.WrapAsync(
+            _context.Document,
+            ((IfStatementSyntax)_context.Node.Body!.Statements[0]).Statement,
+            CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

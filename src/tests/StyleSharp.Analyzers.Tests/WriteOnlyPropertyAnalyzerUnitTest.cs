@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyWriteOnly = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.WriteOnlyPropertyAnalyzer>;
+    StyleSharp.Analyzers.Sst1421WriteOnlyPropertyAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

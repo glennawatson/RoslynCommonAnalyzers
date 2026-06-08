@@ -6,11 +6,11 @@ using VerifyChain = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ChainedBlockSpacingAnalyzer,
     StyleSharp.Analyzers.ChainedBlockSpacingCodeFixProvider>;
 using VerifyFileEnd = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.FileEndingAnalyzer,
-    StyleSharp.Analyzers.FileEndingCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1518FileEndingAnalyzer,
+    StyleSharp.Analyzers.Sst1518FileEndingCodeFixProvider>;
 using VerifyFileStart = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.FileStartBlankLinesAnalyzer,
-    StyleSharp.Analyzers.FileStartBlankLinesCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1517FileStartBlankLinesAnalyzer,
+    StyleSharp.Analyzers.Sst1517FileStartBlankLinesCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

@@ -18,7 +18,7 @@ public abstract class HotPathBenchmarkBase
     private static readonly ImmutableArray<DiagnosticAnalyzer> SpacingAnalyzers = [new SpacingAnalyzer()];
 
     /// <summary>The tuple-element analyzers used by the hot-path suites.</summary>
-    private static readonly ImmutableArray<DiagnosticAnalyzer> TupleElementNameAnalyzers = [new TupleElementNameAnalyzer()];
+    private static readonly ImmutableArray<DiagnosticAnalyzer> TupleElementNameAnalyzers = [new Sst1142TupleElementNameAnalyzer()];
 
     /// <summary>The argument-guard analyzers used by the hot-path suites.</summary>
     private static readonly ImmutableArray<DiagnosticAnalyzer> ArgumentGuardAnalyzers = [new ArgumentGuardAnalyzer()];
@@ -128,7 +128,7 @@ public abstract class HotPathBenchmarkBase
         var count = 0;
         for (var i = 0; i < _tupleCleanNodes.Length; i++)
         {
-            if (TupleElementNameAnalyzer.TryGetReplacementName(_tupleCleanNodes[i], _tupleCleanModel, CancellationToken.None, out _))
+            if (Sst1142TupleElementNameAnalyzer.TryGetReplacementName(_tupleCleanNodes[i], _tupleCleanModel, CancellationToken.None, out _))
             {
                 count++;
             }
@@ -144,7 +144,7 @@ public abstract class HotPathBenchmarkBase
         var count = 0;
         for (var i = 0; i < _tupleViolatingNodes.Length; i++)
         {
-            if (TupleElementNameAnalyzer.TryGetReplacementName(_tupleViolatingNodes[i], _tupleViolatingModel, CancellationToken.None, out _))
+            if (Sst1142TupleElementNameAnalyzer.TryGetReplacementName(_tupleViolatingNodes[i], _tupleViolatingModel, CancellationToken.None, out _))
             {
                 count++;
             }
@@ -170,7 +170,7 @@ public abstract class HotPathBenchmarkBase
         var count = 0;
         for (var i = 0; i < _nameofCleanNodes.Length; i++)
         {
-            count += UseNameofAnalyzer.CountParameterNameLiteralMatches(_nameofCleanNodes[i]);
+            count += Sst1415UseNameofAnalyzer.CountParameterNameLiteralMatches(_nameofCleanNodes[i]);
         }
 
         return count;
@@ -183,7 +183,7 @@ public abstract class HotPathBenchmarkBase
         var count = 0;
         for (var i = 0; i < _nameofViolatingNodes.Length; i++)
         {
-            count += UseNameofAnalyzer.CountParameterNameLiteralMatches(_nameofViolatingNodes[i]);
+            count += Sst1415UseNameofAnalyzer.CountParameterNameLiteralMatches(_nameofViolatingNodes[i]);
         }
 
         return count;

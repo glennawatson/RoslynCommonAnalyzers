@@ -45,7 +45,7 @@ public class UsingDirectiveQualifiedCodeFixBenchmarks
     [Benchmark]
     public async Task<int> UsingDirectiveQualified_ApplyFixAsync()
     {
-        var updated = UsingDirectiveQualifiedCodeFixProvider.Replace(_context.Document, _context.Root, _context.Node.Name!, _symbol);
+        var updated = Sst1135UsingDirectiveQualifiedCodeFixProvider.Replace(_context.Document, _context.Root, _context.Node.Name!, _symbol);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

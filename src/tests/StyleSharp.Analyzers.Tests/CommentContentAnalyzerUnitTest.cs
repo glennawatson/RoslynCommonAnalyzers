@@ -6,8 +6,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyCommentContent = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.CommentContentAnalyzer,
-    StyleSharp.Analyzers.CommentContentCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1120CommentContentAnalyzer,
+    StyleSharp.Analyzers.Sst1120CommentContentCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 
@@ -95,7 +95,7 @@ public class CommentContentAnalyzerUnitTest
             SyntaxKind.SingleLineCommentTrivia);
         var text = await comment.SyntaxTree!.GetTextAsync();
 
-        await Assert.That(CommentContentAnalyzer.ShouldReportComment(text, comment)).IsTrue();
+        await Assert.That(Sst1120CommentContentAnalyzer.ShouldReportComment(text, comment)).IsTrue();
     }
 
     /// <summary>Verifies the helper skips a comment that still contains text after the opener.</summary>
@@ -106,7 +106,7 @@ public class CommentContentAnalyzerUnitTest
         var comment = ParseCommentTrivia("class C { /* note */ }", SyntaxKind.MultiLineCommentTrivia);
         var text = await comment.SyntaxTree!.GetTextAsync();
 
-        await Assert.That(CommentContentAnalyzer.ShouldReportComment(text, comment)).IsFalse();
+        await Assert.That(Sst1120CommentContentAnalyzer.ShouldReportComment(text, comment)).IsFalse();
     }
 
     /// <summary>Parses the first comment trivia of the requested kind from the supplied source.</summary>

@@ -51,7 +51,7 @@ public class TrivialAutoPropertyCodeFixBenchmarks : IDisposable
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         _model = (await _document.GetSemanticModelAsync().ConfigureAwait(false))!;
         _property = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<PropertyDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor, static _ => true);
-        TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(_property, out var fieldName);
+        Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(_property, out var fieldName);
         _fieldName = fieldName!;
     }
 
@@ -71,7 +71,7 @@ public class TrivialAutoPropertyCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> TrivialAutoProperty_ApplyFixAsync()
     {
-        var updated = await TrivialAutoPropertyCodeFixProvider.ApplyAsync(_document, _root, _model, _property, _fieldName, CancellationToken.None).ConfigureAwait(false);
+        var updated = await Sst1420TrivialAutoPropertyCodeFixProvider.ApplyAsync(_document, _root, _model, _property, _fieldName, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

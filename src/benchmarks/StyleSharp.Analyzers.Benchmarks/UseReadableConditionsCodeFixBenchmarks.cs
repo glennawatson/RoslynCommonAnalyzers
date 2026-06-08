@@ -63,7 +63,7 @@ public class UseReadableConditionsCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseReadableConditions_ApplyFixAsync()
     {
-        var updated = UseReadableConditionsCodeFixProvider.Swap(_document, _root, _comparison);
+        var updated = Sst1131UseReadableConditionsCodeFixProvider.Swap(_document, _root, _comparison);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

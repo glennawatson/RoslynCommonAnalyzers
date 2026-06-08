@@ -20,7 +20,7 @@ public class PrefixLocalCallsWithThisBenchmarks
 
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new PrefixLocalCallsWithThisAnalyzer(), ExpressionHotspotBenchmarkSource.Generate, Nodes);
+    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new Sst1101PrefixLocalCallsWithThisAnalyzer(), ExpressionHotspotBenchmarkSource.Generate, Nodes);
 
     /// <summary>Benchmarks the clean prefix-local-calls-with-this path.</summary>
     /// <returns>The number of diagnostics produced.</returns>

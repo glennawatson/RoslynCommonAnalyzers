@@ -97,6 +97,28 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   `ArgumentsOrParameterOnSameLineHelper`, `FieldClassification`,
   `NamingConventions`). No abstract analyzer base classes.
 
+- **File naming and folders.** Source files are grouped into category subfolders
+  mirroring the `*Rules.cs` descriptor classes (`Spacing/`, `Readability/`,
+  `Ordering/`, `Naming/`, `Maintainability/`, `Layout/`, `Documentation/`,
+  `Extensions/`, `Records/`, `Concurrency/`, `Modernization/`,
+  `CollectionExpressions/`, `ModernSyntax/`), with shared logic in `Helpers/` and
+  descriptors in `Rules/`. Folders are organizational only — the namespace stays
+  flat (`StyleSharp.Analyzers` / `StyleSharp.Analyzers.CodeFixes`); `IDE0130` is
+  intentionally off. An analyzer (or code fix) that reports **exactly one** id is
+  named `Sst<id><Concept>Analyzer` (e.g. `Sst1400AccessModifierAnalyzer`), and its
+  code fix mirrors it (`Sst1400AccessModifierCodeFixProvider`) in the same folder —
+  so `SA1649` keeps the file name in sync with the type, and grepping the bare id
+  lands on both. An analyzer that reports **multiple** ids keeps a descriptive name
+  (`SpacingAnalyzer`, `MemberDocumentationAnalyzer`) for perf — bundling ids into
+  one tree walk matters more than a 1:1 file map — and **must** enumerate every id
+  it reports in its XML-doc summary/`<remarks>` so the id stays greppable. Shared
+  code fixes that span ids (`NamingRenameCodeFixProvider`) also stay descriptive.
+
+- **One shared code fix per family.** Naming rules all use
+  `NamingRenameCodeFixProvider`; analyzers stash the suggested name in the
+  diagnostic's `Properties[NamingDiagnostic.NewNameKey]`. Add new fixable naming
+  ids to `NamingRules.AllFixableIds`.
+
 - **One shared code fix per family.** Naming rules all use
   `NamingRenameCodeFixProvider`; analyzers stash the suggested name in the
   diagnostic's `Properties[NamingDiagnostic.NewNameKey]`. Add new fixable naming
@@ -133,7 +155,7 @@ Slot wiring lives in `src/Directory.Build.props` (`RoslynVersion` → package ve
 **For new C# 15 syntax** (union types, etc.) the current Roslyn does not yet
 expose the syntax, so prefer **version-tolerant structural detection** — probe a
 well-known type/interface/attribute by name (e.g. the `IUnion` marker in
-`UnionMemberNamingAnalyzer`, mirroring `SourceDocParserLib`) — and gate the whole
+`Sst1315UnionMemberNamingAnalyzer`, mirroring `SourceDocParserLib`) — and gate the whole
 rule on the marker being present so it costs nothing otherwise. Use real 5.x APIs
 behind `#if ROSLYN_5_OR_GREATER` only when structural probing won't do.
 

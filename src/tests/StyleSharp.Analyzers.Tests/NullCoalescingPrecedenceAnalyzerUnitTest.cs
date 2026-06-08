@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyCoalesce = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.NullCoalescingPrecedenceAnalyzer,
+    StyleSharp.Analyzers.Sst1418NullCoalescingPrecedenceAnalyzer,
     StyleSharp.Analyzers.PrecedenceCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;

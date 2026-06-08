@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyNull = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.PreferIsNullPatternAnalyzer,
-    StyleSharp.Analyzers.PreferIsNullPatternCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1149PreferIsNullPatternAnalyzer,
+    StyleSharp.Analyzers.Sst1149PreferIsNullPatternCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

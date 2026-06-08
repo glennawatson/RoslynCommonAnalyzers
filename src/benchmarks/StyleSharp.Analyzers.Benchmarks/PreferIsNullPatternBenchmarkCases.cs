@@ -11,5 +11,5 @@ internal static class PreferIsNullPatternBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState Create(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new PreferIsNullPatternAnalyzer(), PreferIsNullPatternBenchmarkSource.Generate, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1149PreferIsNullPatternAnalyzer(), PreferIsNullPatternBenchmarkSource.Generate, nodes);
 }

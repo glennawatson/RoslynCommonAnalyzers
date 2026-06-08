@@ -54,7 +54,7 @@ public class TupleElementNameCodeFixBenchmarks : IDisposable
         _identifier = (IdentifierNameSyntax)access.Name;
 
         var model = await _document.GetSemanticModelAsync().ConfigureAwait(false);
-        _ = TupleElementNameAnalyzer.TryGetReplacementName(access, model!, CancellationToken.None, out var name);
+        _ = Sst1142TupleElementNameAnalyzer.TryGetReplacementName(access, model!, CancellationToken.None, out var name);
         _name = name!;
     }
 
@@ -74,7 +74,7 @@ public class TupleElementNameCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> TupleElementName_ApplyFixAsync()
     {
-        var updated = TupleElementNameCodeFixProvider.Replace(_document, _root, _identifier, _name);
+        var updated = Sst1142TupleElementNameCodeFixProvider.Replace(_document, _root, _identifier, _name);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

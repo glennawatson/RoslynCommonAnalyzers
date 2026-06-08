@@ -5,7 +5,7 @@
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyTupleSignature = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
-    StyleSharp.Analyzers.TupleSignatureNamingAnalyzer>;
+    StyleSharp.Analyzers.Sst1414TupleSignatureNamingAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 

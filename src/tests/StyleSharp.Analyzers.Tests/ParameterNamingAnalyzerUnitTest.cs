@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.ParameterNamingAnalyzer,
+    StyleSharp.Analyzers.Sst1313ParameterNamingAnalyzer,
     StyleSharp.Analyzers.NamingRenameCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;

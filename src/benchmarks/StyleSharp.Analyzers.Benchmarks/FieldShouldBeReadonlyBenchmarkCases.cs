@@ -11,5 +11,5 @@ internal static class FieldShouldBeReadonlyBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState Create(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new FieldShouldBeReadonlyAnalyzer(), FieldShouldBeReadonlyBenchmarkSource.Generate, nodes, ["SST1424"]);
+        => SingleAnalyzerBenchmarkCases.Create(new Sst1424FieldShouldBeReadonlyAnalyzer(), FieldShouldBeReadonlyBenchmarkSource.Generate, nodes, ["SST1424"]);
 }

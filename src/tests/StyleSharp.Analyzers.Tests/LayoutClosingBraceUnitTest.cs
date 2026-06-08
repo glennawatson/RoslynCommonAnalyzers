@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyClose = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.ClosingBraceSpacingAnalyzer,
-    StyleSharp.Analyzers.ClosingBraceSpacingCodeFixProvider>;
+    StyleSharp.Analyzers.Sst1513ClosingBraceSpacingAnalyzer,
+    StyleSharp.Analyzers.Sst1513ClosingBraceSpacingCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

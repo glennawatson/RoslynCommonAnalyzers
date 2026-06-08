@@ -63,7 +63,7 @@ public class BooleanLiteralComparisonCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> BooleanLiteralComparison_ApplyFixAsync()
     {
-        var updated = BooleanLiteralComparisonCodeFixProvider.Apply(_document, _root, _comparison);
+        var updated = Sst1143BooleanLiteralComparisonCodeFixProvider.Apply(_document, _root, _comparison);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

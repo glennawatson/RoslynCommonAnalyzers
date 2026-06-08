@@ -57,7 +57,7 @@ public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
     internal static async Task<Document> InsertElementAsync(Document document, SyntaxNode member, string element, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var insertion = "/// " + element + NewLine(member) + Indent(member);
+        var insertion = "/// " + element + LayoutFixHelpers.DetectNewLine(text) + Indent(member);
         return document.WithText(text.WithChanges(new TextChange(new(member.GetFirstToken().SpanStart, 0), insertion)));
     }
 
@@ -113,22 +113,6 @@ public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
         return node.FirstAncestorOrSelf<TypeParameterSyntax>() is { } typeParameter
             ? "<typeparam name=\"" + typeParameter.Identifier.ValueText + "\"></typeparam>"
             : null;
-    }
-
-    /// <summary>Returns the end-of-line sequence used around a member declaration.</summary>
-    /// <param name="member">The member declaration.</param>
-    /// <returns>The newline string (defaults to "\n").</returns>
-    private static string NewLine(SyntaxNode member)
-    {
-        foreach (var trivia in member.GetLeadingTrivia())
-        {
-            if (trivia.IsKind(SyntaxKind.EndOfLineTrivia))
-            {
-                return trivia.ToString();
-            }
-        }
-
-        return "\n";
     }
 
     /// <summary>Removes the <c>&lt;returns&gt;</c> documentation line from the member.</summary>

@@ -91,6 +91,22 @@ public class DocumentationStubFixUnitTest
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies the inserted stub adopts the document's CRLF line endings rather than a hard-coded LF.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ParameterStubUsesCrLfAsync()
+    {
+        const string Source =
+            "/// <summary>A container.</summary>\r\npublic class C\r\n{\r\n"
+            + "    /// <summary>Does a thing.</summary>\r\n    public void M(int {|SST1611:value|}) { }\r\n}";
+        const string FixedSource =
+            "/// <summary>A container.</summary>\r\npublic class C\r\n{\r\n"
+            + "    /// <summary>Does a thing.</summary>\r\n    /// <param name=\"value\"></param>\r\n"
+            + "    public void M(int {|SST1614:value|}) { }\r\n}";
+
+        await Verify.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies the fix removes a stray <c>&lt;returns&gt;</c> from a void member (SST1617).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

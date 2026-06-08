@@ -5,8 +5,9 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Requires fields to be private (SST1401). Constants may be any accessibility;
-/// every other exposed field is reported so it can be hidden behind a property.
+/// Requires fields to be private (SST1401). Constants and <c>static readonly</c>
+/// fields may be any accessibility; every other exposed field is reported so it can
+/// be hidden behind a property.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class FieldVisibilityAnalyzer : DiagnosticAnalyzer
@@ -29,7 +30,12 @@ public sealed class FieldVisibilityAnalyzer : DiagnosticAnalyzer
     {
         var field = (FieldDeclarationSyntax)context.Node;
         var modifiers = field.Modifiers;
+
+        // Constants and static readonly fields (e.g. singleton instances) are exposed
+        // values that cannot be reassigned, so the analyzer's the rule leaves them alone.
         if (ModifierListHelper.Contains(modifiers, SyntaxKind.ConstKeyword)
+            || (ModifierListHelper.Contains(modifiers, SyntaxKind.StaticKeyword)
+                && ModifierListHelper.Contains(modifiers, SyntaxKind.ReadOnlyKeyword))
             || (!ModifierListHelper.ContainsEither(modifiers, SyntaxKind.PublicKeyword, SyntaxKind.InternalKeyword)
                 && !ModifierListHelper.Contains(modifiers, SyntaxKind.ProtectedKeyword)))
         {

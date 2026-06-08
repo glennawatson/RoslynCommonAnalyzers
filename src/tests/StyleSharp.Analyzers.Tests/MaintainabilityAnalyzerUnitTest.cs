@@ -63,7 +63,7 @@ public class MaintainabilityAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies an exposed field is reported (SST1401) while constants and private fields are not.</summary>
+    /// <summary>Verifies an exposed field is reported (SST1401) while constants, static readonly singletons, and private fields are not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task ExposedFieldReportedAsync()
@@ -73,6 +73,7 @@ public class MaintainabilityAnalyzerUnitTest
             {
                 public int {|SST1401:Exposed|};
                 public const int Allowed = 1;
+                public static readonly C Instance = new();
                 private int _hidden;
             }
             """);

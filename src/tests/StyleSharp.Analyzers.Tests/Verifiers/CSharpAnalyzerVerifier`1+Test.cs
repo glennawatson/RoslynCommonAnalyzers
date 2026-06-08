@@ -22,14 +22,13 @@ public static partial class CSharpAnalyzerVerifier<TAnalyzer>
         /// <summary>
         /// Initializes a new instance of the <see cref="Test"/> class.
         /// </summary>
-        public Test() => SolutionTransforms.Add(CSharpVerifierHelper.ConfigureSolution);
-
-        /// <inheritdoc/>
-        protected override async Task RunImplAsync(CancellationToken cancellationToken)
-        {
-            // Normalize snippets to \n so diagnostic markup offsets never depend on checkout line endings.
-            CSharpVerifierHelper.NormalizeLineEndings(TestState.Sources);
-            await base.RunImplAsync(cancellationToken).ConfigureAwait(false);
-        }
+        public Test() =>
+            SolutionTransforms.Add(static (solution, projectId) =>
+            {
+                var compilationOptions = solution.GetProject(projectId)!.CompilationOptions!;
+                compilationOptions = compilationOptions.WithSpecificDiagnosticOptions(
+                    compilationOptions.SpecificDiagnosticOptions.SetItems(CSharpVerifierHelper.NullableWarnings));
+                return solution.WithProjectCompilationOptions(projectId, compilationOptions);
+            });
     }
 }

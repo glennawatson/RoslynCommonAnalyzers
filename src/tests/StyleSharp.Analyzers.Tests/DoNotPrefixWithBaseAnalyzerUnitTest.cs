@@ -58,6 +58,72 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a base access to a member hidden by a <c>new</c> declaration is not flagged.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BaseCallToHiddenMemberIsCleanAsync()
+        => await VerifyBasePrefix.VerifyAnalyzerAsync(
+            """
+            internal class Base
+            {
+                public int Value { get; set; }
+            }
+
+            internal class Derived : Base
+            {
+                public new int Value
+                {
+                    get => base.Value;
+                    set => base.Value = value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a generic type hiding a base property with <c>new</c> is not flagged (the StateSignal case).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BaseCallToHiddenMemberInGenericTypeIsCleanAsync()
+        => await VerifyBasePrefix.VerifyAnalyzerAsync(
+            """
+            internal class Behavior<T>
+            {
+                public Behavior(T value) => Value = value;
+
+                public T Value { get; protected set; }
+            }
+
+            internal class State<T> : Behavior<T>
+            {
+                public State(T value)
+                    : base(value)
+                {
+                }
+
+                public new T Value
+                {
+                    get => base.Value;
+                    set => base.Value = value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a base call to a method hidden by a <c>new</c> declaration is not flagged.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BaseCallToHiddenMethodIsCleanAsync()
+        => await VerifyBasePrefix.VerifyAnalyzerAsync(
+            """
+            internal class Base
+            {
+                public int Compute() => 0;
+            }
+
+            internal class Derived : Base
+            {
+                public new int Compute() => base.Compute() + 1;
+            }
+            """);
+
     /// <summary>Verifies delegate arguments followed by a parameterless lambda are not misclassified as SST1100.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -121,18 +187,29 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
         var type = ParseType(
             "internal class Base { public virtual void Run() { } } internal class Derived : Base { public override void Run() { } }");
 
-        await Assert.That(DoNotPrefixWithBaseAnalyzer.HasOverrideNamed(type, "Run")).IsTrue();
+        await Assert.That(DoNotPrefixWithBaseAnalyzer.HasOwnMemberNamed(type, "Run")).IsTrue();
     }
 
-    /// <summary>Verifies the syntax fast path ignores non-override members with the requested name.</summary>
+    /// <summary>Verifies the syntax fast path recognizes a hiding member with the requested member name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task SyntaxFastPathRejectsNonOverrideByNameAsync()
+    public async Task SyntaxFastPathRecognizesHidingMemberByNameAsync()
     {
         var type = ParseType(
-            "internal class Base { public void Help() { } } internal class Derived : Base { public void Help() { } }");
+            "internal class Base { public int Value { get; set; } } internal class Derived : Base { public new int Value { get; set; } }");
 
-        await Assert.That(DoNotPrefixWithBaseAnalyzer.HasOverrideNamed(type, "Help")).IsFalse();
+        await Assert.That(DoNotPrefixWithBaseAnalyzer.HasOwnMemberNamed(type, "Value")).IsTrue();
+    }
+
+    /// <summary>Verifies the syntax fast path rejects names the type does not declare.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SyntaxFastPathRejectsAbsentMemberByNameAsync()
+    {
+        var type = ParseType(
+            "internal class Base { public void Help() { } } internal class Derived : Base { public void Call() { } }");
+
+        await Assert.That(DoNotPrefixWithBaseAnalyzer.HasOwnMemberNamed(type, "Help")).IsFalse();
     }
 
     /// <summary>Parses the last type declaration from the supplied source.</summary>

@@ -58,4 +58,24 @@ public class BooleanLiteralComparisonAnalyzerUnitTest
                 public bool M(bool x, bool y) => x == y;
             }
             """);
+
+    /// <summary>Verifies comparing a nullable boolean to a literal is not reported (it is not redundant).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NullableBooleanComparisonIsCleanAsync()
+        => await VerifyBool.VerifyAnalyzerAsync(
+            """
+            using System.Threading.Tasks;
+
+            public class C
+            {
+                private Task _task;
+
+                public bool M1(bool? x) => x == true;
+
+                public bool M2(bool? x) => x != false;
+
+                public bool M3() => _task?.IsCompleted != false;
+            }
+            """);
 }

@@ -5,9 +5,11 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Reports a <c>base.</c> member access whose member the current type does not override (SST1100).
-/// In that case <c>base.X</c> and <c>this.X</c> bind to the same member, so the <c>base.</c> prefix
-/// is redundant; the prefix is meaningful only when it reaches a member the type itself overrides.
+/// Reports a <c>base.</c> member access whose member the current type neither overrides nor hides
+/// (SST1100). In that case <c>base.X</c> and <c>this.X</c> bind to the same member, so the
+/// <c>base.</c> prefix is redundant. The prefix is meaningful when the type declares its own member
+/// with that name — an <c>override</c> (so <c>base.</c> reaches the base implementation) or a
+/// <c>new</c>/hiding member (so <c>base.</c> is required to bypass the local member).
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class DoNotPrefixWithBaseAnalyzer : DiagnosticAnalyzer
@@ -24,26 +26,48 @@ public sealed class DoNotPrefixWithBaseAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.SimpleMemberAccessExpression);
     }
 
-    /// <summary>Returns whether the type declares an override with the supplied member name.</summary>
+    /// <summary>Returns whether the type declares its own member (override or hiding) with the supplied name.</summary>
     /// <param name="type">The containing type declaration.</param>
     /// <param name="name">The member name to inspect.</param>
-    /// <returns><see langword="true"/> when a matching override exists.</returns>
-    internal static bool HasOverrideNamed(TypeDeclarationSyntax type, string name)
+    /// <returns><see langword="true"/> when the type declares a member with that name.</returns>
+    internal static bool HasOwnMemberNamed(TypeDeclarationSyntax type, string name)
     {
         for (var i = 0; i < type.Members.Count; i++)
         {
-            switch (type.Members[i])
+            if (DeclaresName(type.Members[i], name))
             {
-                case MethodDeclarationSyntax method
-                    when method.Identifier.ValueText == name
-                    && ModifierListHelper.Contains(method.Modifiers, SyntaxKind.OverrideKeyword):
-                case PropertyDeclarationSyntax property
-                    when property.Identifier.ValueText == name
-                    && ModifierListHelper.Contains(property.Modifiers, SyntaxKind.OverrideKeyword):
-                case EventDeclarationSyntax @event
-                    when @event.Identifier.ValueText == name
-                    && ModifierListHelper.Contains(@event.Modifiers, SyntaxKind.OverrideKeyword):
-                    return true;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a member declaration introduces the supplied name.</summary>
+    /// <param name="member">The member declaration.</param>
+    /// <param name="name">The member name to inspect.</param>
+    /// <returns><see langword="true"/> when the declaration introduces the name.</returns>
+    private static bool DeclaresName(MemberDeclarationSyntax member, string name) => member switch
+    {
+        MethodDeclarationSyntax method => method.Identifier.ValueText == name,
+        PropertyDeclarationSyntax property => property.Identifier.ValueText == name,
+        EventDeclarationSyntax @event => @event.Identifier.ValueText == name,
+        EventFieldDeclarationSyntax eventField => DeclaresVariable(eventField.Declaration, name),
+        FieldDeclarationSyntax field => DeclaresVariable(field.Declaration, name),
+        _ => false
+    };
+
+    /// <summary>Returns whether a variable declaration declares the supplied name.</summary>
+    /// <param name="declaration">The variable declaration (field or event-field).</param>
+    /// <param name="name">The member name to inspect.</param>
+    /// <returns><see langword="true"/> when one of the declared variables matches.</returns>
+    private static bool DeclaresVariable(VariableDeclarationSyntax declaration, string name)
+    {
+        foreach (var variable in declaration.Variables)
+        {
+            if (variable.Identifier.ValueText == name)
+            {
+                return true;
             }
         }
 
@@ -60,9 +84,13 @@ public sealed class DoNotPrefixWithBaseAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // Fast path: when the type declares no member with this name, this.X and base.X both bind to
+        // the same inherited member, so base. is redundant — no semantic model is needed. When the type
+        // does declare its own member (an override or a hiding member), fall through to the semantic
+        // check below, which decides precisely whether base. reaches a different member.
         if (access.Name is SimpleNameSyntax simpleName
             && access.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } typeDeclaration
-            && !HasOverrideNamed(typeDeclaration, GetIdentifierText(simpleName.Identifier)))
+            && !HasOwnMemberNamed(typeDeclaration, GetIdentifierText(simpleName.Identifier)))
         {
             context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.DoNotPrefixWithBase, access.Expression.GetLocation()));
             return;
@@ -74,7 +102,7 @@ public sealed class DoNotPrefixWithBaseAnalyzer : DiagnosticAnalyzer
         }
 
         var enclosingType = context.SemanticModel.GetEnclosingSymbol(access.SpanStart, context.CancellationToken)?.ContainingType;
-        if (enclosingType is null || TypeOverrides(enclosingType, member))
+        if (enclosingType is null || EnclosingTypeRedeclares(enclosingType, member))
         {
             return;
         }
@@ -82,19 +110,22 @@ public sealed class DoNotPrefixWithBaseAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.DoNotPrefixWithBase, access.Expression.GetLocation()));
     }
 
-    /// <summary>Returns whether the type declares an override that reaches the given base member.</summary>
+    /// <summary>Returns whether the type declares its own member that overrides or hides the given base member.</summary>
     /// <param name="type">The enclosing type.</param>
     /// <param name="baseMember">The member reached through <c>base.</c>.</param>
-    /// <returns><see langword="true"/> when an override in the type makes the <c>base.</c> prefix meaningful.</returns>
-    private static bool TypeOverrides(INamedTypeSymbol type, ISymbol baseMember)
+    /// <returns><see langword="true"/> when the type makes the <c>base.</c> prefix meaningful.</returns>
+    private static bool EnclosingTypeRedeclares(INamedTypeSymbol type, ISymbol baseMember)
     {
         foreach (var candidate in type.GetMembers(baseMember.Name))
         {
+            // A member the type declares itself that is not an override hides the inherited member,
+            // so base. is required to reach the base implementation.
             if (!candidate.IsOverride)
             {
-                continue;
+                return true;
             }
 
+            // An override makes base. meaningful only when it reaches the member being accessed.
             for (var overridden = OverriddenOf(candidate); overridden is not null; overridden = OverriddenOf(overridden))
             {
                 if (SymbolEqualityComparer.Default.Equals(overridden, baseMember))

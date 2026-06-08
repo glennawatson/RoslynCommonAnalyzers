@@ -66,6 +66,10 @@ dotnet_diagnostic.SST1648.severity = warning # Inheritdoc should only be used on
 dotnet_diagnostic.SST1649.severity = warning # The file name should match the first type name
 dotnet_diagnostic.SST1651.severity = warning # Placeholder documentation elements should be removed
 dotnet_diagnostic.SST1653.severity = warning # Keep short documentation summaries on a single line
+dotnet_diagnostic.SST1654.severity = warning # Extension blocks should be documented with a summary
+dotnet_diagnostic.SST1655.severity = warning # Extension block parameters should be documented
+dotnet_diagnostic.SST1656.severity = warning # Extension block type parameters should be documented
+dotnet_diagnostic.SST1657.severity = warning # Extension block documentation should reference a real parameter or type parameter
 
 # Extensions
 dotnet_diagnostic.SST1700.severity = warning # An extension block declares no members

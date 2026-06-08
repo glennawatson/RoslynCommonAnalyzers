@@ -18,11 +18,12 @@ public sealed class LayoutHelpersUnitTest
     {
         // Normalized to \n so the hard-coded character offsets below do not shift on a CRLF checkout.
         var text = SourceText.From(
-            $$"""
-            first
-            second
-            third{{"\n"}}
-            """.ReplaceLineEndings("\n"));
+            CSharpVerifierHelper.NormalizeLineEndings(
+                $$"""
+                first
+                second
+                third{{"\n"}}
+                """));
         var lineNumber = 0;
         var line = text.Lines[0];
 
@@ -39,11 +40,12 @@ public sealed class LayoutHelpersUnitTest
     {
         // Normalized to \n so the hard-coded character offsets below do not shift on a CRLF checkout.
         var text = SourceText.From(
-            $$"""
-            first
-            second
-            third{{"\n"}}
-            """.ReplaceLineEndings("\n"));
+            CSharpVerifierHelper.NormalizeLineEndings(
+                $$"""
+                first
+                second
+                third{{"\n"}}
+                """));
         var lineNumber = 0;
         var line = text.Lines[0];
 

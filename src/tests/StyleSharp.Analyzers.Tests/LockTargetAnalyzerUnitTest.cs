@@ -155,5 +155,5 @@ public class LockTargetAnalyzerUnitTest
     /// <param name="source">The source containing the lock statement.</param>
     /// <returns>The parsed lock statement.</returns>
     private static LockStatementSyntax ParseLockStatement(string source)
-        => SyntaxFactory.ParseCompilationUnit(source).DescendantNodes().OfType<LockStatementSyntax>().Single();
+        => (LockStatementSyntax)((MethodDeclarationSyntax)((ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members[1]).Body!.Statements[0];
 }

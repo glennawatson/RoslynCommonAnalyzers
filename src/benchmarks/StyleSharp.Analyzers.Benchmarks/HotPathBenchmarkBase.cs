@@ -241,6 +241,73 @@ public abstract class HotPathBenchmarkBase
     protected Task<int> RunSpacingViolatingAsync()
         => HotPathBenchmarkRunner.GetDiagnosticCountAsync(_spacingViolatingCompilation, SpacingAnalyzers);
 
+    /// <summary>Gets the method declarations from the benchmark's single top-level type.</summary>
+    /// <param name="root">The parsed compilation unit.</param>
+    /// <returns>The type's method declarations.</returns>
+    private static MethodDeclarationSyntax[] GetTypeMethods(CompilationUnitSyntax root)
+    {
+        var members = ((TypeDeclarationSyntax)root.Members[0]).Members;
+        var methods = new MethodDeclarationSyntax[members.Count];
+        for (var i = 0; i < members.Count; i++)
+        {
+            methods[i] = (MethodDeclarationSyntax)members[i];
+        }
+
+        return methods;
+    }
+
+    /// <summary>Gets the tuple member-access expressions emitted in the benchmark method body.</summary>
+    /// <param name="root">The parsed compilation unit.</param>
+    /// <returns>The tuple member-access expressions.</returns>
+    private static MemberAccessExpressionSyntax[] GetTupleMemberAccesses(CompilationUnitSyntax root)
+    {
+        var statements = GetSingleMethod(root).Body!.Statements;
+        var accesses = new MemberAccessExpressionSyntax[statements.Count];
+        for (var i = 0; i < statements.Count; i++)
+        {
+            accesses[i] = (MemberAccessExpressionSyntax)((InvocationExpressionSyntax)((ExpressionStatementSyntax)statements[i]).Expression)
+                .ArgumentList.Arguments[0].Expression;
+        }
+
+        return accesses;
+    }
+
+    /// <summary>Gets the object-creation expressions emitted in the benchmark method body.</summary>
+    /// <param name="root">The parsed compilation unit.</param>
+    /// <returns>The object-creation expressions.</returns>
+    private static ObjectCreationExpressionSyntax[] GetObjectCreations(CompilationUnitSyntax root)
+    {
+        var statements = GetSingleMethod(root).Body!.Statements;
+        var objectCreations = new ObjectCreationExpressionSyntax[statements.Count - 2];
+        for (var i = 1; i < statements.Count - 1; i++)
+        {
+            objectCreations[i - 1] = (ObjectCreationExpressionSyntax)((AssignmentExpressionSyntax)((ExpressionStatementSyntax)statements[i]).Expression).Right;
+        }
+
+        return objectCreations;
+    }
+
+    /// <summary>Gets the guard <c>if</c> statements emitted as the first statement in each benchmark method.</summary>
+    /// <param name="root">The parsed compilation unit.</param>
+    /// <returns>The guard <c>if</c> statements.</returns>
+    private static IfStatementSyntax[] GetIfStatements(CompilationUnitSyntax root)
+    {
+        var methods = GetTypeMethods(root);
+        var statements = new IfStatementSyntax[methods.Length];
+        for (var i = 0; i < methods.Length; i++)
+        {
+            statements[i] = (IfStatementSyntax)methods[i].Body!.Statements[0];
+        }
+
+        return statements;
+    }
+
+    /// <summary>Gets the single benchmark method from a single-type compilation unit.</summary>
+    /// <param name="root">The parsed compilation unit.</param>
+    /// <returns>The single method declaration.</returns>
+    private static MethodDeclarationSyntax GetSingleMethod(CompilationUnitSyntax root)
+        => (MethodDeclarationSyntax)((TypeDeclarationSyntax)root.Members[0]).Members[0];
+
     /// <summary>Parses the jagged-line benchmark fixture.</summary>
     private void SetupLineScan()
     {
@@ -259,7 +326,7 @@ public abstract class HotPathBenchmarkBase
             """;
 
         var tree = BenchmarkCompilationFactory.Parse(Source);
-        var methods = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().ToArray();
+        var methods = GetTypeMethods((CompilationUnitSyntax)tree.GetRoot());
         _lineCleanList = methods[0].ParameterList;
         _lineViolatingList = methods[1].ParameterList;
     }
@@ -273,8 +340,8 @@ public abstract class HotPathBenchmarkBase
         _tupleViolatingCompilation = violatingCompilation;
         _tupleCleanModel = cleanCompilation.GetSemanticModel(cleanTree);
         _tupleViolatingModel = violatingCompilation.GetSemanticModel(violatingTree);
-        _tupleCleanNodes = [.. cleanTree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>()];
-        _tupleViolatingNodes = [.. violatingTree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>()];
+        _tupleCleanNodes = GetTupleMemberAccesses((CompilationUnitSyntax)cleanTree.GetRoot());
+        _tupleViolatingNodes = GetTupleMemberAccesses((CompilationUnitSyntax)violatingTree.GetRoot());
     }
 
     /// <summary>Builds the <c>nameof</c> benchmark corpora.</summary>
@@ -282,8 +349,8 @@ public abstract class HotPathBenchmarkBase
     {
         var cleanTree = BenchmarkCompilationFactory.Parse(UseNameofBenchmarkSource.Generate(Nodes, violating: false));
         var violatingTree = BenchmarkCompilationFactory.Parse(UseNameofBenchmarkSource.Generate(Nodes, violating: true));
-        _nameofCleanNodes = [.. cleanTree.GetRoot().DescendantNodes().OfType<ObjectCreationExpressionSyntax>()];
-        _nameofViolatingNodes = [.. violatingTree.GetRoot().DescendantNodes().OfType<ObjectCreationExpressionSyntax>()];
+        _nameofCleanNodes = GetObjectCreations((CompilationUnitSyntax)cleanTree.GetRoot());
+        _nameofViolatingNodes = GetObjectCreations((CompilationUnitSyntax)violatingTree.GetRoot());
     }
 
     /// <summary>Builds the argument-guard benchmark corpora.</summary>
@@ -293,8 +360,8 @@ public abstract class HotPathBenchmarkBase
         var (violatingTree, violatingCompilation) = BenchmarkCompilationFactory.CreateCompilation(ArgumentGuardBenchmarkSource.Generate(Nodes, violating: true));
         _guardCleanCompilation = cleanCompilation;
         _guardViolatingCompilation = violatingCompilation;
-        _guardCleanNodes = [.. cleanTree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>()];
-        _guardViolatingNodes = [.. violatingTree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>()];
+        _guardCleanNodes = GetIfStatements((CompilationUnitSyntax)cleanTree.GetRoot());
+        _guardViolatingNodes = GetIfStatements((CompilationUnitSyntax)violatingTree.GetRoot());
         _guardHelpers = ArgumentGuardAnalyzer.CreateBenchmarkHelpers();
     }
 

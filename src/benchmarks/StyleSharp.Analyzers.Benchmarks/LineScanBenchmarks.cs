@@ -61,18 +61,15 @@ class C
         double e, char f) { }
 }";
         _tree = CSharpSyntaxTree.ParseText(Source);
-        var name = Scenario switch
+        var members = ((ClassDeclarationSyntax)((CompilationUnitSyntax)_tree.GetRoot()).Members[0]).Members;
+        var methodIndex = Scenario switch
         {
-            Layout.OneLine => "OneLine",
-            Layout.EachOwnLine => "EachOwnLine",
-            _ => "Jagged"
+            Layout.OneLine => 0,
+            Layout.EachOwnLine => 1,
+            _ => 2
         };
 
-        _list = _tree.GetRoot()
-            .DescendantNodes()
-            .OfType<MethodDeclarationSyntax>()
-            .First(m => m.Identifier.Text == name)
-            .ParameterList;
+        _list = ((MethodDeclarationSyntax)members[methodIndex]).ParameterList;
     }
 
     /// <summary>The original HashSet + LINQ + per-item Location approach.</summary>

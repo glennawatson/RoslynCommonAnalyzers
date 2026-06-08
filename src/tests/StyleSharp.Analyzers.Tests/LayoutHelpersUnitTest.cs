@@ -68,7 +68,7 @@ public sealed class LayoutHelpersUnitTest
                 }
             }
             """);
-        var block = root.DescendantNodes().OfType<BlockSyntax>().Single();
+        var block = ParseSingleMethod(root).Body!;
         var text = await root.SyntaxTree.GetTextAsync();
         var open = block.OpenBraceToken;
         var openLine = LayoutHelpers.StartLine(text, open);
@@ -90,7 +90,7 @@ public sealed class LayoutHelpersUnitTest
                 void M() { return; }
             }
             """);
-        var block = root.DescendantNodes().OfType<BlockSyntax>().Single();
+        var block = ParseSingleMethod(root).Body!;
         var text = await root.SyntaxTree.GetTextAsync();
         var open = block.OpenBraceToken;
         var openLine = LayoutHelpers.StartLine(text, open);
@@ -112,7 +112,7 @@ public sealed class LayoutHelpersUnitTest
                 void M() { }
             }
             """);
-        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = ParseSingleMethod(root);
         var text = await root.SyntaxTree.GetTextAsync();
 
         await Assert.That(LayoutHelpers.ContentStartLine(text, method)).IsEqualTo(2);
@@ -131,7 +131,7 @@ public sealed class LayoutHelpersUnitTest
                 void M() { }
             }
             """);
-        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = ParseSingleMethod(root);
         var text = await root.SyntaxTree.GetTextAsync();
 
         await Assert.That(LayoutHelpers.ContentStartLine(text, method)).IsEqualTo(2);
@@ -149,7 +149,7 @@ public sealed class LayoutHelpersUnitTest
                 void M() { }
             }
             """);
-        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = ParseSingleMethod(root);
         var text = await root.SyntaxTree.GetTextAsync();
 
         await Assert.That(LayoutHelpers.TryGetHeaderStartLine(text, method, out _)).IsFalse();
@@ -168,7 +168,7 @@ public sealed class LayoutHelpersUnitTest
                 void M() { }
             }
             """);
-        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = ParseSingleMethod(root);
         var text = await root.SyntaxTree.GetTextAsync();
 
         await Assert.That(LayoutHelpers.TryGetHeaderStartLine(text, method, out var startLine)).IsTrue();
@@ -188,7 +188,7 @@ public sealed class LayoutHelpersUnitTest
                 void N() { }
             }
             """);
-        var methods = root.DescendantNodes().OfType<MethodDeclarationSyntax>().ToArray();
+        var methods = ParseMethods(root);
         var text = await root.SyntaxTree.GetTextAsync();
         var lineNumber = 0;
         var line = text.Lines[0];
@@ -213,7 +213,7 @@ public sealed class LayoutHelpersUnitTest
                 void M() { }
             }
             """);
-        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = ParseSingleMethod(root);
         var text = await root.SyntaxTree.GetTextAsync();
         var lineNumber = 0;
         var line = text.Lines[0];
@@ -233,7 +233,7 @@ public sealed class LayoutHelpersUnitTest
                 void M() { return; }
             }
             """);
-        var block = root.DescendantNodes().OfType<BlockSyntax>().Single();
+        var block = ParseSingleMethod(root).Body!;
         var text = await root.SyntaxTree.GetTextAsync();
         var open = block.OpenBraceToken;
         var openLine = LayoutHelpers.StartLine(text, open);
@@ -258,7 +258,7 @@ public sealed class LayoutHelpersUnitTest
                 }
             }
             """);
-        var block = root.DescendantNodes().OfType<BlockSyntax>().Single();
+        var block = ParseSingleMethod(root).Body!;
         var text = await root.SyntaxTree.GetTextAsync();
         var open = block.OpenBraceToken;
         var openLine = LayoutHelpers.StartLine(text, open);
@@ -267,5 +267,26 @@ public sealed class LayoutHelpersUnitTest
         await Assert.That(facts.StartsLine).IsTrue();
         await Assert.That(facts.SharesLineWithPrevious).IsFalse();
         await Assert.That(facts.SharesLineWithNext).IsFalse();
+    }
+
+    /// <summary>Parses the single method declaration from a single-type test snippet.</summary>
+    /// <param name="root">The parsed compilation unit.</param>
+    /// <returns>The single method declaration.</returns>
+    private static MethodDeclarationSyntax ParseSingleMethod(CompilationUnitSyntax root)
+        => (MethodDeclarationSyntax)((TypeDeclarationSyntax)root.Members[0]).Members[0];
+
+    /// <summary>Parses the method declarations from a single-type test snippet.</summary>
+    /// <param name="root">The parsed compilation unit.</param>
+    /// <returns>The method declarations in source order.</returns>
+    private static MethodDeclarationSyntax[] ParseMethods(CompilationUnitSyntax root)
+    {
+        var members = ((TypeDeclarationSyntax)root.Members[0]).Members;
+        var methods = new MethodDeclarationSyntax[members.Count];
+        for (var i = 0; i < members.Count; i++)
+        {
+            methods[i] = (MethodDeclarationSyntax)members[i];
+        }
+
+        return methods;
     }
 }

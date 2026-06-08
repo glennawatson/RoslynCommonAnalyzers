@@ -2,9 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyExtensionBlock = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.ExtensionBlockAnalyzer>;
+using VerifyExtensionBlockFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
+    StyleSharp.Analyzers.ExtensionBlockAnalyzer,
+    StyleSharp.Analyzers.ExtensionContainerNamingCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 
@@ -106,7 +110,7 @@ public class ExtensionBlockAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task ContainerWithoutExtensionsSuffixReportedAsync()
-        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+        => await RunAnalyzerAsync(
             """
             public static class {|SST1704:StringStuff|}
             {
@@ -116,6 +120,80 @@ public class ExtensionBlockAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies a container class suffixed with <c>Mixins</c> is accepted by SST1704.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ContainerWithMixinsSuffixIsCleanAsync()
+        => await RunAnalyzerAsync(
+            """
+            public static class StringMixins
+            {
+                extension(string text)
+                {
+                    public bool IsEmpty => text.Length == 0;
+                }
+            }
+            """);
+
+    /// <summary>Verifies the code fix defaults to renaming the container with an <c>Extensions</c> suffix.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ContainerNamingCodeFixDefaultsToExtensionsAsync()
+    {
+        const string Source = """
+                              public static class {|SST1704:StringStuff|}
+                              {
+                                  extension(string text)
+                                  {
+                                      public bool IsEmpty => text.Length == 0;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public static class StringStuffExtensions
+                                   {
+                                       extension(string text)
+                                       {
+                                           public bool IsEmpty => text.Length == 0;
+                                       }
+                                   }
+                                   """;
+
+        await RunCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies the code fix honors the rule-specific preferred-suffix configuration.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ContainerNamingCodeFixHonorsRuleSpecificMixinsPreferenceAsync()
+    {
+        const string Source = """
+                              public static class {|SST1704:StringStuff|}
+                              {
+                                  extension(string text)
+                                  {
+                                      public bool IsEmpty => text.Length == 0;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public static class StringStuffMixins
+                                   {
+                                       extension(string text)
+                                       {
+                                           public bool IsEmpty => text.Length == 0;
+                                       }
+                                   }
+                                   """;
+        const string EditorConfig = """
+                                    root = true
+                                    [*.cs]
+                                    stylesharp.SST1704.preferred_suffix = Mixins
+                                    """;
+
+        await RunCodeFixAsync(Source, FixedSource, EditorConfig);
+    }
 
     /// <summary>Verifies a classic extension method mixed with an extension block is reported (SST1705).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -138,7 +216,7 @@ public class ExtensionBlockAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task DistinctNonEmptyBlocksAreCleanAsync()
-        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+        => await RunAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -219,5 +297,52 @@ public class ExtensionBlockAnalyzerUnitTest
     {
         await Assert.That(ExtensionBlockAnalyzer.IsDuplicateImmediateReceiver("string", "string")).IsTrue();
         await Assert.That(ExtensionBlockAnalyzer.IsDuplicateImmediateReceiver("string", "int")).IsFalse();
+    }
+
+    /// <summary>Runs the analyzer verifier with the language version set to one that supports extension blocks.</summary>
+    /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    private static async Task RunAnalyzerAsync(string source)
+    {
+        var test = new VerifyExtensionBlock.Test
+        {
+            TestCode = source
+        };
+
+        ApplyExtensionBlockParseOptions(test.SolutionTransforms);
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Runs the code-fix verifier with the language version set to one that supports extension blocks.</summary>
+    /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
+    /// <param name="fixedSource">The expected fixed code.</param>
+    /// <param name="editorConfig">Optional analyzer-config content.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    private static async Task RunCodeFixAsync(string source, string fixedSource, string? editorConfig = null)
+    {
+        var test = new VerifyExtensionBlockFix.Test
+        {
+            TestCode = source,
+            FixedCode = fixedSource
+        };
+
+        if (editorConfig is not null)
+        {
+            test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", editorConfig));
+        }
+
+        ApplyExtensionBlockParseOptions(test.SolutionTransforms);
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Applies preview parse options to a verifier so extension blocks parse.</summary>
+    /// <param name="solutionTransforms">The solution-transform collection to update.</param>
+    private static void ApplyExtensionBlockParseOptions(List<Func<Solution, ProjectId, Solution>> solutionTransforms)
+    {
+        solutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Preview));
+        });
     }
 }

@@ -43,7 +43,9 @@ public sealed class SingleLineStatementAnalyzerUnitTest
     /// <returns>The parsed block.</returns>
     private static BlockSyntax ParseBlock(string source)
     {
-        var root = SyntaxFactory.ParseCompilationUnit(source);
-        return root.DescendantNodes().OfType<BlockSyntax>().Last();
+        var type = (TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0];
+        var method = (MethodDeclarationSyntax)type.Members[0];
+        var ifStatement = (IfStatementSyntax)method.Body!.Statements[0];
+        return (BlockSyntax)ifStatement.Statement;
     }
 }

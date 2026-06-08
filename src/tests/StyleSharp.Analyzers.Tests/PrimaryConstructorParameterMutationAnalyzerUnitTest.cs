@@ -20,7 +20,7 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
     {
         var expression = ParseExpression(
             "public class Counter(int count) { private int _value; public void Reset() { _value = 0; } }",
-            static root => root.DescendantNodes().OfType<AssignmentExpressionSyntax>().Single().Left);
+            SelectSecondMemberAssignmentLeft);
 
         await Assert.That(PrimaryConstructorParameterMutationAnalyzer.CouldReferencePrimaryConstructorParameter(expression)).IsFalse();
     }
@@ -32,7 +32,7 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
     {
         var expression = ParseExpression(
             "public class Counter(int count) { public void Reset() { count = 0; } }",
-            static root => root.DescendantNodes().OfType<AssignmentExpressionSyntax>().Single().Left);
+            SelectFirstMemberAssignmentLeft);
 
         await Assert.That(PrimaryConstructorParameterMutationAnalyzer.CouldReferencePrimaryConstructorParameter(expression)).IsTrue();
     }
@@ -44,7 +44,7 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
     {
         var expression = ParseExpression(
             "public record Counter(int Count) { public Counter Reset() => this with { Count = 0 }; }",
-            static root => root.DescendantNodes().OfType<IdentifierNameSyntax>().Single(static node => node.Identifier.ValueText == "Count"));
+            SelectRecordWithExpressionIdentifier);
 
         await Assert.That(PrimaryConstructorParameterMutationAnalyzer.CouldReferencePrimaryConstructorParameter(expression)).IsFalse();
     }
@@ -124,4 +124,29 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
         var root = SyntaxFactory.ParseCompilationUnit(source);
         return selector(root);
     }
+
+    /// <summary>Selects the left side of the first assignment in the first member method.</summary>
+    /// <param name="root">The parsed compilation unit.</param>
+    /// <returns>The selected expression.</returns>
+    private static ExpressionSyntax SelectFirstMemberAssignmentLeft(CompilationUnitSyntax root)
+    {
+        var method = (MethodDeclarationSyntax)((ClassDeclarationSyntax)root.Members[0]).Members[0];
+        return ((AssignmentExpressionSyntax)((ExpressionStatementSyntax)method.Body!.Statements[0]).Expression).Left;
+    }
+
+    /// <summary>Selects the left side of the first assignment in the second member method.</summary>
+    /// <param name="root">The parsed compilation unit.</param>
+    /// <returns>The selected expression.</returns>
+    private static ExpressionSyntax SelectSecondMemberAssignmentLeft(CompilationUnitSyntax root)
+    {
+        var method = (MethodDeclarationSyntax)((ClassDeclarationSyntax)root.Members[0]).Members[1];
+        return ((AssignmentExpressionSyntax)((ExpressionStatementSyntax)method.Body!.Statements[0]).Expression).Left;
+    }
+
+    /// <summary>Selects the identifier on the left side of the record's <c>with</c> initializer assignment.</summary>
+    /// <param name="root">The parsed compilation unit.</param>
+    /// <returns>The selected identifier expression.</returns>
+    private static ExpressionSyntax SelectRecordWithExpressionIdentifier(CompilationUnitSyntax root)
+        => ((AssignmentExpressionSyntax)((WithExpressionSyntax)((MethodDeclarationSyntax)((RecordDeclarationSyntax)root.Members[0]).Members[0])
+            .ExpressionBody!.Expression).Initializer!.Expressions[0]).Left;
 }

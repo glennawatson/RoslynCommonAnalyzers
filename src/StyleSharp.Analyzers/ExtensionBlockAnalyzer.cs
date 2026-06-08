@@ -10,7 +10,7 @@ namespace StyleSharp.Analyzers;
 /// Reports issues with C# 14 extension blocks declared in a class: an empty extension block
 /// (SST1700), a second extension block that repeats an earlier block's receiver type (SST1701),
 /// extension blocks separated by other members (SST1702), a container class not named with an
-/// 'Extensions' suffix (SST1704), and classic extension methods mixed in with extension blocks
+/// accepted extension-container suffix (SST1704), and classic extension methods mixed in with extension blocks
 /// (SST1705). A class with no extension block bails after a single membership scan, so the common
 /// case is cheap; on the Roslyn 4.8 floor the syntax cannot occur, so nothing is reported.
 /// </summary>
@@ -87,7 +87,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
             if (!reportedContainerNaming)
             {
                 reportedContainerNaming = true;
-                if (!declaration.Identifier.ValueText.EndsWith("Extensions", StringComparison.Ordinal))
+                if (!ExtensionContainerNaming.HasValidSuffix(declaration.Identifier.ValueText))
                 {
                     context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.ExtensionContainerNaming, declaration.SyntaxTree, declaration.Identifier.Span, declaration.Identifier.ValueText));
                 }

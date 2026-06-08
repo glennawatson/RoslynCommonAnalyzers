@@ -50,6 +50,11 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the opening token is on the declaration line.</returns>
     internal static bool IsOpeningOnDeclarationLine(SourceText text, SyntaxToken open, int openLine)
     {
+        if (open.Parent?.Parent is ParenthesizedLambdaExpressionSyntax)
+        {
+            return true;
+        }
+
         var before = open.GetPreviousToken();
         return before.IsKind(SyntaxKind.None) || LayoutHelpers.EndLine(text, before) == openLine;
     }

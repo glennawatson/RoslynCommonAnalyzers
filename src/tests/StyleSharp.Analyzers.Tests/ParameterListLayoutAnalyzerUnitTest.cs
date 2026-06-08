@@ -8,6 +8,9 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 using VerifyParameterLayout = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.ParameterListLayoutAnalyzer>;
+using VerifyParameterLayoutFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
+    StyleSharp.Analyzers.ParameterListLayoutAnalyzer,
+    StyleSharp.Analyzers.OpeningParenOnDeclarationLineCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 
@@ -136,6 +139,81 @@ public class ParameterListLayoutAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies the code fix moves a method parameter list opening parenthesis onto the declaration line.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task OpeningParenOffDeclarationLineFixedAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  private static void M
+                                      {|SST1110:(|}int x) => _ = x;
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private static void M(int x) => _ = x;
+                                   }
+                                   """;
+
+        await VerifyParameterLayoutFix.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies the code fix moves a bracketed argument list opening bracket onto the declaration line.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task OpeningBracketOffDeclarationLineFixedAsync()
+    {
+        const string Source = """
+                              internal static class C
+                              {
+                                  private static int M(int[] values)
+                                      => values
+                                          {|SST1110:[|}0];
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal static class C
+                                   {
+                                       private static int M(int[] values)
+                                           => values[0];
+                                   }
+                                   """;
+
+        await VerifyParameterLayoutFix.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a parenthesized callback lambda on the next argument line is not flagged as SST1110.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ParenthesizedCallbackArgumentOnNextLineIsCleanAsync()
+        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            internal static class C
+            {
+                private static IDisposable Subscribe<T>(
+                    this IObservable<T> source,
+                    Action<T> onNext,
+                    Action<Exception> onError,
+                    Action onCompleted)
+                    => throw new NotSupportedException();
+
+                private static void M(IObservable<int> source)
+                {
+                    source.Subscribe(
+                        value => { },
+                        error => throw error,
+                        () =>
+                        {
+                        });
+                }
+            }
+            """);
+
     /// <summary>Verifies the opening-bracket helper stays clean when the previous token is on the same line.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -168,5 +246,5 @@ public class ParameterListLayoutAnalyzerUnitTest
     /// <param name="source">The source containing the parameter list.</param>
     /// <returns>The opening parenthesis token.</returns>
     private static SyntaxToken ParseOpenParenToken(string source)
-        => SyntaxFactory.ParseCompilationUnit(source).DescendantNodes().OfType<ParameterListSyntax>().First().OpenParenToken;
+        => ((MethodDeclarationSyntax)((ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members[0]).ParameterList.OpenParenToken;
 }

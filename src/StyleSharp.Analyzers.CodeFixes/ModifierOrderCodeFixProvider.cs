@@ -51,7 +51,7 @@ public sealed class ModifierOrderCodeFixProvider : CodeFixProvider
     /// <param name="node">The declaration whose modifiers are reordered.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> ReorderAsync(Document document, SyntaxNode node, CancellationToken cancellationToken)
+    internal static async Task<Document> ReorderAsync(Document document, SyntaxNode node, CancellationToken cancellationToken)
     {
         var modifiers = ModifierOrdering.Modifiers(node);
         var sorted = new SyntaxToken[modifiers.Count];

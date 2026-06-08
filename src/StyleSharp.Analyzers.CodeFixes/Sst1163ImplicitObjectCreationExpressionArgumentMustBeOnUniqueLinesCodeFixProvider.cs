@@ -50,7 +50,7 @@ public sealed class Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqu
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The argument expression to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
-    private static Task<Document> FixAsync(Document document, SyntaxNode root, ImplicitObjectCreationExpressionSyntax node)
+    internal static Task<Document> FixAsync(Document document, SyntaxNode root, ImplicitObjectCreationExpressionSyntax node)
     {
         var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(

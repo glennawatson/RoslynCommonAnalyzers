@@ -36,7 +36,7 @@ public sealed class PrefixLocalCallsWithThisCodeFixProvider : CodeFixProvider
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Add 'this.' prefix",
-                    _ => Task.FromResult(Replace(context.Document, root, identifier)),
+                    _ => Task.FromResult(Apply(context.Document, root, identifier)),
                     equivalenceKey: nameof(PrefixLocalCallsWithThisCodeFixProvider)),
                 diagnostic);
         }
@@ -47,7 +47,7 @@ public sealed class PrefixLocalCallsWithThisCodeFixProvider : CodeFixProvider
     /// <param name="root">The syntax root.</param>
     /// <param name="identifier">The bare identifier.</param>
     /// <returns>The updated document.</returns>
-    private static Document Replace(Document document, SyntaxNode root, IdentifierNameSyntax identifier)
+    internal static Document Apply(Document document, SyntaxNode root, IdentifierNameSyntax identifier)
     {
         var access = SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,

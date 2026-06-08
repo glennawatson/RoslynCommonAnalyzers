@@ -62,6 +62,13 @@ dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --
 # Isolate one analyzer family end-to-end when the combined hot-path suite is too broad
 dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*TupleElementNameBenchmarks*"
 dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*UseNameofBenchmarks*"
+
+# Run all direct code-fix benchmarks
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*CodeFixBenchmarks*"
+
+# Narrow to one code-fix provider or one family
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*UseNameofCodeFixBenchmarks*"
+dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*Sst11*CodeFixBenchmarks*"
 ```
 
 Two complementary lenses:
@@ -123,6 +130,24 @@ dotnet run --project tools/TraceFocus -- --file "BenchmarkDotNet.Artifacts/Style
 `TraceFocus` reads BenchmarkDotNet's `*.speedscope.json` output directly,
 filters out the default BenchmarkDotNet / threading / analyzer-driver noise,
 and prints the remaining hot frames plus the hottest analyzer-visible stacks.
+
+Code-fix suites do not have dedicated profiled benchmark classes, so collect
+EventPipe traces by wrapping the benchmark runner directly. Useful command lines
+to keep around:
+
+```bash
+# CPU sampling across the whole direct code-fix suite
+dotnet-trace collect --profile cpu-sampling --output BenchmarkDotNet.Artifacts/CodeFixBenchmarks.cpu.nettrace -- dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*CodeFixBenchmarks*"
+
+# GC/alloc trace across the whole direct code-fix suite
+dotnet-trace collect --profile gc-verbose --output BenchmarkDotNet.Artifacts/CodeFixBenchmarks.alloc.nettrace -- dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*CodeFixBenchmarks*"
+
+# CPU sampling for one provider after the suite identifies a hotspot
+dotnet-trace collect --profile cpu-sampling --output BenchmarkDotNet.Artifacts/UseNameofCodeFixBenchmarks.cpu.nettrace -- dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*UseNameofCodeFixBenchmarks*"
+
+# GC/alloc trace for the unique-lines family when one of the SST1150-SST1171 fixes stands out
+dotnet-trace collect --profile gc-verbose --output BenchmarkDotNet.Artifacts/UniqueLinesCodeFixBenchmarks.alloc.nettrace -- dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*Sst11*CodeFixBenchmarks*"
+```
 
 When a benchmark isn't granular enough, ask the compiler itself:
 

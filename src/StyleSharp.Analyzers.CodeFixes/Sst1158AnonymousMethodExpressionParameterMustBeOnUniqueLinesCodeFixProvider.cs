@@ -50,7 +50,7 @@ public sealed class Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLines
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The anonymous method expression to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
-    private static Task<Document> FixAsync(Document document, SyntaxNode root, AnonymousMethodExpressionSyntax node)
+    internal static Task<Document> FixAsync(Document document, SyntaxNode root, AnonymousMethodExpressionSyntax node)
     {
         var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(

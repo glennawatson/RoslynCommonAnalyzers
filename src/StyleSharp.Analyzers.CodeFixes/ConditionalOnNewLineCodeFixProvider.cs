@@ -48,7 +48,7 @@ public sealed class ConditionalOnNewLineCodeFixProvider : CodeFixProvider
     /// <param name="token">The <c>if</c> keyword.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> MoveAsync(Document document, SyntaxNode root, SyntaxToken token, CancellationToken cancellationToken)
+    internal static async Task<Document> MoveAsync(Document document, SyntaxNode root, SyntaxToken token, CancellationToken cancellationToken)
     {
         var text = await root.SyntaxTree.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var previous = token.GetPreviousToken();

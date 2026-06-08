@@ -47,7 +47,7 @@ public sealed class UseStringEmptyCodeFixProvider : CodeFixProvider
     /// <param name="root">The syntax root.</param>
     /// <param name="literal">The empty string literal.</param>
     /// <returns>The updated document.</returns>
-    private static Document Replace(Document document, SyntaxNode root, LiteralExpressionSyntax literal)
+    internal static Document Replace(Document document, SyntaxNode root, LiteralExpressionSyntax literal)
     {
         var replacement = SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,

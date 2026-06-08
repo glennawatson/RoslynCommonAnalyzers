@@ -36,14 +36,24 @@ public sealed class TupleElementNameCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var renamed = identifier.WithIdentifier(SyntaxFactory.Identifier(name!).WithTriviaFrom(identifier.Identifier));
-
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Refer to the element as '{name}'",
-                    cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(identifier, renamed))),
+                    cancellationToken => Task.FromResult(Replace(context.Document, root, identifier, name!)),
                     equivalenceKey: nameof(TupleElementNameCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <summary>Replaces the tuple member name with the semantic element name.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="identifier">The positional tuple member name.</param>
+    /// <param name="name">The semantic element name.</param>
+    /// <returns>The updated document.</returns>
+    internal static Document Replace(Document document, SyntaxNode root, IdentifierNameSyntax identifier, string name)
+    {
+        var renamed = identifier.WithIdentifier(SyntaxFactory.Identifier(name).WithTriviaFrom(identifier.Identifier));
+        return document.WithSyntaxRoot(root.ReplaceNode(identifier, renamed));
     }
 }

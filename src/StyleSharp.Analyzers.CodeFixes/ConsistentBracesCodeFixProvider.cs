@@ -47,7 +47,7 @@ public sealed class ConsistentBracesCodeFixProvider : CodeFixProvider
     /// <param name="ifStatement">The top of the if/else chain.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> WrapChainAsync(Document document, IfStatementSyntax ifStatement, CancellationToken cancellationToken)
+    internal static async Task<Document> WrapChainAsync(Document document, IfStatementSyntax ifStatement, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var newLine = LayoutFixHelpers.DetectNewLine(text);

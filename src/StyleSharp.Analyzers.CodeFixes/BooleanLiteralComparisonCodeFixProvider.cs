@@ -47,15 +47,24 @@ public sealed class BooleanLiteralComparisonCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var replacement = Simplify(binary).WithTriviaFrom(binary);
-
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Remove the comparison",
-                    cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(binary, replacement))),
+                    cancellationToken => Task.FromResult(Apply(context.Document, root, binary)),
                     equivalenceKey: nameof(BooleanLiteralComparisonCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <summary>Replaces the comparison with its simplified operand form.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="binary">The comparison to simplify.</param>
+    /// <returns>The updated document.</returns>
+    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax binary)
+    {
+        var replacement = Simplify(binary).WithTriviaFrom(binary);
+        return document.WithSyntaxRoot(root.ReplaceNode(binary, replacement));
     }
 
     /// <summary>Reduces a boolean-literal comparison to the operand, negated when the comparison was.</summary>

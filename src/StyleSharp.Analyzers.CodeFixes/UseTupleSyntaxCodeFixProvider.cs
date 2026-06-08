@@ -36,11 +36,19 @@ public sealed class UseTupleSyntaxCodeFixProvider : CodeFixProvider
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Use tuple syntax",
-                    cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(ReplaceTarget(generic), BuildTuple(generic)))),
+                    cancellationToken => Task.FromResult(Replace(context.Document, root, generic)),
                     equivalenceKey: nameof(UseTupleSyntaxCodeFixProvider)),
                 diagnostic);
         }
     }
+
+    /// <summary>Replaces the explicit <c>ValueTuple&lt;...&gt;</c> spelling with tuple syntax.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="generic">The <c>ValueTuple&lt;...&gt;</c> generic name.</param>
+    /// <returns>The updated document.</returns>
+    internal static Document Replace(Document document, SyntaxNode root, GenericNameSyntax generic)
+        => document.WithSyntaxRoot(root.ReplaceNode(ReplaceTarget(generic), BuildTuple(generic)));
 
     /// <summary>Returns the node to replace — the qualified name when the generic is its right side.</summary>
     /// <param name="generic">The <c>ValueTuple&lt;...&gt;</c> generic name.</param>

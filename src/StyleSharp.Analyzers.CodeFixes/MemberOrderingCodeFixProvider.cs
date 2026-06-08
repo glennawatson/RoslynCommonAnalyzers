@@ -58,7 +58,7 @@ public sealed class MemberOrderingCodeFixProvider : CodeFixProvider
     /// <param name="member">The out-of-order member.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> MoveAsync(Document document, MemberDeclarationSyntax member, CancellationToken cancellationToken)
+    internal static async Task<Document> MoveAsync(Document document, MemberDeclarationSyntax member, CancellationToken cancellationToken)
     {
         var type = (TypeDeclarationSyntax)member.Parent!;
         var members = type.Members;

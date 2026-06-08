@@ -17,10 +17,24 @@ internal static class UniqueLineCodeFixerHelper
     /// <returns>An end-of-line <see cref="SyntaxTrivia"/> using <c>\r\n</c> when the source contains a CRLF break, else <c>\n</c>.</returns>
     public static SyntaxTrivia GetEndOfLine(SyntaxNode node, bool elastic)
     {
-        var text = node.SyntaxTree?.GetText().ToString() ?? string.Empty;
-        var idx = text.IndexOf('\n');
-        var crlf = idx > 0 && text[idx - 1] == '\r';
-        var s = crlf ? "\r\n" : "\n";
+        var text = node.SyntaxTree?.GetText();
+        if (text is null)
+        {
+            return elastic ? SyntaxFactory.ElasticEndOfLine("\n") : SyntaxFactory.EndOfLine("\n");
+        }
+
+        var s = "\n";
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] != '\n')
+            {
+                continue;
+            }
+
+            s = i > 0 && text[i - 1] == '\r' ? "\r\n" : "\n";
+            break;
+        }
+
         return elastic ? SyntaxFactory.ElasticEndOfLine(s) : SyntaxFactory.EndOfLine(s);
     }
 
@@ -45,10 +59,15 @@ internal static class UniqueLineCodeFixerHelper
             return null;
         }
 
-        // Bail out unless the entries actually span more than one line.
-        var startLine = node.GetLocation().GetLineSpan().StartLinePosition.Line;
         var entries = list.Value;
-        if (entries.Count <= 1 || AllOnLine(entries, startLine))
+        if (entries.Count <= 1 || node.SyntaxTree is not { } tree)
+        {
+            return null;
+        }
+
+        // Start positions are monotonic, so the last entry tells us whether the list stayed on one line.
+        var startLine = tree.GetLineSpan(node.Span).StartLinePosition.Line;
+        if (tree.GetLineSpan(entries[entries.Count - 1].Span).StartLinePosition.Line == startLine)
         {
             return null;
         }
@@ -71,8 +90,13 @@ internal static class UniqueLineCodeFixerHelper
     public static SeparatedSyntaxList<TParam>? SplitEntriesOntoOwnLines<TParam>(SyntaxNode ownerNode, SeparatedSyntaxList<TParam> list)
         where TParam : SyntaxNode
     {
-        var startLine = ownerNode.GetLocation().GetLineSpan().StartLinePosition.Line;
-        if (list.Count <= 1 || AllOnLine(list, startLine))
+        if (list.Count <= 1 || ownerNode.SyntaxTree is not { } tree)
+        {
+            return null;
+        }
+
+        var startLine = tree.GetLineSpan(ownerNode.Span).StartLinePosition.Line;
+        if (tree.GetLineSpan(list[list.Count - 1].Span).StartLinePosition.Line == startLine)
         {
             return null;
         }
@@ -96,35 +120,22 @@ internal static class UniqueLineCodeFixerHelper
             return 0;
         }
 
-        var lineSpan = node.GetLocation().GetLineSpan();
-        var lineText = tree.GetText().Lines[lineSpan.StartLinePosition.Line].ToString();
+        var text = tree.GetText();
+        var lineNumber = tree.GetLineSpan(node.Span).StartLinePosition.Line;
+        var line = text.Lines[lineNumber];
 
         var count = 0;
-        while (count < lineText.Length && char.IsWhiteSpace(lineText[count]))
+        for (var position = line.Start; position < line.End; position++)
         {
+            if (!char.IsWhiteSpace(text[position]))
+            {
+                break;
+            }
+
             count++;
         }
 
         return count;
-    }
-
-    /// <summary>Returns whether every entry in a separated list begins on <paramref name="startLine"/>.</summary>
-    /// <typeparam name="TParam">The list entry type.</typeparam>
-    /// <param name="list">The separated list to inspect.</param>
-    /// <param name="startLine">The line to compare against.</param>
-    /// <returns><see langword="true"/> when every entry starts on the same line.</returns>
-    private static bool AllOnLine<TParam>(SeparatedSyntaxList<TParam> list, int startLine)
-        where TParam : SyntaxNode
-    {
-        for (var i = 0; i < list.Count; i++)
-        {
-            if (list[i].GetLocation().GetLineSpan().StartLinePosition.Line != startLine)
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /// <summary>Clones list entries with normalized indentation.</summary>

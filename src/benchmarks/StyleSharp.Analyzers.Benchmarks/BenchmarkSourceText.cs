@@ -12,12 +12,38 @@ internal static class BenchmarkSourceText
     /// <param name="createBlock">Builds one block.</param>
     /// <returns>The joined block text.</returns>
     public static string JoinBlocks(int count, Func<int, string> createBlock)
-        => string.Join(Environment.NewLine + Environment.NewLine, Enumerable.Range(0, count).Select(createBlock));
+        => Join(count, Environment.NewLine + Environment.NewLine, createBlock);
 
     /// <summary>Joins generated lines with the platform newline sequence.</summary>
     /// <param name="count">The number of lines to generate.</param>
     /// <param name="createLine">Builds one line.</param>
     /// <returns>The joined line text.</returns>
     public static string JoinLines(int count, Func<int, string> createLine)
-        => string.Join(Environment.NewLine, Enumerable.Range(0, count).Select(createLine));
+        => Join(count, Environment.NewLine, createLine);
+
+    /// <summary>Builds joined text by repeatedly appending generated segments.</summary>
+    /// <param name="count">The number of segments to generate.</param>
+    /// <param name="separator">The separator inserted between generated segments.</param>
+    /// <param name="createSegment">Builds one segment.</param>
+    /// <returns>The joined text.</returns>
+    private static string Join(int count, string separator, Func<int, string> createSegment)
+    {
+        if (count <= 0)
+        {
+            return string.Empty;
+        }
+
+        var builder = new System.Text.StringBuilder();
+        for (var i = 0; i < count; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(separator);
+            }
+
+            builder.Append(createSegment(i));
+        }
+
+        return builder.ToString();
+    }
 }

@@ -29,24 +29,74 @@ public sealed class TrivialAutoPropertyCodeFixProvider : CodeFixProvider
         {
             var diagnostic = context.Diagnostics[i];
             if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<PropertyDeclarationSyntax>() is not { } property
+                || !TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out var fieldName)
                 || !FieldReferenceAnalysis.TryFindSingleUseBackingField(
                     model,
                     property,
+                    fieldName!,
                     context.CancellationToken,
-                    out var field,
-                    out var variable,
+                    out _,
+                    out _,
                     out _))
-            {
-                continue;
-            }
+                {
+                    continue;
+                }
 
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Convert to auto-property",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, property, field!, variable!)),
+                    cancellationToken => ApplyAsync(context.Document, root, model, property, fieldName!, cancellationToken),
                     equivalenceKey: nameof(TrivialAutoPropertyCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <summary>Applies the auto-property fix to the reported property.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="property">The property to rewrite.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The updated document, or the original document when the property no longer qualifies.</returns>
+    internal static Task<Document> ApplyAsync(
+        Document document,
+        SyntaxNode root,
+        SemanticModel model,
+        PropertyDeclarationSyntax property,
+        CancellationToken cancellationToken)
+        => TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out var fieldName)
+            ? ApplyAsync(document, root, model, property, fieldName!, cancellationToken)
+            : Task.FromResult(document);
+
+    /// <summary>Applies the auto-property fix using a precomputed backing-field name.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="property">The property to rewrite.</param>
+    /// <param name="fieldName">The expected backing-field name.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The updated document, or the original document when the property no longer qualifies.</returns>
+    internal static Task<Document> ApplyAsync(
+        Document document,
+        SyntaxNode root,
+        SemanticModel model,
+        PropertyDeclarationSyntax property,
+        string fieldName,
+        CancellationToken cancellationToken)
+    {
+        if (!FieldReferenceAnalysis.TryFindSingleUseBackingField(
+            model,
+            property,
+            fieldName,
+            cancellationToken,
+            out var field,
+            out var variable,
+            out _))
+        {
+            return Task.FromResult(document);
+        }
+
+        return Task.FromResult(Apply(document, root, property, field!, variable!));
     }
 
     /// <summary>Rewrites the property and removes its backing-field declaration.</summary>

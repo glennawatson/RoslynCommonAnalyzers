@@ -49,7 +49,7 @@ public sealed class DocumentationPeriodCodeFixProvider : CodeFixProvider
     /// <param name="position">The source position to insert the period at.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> AddPeriodAsync(Document document, int position, CancellationToken cancellationToken)
+    internal static async Task<Document> AddPeriodAsync(Document document, int position, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         return document.WithText(text.WithChanges(new TextChange(new(position, 0), ".")));

@@ -58,14 +58,24 @@ public sealed class PreferIsNullPatternCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var replacement = Rewrite(binary).WithTriviaFrom(binary);
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Use '{PreferIsNullPatternAnalyzer.PatternText(binary.Kind())}'",
-                    cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(binary, replacement))),
+                    cancellationToken => Task.FromResult(Apply(context.Document, root, binary)),
                     equivalenceKey: nameof(PreferIsNullPatternCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <summary>Replaces the null comparison with the equivalent pattern expression.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="binary">The null comparison to rewrite.</param>
+    /// <returns>The updated document.</returns>
+    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax binary)
+    {
+        var replacement = Rewrite(binary).WithTriviaFrom(binary);
+        return document.WithSyntaxRoot(root.ReplaceNode(binary, replacement));
     }
 
     /// <summary>Returns the rewritten null-pattern expression.</summary>

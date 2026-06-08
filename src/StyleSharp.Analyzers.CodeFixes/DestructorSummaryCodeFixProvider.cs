@@ -51,7 +51,7 @@ public sealed class DestructorSummaryCodeFixProvider : CodeFixProvider
     /// <param name="standardSummary">The standard summary inner text.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> ApplyAsync(Document document, XmlElementSyntax summary, string standardSummary, CancellationToken cancellationToken)
+    internal static async Task<Document> ApplyAsync(Document document, XmlElementSyntax summary, string standardSummary, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         return document.WithText(text.Replace(summary.Span, "<summary>" + standardSummary + "</summary>"));

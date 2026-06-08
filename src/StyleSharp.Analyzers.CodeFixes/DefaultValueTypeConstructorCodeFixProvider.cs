@@ -47,7 +47,7 @@ public sealed class DefaultValueTypeConstructorCodeFixProvider : CodeFixProvider
     /// <param name="root">The syntax root.</param>
     /// <param name="creation">The object-creation expression.</param>
     /// <returns>The updated document.</returns>
-    private static Document Replace(Document document, SyntaxNode root, ObjectCreationExpressionSyntax creation)
+    internal static Document Replace(Document document, SyntaxNode root, ObjectCreationExpressionSyntax creation)
     {
         var replacement = SyntaxFactory.DefaultExpression(creation.Type.WithoutTrivia()).WithTriviaFrom(creation);
         return document.WithSyntaxRoot(root.ReplaceNode(creation, replacement));

@@ -50,7 +50,7 @@ public sealed class Sst1169TypeParameterListMustBeOnUniqueLinesCodeFixProvider :
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The type parameter list to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
-    private static Task<Document> FixAsync(Document document, SyntaxNode root, TypeParameterListSyntax node)
+    internal static Task<Document> FixAsync(Document document, SyntaxNode root, TypeParameterListSyntax node)
     {
         var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: false);
         var newList = UniqueLineCodeFixerHelper.SplitEntriesOntoOwnLines(node, node.Parameters);

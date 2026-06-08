@@ -51,7 +51,7 @@ public sealed class BuiltInTypeAliasCodeFixProvider : CodeFixProvider
     /// <param name="node">The framework type node.</param>
     /// <param name="keyword">The keyword alias.</param>
     /// <returns>The updated document.</returns>
-    private static Document Replace(Document document, SyntaxNode root, SyntaxNode node, string keyword)
+    internal static Document Replace(Document document, SyntaxNode root, SyntaxNode node, string keyword)
     {
         var predefined = SyntaxFactory.PredefinedType(SyntaxFactory.Token(BuiltInTypeAliases.TokenKind(keyword))).WithTriviaFrom(node);
         return document.WithSyntaxRoot(root.ReplaceNode(node, predefined));

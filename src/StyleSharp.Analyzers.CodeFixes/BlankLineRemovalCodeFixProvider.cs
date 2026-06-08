@@ -47,7 +47,7 @@ public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider
     /// <param name="after">When <see langword="true"/>, removes blank lines below the brace; otherwise above it.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> RemoveBlankLinesAsync(Document document, TextSpan braceSpan, bool after, CancellationToken cancellationToken)
+    internal static async Task<Document> RemoveBlankLinesAsync(Document document, TextSpan braceSpan, bool after, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var braceLine = text.Lines.GetLineFromPosition(braceSpan.Start).LineNumber;

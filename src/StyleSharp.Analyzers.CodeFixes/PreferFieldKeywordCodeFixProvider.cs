@@ -33,23 +33,82 @@ public sealed class PreferFieldKeywordCodeFixProvider : CodeFixProvider
                     model,
                     property,
                     context.CancellationToken,
-                    out var field,
-                    out var variable,
-                    out var symbol))
-            {
-                continue;
-            }
+                    out _,
+                    out _,
+                    out var field))
+                {
+                    continue;
+                }
 
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Use the field keyword",
-                    cancellationToken => MaterializeAsync(
-                        context.Document,
-                        Apply(root, model, property, field!, variable!, symbol!, cancellationToken),
-                        cancellationToken),
+                    cancellationToken => ApplyAsync(context.Document, root, model, property, field!.Name, cancellationToken),
                     equivalenceKey: nameof(PreferFieldKeywordCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <summary>Applies the field-keyword fix to the reported property.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="property">The property to rewrite.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The updated document, or the original document when the property no longer qualifies.</returns>
+    internal static async Task<Document> ApplyAsync(
+        Document document,
+        SyntaxNode root,
+        SemanticModel model,
+        PropertyDeclarationSyntax property,
+        CancellationToken cancellationToken)
+    {
+        if (!FieldReferenceAnalysis.TryFindSingleUseBackingField(
+            model,
+            property,
+            cancellationToken,
+            out _,
+            out _,
+            out var field))
+        {
+            return document;
+        }
+
+        return await ApplyAsync(document, root, model, property, field!.Name, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Applies the field-keyword fix using a precomputed backing-field name.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="property">The property to rewrite.</param>
+    /// <param name="fieldName">The expected backing-field name.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The updated document, or the original document when the property no longer qualifies.</returns>
+    internal static async Task<Document> ApplyAsync(
+        Document document,
+        SyntaxNode root,
+        SemanticModel model,
+        PropertyDeclarationSyntax property,
+        string fieldName,
+        CancellationToken cancellationToken)
+    {
+        if (!FieldReferenceAnalysis.TryFindSingleUseBackingField(
+            model,
+            property,
+            fieldName,
+            cancellationToken,
+            out var field,
+            out var variable,
+            out var symbol))
+        {
+            return document;
+        }
+
+        return await MaterializeAsync(
+            document,
+            Apply(root, model, property, field!, variable!, symbol!, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Materializes a changed root using the most specific syntax API supported by the current Roslyn slot.</summary>

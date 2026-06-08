@@ -50,7 +50,7 @@ public sealed class Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesCod
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The element access expression to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
-    private static Task<Document> FixAsync(Document document, SyntaxNode root, ElementAccessExpressionSyntax node)
+    internal static Task<Document> FixAsync(Document document, SyntaxNode root, ElementAccessExpressionSyntax node)
     {
         var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         var newNode = node.ConvertNodeIfAble(

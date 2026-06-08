@@ -55,7 +55,7 @@ public sealed class UsingDirectiveQualifiedCodeFixProvider : CodeFixProvider
     /// <param name="name">The using directive name.</param>
     /// <param name="symbol">The resolved namespace or type symbol.</param>
     /// <returns>The updated document.</returns>
-    private static Document Replace(Document document, SyntaxNode root, NameSyntax name, ISymbol symbol)
+    internal static Document Replace(Document document, SyntaxNode root, NameSyntax name, ISymbol symbol)
     {
         var qualified = SyntaxFactory.ParseName(UsingDirectiveQualifiedAnalyzer.QualifiedName(symbol)).WithTriviaFrom(name);
         return document.WithSyntaxRoot(root.ReplaceNode(name, qualified));

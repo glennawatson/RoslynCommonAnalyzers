@@ -48,7 +48,7 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider
     /// <param name="expression">The expression to parenthesize.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> AddParenthesesAsync(Document document, ExpressionSyntax expression, CancellationToken cancellationToken)
+    internal static async Task<Document> AddParenthesesAsync(Document document, ExpressionSyntax expression, CancellationToken cancellationToken)
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var parenthesized = SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia()).WithTriviaFrom(expression);

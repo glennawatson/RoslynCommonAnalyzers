@@ -45,7 +45,7 @@ public sealed class SingleLineCommentSpacingCodeFixProvider : CodeFixProvider
     /// <param name="insertBefore">When <see langword="true"/>, inserts a blank line above the comment; otherwise removes the blank line below it.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> FixAsync(Document document, TextSpan commentSpan, bool insertBefore, CancellationToken cancellationToken)
+    internal static async Task<Document> FixAsync(Document document, TextSpan commentSpan, bool insertBefore, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var commentLine = text.Lines.GetLineFromPosition(commentSpan.Start).LineNumber;

@@ -55,7 +55,7 @@ public sealed class NamingRenameCodeFixProvider : CodeFixProvider
     /// <param name="newName">The replacement name.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated solution.</returns>
-    private static async Task<Solution> RenameAsync(Document document, SyntaxNode node, string newName, CancellationToken cancellationToken)
+    internal static async Task<Solution> RenameAsync(Document document, SyntaxNode node, string newName, CancellationToken cancellationToken)
     {
         var solution = document.Project.Solution;
 

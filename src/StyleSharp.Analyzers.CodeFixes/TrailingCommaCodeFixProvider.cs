@@ -45,7 +45,7 @@ public sealed class TrailingCommaCodeFixProvider : CodeFixProvider
     /// <param name="position">The position after the last element.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> AddCommaAsync(Document document, int position, CancellationToken cancellationToken)
+    internal static async Task<Document> AddCommaAsync(Document document, int position, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         return document.WithText(text.WithChanges(new TextChange(new(position, 0), ",")));

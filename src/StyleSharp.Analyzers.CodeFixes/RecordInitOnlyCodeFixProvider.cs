@@ -48,7 +48,7 @@ public sealed class RecordInitOnlyCodeFixProvider : CodeFixProvider
     /// <param name="accessor">The set accessor to convert.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> ConvertAsync(Document document, AccessorDeclarationSyntax accessor, CancellationToken cancellationToken)
+    internal static async Task<Document> ConvertAsync(Document document, AccessorDeclarationSyntax accessor, CancellationToken cancellationToken)
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
 

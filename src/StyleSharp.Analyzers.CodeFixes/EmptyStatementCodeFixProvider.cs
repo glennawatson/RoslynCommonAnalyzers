@@ -49,7 +49,7 @@ public sealed class EmptyStatementCodeFixProvider : CodeFixProvider
     /// <param name="root">The syntax root.</param>
     /// <param name="statement">The empty statement to remove.</param>
     /// <returns>The updated document.</returns>
-    private static Task<Document> RemoveAsync(Document document, SyntaxNode root, SyntaxNode statement)
+    internal static Task<Document> RemoveAsync(Document document, SyntaxNode root, SyntaxNode statement)
     {
         // A top-level statement is wrapped in a GlobalStatementSyntax; remove the wrapper too.
         var toRemove = statement.Parent is GlobalStatementSyntax global ? global : statement;

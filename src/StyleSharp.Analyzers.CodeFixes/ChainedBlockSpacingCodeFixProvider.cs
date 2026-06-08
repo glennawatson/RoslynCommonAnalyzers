@@ -43,7 +43,7 @@ public sealed class ChainedBlockSpacingCodeFixProvider : CodeFixProvider
     /// <param name="keywordSpan">The span of the reported keyword.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
-    private static async Task<Document> RemoveAsync(Document document, TextSpan keywordSpan, CancellationToken cancellationToken)
+    internal static async Task<Document> RemoveAsync(Document document, TextSpan keywordSpan, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var keywordLine = text.Lines.GetLineFromPosition(keywordSpan.Start).LineNumber;

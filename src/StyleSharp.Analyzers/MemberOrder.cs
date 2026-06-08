@@ -307,17 +307,18 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <param name="current">The current member order.</param>
     /// <param name="previous">The previous member order.</param>
     /// <returns>The violated rule, or <see langword="null"/> when the members are already ordered.</returns>
-    internal static DiagnosticDescriptor? SelectViolationRule(in MemberOrder current, in MemberOrder previous)
-    {
-        var rule = SelectNonReadonlyViolationRule(current, previous);
-        if (rule is not null)
-        {
-            return rule;
-        }
+    internal static DiagnosticDescriptor? SelectViolationRule(in MemberOrder current, in MemberOrder previous) =>
+        !TrySelectRuleForDifference(current.Kind - previous.Kind, OrderingRules.OrderByKind, out var rule)
+        && !TrySelectRuleForDifference(current.Access - previous.Access, OrderingRules.OrderByAccess, out rule)
+        && !TrySelectRuleForDifference(current.Constant - previous.Constant, OrderingRules.ConstantsBeforeFields, out rule)
+        && !TrySelectRuleForDifference(current.Static - previous.Static, OrderingRules.StaticBeforeInstance, out rule)
 
-        var difference = current.ReadOnly - previous.ReadOnly;
-        return difference >= 0 ? null : ReadonlyViolationRule(current);
-    }
+        // Readonly ordering is the last tiebreaker: only consulted when every earlier dimension is
+        // equal. A const sorts before a readonly field via the Constant dimension, so the chain stops
+        // there and the readonly check never runs across them.
+        && !TrySelectReadonlyRule(current, previous, out rule)
+            ? null
+            : rule;
 
     /// <summary>Returns the identifier token for the member kinds that carry a plain name.</summary>
     /// <param name="member">The member declaration.</param>
@@ -359,17 +360,23 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
             ? OrderingRules.InstanceReadonlyBeforeNonReadonly
             : OrderingRules.ReadonlyBeforeNonReadonly;
 
-    /// <summary>Returns the first violated non-readonly ordering rule between two member orders.</summary>
+    /// <summary>Selects the readonly-ordering rule when the readonly dimension determines ordering and is violated.</summary>
     /// <param name="current">The current member order.</param>
     /// <param name="previous">The previous member order.</param>
-    /// <returns>The violated rule, or <see langword="null"/> when earlier dimensions match.</returns>
-    private static DiagnosticDescriptor? SelectNonReadonlyViolationRule(in MemberOrder current, in MemberOrder previous) =>
-        !TrySelectRuleForDifference(current.Kind - previous.Kind, OrderingRules.OrderByKind, out var rule)
-        && !TrySelectRuleForDifference(current.Access - previous.Access, OrderingRules.OrderByAccess, out rule)
-        && !TrySelectRuleForDifference(current.Constant - previous.Constant, OrderingRules.ConstantsBeforeFields, out rule)
-        && !TrySelectRuleForDifference(current.Static - previous.Static, OrderingRules.StaticBeforeInstance, out rule)
-            ? null
-            : rule;
+    /// <param name="selectedRule">The readonly rule when the current member sorts earlier; otherwise <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the readonly dimension determines ordering.</returns>
+    private static bool TrySelectReadonlyRule(in MemberOrder current, in MemberOrder previous, out DiagnosticDescriptor? selectedRule)
+    {
+        var difference = current.ReadOnly - previous.ReadOnly;
+        if (difference == 0)
+        {
+            selectedRule = null;
+            return false;
+        }
+
+        selectedRule = difference < 0 ? ReadonlyViolationRule(current) : null;
+        return true;
+    }
 
     /// <summary>Returns whether a dimension difference determines ordering, and selects its rule when violated.</summary>
     /// <param name="difference">The difference between the current and previous dimension values.</param>

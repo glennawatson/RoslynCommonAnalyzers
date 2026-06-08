@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -30,15 +31,33 @@ internal static class BenchmarkCompilationFactory
     /// <param name="filePath">The file path to use for the syntax tree.</param>
     /// <returns>The compiled syntax tree and compilation.</returns>
     public static (SyntaxTree Tree, CSharpCompilation Compilation) CreateCompilation(string source, string filePath = "Bench.cs")
+        => CreateCompilation(source, [], filePath);
+
+    /// <summary>Builds a library compilation from one syntax tree, enabling the supplied rule ids.</summary>
+    /// <param name="source">The source text to compile.</param>
+    /// <param name="enabledRuleIds">Diagnostic ids to force on (so opt-in analyzers actually run and report).</param>
+    /// <param name="filePath">The file path to use for the syntax tree.</param>
+    /// <returns>The compiled syntax tree and compilation.</returns>
+    public static (SyntaxTree Tree, CSharpCompilation Compilation) CreateCompilation(
+        string source,
+        IReadOnlyList<string> enabledRuleIds,
+        string filePath = "Bench.cs")
     {
         var tree = Parse(source, filePath);
-        return (
-            tree,
-            CSharpCompilation.Create(
-                "Bench",
-                [tree],
-                References,
-                new(OutputKind.DynamicallyLinkedLibrary)));
+        var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+
+        if (enabledRuleIds.Count > 0)
+        {
+            var overrides = ImmutableDictionary.CreateBuilder<string, ReportDiagnostic>();
+            for (var i = 0; i < enabledRuleIds.Count; i++)
+            {
+                overrides[enabledRuleIds[i]] = ReportDiagnostic.Warn;
+            }
+
+            options = options.WithSpecificDiagnosticOptions(overrides.ToImmutable());
+        }
+
+        return (tree, CSharpCompilation.Create("Bench", [tree], References, options));
     }
 
     /// <summary>Loads metadata references for the current host runtime.</summary>

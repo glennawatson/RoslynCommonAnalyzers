@@ -62,14 +62,11 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
 
         // 'sawExtension' records that a block has been seen; 'groupEnded' that a non-extension member
         // has since interrupted the run — a later extension block is then no longer contiguous.
-        // 'previousReceiver' is the receiver type of the most recent block, for the ordering rule.
+        // 'scan' carries the per-block tracking state (merge keys, previous receiver, seen set).
         var reportedContainerNaming = false;
         var sawExtension = false;
         var groupEnded = false;
-        var extensionCount = 0;
-        string? firstReceiver = null;
-        string? previousReceiver = null;
-        HashSet<string>? seenReceivers = null;
+        var scan = default(BlockScanState);
         for (var index = 0; index < members.Count; index++)
         {
             var member = members[index];
@@ -94,7 +91,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
             }
 
             sawExtension = true;
-            ProcessBlock(context, block, groupEnded, ref extensionCount, ref firstReceiver, ref previousReceiver, ref seenReceivers);
+            ProcessBlock(context, block, groupEnded, ref scan);
         }
     }
 
@@ -102,18 +99,12 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="block">The extension block.</param>
     /// <param name="groupEnded">Whether a non-extension member already interrupted the block run.</param>
-    /// <param name="extensionCount">The number of extension blocks seen so far.</param>
-    /// <param name="firstReceiver">The receiver text of the first block in the container.</param>
-    /// <param name="previousReceiver">The receiver type of the previous block (updated on return).</param>
-    /// <param name="seenReceivers">The receiver types already seen in earlier blocks.</param>
+    /// <param name="scan">The per-block tracking state, updated on return.</param>
     private static void ProcessBlock(
         SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax block,
         bool groupEnded,
-        ref int extensionCount,
-        ref string? firstReceiver,
-        ref string? previousReceiver,
-        ref HashSet<string>? seenReceivers)
+        ref BlockScanState scan)
     {
         var extensionKeyword = default(SyntaxToken);
         var receiverType = ExtensionBlockHelper.ReceiverType(block);
@@ -151,16 +142,49 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        ReportOutOfOrderReceiver(context, block, ref extensionKeyword, receiver, previousReceiver);
-        if (TryHandleFirstReceivers(context, block, ref extensionKeyword, receiver, ref extensionCount, ref firstReceiver, ref previousReceiver))
+        // Two blocks are only mergeable when they share a receiver type AND identical generic
+        // constraints; a 'where' clause that differs makes the merge impossible to compile, so the
+        // duplicate/combine rule keys on the constraint-aware merge key while ordering and the
+        // diagnostic message keep using the plain receiver type text.
+        var mergeKey = MergeKey(block, receiver);
+
+        ReportOutOfOrderReceiver(context, block, ref extensionKeyword, receiver, scan.PreviousReceiverDisplay);
+        if (TryHandleFirstReceivers(context, block, ref extensionKeyword, receiver, mergeKey, ref scan))
         {
             return;
         }
 
-        seenReceivers ??= CreateSeenReceivers(firstReceiver!, previousReceiver!);
-        ReportDuplicateReceiver(context, block, ref extensionKeyword, receiver, seenReceivers);
-        previousReceiver = receiver;
-        extensionCount++;
+        scan.SeenKeys ??= CreateSeenKeys(scan.FirstKey!, scan.PreviousKey!);
+        ReportDuplicateReceiver(context, block, ref extensionKeyword, receiver, mergeKey, scan.SeenKeys);
+        scan.PreviousKey = mergeKey;
+        scan.PreviousReceiverDisplay = receiver;
+        scan.ExtensionCount++;
+    }
+
+    /// <summary>
+    /// Builds the key that decides whether two blocks are mergeable: the receiver type text plus the
+    /// block's generic constraint clauses. Blocks that share a receiver type but carry different
+    /// <c>where</c> constraints produce different keys and so are not reported as combinable. The
+    /// common constraint-free case returns the receiver text without allocating.
+    /// </summary>
+    /// <param name="block">The extension block.</param>
+    /// <param name="receiver">The receiver type text.</param>
+    /// <returns>The constraint-aware merge key.</returns>
+    private static string MergeKey(TypeDeclarationSyntax block, string receiver)
+    {
+        var constraints = block.ConstraintClauses;
+        if (constraints.Count == 0)
+        {
+            return receiver;
+        }
+
+        var builder = new System.Text.StringBuilder(receiver);
+        for (var i = 0; i < constraints.Count; i++)
+        {
+            builder.Append('\u0001').Append(constraints[i].ToString());
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>Reports SST1707 when the current receiver sorts before the previous receiver.</summary>
@@ -188,68 +212,70 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="block">The extension block.</param>
     /// <param name="extensionKeyword">The block's extension keyword.</param>
-    /// <param name="receiver">The current receiver text.</param>
-    /// <param name="extensionCount">The number of extension blocks seen so far.</param>
-    /// <param name="firstReceiver">The first receiver text.</param>
-    /// <param name="previousReceiver">The previous receiver text.</param>
+    /// <param name="receiver">The current receiver text, used for the diagnostic message.</param>
+    /// <param name="mergeKey">The current block's constraint-aware merge key.</param>
+    /// <param name="scan">The per-block tracking state, updated on return.</param>
     /// <returns><see langword="true"/> when the receiver was handled entirely.</returns>
     private static bool TryHandleFirstReceivers(
         SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax block,
         ref SyntaxToken extensionKeyword,
         string receiver,
-        ref int extensionCount,
-        ref string? firstReceiver,
-        ref string? previousReceiver)
+        string mergeKey,
+        ref BlockScanState scan)
     {
-        switch (extensionCount)
+        switch (scan.ExtensionCount)
         {
             case > 1:
                 return false;
             case 0:
                 {
-                    firstReceiver = receiver;
-                    previousReceiver = receiver;
-                    extensionCount = 1;
+                    scan.FirstKey = mergeKey;
+                    scan.PreviousKey = mergeKey;
+                    scan.PreviousReceiverDisplay = receiver;
+                    scan.ExtensionCount = 1;
                     return true;
                 }
         }
 
-        if (IsDuplicateImmediateReceiver(receiver, previousReceiver!))
+        if (IsDuplicateImmediateReceiver(mergeKey, scan.PreviousKey!))
         {
             context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.CombineExtensionBlocks, block.SyntaxTree, ExtensionKeywordSpan(block, ref extensionKeyword), receiver));
         }
 
-        previousReceiver = receiver;
-        extensionCount = SecondExtensionCount;
+        scan.PreviousKey = mergeKey;
+        scan.PreviousReceiverDisplay = receiver;
+        scan.ExtensionCount = SecondExtensionCount;
         return true;
     }
 
-    /// <summary>Creates the seen-receiver set once a third extension block is encountered.</summary>
-    /// <param name="firstReceiver">The first receiver text.</param>
-    /// <param name="previousReceiver">The most recently seen receiver text.</param>
-    /// <returns>The initialized receiver set.</returns>
-    private static HashSet<string> CreateSeenReceivers(string firstReceiver, string previousReceiver)
+    /// <summary>Creates the seen merge-key set once a third extension block is encountered.</summary>
+    /// <param name="firstKey">The first block's merge key.</param>
+    /// <param name="previousKey">The most recently seen merge key.</param>
+    /// <returns>The initialized merge-key set.</returns>
+    private static HashSet<string> CreateSeenKeys(string firstKey, string previousKey)
         => new(StringComparer.Ordinal)
         {
-            firstReceiver,
-            previousReceiver
+            firstKey,
+            previousKey
         };
 
-    /// <summary>Reports SST1701 when the receiver type was already seen.</summary>
+    /// <summary>Reports SST1701 when the block's merge key was already seen.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="block">The extension block.</param>
     /// <param name="extensionKeyword">The block's extension keyword.</param>
-    /// <param name="receiver">The current receiver text.</param>
-    /// <param name="seenReceivers">The receiver types already seen.</param>
+    /// <param name="receiver">The current receiver text, used for the diagnostic message.</param>
+    /// <param name="mergeKey">The current block's constraint-aware merge key.</param>
+    /// <param name="seenKeys">The merge keys already seen.</param>
     private static void ReportDuplicateReceiver(
         SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax block,
         ref SyntaxToken extensionKeyword,
         string receiver,
-        HashSet<string> seenReceivers)
+        string mergeKey,
+        HashSet<string> seenKeys)
     {
-        if (seenReceivers.Add(receiver))
+        if (seenKeys.Add(mergeKey))
         {
             return;
         }
@@ -269,5 +295,29 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         }
 
         return extensionKeyword.Span;
+    }
+
+    /// <summary>
+    /// Mutable tracking state threaded through the per-block extension checks: the running block
+    /// count, the first and previous blocks' merge keys, the previous block's displayed receiver
+    /// (for ordering), and the lazily created set of merge keys seen from the third block onward.
+    /// Passed by <c>ref</c> so a single value carries the whole scan instead of many parameters.
+    /// </summary>
+    private record struct BlockScanState
+    {
+        /// <summary>Gets or sets the number of extension blocks seen so far.</summary>
+        public int ExtensionCount { get; set; }
+
+        /// <summary>Gets or sets the first block's merge key.</summary>
+        public string? FirstKey { get; set; }
+
+        /// <summary>Gets or sets the previous block's merge key.</summary>
+        public string? PreviousKey { get; set; }
+
+        /// <summary>Gets or sets the previous block's displayed receiver type, used for ordering.</summary>
+        public string? PreviousReceiverDisplay { get; set; }
+
+        /// <summary>Gets or sets the merge keys already seen in earlier blocks.</summary>
+        public HashSet<string>? SeenKeys { get; set; }
     }
 }

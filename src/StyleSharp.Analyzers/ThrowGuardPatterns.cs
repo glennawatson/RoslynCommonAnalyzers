@@ -73,7 +73,7 @@ internal static class ThrowGuardPatterns
     /// Matches <c>if (E is null) throw new ArgumentNullException(...);</c> (and the
     /// <c>== null</c> form), where the constructor takes no argument or a single
     /// <c>nameof(E)</c>/string argument naming the checked expression. The single-argument
-    /// constraint matters because <see cref="System.ArgumentNullException"/>'s first
+    /// constraint matters because <see cref="ArgumentNullException"/>'s first
     /// constructor argument is the parameter name, which is exactly what
     /// <c>ThrowIfNull</c> infers — so the rewrite never loses a custom message.
     /// </summary>
@@ -99,7 +99,7 @@ internal static class ThrowGuardPatterns
     /// <summary>
     /// Matches <c>if (string.IsNullOrEmpty(E)) throw new ArgumentException/ArgumentNullException(...);</c>
     /// (and the <c>IsNullOrWhiteSpace</c> form). Unlike the null guard this does not constrain the
-    /// constructor arguments — <see cref="System.ArgumentException"/>'s first argument is a message,
+    /// constructor arguments — <see cref="ArgumentException"/>'s first argument is a message,
     /// not a parameter name, so the helper substitutes its own standard message. That message change
     /// is why the corresponding rules are opt-in.
     /// </summary>
@@ -226,14 +226,31 @@ internal static class ThrowGuardPatterns
             return false;
         }
 
-        var expectedText = checkedExpression.ToString();
-        return only.Expression switch
+        if (only.Expression is InvocationExpressionSyntax
+            {
+                Expression: IdentifierNameSyntax { Identifier.Text: "nameof" },
+                ArgumentList.Arguments: [var named]
+            })
         {
-            InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.Text: "nameof" }, ArgumentList.Arguments: [var named] } => named.Expression.ToString() == expectedText,
-            LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.StringLiteralExpression) => literal.Token.ValueText == expectedText,
-            _ => false
-        };
+            return SyntaxFactory.AreEquivalent(named.Expression, checkedExpression);
+        }
+
+        return only.Expression is LiteralExpressionSyntax literal
+            && literal.IsKind(SyntaxKind.StringLiteralExpression)
+            && MatchesExplicitParameterName(literal.Token.ValueText, checkedExpression);
     }
+
+    /// <summary>Returns whether an explicit string parameter name matches the checked expression.</summary>
+    /// <param name="name">The explicit parameter name.</param>
+    /// <param name="checkedExpression">The checked expression.</param>
+    /// <returns><see langword="true"/> when the explicit name matches a supported checked-expression shape.</returns>
+    private static bool MatchesExplicitParameterName(string name, ExpressionSyntax checkedExpression)
+        => checkedExpression switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText == name,
+            MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax identifier } => identifier.Identifier.ValueText == name,
+            _ => false,
+        };
 
     /// <summary>Extracts the binary comparison and named parameter from a range guard.</summary>
     /// <param name="ifStatement">The candidate statement.</param>

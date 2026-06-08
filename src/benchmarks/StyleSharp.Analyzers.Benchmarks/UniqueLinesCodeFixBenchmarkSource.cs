@@ -7,8 +7,8 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// <summary>Builds synthetic source for the unique-lines code-fix benchmark family.</summary>
 internal static class UniqueLinesCodeFixBenchmarkSource
 {
-    /// <summary>The number of members emitted into each synthetic type for lambda-like unique-lines benchmarks.</summary>
-    private const int LambdaMembersPerType = 25;
+    /// <summary>The number of members emitted into each synthetic container for distributed unique-lines benchmarks.</summary>
+    private const int DistributedMembersPerContainer = 25;
 
     /// <summary>Builds violating constructor declaration source.</summary>
     /// <param name="members">The number of synthetic declarations to emit.</param>
@@ -38,16 +38,16 @@ internal static class UniqueLinesCodeFixBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <returns>The generated source text.</returns>
     public static string GenerateIndexerDeclarationParameters(int members)
-        => $$"""
-           namespace Bench;
-           {{BenchmarkSourceText.JoinBlocks(members, GenerateIndexerDeclarationType)}}
-           """;
+        => GenerateDistributedTypeNamespaces(members, GenerateIndexerDeclarationType);
 
     /// <summary>Builds violating invocation expression source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
     public static string GenerateInvocationArguments(int members)
-        => UniqueLinesBenchmarkSource.GenerateInvocationArguments(members, violating: true);
+        => GenerateDistributedMemberContainers(
+            members,
+            "InvocationExpressionArgumentBench",
+            AppendInvocationArgumentMember);
 
     /// <summary>Builds violating object creation expression source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
@@ -141,29 +141,17 @@ internal static class UniqueLinesCodeFixBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
     public static string GenerateImplicitObjectCreationArguments(int members)
-        => $$"""
-           namespace Bench;
-           internal static class ImplicitObjectCreationExpressionArgumentBench
-           {
-               private sealed class Item
-               {
-                   public Item(int x, int y, int z)
-                   {
-                   }
-               }
-
-           {{BenchmarkSourceText.JoinBlocks(members, GenerateImplicitObjectCreationArgumentMember)}}
-           }
-           """;
+        => GenerateDistributedMemberContainers(
+            members,
+            "ImplicitObjectCreationExpressionArgumentBench",
+            AppendImplicitObjectCreationArgumentMember,
+            AppendImplicitObjectCreationPreamble);
 
     /// <summary>Builds violating constructor initializer source.</summary>
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <returns>The generated source text.</returns>
     public static string GenerateConstructorInitializerArguments(int members)
-        => $$"""
-           namespace Bench;
-           {{BenchmarkSourceText.JoinBlocks(members, GenerateConstructorInitializerType)}}
-           """;
+        => GenerateDistributedTypeNamespaces(members, GenerateConstructorInitializerType);
 
     /// <summary>Builds violating primary-constructor base-type source.</summary>
     /// <param name="members">The number of synthetic declarations to emit.</param>
@@ -183,13 +171,10 @@ internal static class UniqueLinesCodeFixBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
     public static string GenerateLocalFunctionStatementParameters(int members)
-        => $$"""
-           namespace Bench;
-           internal static class LocalFunctionStatementBench
-           {
-           {{BenchmarkSourceText.JoinBlocks(members, GenerateLocalFunctionStatementMember)}}
-           }
-           """;
+        => GenerateDistributedMemberContainers(
+            members,
+            "LocalFunctionStatementBench",
+            AppendLocalFunctionStatementMember);
 
     /// <summary>Builds violating operator declaration source.</summary>
     /// <param name="members">The number of synthetic declarations to emit.</param>
@@ -442,15 +427,17 @@ internal static class UniqueLinesCodeFixBenchmarkSource
                void> _field{{index}};
            """;
 
-    /// <summary>Builds a distributed benchmark corpus for lambda-like unique-lines fixes.</summary>
+    /// <summary>Builds distributed member containers inside the Bench namespace.</summary>
     /// <param name="members">The total number of synthetic members to emit.</param>
     /// <param name="typeNamePrefix">The synthetic type-name prefix.</param>
     /// <param name="appendMember">Appends one synthetic member.</param>
+    /// <param name="appendPreamble">Appends any fixed per-type preamble before the generated members.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateDistributedLambdaLikeMembers(
+    private static string GenerateDistributedMemberContainers(
         int members,
         string typeNamePrefix,
-        Action<System.Text.StringBuilder, int> appendMember)
+        Action<System.Text.StringBuilder, int> appendMember,
+        Action<System.Text.StringBuilder>? appendPreamble = null)
     {
         var builder = new System.Text.StringBuilder();
         builder.AppendLine("namespace Bench;").AppendLine();
@@ -465,7 +452,13 @@ internal static class UniqueLinesCodeFixBenchmarkSource
                 .AppendLine()
                 .AppendLine("{");
 
-            var typeMemberCount = Math.Min(LambdaMembersPerType, members - memberIndex);
+            if (appendPreamble is not null)
+            {
+                appendPreamble(builder);
+                builder.AppendLine().AppendLine();
+            }
+
+            var typeMemberCount = Math.Min(DistributedMembersPerContainer, members - memberIndex);
             for (var i = 0; i < typeMemberCount; i++)
             {
                 if (i > 0)
@@ -487,6 +480,85 @@ internal static class UniqueLinesCodeFixBenchmarkSource
 
         return builder.ToString();
     }
+
+    /// <summary>Builds distributed namespaces each containing up to 25 synthetic types.</summary>
+    /// <param name="members">The total number of synthetic declarations to emit.</param>
+    /// <param name="buildType">Builds one synthetic declaration.</param>
+    /// <returns>The generated source text.</returns>
+    private static string GenerateDistributedTypeNamespaces(int members, Func<int, string> buildType)
+    {
+        var builder = new System.Text.StringBuilder();
+        var namespaceIndex = 0;
+        var memberIndex = 0;
+        while (memberIndex < members)
+        {
+            builder.Append("namespace Bench.Group")
+                .Append(namespaceIndex)
+                .AppendLine(";")
+                .AppendLine();
+
+            var namespaceMemberCount = Math.Min(DistributedMembersPerContainer, members - memberIndex);
+            for (var i = 0; i < namespaceMemberCount; i++)
+            {
+                if (i > 0)
+                {
+                    builder.AppendLine().AppendLine();
+                }
+
+                builder.Append(buildType(memberIndex + i));
+            }
+
+            memberIndex += namespaceMemberCount;
+            namespaceIndex++;
+            if (memberIndex < members)
+            {
+                builder.AppendLine().AppendLine();
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>Builds a distributed benchmark corpus for lambda-like unique-lines fixes.</summary>
+    /// <param name="members">The total number of synthetic members to emit.</param>
+    /// <param name="typeNamePrefix">The synthetic type-name prefix.</param>
+    /// <param name="appendMember">Appends one synthetic member.</param>
+    /// <returns>The generated source text.</returns>
+    private static string GenerateDistributedLambdaLikeMembers(
+        int members,
+        string typeNamePrefix,
+        Action<System.Text.StringBuilder, int> appendMember)
+        => GenerateDistributedMemberContainers(members, typeNamePrefix, appendMember);
+
+    /// <summary>Appends one invocation-argument unique-lines benchmark member.</summary>
+    /// <param name="builder">The destination source builder.</param>
+    /// <param name="index">The synthetic member index.</param>
+    private static void AppendInvocationArgumentMember(System.Text.StringBuilder builder, int index)
+        => builder.Append(UniqueLinesBenchmarkSource.GenerateInvocationMember(index, violating: true));
+
+    /// <summary>Appends the nested helper type used by implicit object-creation benchmarks.</summary>
+    /// <param name="builder">The destination source builder.</param>
+    private static void AppendImplicitObjectCreationPreamble(System.Text.StringBuilder builder)
+    {
+        builder.AppendLine("    private sealed class Item")
+            .AppendLine("    {")
+            .AppendLine("        public Item(int x, int y, int z)")
+            .AppendLine("        {")
+            .AppendLine("        }")
+            .Append("    }");
+    }
+
+    /// <summary>Appends one implicit-object-creation unique-lines benchmark member.</summary>
+    /// <param name="builder">The destination source builder.</param>
+    /// <param name="index">The synthetic member index.</param>
+    private static void AppendImplicitObjectCreationArgumentMember(System.Text.StringBuilder builder, int index)
+        => builder.Append(GenerateImplicitObjectCreationArgumentMember(index));
+
+    /// <summary>Appends one local-function unique-lines benchmark member.</summary>
+    /// <param name="builder">The destination source builder.</param>
+    /// <param name="index">The synthetic member index.</param>
+    private static void AppendLocalFunctionStatementMember(System.Text.StringBuilder builder, int index)
+        => builder.Append(GenerateLocalFunctionStatementMember(index));
 
     /// <summary>Appends one anonymous-method unique-lines benchmark member.</summary>
     /// <param name="builder">The destination source builder.</param>

@@ -36,7 +36,7 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider
         foreach (var diagnostic in context.Diagnostics)
         {
             if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>() is not { } ifStatement
-                || BuildReplacementCall(diagnostic.Id, ifStatement) is null)
+                || BuildReplacementStatement(diagnostic.Id, ifStatement) is null)
             {
                 continue;
             }
@@ -58,33 +58,36 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider
     /// <returns>The updated document, or the original document when the statement no longer matches.</returns>
     internal static Document Apply(Document document, SyntaxNode root, IfStatementSyntax ifStatement, string diagnosticId)
     {
-        var call = BuildReplacementCall(diagnosticId, ifStatement);
-        if (call is null)
+        var replacement = BuildReplacementStatement(diagnosticId, ifStatement);
+        if (replacement is null)
         {
             return document;
         }
 
-        var replacement = SyntaxFactory.ParseStatement(call).WithTriviaFrom(ifStatement);
-        return document.WithSyntaxRoot(root.ReplaceNode(ifStatement, replacement));
+        return document.WithSyntaxRoot(root.ReplaceNode(ifStatement, replacement.WithTriviaFrom(ifStatement)));
     }
 
-    /// <summary>Builds the throw-helper statement text for the matched guard, or null when it no longer matches.</summary>
+    /// <summary>Builds the throw-helper statement syntax for the matched guard, or null when it no longer matches.</summary>
     /// <param name="diagnosticId">The reported diagnostic id, selecting the helper to emit.</param>
     /// <param name="ifStatement">The if statement to replace.</param>
-    /// <returns>The replacement statement text, or <see langword="null"/>.</returns>
-    private static string? BuildReplacementCall(string diagnosticId, IfStatementSyntax ifStatement)
+    /// <returns>The replacement statement syntax, or <see langword="null"/>.</returns>
+    private static ExpressionStatementSyntax? BuildReplacementStatement(string diagnosticId, IfStatementSyntax ifStatement)
     {
         if (diagnosticId == ModernizationRules.UseThrowIfNull.Id)
         {
             return ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out var expression)
-                ? $"ArgumentNullException.ThrowIfNull({expression});"
+                ? CreateHelperStatement("ArgumentNullException", "ThrowIfNull", SyntaxFactory.Argument(expression!.WithoutTrivia()))
                 : null;
         }
 
         if (diagnosticId == ModernizationRules.UseObjectDisposedThrowIf.Id)
         {
             return ThrowGuardPatterns.TryMatchObjectDisposed(ifStatement, out var condition)
-                ? $"ObjectDisposedException.ThrowIf({condition}, this);"
+                ? CreateHelperStatement(
+                    "ObjectDisposedException",
+                    "ThrowIf",
+                    SyntaxFactory.Argument(condition!.WithoutTrivia()),
+                    SyntaxFactory.Argument(SyntaxFactory.ThisExpression()))
                 : null;
         }
 
@@ -96,8 +99,15 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider
             }
 
             return match.Bound is null
-                ? $"ArgumentOutOfRangeException.{match.Helper}({match.Value});"
-                : $"ArgumentOutOfRangeException.{match.Helper}({match.Value}, {match.Bound});";
+                ? CreateHelperStatement(
+                    "ArgumentOutOfRangeException",
+                    match.Helper,
+                    SyntaxFactory.Argument(match.Value.WithoutTrivia()))
+                : CreateHelperStatement(
+                    "ArgumentOutOfRangeException",
+                    match.Helper,
+                    SyntaxFactory.Argument(match.Value.WithoutTrivia()),
+                    SyntaxFactory.Argument(match.Bound.WithoutTrivia()));
         }
 
         if (!ThrowGuardPatterns.TryMatchStringGuard(ifStatement, out _, out var stringExpression))
@@ -106,6 +116,20 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider
         }
 
         var method = diagnosticId == ModernizationRules.UseThrowIfNullOrEmpty.Id ? "ThrowIfNullOrEmpty" : "ThrowIfNullOrWhiteSpace";
-        return $"ArgumentException.{method}({stringExpression});";
+        return CreateHelperStatement("ArgumentException", method, SyntaxFactory.Argument(stringExpression!.WithoutTrivia()));
     }
+
+    /// <summary>Builds an expression statement that invokes the selected throw-helper.</summary>
+    /// <param name="typeName">The helper type name.</param>
+    /// <param name="methodName">The helper method name.</param>
+    /// <param name="arguments">The helper-call arguments.</param>
+    /// <returns>The helper-call statement.</returns>
+    private static ExpressionStatementSyntax CreateHelperStatement(string typeName, string methodName, params ArgumentSyntax[] arguments)
+        => SyntaxFactory.ExpressionStatement(
+            SyntaxFactory.InvocationExpression(
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    SyntaxFactory.IdentifierName(typeName),
+                    SyntaxFactory.IdentifierName(methodName)),
+                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments))));
 }

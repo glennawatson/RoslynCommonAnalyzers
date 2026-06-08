@@ -37,10 +37,22 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Add parentheses",
-                    cancellationToken => AddParenthesesAsync(context.Document, expression, cancellationToken),
+                    cancellationToken => AddParenthesesAsync(context.Document, root, expression, cancellationToken),
                     equivalenceKey: nameof(PrecedenceCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <summary>Replaces the expression with a parenthesized copy that keeps its surrounding trivia.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root of the document.</param>
+    /// <param name="expression">The expression to parenthesize.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The updated document.</returns>
+    internal static Task<Document> AddParenthesesAsync(Document document, SyntaxNode root, ExpressionSyntax expression, CancellationToken cancellationToken)
+    {
+        var parenthesized = SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia()).WithTriviaFrom(expression);
+        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(expression, parenthesized)));
     }
 
     /// <summary>Replaces the expression with a parenthesized copy that keeps its surrounding trivia.</summary>
@@ -51,7 +63,6 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider
     internal static async Task<Document> AddParenthesesAsync(Document document, ExpressionSyntax expression, CancellationToken cancellationToken)
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        var parenthesized = SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia()).WithTriviaFrom(expression);
-        return document.WithSyntaxRoot(root!.ReplaceNode(expression, parenthesized));
+        return await AddParenthesesAsync(document, root!, expression, cancellationToken).ConfigureAwait(false);
     }
 }

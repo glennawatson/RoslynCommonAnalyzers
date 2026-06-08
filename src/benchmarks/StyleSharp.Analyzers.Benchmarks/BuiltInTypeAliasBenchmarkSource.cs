@@ -23,6 +23,19 @@ internal static class BuiltInTypeAliasBenchmarkSource
            }
            """;
 
+    /// <summary>Builds a direct-code-fix corpus that targets only method return types.</summary>
+    /// <param name="members">The number of synthetic members to emit.</param>
+    /// <returns>The generated source text.</returns>
+    public static string GenerateCodeFixSource(int members)
+        => $$"""
+           namespace Bench;
+
+           internal sealed class C
+           {
+           {{BenchmarkSourceText.JoinBlocks(members, GenerateCodeFixMember)}}
+           }
+           """;
+
     /// <summary>Builds one clean or violating member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violation.</param>
@@ -51,6 +64,17 @@ internal static class BuiltInTypeAliasBenchmarkSource
            {
                System.Int32 local = value + {{index}};
                return local;
+           }
+           """;
+
+    /// <summary>Builds one direct-code-fix benchmark member that violates only on the return type.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateCodeFixMember(int index)
+        => $$"""
+           internal System.Int32 M{{index}}()
+           {
+               return {{index}};
            }
            """;
 }

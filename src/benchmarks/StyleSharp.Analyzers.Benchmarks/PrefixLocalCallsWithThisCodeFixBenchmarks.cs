@@ -41,7 +41,7 @@ public class PrefixLocalCallsWithThisCodeFixBenchmarks : IDisposable
     public async Task SetupAsync()
     {
         _workspace = new AdhocWorkspace();
-        _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ExpressionHotspotBenchmarkSource.Generate(Nodes, violating: true));
+        _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ExpressionCodeFixBenchmarkSource.GeneratePrefixLocalCallsWithThis(Nodes));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var method = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<MethodDeclarationSyntax>(
             _root,

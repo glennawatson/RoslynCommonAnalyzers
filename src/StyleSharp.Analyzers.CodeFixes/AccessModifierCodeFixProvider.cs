@@ -44,10 +44,24 @@ public sealed class AccessModifierCodeFixProvider : CodeFixProvider
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Add '{modifier}' modifier",
-                    cancellationToken => AddAsync(context.Document, member, accessibility, cancellationToken),
+                    cancellationToken => AddAsync(context.Document, root, member, accessibility, cancellationToken),
                     equivalenceKey: nameof(AccessModifierCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <summary>Applies the implicit accessibility to the member.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root of the document.</param>
+    /// <param name="member">The member that omits an access modifier.</param>
+    /// <param name="accessibility">The accessibility to declare.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The updated document.</returns>
+    internal static Task<Document> AddAsync(Document document, SyntaxNode root, MemberDeclarationSyntax member, Accessibility accessibility, CancellationToken cancellationToken)
+    {
+        var generator = SyntaxGenerator.GetGenerator(document);
+        var updated = generator.WithAccessibility(member, accessibility);
+        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(member, updated)));
     }
 
     /// <summary>Applies the implicit accessibility to the member.</summary>
@@ -59,8 +73,6 @@ public sealed class AccessModifierCodeFixProvider : CodeFixProvider
     internal static async Task<Document> AddAsync(Document document, MemberDeclarationSyntax member, Accessibility accessibility, CancellationToken cancellationToken)
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        var generator = SyntaxGenerator.GetGenerator(document);
-        var updated = generator.WithAccessibility(member, accessibility);
-        return document.WithSyntaxRoot(root!.ReplaceNode(member, updated));
+        return await AddAsync(document, root!, member, accessibility, cancellationToken).ConfigureAwait(false);
     }
 }

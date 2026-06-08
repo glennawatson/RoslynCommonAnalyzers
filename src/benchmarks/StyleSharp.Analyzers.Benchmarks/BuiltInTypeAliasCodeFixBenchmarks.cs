@@ -44,7 +44,7 @@ public class BuiltInTypeAliasCodeFixBenchmarks : IDisposable
     public async Task SetupAsync()
     {
         _workspace = new AdhocWorkspace();
-        _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, BuiltInTypeAliasBenchmarkSource.Generate(Nodes, violating: true));
+        _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, BuiltInTypeAliasBenchmarkSource.GenerateCodeFixSource(Nodes));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
 
         var method = CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);

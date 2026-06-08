@@ -12,6 +12,9 @@ namespace StyleSharp.Analyzers;
 [Shared]
 public sealed class PreferLockTypeCodeFixProvider : CodeFixProvider
 {
+    /// <summary>The fully-qualified <c>System.Threading.Lock</c> type syntax reused across fixes.</summary>
+    private static readonly TypeSyntax LockTypeSyntax = SyntaxFactory.ParseTypeName("System.Threading.Lock");
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ConcurrencyRules.PreferLockType.Id);
 
@@ -57,7 +60,7 @@ public sealed class PreferLockTypeCodeFixProvider : CodeFixProvider
     private static FieldDeclarationSyntax Rewrite(FieldDeclarationSyntax field)
     {
         var declaration = field.Declaration;
-        var newType = SyntaxFactory.ParseTypeName("System.Threading.Lock").WithTriviaFrom(declaration.Type);
+        var newType = LockTypeSyntax.WithTriviaFrom(declaration.Type);
 
         var variable = declaration.Variables[0];
         if (variable.Initializer is { } initializer)

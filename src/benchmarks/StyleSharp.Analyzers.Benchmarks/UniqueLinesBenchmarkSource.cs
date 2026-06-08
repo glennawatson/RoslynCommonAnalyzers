@@ -33,6 +33,13 @@ internal static class UniqueLinesBenchmarkSource
            }
            """;
 
+    /// <summary>Builds one clean or violating invocation-expression block.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="violating">Whether to emit a violating layout.</param>
+    /// <returns>The generated member block.</returns>
+    public static string GenerateInvocationMember(int index, bool violating)
+        => GenerateInvocationArgumentMember(index, violating);
+
     /// <summary>Builds synthetic source for object-creation argument benchmarks.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>

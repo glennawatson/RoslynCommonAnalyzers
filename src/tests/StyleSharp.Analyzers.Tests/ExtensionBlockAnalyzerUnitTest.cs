@@ -49,6 +49,57 @@ public class ExtensionBlockAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies two blocks with the same receiver type but different generic constraints are not merged (SST1701).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SameReceiverDifferentConstraintsIsCleanAsync()
+        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+            """
+            public interface IThing<T>
+            {
+            }
+
+            public static class ThingExtensions
+            {
+                extension<T>(IThing<T> source)
+                {
+                    public bool IsPresent => source is not null;
+                }
+
+                extension<T>(IThing<T> source)
+                    where T : struct
+                {
+                    public T Value => default;
+                }
+            }
+            """);
+
+    /// <summary>Verifies two blocks with the same receiver type and the same constraints are still reported (SST1701).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SameReceiverSameConstraintsReportedAsync()
+        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+            """
+            public interface IThing<T>
+            {
+            }
+
+            public static class ThingExtensions
+            {
+                extension<T>(IThing<T> source)
+                    where T : struct
+                {
+                    public bool IsPresent => source is not null;
+                }
+
+                {|SST1701:extension|}<T>(IThing<T> source)
+                    where T : struct
+                {
+                    public T Value => default;
+                }
+            }
+            """);
+
     /// <summary>Verifies an extension block separated from the others by a member is reported (SST1702).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

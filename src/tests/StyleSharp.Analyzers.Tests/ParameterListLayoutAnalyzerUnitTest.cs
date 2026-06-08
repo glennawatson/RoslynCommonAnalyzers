@@ -214,6 +214,31 @@ public class ParameterListLayoutAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies an expression-bodied callback lambda on the next argument line is not flagged as SST1110.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ExpressionBodiedCallbackArgumentOnNextLineIsCleanAsync()
+        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+            """
+            using System;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            internal static class C
+            {
+                private static IDisposable SubscribeAndDisposeOnFailureAsync(object subscription, Func<ValueTask> factory)
+                    => throw new NotSupportedException();
+
+                private static ValueTask SubscribeSourcesAsync(this object subscription, CancellationToken cancellationToken)
+                    => default;
+
+                private static IDisposable M(object subscription, CancellationToken cancellationToken)
+                    => SubscribeAndDisposeOnFailureAsync(
+                        subscription,
+                        () => subscription.SubscribeSourcesAsync(cancellationToken));
+            }
+            """);
+
     /// <summary>Verifies the opening-bracket helper stays clean when the previous token is on the same line.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

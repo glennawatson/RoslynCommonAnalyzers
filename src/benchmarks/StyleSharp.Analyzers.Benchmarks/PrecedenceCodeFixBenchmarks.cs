@@ -22,6 +22,9 @@ public class PrecedenceCodeFixBenchmarks : IDisposable
     /// <summary>The prepared benchmark document.</summary>
     private Document _document = null!;
 
+    /// <summary>The cached syntax root for the benchmark document.</summary>
+    private CompilationUnitSyntax _root = null!;
+
     /// <summary>The representative precedence subexpression passed to the code fix.</summary>
     private ExpressionSyntax _expression = null!;
 
@@ -38,10 +41,10 @@ public class PrecedenceCodeFixBenchmarks : IDisposable
     public async Task SetupAsync()
     {
         _workspace = new AdhocWorkspace();
-        _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ExpressionHotspotBenchmarkSource.Generate(Nodes, violating: true));
-        var root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
+        _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ExpressionCodeFixBenchmarkSource.GeneratePrecedence(Nodes));
+        _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var method = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<MethodDeclarationSyntax>(
-            root,
+            _root,
             Nodes / MiddleNodeDivisor,
             static candidate => candidate.Identifier.ValueText.Length > 1
                 && candidate.Identifier.ValueText[0] == 'M'
@@ -66,7 +69,7 @@ public class PrecedenceCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> Precedence_ApplyFixAsync()
     {
-        var updated = await PrecedenceCodeFixProvider.AddParenthesesAsync(_document, _expression, CancellationToken.None).ConfigureAwait(false);
+        var updated = await PrecedenceCodeFixProvider.AddParenthesesAsync(_document, _root, _expression, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

@@ -11,7 +11,8 @@ namespace StyleSharp.Analyzers;
 /// that is not preceded by a blank line (SST1515) and a block that is followed by a blank
 /// line (SST1512). Consecutive comment lines form one block; the first line carries the
 /// preceding-blank check and the last line the following-blank check. A comment that opens
-/// a block (directly after an opening brace) or begins the file is exempt from SST1515.
+/// a block (directly after an opening brace), follows a preprocessor directive (e.g. the first
+/// line inside an <c>#if</c>/<c>#else</c> branch), or begins the file is exempt from SST1515.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
@@ -112,7 +113,7 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="firstTokenStart">The start position of the first token in the file.</param>
     private static void ReportBlock(SyntaxTreeAnalysisContext context, SourceText text, int start, int end, SyntaxTrivia first, SyntaxTrivia last, int firstTokenStart)
     {
-        if (start > 0 && !LayoutHelpers.IsBlankLine(text, start - 1) && !PreviousLineOpensBlock(text, start - 1))
+        if (start > 0 && !LayoutHelpers.IsBlankLine(text, start - 1) && !PreviousLineOpensBlock(text, start - 1) && !PreviousLineIsDirective(text, start - 1))
         {
             context.ReportDiagnostic(Diagnostic.Create(LayoutRules.SingleLineCommentPrecededByBlankLine, Location.Create(context.Tree, first.Span)));
         }
@@ -131,6 +132,26 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the block sits before the file's first token.</returns>
     private static bool IsFileHeaderBlock(SyntaxTrivia last, int firstTokenStart)
         => last.SpanStart < firstTokenStart;
+
+    /// <summary>Returns whether the line is a preprocessor directive (its first non-whitespace character is <c>#</c>).</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="lineIndex">The line to inspect.</param>
+    /// <returns><see langword="true"/> when the line begins (after indentation) with a directive.</returns>
+    private static bool PreviousLineIsDirective(SourceText text, int lineIndex)
+    {
+        var lineSpan = text.Lines[lineIndex];
+        for (var position = lineSpan.Start; position < lineSpan.End; position++)
+        {
+            if (char.IsWhiteSpace(text[position]))
+            {
+                continue;
+            }
+
+            return text[position] == '#';
+        }
+
+        return false;
+    }
 
     /// <summary>Returns whether the last non-whitespace character of the line is an opening brace.</summary>
     /// <param name="text">The source text.</param>

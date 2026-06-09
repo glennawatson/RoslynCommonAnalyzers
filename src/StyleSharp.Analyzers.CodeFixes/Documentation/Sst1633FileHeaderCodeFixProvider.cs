@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>Inserts the configured file header at the top of a file missing it (SST1633).</summary>
+/// <summary>Adds the configured file header, replacing an existing (e.g. outdated) header rather than stacking on top of it (SST1633).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1633FileHeaderCodeFixProvider))]
 [Shared]
 public sealed class Sst1633FileHeaderCodeFixProvider : CodeFixProvider
@@ -38,7 +38,12 @@ public sealed class Sst1633FileHeaderCodeFixProvider : CodeFixProvider
         return Task.CompletedTask;
     }
 
-    /// <summary>Inserts the rendered header (re-joined with the file's newline) at the top of the file.</summary>
+    /// <summary>
+    /// Replaces an existing file-header comment block with the rendered header (re-joined with the
+    /// file's newline), or inserts it at the top when no header is present. Replacing — rather than
+    /// always prepending — is what makes the fix usable for bumping an outdated copyright year instead
+    /// of stacking a second header on top of the stale one.
+    /// </summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="header">The rendered header, lines joined by "\n".</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
@@ -46,9 +51,49 @@ public sealed class Sst1633FileHeaderCodeFixProvider : CodeFixProvider
     internal static async Task<Document> AddHeaderAsync(Document document, string header, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var newLine = DetectNewLine(text);
         var headerBlock = header.Replace("\n", newLine) + newLine;
-        return document.WithText(text.WithChanges(new TextChange(new(0, 0), headerBlock)));
+        var existingEnd = root is null ? 0 : ExistingHeaderEnd(root.GetLeadingTrivia());
+        return document.WithText(text.WithChanges(new TextChange(TextSpan.FromBounds(0, existingEnd), headerBlock)));
+    }
+
+    /// <summary>
+    /// Returns the end offset of the existing leading comment header (the run of <c>//</c>/<c>/* */</c>
+    /// comments and the single newline that terminates it), or <c>0</c> when the file has no header to
+    /// replace. A blank line ends the header, so any comment beyond it is treated as ordinary code and
+    /// preserved.
+    /// </summary>
+    /// <param name="leadingTrivia">The leading trivia of the file's first token.</param>
+    /// <returns>The exclusive end offset of the header block, or <c>0</c> when absent.</returns>
+    private static int ExistingHeaderEnd(SyntaxTriviaList leadingTrivia)
+    {
+        var end = 0;
+        var pendingNewLine = false;
+        foreach (var trivia in leadingTrivia)
+        {
+            if (trivia.IsKind(SyntaxKind.SingleLineCommentTrivia) || trivia.IsKind(SyntaxKind.MultiLineCommentTrivia))
+            {
+                end = trivia.Span.End;
+                pendingNewLine = true;
+            }
+            else if (trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+            {
+                if (!pendingNewLine)
+                {
+                    break;
+                }
+
+                end = trivia.Span.End;
+                pendingNewLine = false;
+            }
+            else if (!trivia.IsKind(SyntaxKind.WhitespaceTrivia))
+            {
+                break;
+            }
+        }
+
+        return end;
     }
 
     /// <summary>Detects the newline sequence used by the file (defaults to "\n").</summary>

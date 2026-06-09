@@ -71,4 +71,59 @@ public class FileHeaderAnalyzerUnitTest
         test.ExpectedDiagnostics.Add(Verify.Diagnostic("SST1633").WithSpan(1, 1, 1, 1));
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies an outdated header is replaced (not duplicated) — e.g. after bumping the copyright year.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task OutdatedHeaderReplacedAsync()
+    {
+        var test = new Verify.Test
+        {
+            TestCode = """
+                // Old copyright 2020.
+                namespace N { }
+                """.ReplaceLineEndings("\n"),
+
+            FixedCode = """
+                // Copyright text.
+                namespace N { }
+                """.ReplaceLineEndings("\n"),
+
+            TestBehaviors = TestBehaviors.SkipSuppressionCheck
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        test.ExpectedDiagnostics.Add(Verify.Diagnostic("SST1633").WithSpan(1, 1, 1, 1));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a multi-line outdated header followed by a blank line is replaced while the blank line is preserved.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task OutdatedMultiLineHeaderReplacedAsync()
+    {
+        var test = new Verify.Test
+        {
+            TestCode = """
+                // Old copyright 2020.
+                // Old second line.
+
+                namespace N { }
+                """.ReplaceLineEndings("\n"),
+
+            FixedCode = """
+                // Copyright text.
+
+                namespace N { }
+                """.ReplaceLineEndings("\n"),
+
+            TestBehaviors = TestBehaviors.SkipSuppressionCheck
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        test.ExpectedDiagnostics.Add(Verify.Diagnostic("SST1633").WithSpan(1, 1, 1, 1));
+        await test.RunAsync(CancellationToken.None);
+    }
 }

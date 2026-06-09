@@ -55,6 +55,10 @@ Some rules expose options. Current options:
 | `stylesharp.conditional_operator_placement` | [SST1145](rules/SST1145.md) | `leading`, `trailing` | `leading` |
 | `stylesharp.summary_single_line_max_length` | [SST1653](rules/SST1653.md) | positive integer | `100` |
 | `stylesharp.max_switch_sections` | [SST1423](rules/SST1423.md) | positive integer | `30` |
+| `stylesharp.document_exposed_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
+| `stylesharp.document_internal_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
+| `stylesharp.document_private_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `false` |
+| `stylesharp.document_interfaces` | SST1600 / [SST1601](rules/SST1601.md) | `all`, `exposed`, `none` | `all` |
 | `file_header_template` | [SST1633](rules/SST1633.md) | header text (`\n` separates lines, `{fileName}` substituted), or `unset` | `unset` |
 
 Example:
@@ -69,6 +73,34 @@ stylesharp.SST1315.union_member_naming = pascal_case
 
 Values are case-insensitive. An unset or unrecognized value falls back to the
 default in the table above.
+
+### Documentation coverage scope
+
+The four `document_*` options control **which declarations the "must be documented"
+rules apply to** — SST1600 (elements), SST1601 (partial elements), SST1602 (enum
+members), and SST1654 (extension blocks). They mirror StyleCop's
+`documentExposedElements` / `documentInternalElements` / `documentPrivateElements` /
+`documentInterfaces` settings, including the same defaults, so a project moving from
+StyleCop keeps the same coverage out of the box:
+
+- `document_exposed_elements` (default `true`) — public and protected elements.
+- `document_internal_elements` (default `true`) — internal elements. **On by
+  default**, so an internal type or member with no `///` comment is reported.
+- `document_private_elements` (default `false`) — private elements. Off by default;
+  turn it on to require documentation everywhere.
+- `document_interfaces` (default `all`) — `all` documents every interface and its
+  members regardless of accessibility, `exposed` only non-internal interfaces, and
+  `none` never requires interface documentation.
+
+Coverage uses **effective accessibility**: a `public` member of an `internal` class
+is treated as internal, so it follows `document_internal_elements`. To require only
+the public API surface to be documented (StyleCop's `documentInternalElements:
+false`):
+
+```ini
+[*.cs]
+stylesharp.document_internal_elements = false
+```
 
 ## Adding options to new rules
 

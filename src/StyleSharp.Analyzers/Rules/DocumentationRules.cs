@@ -9,19 +9,19 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 internal static class DocumentationRules
 {
-    /// <summary>SST1600 — externally visible members should be documented.</summary>
+    /// <summary>SST1600 — members in the documentation-coverage scope should be documented.</summary>
     public static readonly DiagnosticDescriptor ElementsMustBeDocumented = Create(
         "SST1600",
         "Elements should be documented",
-        "'{0}' is externally visible and should have a documentation comment",
-        "Public and protected members carry XML documentation so the generated docs and IntelliSense are complete.");
+        "'{0}' should have a documentation comment",
+        "Members in the documentation-coverage scope (public, protected, and internal by default) carry XML documentation so the generated docs and IntelliSense are complete.");
 
     /// <summary>SST1602 — enumeration members should be documented.</summary>
     public static readonly DiagnosticDescriptor EnumItemsMustBeDocumented = Create(
         "SST1602",
         "Enumeration items should be documented",
         "Enum member '{0}' should have a documentation comment",
-        "Members of an externally visible enum carry XML documentation.");
+        "Members of an enum in the documentation-coverage scope carry XML documentation.");
 
     /// <summary>SST1604 — element documentation should contain a summary.</summary>
     public static readonly DiagnosticDescriptor MustHaveSummary = Create(
@@ -297,8 +297,8 @@ internal static class DocumentationRules
     public static readonly DiagnosticDescriptor ExtensionBlockMustBeDocumented = Create(
         "SST1654",
         "Extension blocks should be documented",
-        "This extension block is externally visible and should have a <summary>",
-        "An externally visible C# 14 extension block carries a <summary> describing the members it adds (unless it uses <inheritdoc>).");
+        "This extension block should have a <summary>",
+        "A C# 14 extension block in the documentation-coverage scope carries a <summary> describing the members it adds (unless it uses <inheritdoc>).");
 
     /// <summary>SST1655 — extension block parameters should be documented.</summary>
     public static readonly DiagnosticDescriptor ExtensionBlockParametersMustBeDocumented = Create(

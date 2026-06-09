@@ -72,7 +72,11 @@ public class DocumentationSummaryTextUnitTest
                 public int Count { get; init; }
             }
 
-            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            namespace System.Runtime.CompilerServices
+            {
+                /// <summary>Reserved for compiler use to enable init-only setters on netstandard.</summary>
+                internal static class IsExternalInit { }
+            }
             """;
 
         await VerifyProperty.VerifyAnalyzerAsync(Source);
@@ -91,7 +95,11 @@ public class DocumentationSummaryTextUnitTest
                 public int Count { get; init; }
             }
 
-            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            namespace System.Runtime.CompilerServices
+            {
+                /// <summary>Reserved for compiler use to enable init-only setters on netstandard.</summary>
+                internal static class IsExternalInit { }
+            }
             """;
         const string FixedSource = """
             /// <summary>A container.</summary>
@@ -101,7 +109,11 @@ public class DocumentationSummaryTextUnitTest
                 public int Count { get; init; }
             }
 
-            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            namespace System.Runtime.CompilerServices
+            {
+                /// <summary>Reserved for compiler use to enable init-only setters on netstandard.</summary>
+                internal static class IsExternalInit { }
+            }
             """;
 
         await VerifyProperty.VerifyCodeFixAsync(Source, FixedSource);

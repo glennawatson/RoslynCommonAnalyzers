@@ -6,9 +6,10 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Documents the partial types and methods that the main documentation analyzer skips:
-/// an exposed partial element should be documented (SST1601), its documentation should have
-/// a summary (SST1605) with text (SST1607), and a partial generic type's parameters should
-/// be documented (SST1619). All but SST1601 are opt-in.
+/// a partial element in the documentation-coverage scope should be documented (SST1601), its
+/// documentation should have a summary (SST1605) with text (SST1607), and a partial generic
+/// type's parameters should be documented (SST1619). All but SST1601 are opt-in. The coverage
+/// scope honours the shared <see cref="DocumentationCoverage"/> options.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class PartialDocumentationAnalyzer : DiagnosticAnalyzer
@@ -52,7 +53,8 @@ public sealed class PartialDocumentationAnalyzer : DiagnosticAnalyzer
         var documentation = XmlDocumentationHelper.GetDocumentationComment(member);
         if (documentation is null)
         {
-            if (DocumentationVisibility.IsExposed(member))
+            var coverage = DocumentationOptions.ReadCoverage(context.Options.AnalyzerConfigOptionsProvider.GetOptions(member.SyntaxTree));
+            if (DocumentationVisibility.NeedsDocumentation(member, coverage))
             {
                 context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.PartialMustBeDocumented, name.GetLocation(), name.ValueText));
             }

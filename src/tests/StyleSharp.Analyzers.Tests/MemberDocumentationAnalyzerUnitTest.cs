@@ -27,11 +27,68 @@ public class MemberDocumentationAnalyzerUnitTest
     public async Task MissingDocumentationAsync()
         => await Verify.VerifyAnalyzerAsync("public class {|SST1600:Widget|} { }");
 
-    /// <summary>Verifies non-exposed members are not required to be documented.</summary>
+    /// <summary>Verifies an internal type is required by default (matching StyleCop's documentInternalElements default), while a private nested type is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task NonExposedIgnoredAsync()
-        => await Verify.VerifyAnalyzerAsync("internal class Outer { private class Inner { } }");
+    public async Task InternalRequiredPrivateIgnoredAsync()
+        => await Verify.VerifyAnalyzerAsync("internal class {|SST1600:Outer|} { private class Inner { } }");
+
+    /// <summary>Verifies document_internal_elements = false stops an internal type from being required.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InternalIgnoredWhenDisabledAsync()
+    {
+        var test = new Verify.Test { TestCode = "internal class Outer { }" };
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.document_internal_elements = false
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies document_private_elements = true makes a private nested type required.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PrivateRequiredWhenEnabledAsync()
+    {
+        var test = new Verify.Test
+        {
+            TestCode = """
+                       /// <summary>Outer.</summary>
+                       public class Outer { private class {|SST1600:Inner|} { } }
+                       """
+        };
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.document_private_elements = true
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies document_interfaces = none stops an interface and its members from being required.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InterfacesNoneIgnoresInterfaceAsync()
+    {
+        var test = new Verify.Test { TestCode = "public interface IThing { void Do(); }" };
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.document_interfaces = none
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Verifies an undocumented enum member is reported (SST1602).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

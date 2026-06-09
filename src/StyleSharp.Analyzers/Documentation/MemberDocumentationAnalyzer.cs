@@ -182,9 +182,13 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         var documentation = XmlDocumentationHelper.GetDocumentationComment(member);
         if (documentation is null)
         {
-            if (!shape.SkipCoverage && DocumentationVisibility.IsExposed(member))
+            if (!shape.SkipCoverage)
             {
-                context.ReportDiagnostic(Diagnostic.Create(shape.MissingDocRule, shape.NameToken.GetLocation(), shape.NameToken.ValueText));
+                var coverage = DocumentationOptions.ReadCoverage(context.Options.AnalyzerConfigOptionsProvider.GetOptions(member.SyntaxTree));
+                if (DocumentationVisibility.NeedsDocumentation(member, coverage))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(shape.MissingDocRule, shape.NameToken.GetLocation(), shape.NameToken.ValueText));
+                }
             }
 
             return;

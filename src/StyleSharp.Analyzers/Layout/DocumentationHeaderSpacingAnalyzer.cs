@@ -61,7 +61,7 @@ public sealed class DocumentationHeaderSpacingAnalyzer : DiagnosticAnalyzer
         var headerLastLine = LayoutHelpers.LineOf(text, header.Span.End - 1);
         var memberLine = LayoutHelpers.StartLine(text, member.GetFirstToken());
 
-        if (memberLine > headerLastLine + 1)
+        if (memberLine > headerLastLine + 1 && HasBlankLineBetween(text, headerLastLine, memberLine))
         {
             context.ReportDiagnostic(Diagnostic.Create(LayoutRules.DocHeaderNotFollowedByBlankLine, member.GetFirstToken().GetLocation()));
         }
@@ -72,6 +72,28 @@ public sealed class DocumentationHeaderSpacingAnalyzer : DiagnosticAnalyzer
         }
 
         context.ReportDiagnostic(Diagnostic.Create(LayoutRules.DocHeaderPrecededByBlankLine, member.GetFirstToken().GetLocation()));
+    }
+
+    /// <summary>
+    /// Returns whether at least one genuinely blank line sits between the header and its element.
+    /// The line span between them can be occupied entirely by a preprocessor directive (e.g. an
+    /// <c>#if</c> guarding the declaration), which is not a blank line and must not be reported.
+    /// </summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="headerLastLine">The last line of the documentation header.</param>
+    /// <param name="memberLine">The line on which the element begins.</param>
+    /// <returns><see langword="true"/> when a whitespace-only line separates the header and element.</returns>
+    private static bool HasBlankLineBetween(SourceText text, int headerLastLine, int memberLine)
+    {
+        for (var line = headerLastLine + 1; line < memberLine; line++)
+        {
+            if (LayoutHelpers.IsBlankLine(text, line))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether the header lacks a required preceding blank line.</summary>

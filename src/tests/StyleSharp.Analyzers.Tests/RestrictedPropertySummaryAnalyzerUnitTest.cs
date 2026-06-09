@@ -17,6 +17,7 @@ public class RestrictedPropertySummaryAnalyzerUnitTest
     public async Task RestrictedSetterSummaryIsFixedAsync()
     {
         const string Source = """
+                              /// <summary>A container.</summary>
                               internal class C
                               {
                                   /// {|SST1624:<summary>Gets or sets the value.</summary>|}
@@ -24,6 +25,7 @@ public class RestrictedPropertySummaryAnalyzerUnitTest
                               }
                               """;
         const string FixedSource = """
+                                   /// <summary>A container.</summary>
                                    internal class C
                                    {
                                        /// <summary>Gets the value.</summary>
@@ -39,6 +41,7 @@ public class RestrictedPropertySummaryAnalyzerUnitTest
     public async Task EqualAccessibilityIsCleanAsync()
         => await VerifyRestrictedSummary.VerifyAnalyzerAsync(
             """
+            /// <summary>A container.</summary>
             internal class C
             {
                 /// <summary>Gets or sets the value.</summary>

@@ -5,12 +5,14 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Reports missing or invalid documentation on externally visible C# 14 extension blocks: a block
-/// without a <c>&lt;summary&gt;</c> (SST1654), an undocumented receiver parameter (SST1655) or type
-/// parameter (SST1656), and a <c>&lt;param&gt;</c>/<c>&lt;typeparam&gt;</c> element that references a
-/// name the block does not declare (SST1657 — the StyleSharp counterpart of the analyzer's the rule for
-/// extension blocks). A class with no extension block bails after a single membership scan, and on the
-/// Roslyn 4.8 floor the syntax cannot occur, so nothing is reported.
+/// Reports missing or invalid documentation on C# 14 extension blocks that are in the
+/// documentation-coverage scope (decided by the block's containing types and the shared
+/// <see cref="DocumentationCoverage"/> options): a block without a <c>&lt;summary&gt;</c> (SST1654),
+/// an undocumented receiver parameter (SST1655) or type parameter (SST1656), and a
+/// <c>&lt;param&gt;</c>/<c>&lt;typeparam&gt;</c> element that references a name the block does not
+/// declare (SST1657 — the StyleSharp counterpart of the analyzer's the rule for extension blocks). A
+/// class with no extension block bails after a single membership scan, and on the Roslyn 4.8 floor
+/// the syntax cannot occur, so nothing is reported.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ExtensionBlockDocumentationAnalyzer : DiagnosticAnalyzer
@@ -50,7 +52,8 @@ public sealed class ExtensionBlockDocumentationAnalyzer : DiagnosticAnalyzer
             if (!exposureResolved)
             {
                 exposureResolved = true;
-                exposed = DocumentationVisibility.HasExposedContainingTypes(block);
+                var coverage = DocumentationOptions.ReadCoverage(context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree));
+                exposed = DocumentationVisibility.NeedsContainerDocumentation(block, coverage);
             }
 
             if (!exposed)

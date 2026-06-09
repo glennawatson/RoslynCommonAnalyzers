@@ -23,7 +23,11 @@ public class DocumentationEdgeCaseUnitTest
             """
             /// <summary>A point.</summary>
             public record Point(int {|SST1611:X|});
-            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            namespace System.Runtime.CompilerServices
+            {
+                /// <summary>Reserved for compiler use to enable init-only setters on netstandard.</summary>
+                internal static class IsExternalInit { }
+            }
             """);
 
     /// <summary>Verifies a struct constructor summary is rewritten with "struct" (not "class").</summary>

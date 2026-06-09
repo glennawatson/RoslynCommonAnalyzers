@@ -117,12 +117,27 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies extension blocks in a non-exposed container are ignored.</summary>
+    /// <summary>Verifies an extension block in an internal container is reported by default (matching the analyzer's documentInternalElements default).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task InternalContainerIsCleanAsync()
+    public async Task InternalContainerReportedByDefaultAsync()
         => await RunAnalyzerAsync(
             """
+            internal static class SampleExtensions
+            {
+                {|SST1654:extension|}(string text)
+                {
+                    public bool IsEmpty => text.Length == 0;
+                }
+            }
+            """);
+
+    /// <summary>Verifies setting document_internal_elements = false stops an internal container's block from being reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InternalContainerIgnoredWhenInternalDisabledAsync()
+    {
+        const string Source = """
             internal static class SampleExtensions
             {
                 extension(string text)
@@ -130,7 +145,16 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
                     public bool IsEmpty => text.Length == 0;
                 }
             }
-            """);
+            """;
+        const string EditorConfig = """
+            root = true
+            [*.cs]
+            stylesharp.document_internal_elements = false
+
+            """;
+
+        await RunAnalyzerAsync(Source, EditorConfig);
+    }
 
     /// <summary>Verifies a block that inherits its documentation is ignored.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -210,13 +234,19 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
 
     /// <summary>Runs the analyzer verifier with a language version that supports extension blocks.</summary>
     /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
+    /// <param name="editorConfig">An optional <c>.editorconfig</c> file body to apply, or <see langword="null"/> for none.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task RunAnalyzerAsync(string source)
+    private static async Task RunAnalyzerAsync(string source, string? editorConfig = null)
     {
         var test = new VerifyExtensionDoc.Test
         {
             TestCode = source
         };
+
+        if (editorConfig is not null)
+        {
+            test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", editorConfig));
+        }
 
         ApplyExtensionBlockParseOptions(test.SolutionTransforms);
         await test.RunAsync(CancellationToken.None);

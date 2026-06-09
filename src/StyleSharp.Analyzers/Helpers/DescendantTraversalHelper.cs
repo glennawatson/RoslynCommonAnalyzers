@@ -20,6 +20,46 @@ internal static class DescendantTraversalHelper
     public delegate bool DescendantVisitor<in TNode, TState>(TNode node, ref TState state)
         where TNode : SyntaxNode;
 
+    /// <summary>Represents a preorder descendant-token visitor.</summary>
+    /// <typeparam name="TState">The caller state threaded through the traversal.</typeparam>
+    /// <param name="token">The current descendant token.</param>
+    /// <param name="state">The caller state.</param>
+    /// <returns><see langword="true"/> to continue, or <see langword="false"/> to stop.</returns>
+    public delegate bool DescendantTokenVisitor<TState>(in SyntaxToken token, ref TState state);
+
+    /// <summary>
+    /// Visits every token beneath <paramref name="root"/> in document (preorder)
+    /// order, mirroring <see cref="SyntaxNode.DescendantTokens(System.Func{SyntaxNode, bool}, bool)"/>
+    /// but without allocating an iterator or its internal stack. The visitor may
+    /// stop the walk early by returning <see langword="false"/>.
+    /// </summary>
+    /// <typeparam name="TState">The caller state threaded through the traversal.</typeparam>
+    /// <param name="root">The root whose descendant tokens to visit.</param>
+    /// <param name="state">The caller state.</param>
+    /// <param name="visitor">Returns <see langword="true"/> to continue, or <see langword="false"/> to stop.</param>
+    /// <returns><see langword="true"/> when the full traversal completed.</returns>
+    public static bool VisitDescendantTokens<TState>(SyntaxNode root, ref TState state, DescendantTokenVisitor<TState> visitor)
+    {
+        var children = root.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
+        {
+            var child = children[i];
+            if (child.IsToken)
+            {
+                if (!visitor(child.AsToken(), ref state))
+                {
+                    return false;
+                }
+            }
+            else if (child.AsNode() is { } childNode && !VisitDescendantTokens(childNode, ref state, visitor))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Visits matching descendants in preorder until the visitor asks to stop.</summary>
     /// <typeparam name="TNode">The descendant node type to surface to the visitor.</typeparam>
     /// <typeparam name="TState">The caller state threaded through the traversal.</typeparam>

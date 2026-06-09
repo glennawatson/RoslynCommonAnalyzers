@@ -19,16 +19,28 @@ internal readonly record struct FieldClassification(bool IsConst, bool IsStatic,
     /// <returns>The classification.</returns>
     public static FieldClassification Classify(SyntaxTokenList modifiers)
     {
+        var isConst = false;
+        var isStatic = false;
+        var isReadOnly = false;
+        var hasPrivate = false;
+        var hasOtherAccess = false;
+
+        // Single pass over the modifier list, setting every flag the classification
+        // needs instead of rescanning the same tokens once per modifier kind.
+        for (var i = 0; i < modifiers.Count; i++)
+        {
+            var kind = modifiers[i].Kind();
+            isConst |= kind == SyntaxKind.ConstKeyword;
+            isStatic |= kind == SyntaxKind.StaticKeyword;
+            isReadOnly |= kind == SyntaxKind.ReadOnlyKeyword;
+            hasPrivate |= kind == SyntaxKind.PrivateKeyword;
+            hasOtherAccess |= kind is SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword;
+        }
+
         // `private protected` keeps both keywords but is treated as private; a
         // field with no access modifier is private by default.
-        var hasOtherAccess = ModifierListHelper.ContainsEither(modifiers, SyntaxKind.PublicKeyword, SyntaxKind.InternalKeyword)
-            || ModifierListHelper.Contains(modifiers, SyntaxKind.ProtectedKeyword);
-        var isPrivate = ModifierListHelper.Contains(modifiers, SyntaxKind.PrivateKeyword) || !hasOtherAccess;
+        var isPrivate = hasPrivate || !hasOtherAccess;
 
-        return new(
-            ModifierListHelper.Contains(modifiers, SyntaxKind.ConstKeyword),
-            ModifierListHelper.Contains(modifiers, SyntaxKind.StaticKeyword),
-            ModifierListHelper.Contains(modifiers, SyntaxKind.ReadOnlyKeyword),
-            isPrivate);
+        return new(isConst, isStatic, isReadOnly, isPrivate);
     }
 }

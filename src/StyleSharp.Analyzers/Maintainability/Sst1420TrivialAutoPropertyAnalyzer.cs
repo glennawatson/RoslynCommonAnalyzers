@@ -93,15 +93,67 @@ public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
+    /// <summary>Returns whether all property accessors directly read or assign the supplied backing field, verifying the field name syntactically first.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="property">The property declaration.</param>
+    /// <param name="field">The backing-field symbol.</param>
+    /// <param name="fieldName">The backing-field name already matched by <see cref="TryGetSingleBackingFieldName"/>.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when all accessors trivially target the field.</returns>
+    /// <remarks>
+    /// Each accessor's read/assignment target is first compared by identifier text to <paramref name="fieldName"/>
+    /// (free, syntactic) before a single bind confirms it resolves to <paramref name="field"/>. This keeps exactly
+    /// one bind per accessor while avoiding the duplicate syntactic extraction that the name-agnostic overload pays.
+    /// </remarks>
+    internal static bool HasOnlyTrivialAccessors(
+        SemanticModel model,
+        PropertyDeclarationSyntax property,
+        IFieldSymbol field,
+        string fieldName,
+        CancellationToken cancellationToken)
+    {
+        if (property.AccessorList is not { Accessors.Count: > 0 } accessors)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < accessors.Accessors.Count; i++)
+        {
+            var accessor = accessors.Accessors[i];
+            if (accessor.Keyword.IsKind(SyntaxKind.GetKeyword))
+            {
+                if (!IsTrivialGet(model, accessor, field, fieldName, cancellationToken))
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (!IsTrivialSet(model, accessor, field, fieldName, cancellationToken))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Reports a property when every accessor is a direct field read or write.</summary>
     /// <param name="context">The syntax node context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var property = (PropertyDeclarationSyntax)context.Node;
-        if (!TryGetSingleBackingFieldName(property, out _)
+
+        // Resolve the backing field syntactically by name first. The name-keyed overload of
+        // TryFindSingleUseBackingField does a single GetDeclaredSymbol on the matched field instead
+        // of FindReferencedField's recursive GetSymbolInfo-on-every-identifier walk, so the field is
+        // bound once here and threaded straight into the trivial-accessor verification below.
+        if (!TryGetSingleBackingFieldName(property, out var fieldName)
             || !FieldReferenceAnalysis.TryFindSingleUseBackingField(
                 context.SemanticModel,
                 property,
+                fieldName!,
                 context.CancellationToken,
                 out _,
                 out _,
@@ -110,6 +162,7 @@ public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
                 context.SemanticModel,
                 property,
                 field!,
+                fieldName!,
                 context.CancellationToken))
         {
             return;
@@ -193,6 +246,32 @@ public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
             && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(expression, cancellationToken).Symbol, field);
     }
 
+    /// <summary>Returns whether a getter directly returns the named backing field, checking the name syntactically before binding once.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="accessor">The getter.</param>
+    /// <param name="field">The field symbol.</param>
+    /// <param name="fieldName">The expected backing-field name.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> for a trivial getter.</returns>
+    private static bool IsTrivialGet(
+        SemanticModel model,
+        AccessorDeclarationSyntax accessor,
+        IFieldSymbol field,
+        string fieldName,
+        CancellationToken cancellationToken)
+    {
+        var expression = accessor.ExpressionBody?.Expression;
+        if (expression is null && accessor.Body?.Statements is [ReturnStatementSyntax returnStatement])
+        {
+            expression = returnStatement.Expression;
+        }
+
+        return expression is not null
+            && TryGetFieldName(expression, out var name)
+            && string.Equals(name, fieldName, StringComparison.Ordinal)
+            && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(expression, cancellationToken).Symbol, field);
+    }
+
     /// <summary>Returns whether a write accessor directly assigns <c>value</c> to the backing field.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="accessor">The write accessor.</param>
@@ -212,6 +291,32 @@ public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
         }
 
         return expression is AssignmentExpressionSyntax { Left: var left, Right: IdentifierNameSyntax { Identifier.Text: "value" } }
+            && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(left, cancellationToken).Symbol, field);
+    }
+
+    /// <summary>Returns whether a write accessor directly assigns <c>value</c> to the named backing field, checking the name syntactically before binding once.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="accessor">The write accessor.</param>
+    /// <param name="field">The field symbol.</param>
+    /// <param name="fieldName">The expected backing-field name.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> for a trivial write accessor.</returns>
+    private static bool IsTrivialSet(
+        SemanticModel model,
+        AccessorDeclarationSyntax accessor,
+        IFieldSymbol field,
+        string fieldName,
+        CancellationToken cancellationToken)
+    {
+        var expression = accessor.ExpressionBody?.Expression;
+        if (expression is null && accessor.Body?.Statements is [ExpressionStatementSyntax statement])
+        {
+            expression = statement.Expression;
+        }
+
+        return expression is AssignmentExpressionSyntax { Left: var left, Right: IdentifierNameSyntax { Identifier.Text: "value" } }
+            && TryGetFieldName(left, out var name)
+            && string.Equals(name, fieldName, StringComparison.Ordinal)
             && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(left, cancellationToken).Symbol, field);
     }
 

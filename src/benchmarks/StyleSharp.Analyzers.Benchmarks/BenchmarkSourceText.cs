@@ -11,15 +11,25 @@ internal static class BenchmarkSourceText
     /// <param name="count">The number of blocks to generate.</param>
     /// <param name="createBlock">Builds one block.</param>
     /// <returns>The joined block text.</returns>
+    /// <remarks>
+    /// Uses the literal "\n" rather than <see cref="Environment.NewLine"/> so the
+    /// generated corpus has identical line counts on every OS, keeping parse size
+    /// and line/span results deterministic across platforms.
+    /// </remarks>
     public static string JoinBlocks(int count, Func<int, string> createBlock)
-        => Join(count, Environment.NewLine + Environment.NewLine, createBlock);
+        => Join(count, "\n\n", createBlock);
 
-    /// <summary>Joins generated lines with the platform newline sequence.</summary>
+    /// <summary>Joins generated lines with a deterministic newline sequence.</summary>
     /// <param name="count">The number of lines to generate.</param>
     /// <param name="createLine">Builds one line.</param>
     /// <returns>The joined line text.</returns>
+    /// <remarks>
+    /// Uses the literal "\n" rather than <see cref="Environment.NewLine"/> so the
+    /// generated corpus has identical line counts on every OS, keeping parse size
+    /// and line/span results deterministic across platforms.
+    /// </remarks>
     public static string JoinLines(int count, Func<int, string> createLine)
-        => Join(count, Environment.NewLine, createLine);
+        => Join(count, "\n", createLine);
 
     /// <summary>Builds joined text by repeatedly appending generated segments.</summary>
     /// <param name="count">The number of segments to generate.</param>

@@ -77,4 +77,43 @@ public class LayoutDocHeaderUnitTest
                 public int X => x;
             }
             """);
+
+    /// <summary>Verifies a preprocessor directive between the header and its element is not mistaken for a blank line.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DirectiveBetweenHeaderAndElementIsCleanAsync()
+        => await VerifyDoc.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                /// <summary>Does A.</summary>
+            #if NET6_0_OR_GREATER
+                public void A()
+            #else
+                public void A()
+            #endif
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies a real blank line is still reported even when a directive also sits between the header and element.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BlankLineWithDirectiveStillReportedAsync()
+        => await VerifyDoc.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                /// <summary>Does A.</summary>
+
+            #if NET6_0_OR_GREATER
+                public void A()
+            #else
+                {|SST1506:public|} void A()
+            #endif
+                {
+                }
+            }
+            """);
 }

@@ -112,3 +112,9 @@ Performance is a first-class requirement. Read [`docs/PERFORMANCE.md`](docs/PERF
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Acknowledgements
+
+This project was inspired by [StyleCop.Analyzers](https://github.com/DotNetAnalyzers/StyleCopAnalyzers). The analyzers and code fixes here are written from scratch, and no StyleCop.Analyzers source code was copied. Some diagnostic IDs, titles, and messages do mirror StyleCop's for familiarity, so StyleCop.Analyzers' MIT license is included in [LICENSE](LICENSE).
+
+Thanks to Sam Harwell and the StyleCop.Analyzers contributors. Their work set the standard this project learned from.

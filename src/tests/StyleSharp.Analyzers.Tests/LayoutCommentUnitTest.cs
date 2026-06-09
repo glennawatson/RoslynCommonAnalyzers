@@ -92,6 +92,34 @@ public class LayoutCommentUnitTest
             }
             """);
 
+    /// <summary>Verifies a comment immediately after a preprocessor directive is not flagged for a missing preceding blank line (SST1515).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CommentAfterDirectiveIsCleanAsync()
+        => await VerifyComment.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private void M(System.Collections.Generic.List<int> items)
+                {
+            #if NET8_0_OR_GREATER
+                    // Use Span-based iteration for zero-allocation enumeration.
+                    var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(items);
+                    for (var i = 0; i < span.Length; i++)
+                    {
+                        _ = span[i];
+                    }
+            #else
+                    // Fall back to foreach for older frameworks.
+                    foreach (var item in items)
+                    {
+                        _ = item;
+                    }
+            #endif
+                }
+            }
+            """);
+
     /// <summary>Verifies a file header comment keeps the blank separator before using directives (no SST1512).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

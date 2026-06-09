@@ -190,28 +190,101 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // A top-level <inheritdoc> takes the whole member's documentation from the
+        // base member, so no content rule applies anywhere in the comment. This
+        // mirrors the original up-front IsInheritDoc guard: it must suppress every
+        // other diagnostic, including those for content appearing before the
+        // <inheritdoc> in document order.
         if (XmlDocumentationHelper.IsInheritDoc(documentation))
         {
             return;
         }
 
-        CheckSummary(context, documentation, shape.NameToken, shape.SummaryRequirement);
+        // Single pass over the documentation content: classify each child node once
+        // (computing its element name a single time), capture the summary/returns
+        // elements, and run the per-element <param>/<typeparam>/prose checks inline.
+        // This replaces the former independent CheckParameterDocs / CheckTypeParameterDocs
+        // / CheckTerminalPeriods passes over the same content.
+        ScanContent(context, documentation, in shape, out var summary, out var returns);
+
+        CheckSummary(context, summary, shape.NameToken, shape.SummaryRequirement);
         CheckParameters(context, documentation, shape.Parameters);
-        CheckParameterDocs(context, documentation, shape.Parameters);
         CheckTypeParameters(context, documentation, shape.TypeParameters);
-        CheckTypeParameterDocs(context, documentation, shape.TypeParameters);
-        CheckReturns(context, documentation, shape.NameToken, shape.ReturnType);
-        CheckTerminalPeriods(context, documentation);
+        CheckReturns(context, returns, shape.NameToken, shape.ReturnType);
+    }
+
+    /// <summary>Scans the documentation content once, capturing the summary/returns elements and running the per-node checks.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="documentation">The documentation comment.</param>
+    /// <param name="shape">The member's documentation shape.</param>
+    /// <param name="summary">The first <c>&lt;summary&gt;</c> element, if any.</param>
+    /// <param name="returns">The first <c>&lt;returns&gt;</c> element, if any.</param>
+    private static void ScanContent(
+        SyntaxNodeAnalysisContext context,
+        DocumentationCommentTriviaSyntax documentation,
+        in MemberDoc shape,
+        out XmlNodeSyntax? summary,
+        out XmlNodeSyntax? returns)
+    {
+        summary = null;
+        returns = null;
+        foreach (var node in documentation.Content)
+        {
+            var name = XmlDocumentationHelper.GetElementName(node);
+            switch (name)
+            {
+                case "summary":
+                {
+                    summary ??= node;
+                    break;
+                }
+
+                case "returns":
+                {
+                    returns ??= node;
+                    break;
+                }
+
+                case "param":
+                {
+                    CheckParameterDoc(context, node, shape.Parameters);
+                    break;
+                }
+
+                case "typeparam":
+                {
+                    CheckTypeParameterDoc(context, node, shape.TypeParameters);
+                    break;
+                }
+            }
+
+            CheckProseTerminalPeriod(context, node, name);
+        }
+    }
+
+    /// <summary>Reports SST1629 when a prose element does not end with a period.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="node">The documentation content node.</param>
+    /// <param name="name">The node's element name.</param>
+    private static void CheckProseTerminalPeriod(SyntaxNodeAnalysisContext context, XmlNodeSyntax node, string? name)
+    {
+        if (node is not XmlElementSyntax prose
+            || !IsProseElement(name)
+            || !XmlDocumentationHelper.NeedsTerminalPeriod(prose, out _))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TextMustEndWithPeriod, prose.GetLocation()));
     }
 
     /// <summary>Reports a missing or empty summary, or one that does not follow its required leading-text convention.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="documentation">The documentation comment.</param>
+    /// <param name="summary">The first <c>&lt;summary&gt;</c> element captured during the single content pass, or <see langword="null"/>.</param>
     /// <param name="nameToken">The member's identifier.</param>
     /// <param name="requirement">A required leading-text convention, or <see langword="null"/>.</param>
-    private static void CheckSummary(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation, SyntaxToken nameToken, SummaryPrefix? requirement)
+    private static void CheckSummary(SyntaxNodeAnalysisContext context, XmlNodeSyntax? summary, SyntaxToken nameToken, SummaryPrefix? requirement)
     {
-        var summary = XmlDocumentationHelper.FindElement(documentation, "summary");
         if (summary is null)
         {
             context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.MustHaveSummary, nameToken.GetLocation(), nameToken.ValueText));
@@ -290,31 +363,25 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>Reports <c>&lt;param&gt;</c> elements that lack a name (SST1613) or name a non-existent parameter (SST1612).</summary>
+    /// <summary>Reports a single <c>&lt;param&gt;</c> element that lacks a name (SST1613) or names a non-existent parameter (SST1612).</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="documentation">The documentation comment.</param>
+    /// <param name="node">The <c>&lt;param&gt;</c> element node.</param>
     /// <param name="parameters">The member's parameters.</param>
-    private static void CheckParameterDocs(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation, in SeparatedSyntaxList<ParameterSyntax> parameters)
+    private static void CheckParameterDoc(SyntaxNodeAnalysisContext context, XmlNodeSyntax node, in SeparatedSyntaxList<ParameterSyntax> parameters)
     {
-        foreach (var node in documentation.Content)
+        var name = XmlDocumentationHelper.NameAttribute(node);
+        if (name is null)
         {
-            if (XmlDocumentationHelper.GetElementName(node) != "param")
-            {
-                continue;
-            }
-
-            var name = XmlDocumentationHelper.NameAttribute(node);
-            if (name is null)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ParameterDocumentationMustDeclareName, node.GetLocation()));
-                continue;
-            }
-
-            if (!ContainsName(parameters, name))
-            {
-                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ParameterDocumentationMustMatch, node.GetLocation(), name));
-            }
+            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ParameterDocumentationMustDeclareName, node.GetLocation()));
+            return;
         }
+
+        if (ContainsName(parameters, name))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ParameterDocumentationMustMatch, node.GetLocation(), name));
     }
 
     /// <summary>Returns whether <paramref name="parameters"/> contains a parameter named <paramref name="name"/>.</summary>
@@ -362,31 +429,25 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>Reports <c>&lt;typeparam&gt;</c> elements that lack a name (SST1621) or name a non-existent type parameter (SST1620).</summary>
+    /// <summary>Reports a single <c>&lt;typeparam&gt;</c> element that lacks a name (SST1621) or names a non-existent type parameter (SST1620).</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="documentation">The documentation comment.</param>
+    /// <param name="node">The <c>&lt;typeparam&gt;</c> element node.</param>
     /// <param name="typeParameters">The member's type parameters.</param>
-    private static void CheckTypeParameterDocs(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation, in SeparatedSyntaxList<TypeParameterSyntax> typeParameters)
+    private static void CheckTypeParameterDoc(SyntaxNodeAnalysisContext context, XmlNodeSyntax node, in SeparatedSyntaxList<TypeParameterSyntax> typeParameters)
     {
-        foreach (var node in documentation.Content)
+        var name = XmlDocumentationHelper.NameAttribute(node);
+        if (name is null)
         {
-            if (XmlDocumentationHelper.GetElementName(node) != "typeparam")
-            {
-                continue;
-            }
-
-            var name = XmlDocumentationHelper.NameAttribute(node);
-            if (name is null)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParameterDocumentationMustDeclareName, node.GetLocation()));
-                continue;
-            }
-
-            if (!ContainsTypeName(typeParameters, name))
-            {
-                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParameterDocumentationMustMatch, node.GetLocation(), name));
-            }
+            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParameterDocumentationMustDeclareName, node.GetLocation()));
+            return;
         }
+
+        if (ContainsTypeName(typeParameters, name))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParameterDocumentationMustMatch, node.GetLocation(), name));
     }
 
     /// <summary>Returns whether <paramref name="typeParameters"/> contains a type parameter named <paramref name="name"/>.</summary>
@@ -408,20 +469,17 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a missing <c>&lt;returns&gt;</c> for a non-void member, or a present one for a void member.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="documentation">The documentation comment.</param>
+    /// <param name="returns">The first <c>&lt;returns&gt;</c> element captured during the single content pass, or <see langword="null"/>.</param>
     /// <param name="nameToken">The member's identifier.</param>
     /// <param name="returnType">The return type, or <see langword="null"/>.</param>
-    private static void CheckReturns(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation, SyntaxToken nameToken, TypeSyntax? returnType)
+    private static void CheckReturns(SyntaxNodeAnalysisContext context, XmlNodeSyntax? returns, SyntaxToken nameToken, TypeSyntax? returnType)
     {
         if (returnType is null)
         {
             return;
         }
 
-        var isVoid = IsVoidLike(returnType);
-        var returns = XmlDocumentationHelper.FindElement(documentation, "returns");
-
-        switch (isVoid)
+        switch (IsVoidLike(returnType))
         {
             case true when returns is not null:
                 {
@@ -445,24 +503,6 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         }
 
         context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ReturnDocumentationMustHaveText, returns.GetLocation()));
-    }
-
-    /// <summary>Reports prose elements (summary, returns, remarks, value) whose text lacks terminal punctuation.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="documentation">The documentation comment.</param>
-    private static void CheckTerminalPeriods(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation)
-    {
-        foreach (var node in documentation.Content)
-        {
-            if (node is not XmlElementSyntax element
-                || !IsProseElement(XmlDocumentationHelper.GetElementName(element))
-                || !XmlDocumentationHelper.NeedsTerminalPeriod(element, out _))
-            {
-                continue;
-            }
-
-            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TextMustEndWithPeriod, element.GetLocation()));
-        }
     }
 
     /// <summary>Returns whether a member is an override or explicit interface implementation, or partial.</summary>

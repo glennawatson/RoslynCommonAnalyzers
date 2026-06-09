@@ -134,23 +134,7 @@ internal static class XmlDocumentationHelper
             return false;
         }
 
-        foreach (var token in element.DescendantTokens())
-        {
-            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
-            {
-                continue;
-            }
-
-            foreach (var character in token.ValueText)
-            {
-                if (!char.IsWhiteSpace(character))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return ContainsNonWhitespace(element);
     }
 
     /// <summary>Returns the element's text content with runs of whitespace collapsed to single spaces and trimmed.</summary>
@@ -163,34 +147,9 @@ internal static class XmlDocumentationHelper
             return string.Empty;
         }
 
-        var builder = new System.Text.StringBuilder();
-        var pendingSpace = false;
-        foreach (var token in element.DescendantTokens())
-        {
-            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
-            {
-                continue;
-            }
-
-            foreach (var character in token.ValueText)
-            {
-                if (char.IsWhiteSpace(character))
-                {
-                    pendingSpace = builder.Length > 0;
-                    continue;
-                }
-
-                if (pendingSpace)
-                {
-                    builder.Append(' ');
-                    pendingSpace = false;
-                }
-
-                builder.Append(character);
-            }
-        }
-
-        return builder.ToString();
+        var state = new NormalizeState(new System.Text.StringBuilder());
+        DescendantTraversalHelper.VisitDescendantTokens(element, ref state, AppendNormalizedToken);
+        return state.Builder.ToString();
     }
 
     /// <summary>
@@ -230,29 +189,10 @@ internal static class XmlDocumentationHelper
     /// <returns><see langword="true"/> when the node has text.</returns>
     public static bool TryGetLastTextCharacter(XmlNodeSyntax node, out char character, out int position)
     {
-        character = '\0';
-        position = -1;
-
-        foreach (var token in node.DescendantTokens())
-        {
-            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
-            {
-                continue;
-            }
-
-            var text = token.ValueText;
-            for (var i = 0; i < text.Length; i++)
-            {
-                if (!char.IsWhiteSpace(text[i]))
-                {
-                    character = text[i];
-
-                    // ValueText positions line up with the token span for XML text literals.
-                    position = token.SpanStart + i;
-                }
-            }
-        }
-
+        var state = new LastCharacterState();
+        DescendantTraversalHelper.VisitDescendantTokens(node, ref state, RecordLastTextCharacter);
+        character = state.Character;
+        position = state.Position;
         return position >= 0;
     }
 
@@ -269,13 +209,13 @@ internal static class XmlDocumentationHelper
     {
         foreach (var node in element.Content)
         {
-            if (node is not XmlTextSyntax)
+            if (node is not XmlTextSyntax text)
             {
                 // First significant content is an inline element, not text.
                 return false;
             }
 
-            foreach (var token in node.DescendantTokens())
+            foreach (var token in text.TextTokens)
             {
                 if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
                 {
@@ -306,29 +246,11 @@ internal static class XmlDocumentationHelper
     /// <returns><see langword="true"/> when the element has text.</returns>
     public static bool TryGetFirstTextCharacter(XmlElementSyntax element, out char character, out int position)
     {
-        character = '\0';
-        position = -1;
-
-        foreach (var token in element.DescendantTokens())
-        {
-            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
-            {
-                continue;
-            }
-
-            var text = token.ValueText;
-            for (var i = 0; i < text.Length; i++)
-            {
-                if (!char.IsWhiteSpace(text[i]))
-                {
-                    character = text[i];
-                    position = token.SpanStart + i;
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        var state = new FirstCharacterState();
+        DescendantTraversalHelper.VisitDescendantTokens(element, ref state, RecordFirstTextCharacter);
+        character = state.Character;
+        position = state.Position;
+        return position >= 0;
     }
 
     /// <summary>Returns the member declaration a documentation node belongs to (hopping out of the structured trivia).</summary>
@@ -388,29 +310,11 @@ internal static class XmlDocumentationHelper
     /// <returns><see langword="true"/> when the node has text.</returns>
     private static bool TryGetTrailingCharacters(XmlNodeSyntax node, out char last, out char secondLast, out int position)
     {
-        last = '\0';
-        secondLast = '\0';
-        position = -1;
-
-        foreach (var token in node.DescendantTokens())
-        {
-            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
-            {
-                continue;
-            }
-
-            var text = token.ValueText;
-            for (var i = 0; i < text.Length; i++)
-            {
-                if (!char.IsWhiteSpace(text[i]))
-                {
-                    secondLast = last;
-                    last = text[i];
-                    position = token.SpanStart + i;
-                }
-            }
-        }
-
+        var state = new TrailingCharactersState();
+        DescendantTraversalHelper.VisitDescendantTokens(node, ref state, RecordTrailingCharacters);
+        last = state.Last;
+        secondLast = state.SecondLast;
+        position = state.Position;
         return position >= 0;
     }
 
@@ -419,23 +323,139 @@ internal static class XmlDocumentationHelper
     /// <returns><see langword="true"/> when non-whitespace text is present.</returns>
     private static bool ContainsNonWhitespace(XmlNodeSyntax node)
     {
-        foreach (var token in node.DescendantTokens())
-        {
-            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
-            {
-                continue;
-            }
+        var found = false;
+        DescendantTraversalHelper.VisitDescendantTokens(node, ref found, RecordNonWhitespace);
+        return found;
+    }
 
-            foreach (var character in token.ValueText)
+    /// <summary>Records whether a token carries non-whitespace XML text, stopping the walk once found.</summary>
+    /// <param name="token">The visited token.</param>
+    /// <param name="found">Set to <see langword="true"/> when non-whitespace text is present.</param>
+    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> to stop.</returns>
+    private static bool RecordNonWhitespace(in SyntaxToken token, ref bool found)
+    {
+        if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+        {
+            return true;
+        }
+
+        foreach (var character in token.ValueText)
+        {
+            if (!char.IsWhiteSpace(character))
             {
-                if (!char.IsWhiteSpace(character))
-                {
-                    return true;
-                }
+                found = true;
+                return false;
             }
         }
 
-        return false;
+        return true;
+    }
+
+    /// <summary>Appends a token's XML text to the normalized-text builder, collapsing whitespace runs to single spaces.</summary>
+    /// <param name="token">The visited token.</param>
+    /// <param name="state">The accumulating builder state.</param>
+    /// <returns><see langword="true"/> to continue scanning.</returns>
+    private static bool AppendNormalizedToken(in SyntaxToken token, ref NormalizeState state)
+    {
+        if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+        {
+            return true;
+        }
+
+        foreach (var character in token.ValueText)
+        {
+            if (char.IsWhiteSpace(character))
+            {
+                state.PendingSpace = state.Builder.Length > 0;
+                continue;
+            }
+
+            if (state.PendingSpace)
+            {
+                state.Builder.Append(' ');
+                state.PendingSpace = false;
+            }
+
+            state.Builder.Append(character);
+        }
+
+        return true;
+    }
+
+    /// <summary>Records the first non-whitespace XML text character and its position, stopping the walk once found.</summary>
+    /// <param name="token">The visited token.</param>
+    /// <param name="state">The accumulating first-character state.</param>
+    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> to stop.</returns>
+    private static bool RecordFirstTextCharacter(in SyntaxToken token, ref FirstCharacterState state)
+    {
+        if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+        {
+            return true;
+        }
+
+        var text = token.ValueText;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (!char.IsWhiteSpace(text[i]))
+            {
+                state.Character = text[i];
+                state.Position = token.SpanStart + i;
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Records the last non-whitespace XML text character and its position.</summary>
+    /// <param name="token">The visited token.</param>
+    /// <param name="state">The accumulating last-character state.</param>
+    /// <returns><see langword="true"/> to continue scanning.</returns>
+    private static bool RecordLastTextCharacter(in SyntaxToken token, ref LastCharacterState state)
+    {
+        if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+        {
+            return true;
+        }
+
+        var text = token.ValueText;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (!char.IsWhiteSpace(text[i]))
+            {
+                state.Character = text[i];
+
+                // ValueText positions line up with the token span for XML text literals.
+                state.Position = token.SpanStart + i;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Records the last two non-whitespace XML text characters and the last one's position.</summary>
+    /// <param name="token">The visited token.</param>
+    /// <param name="state">The accumulating trailing-character state.</param>
+    /// <returns><see langword="true"/> to continue scanning.</returns>
+    private static bool RecordTrailingCharacters(in SyntaxToken token, ref TrailingCharactersState state)
+    {
+        if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+        {
+            return true;
+        }
+
+        var text = token.ValueText;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (!char.IsWhiteSpace(text[i]))
+            {
+                state.SecondLast = state.Last;
+                state.Last = text[i];
+                state.Position = token.SpanStart + i;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Records whether the traversal encountered an inheritdoc element.</summary>
@@ -451,5 +471,61 @@ internal static class XmlDocumentationHelper
 
         found = true;
         return false;
+    }
+
+    /// <summary>Mutable accumulator for <see cref="NormalizedText"/>'s whitespace-collapsing token walk.</summary>
+    /// <param name="Builder">The builder that receives the normalized text.</param>
+    private record struct NormalizeState(System.Text.StringBuilder Builder)
+    {
+        /// <summary>Gets or sets a value indicating whether a single collapsed space is owed before the next non-whitespace character.</summary>
+        public bool PendingSpace { get; set; }
+    }
+
+    /// <summary>Mutable accumulator for the first non-whitespace XML text character and its position.</summary>
+    private record struct FirstCharacterState
+    {
+        /// <summary>Initializes a new instance of the <see cref="FirstCharacterState"/> struct.</summary>
+        public FirstCharacterState()
+        {
+        }
+
+        /// <summary>Gets or sets the first non-whitespace character found, or <c>'\0'</c>.</summary>
+        public char Character { get; set; }
+
+        /// <summary>Gets or sets the absolute source position of <see cref="Character"/>, or <c>-1</c>.</summary>
+        public int Position { get; set; } = -1;
+    }
+
+    /// <summary>Mutable accumulator for the last non-whitespace XML text character and its position.</summary>
+    private record struct LastCharacterState
+    {
+        /// <summary>Initializes a new instance of the <see cref="LastCharacterState"/> struct.</summary>
+        public LastCharacterState()
+        {
+        }
+
+        /// <summary>Gets or sets the last non-whitespace character found, or <c>'\0'</c>.</summary>
+        public char Character { get; set; }
+
+        /// <summary>Gets or sets the absolute source position of <see cref="Character"/>, or <c>-1</c>.</summary>
+        public int Position { get; set; } = -1;
+    }
+
+    /// <summary>Mutable accumulator for the last two non-whitespace XML text characters and the last one's position.</summary>
+    private record struct TrailingCharactersState
+    {
+        /// <summary>Initializes a new instance of the <see cref="TrailingCharactersState"/> struct.</summary>
+        public TrailingCharactersState()
+        {
+        }
+
+        /// <summary>Gets or sets the last non-whitespace character found, or <c>'\0'</c>.</summary>
+        public char Last { get; set; }
+
+        /// <summary>Gets or sets the character preceding <see cref="Last"/>, or <c>'\0'</c>.</summary>
+        public char SecondLast { get; set; }
+
+        /// <summary>Gets or sets the absolute source position of <see cref="Last"/>, or <c>-1</c>.</summary>
+        public int Position { get; set; } = -1;
     }
 }

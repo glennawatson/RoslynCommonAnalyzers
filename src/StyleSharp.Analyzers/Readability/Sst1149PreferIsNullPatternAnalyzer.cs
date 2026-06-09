@@ -83,15 +83,26 @@ public sealed class Sst1149PreferIsNullPatternAnalyzer : DiagnosticAnalyzer
     {
         for (var current = node.Parent; current is not null; current = current.Parent)
         {
-            if (current is not AnonymousFunctionExpressionSyntax anonymous)
+            if (current is AnonymousFunctionExpressionSyntax anonymous)
             {
+                if (model.GetTypeInfo(anonymous, cancellationToken).ConvertedType is INamedTypeSymbol converted
+                    && SymbolEqualityComparer.Default.Equals(converted.OriginalDefinition, expressionType))
+                {
+                    return true;
+                }
+
                 continue;
             }
 
-            if (model.GetTypeInfo(anonymous, cancellationToken).ConvertedType is INamedTypeSymbol converted
-                && SymbolEqualityComparer.Default.Equals(converted.OriginalDefinition, expressionType))
+            // An `== null` can only sit inside an expression tree when a lambda lexically
+            // encloses it within the same expression. Crossing a statement or member
+            // boundary leaves every enclosing expression, so no ancestor lambda above this
+            // point can be the expression-tree boundary — stop before walking to the root.
+            // (Expression-bodied lambdas are expressions, not statements, so the `x => x == null`
+            // case is unaffected, and statement-bodied lambdas are never expression trees.)
+            if (current is StatementSyntax or MemberDeclarationSyntax)
             {
-                return true;
+                break;
             }
         }
 

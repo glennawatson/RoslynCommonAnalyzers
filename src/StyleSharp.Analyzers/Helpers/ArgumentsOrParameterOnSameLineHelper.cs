@@ -16,7 +16,9 @@ namespace StyleSharp.Analyzers;
 /// pair shares a line (all on one line) or when every adjacent pair is separated
 /// (each on its own line); it is jagged precisely when both a shared pair and a
 /// separated pair occur. This lets a single pass with two flags replace the old
-/// <c>HashSet</c> + LINQ approach with zero per-node heap allocations.
+/// <c>HashSet</c> + LINQ approach with zero per-node heap allocations, resolving
+/// each item's start line off the <see cref="Microsoft.CodeAnalysis.Text.SourceText"/>
+/// line table rather than allocating a <c>FileLinePositionSpan</c> per item.
 /// </remarks>
 internal static class ArgumentsOrParameterOnSameLineHelper
 {
@@ -174,15 +176,22 @@ internal static class ArgumentsOrParameterOnSameLineHelper
             return false;
         }
 
+        // Fetch the SourceText once and resolve start lines off its cached line
+        // table. Only the *start* line of each span is needed, so
+        // TextLineCollection.IndexOf avoids the FileLinePositionSpan (path string
+        // plus end-position resolution) that SyntaxTree.GetLineSpan allocates per
+        // item, and SourceText.Lines is newline-agnostic (handles CRLF/LF).
+        var lines = tree.GetText().Lines;
+
         // Anchor line = the list's opening delimiter. Start lines are
         // monotonically non-decreasing from here through every item.
-        var previousLine = tree.GetLineSpan(listNode.Span).StartLinePosition.Line;
+        var previousLine = lines.IndexOf(listNode.Span.Start);
         var sawShared = false;
         var sawSeparated = false;
 
         for (var i = 0; i < count; i++)
         {
-            var line = tree.GetLineSpan(list[i].Span).StartLinePosition.Line;
+            var line = lines.IndexOf(list[i].Span.Start);
             if (line == previousLine)
             {
                 sawShared = true;

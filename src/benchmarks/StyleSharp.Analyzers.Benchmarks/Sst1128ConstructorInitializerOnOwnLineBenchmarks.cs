@@ -1,0 +1,34 @@
+// Copyright (c) 2026 Glenn Watson and Contributors. All rights reserved.
+// Glenn Watson and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
+using BenchmarkDotNet.Attributes;
+
+namespace StyleSharp.Analyzers.Benchmarks;
+
+/// <summary>Memory benchmarks for the SST1128 constructor-initializer-on-own-line analyzer.</summary>
+[MemoryDiagnoser]
+[ShortRunJob]
+public class Sst1128ConstructorInitializerOnOwnLineBenchmarks
+{
+    /// <summary>The prepared benchmark state.</summary>
+    private SingleAnalyzerBenchmarkState _state = null!;
+
+    /// <summary>Gets or sets the synthetic node count used for each benchmark corpus.</summary>
+    [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
+    public int Nodes { get; set; }
+
+    /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
+    [GlobalSetup]
+    public void Setup() => _state = Sst1128ConstructorInitializerOnOwnLineBenchmarkCases.Create(Nodes);
+
+    /// <summary>Benchmarks the clean constructor-initializer path.</summary>
+    /// <returns>The number of diagnostics produced.</returns>
+    [Benchmark]
+    public Task<int> Sst1128ConstructorInitializerOnOwnLine_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
+
+    /// <summary>Benchmarks the violating constructor-initializer path.</summary>
+    /// <returns>The number of diagnostics produced.</returns>
+    [Benchmark]
+    public Task<int> Sst1128ConstructorInitializerOnOwnLine_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
+}

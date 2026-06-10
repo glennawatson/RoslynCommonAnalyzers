@@ -41,4 +41,65 @@ public class DuplicateDocumentationAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies prose that matches but differs only in an inline cref reference is not flagged (SST1625).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ParametersDifferingOnlyByCrefAreCleanAsync()
+        => await VerifyDuplicate.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                /// <summary>A logger.</summary>
+                /// <param name="writeNoType">A action which is called when the <see cref="Write(string)"/> is called.</param>
+                /// <param name="writeWithType">A action which is called when the <see cref="Write(string, int)"/> is called.</param>
+                /// <param name="writeWithException">A action which is called when the <see cref="Write(System.Exception, string)"/> is called.</param>
+                public void M(int writeNoType, int writeWithType, int writeWithException)
+                {
+                }
+
+                /// <summary>Writes the value.</summary>
+                /// <param name="value">The value.</param>
+                public void Write(string value)
+                {
+                }
+
+                /// <summary>Writes the value with a count.</summary>
+                /// <param name="value">The value.</param>
+                /// <param name="count">The count.</param>
+                public void Write(string value, int count)
+                {
+                }
+
+                /// <summary>Writes the value with an exception.</summary>
+                /// <param name="error">The error.</param>
+                /// <param name="value">The value.</param>
+                public void Write(System.Exception error, string value)
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies prose that matches and shares the same inline cref is still reported as a copy (SST1625).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ParametersWithIdenticalProseAndCrefAreReportedAsync()
+        => await VerifyDuplicate.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                /// <summary>A logger.</summary>
+                /// <param name="first">A action which is called when the <see cref="Write(string)"/> is called.</param>
+                /// {|SST1625:<param name="second">A action which is called when the <see cref="Write(string)"/> is called.</param>|}
+                public void M(int first, int second)
+                {
+                }
+
+                /// <summary>Writes the value.</summary>
+                /// <param name="value">The value.</param>
+                public void Write(string value)
+                {
+                }
+            }
+            """);
 }

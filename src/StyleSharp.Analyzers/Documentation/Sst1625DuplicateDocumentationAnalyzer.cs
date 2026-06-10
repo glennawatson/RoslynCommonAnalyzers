@@ -4,13 +4,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Reports a documentation element whose text is copied verbatim from another element in the
 /// same documentation comment (SST1625) — for example a parameter whose description repeats
-/// the summary.
+/// the summary. The comparison key includes inline reference targets (a <c>cref</c>, a
+/// <c>paramref</c> name, …) so two elements that read the same but point at different references
+/// — e.g. parameter descriptions differing only in their <c>&lt;see cref="…"/&gt;</c> — are not
+/// mistaken for copies.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
@@ -37,7 +41,13 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var documentation = (DocumentationCommentTriviaSyntax)context.Node;
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        // The buffer is built once and cleared per element; the dedup state stays unallocated until a
+        // second non-empty element appears, so the common single-element comment costs no HashSet.
+        StringBuilder? builder = null;
+        string? firstKey = null;
+        HashSet<string>? seen = null;
+
         foreach (var node in documentation.Content)
         {
             if (node is not XmlElementSyntax element)
@@ -45,8 +55,23 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            var text = XmlDocumentationHelper.NormalizedText(element);
-            if (text.Length == 0 || seen.Add(text))
+            builder ??= new StringBuilder();
+            builder.Clear();
+            XmlDocumentationHelper.AppendDuplicateComparisonKey(element, builder);
+            if (builder.Length == 0)
+            {
+                continue;
+            }
+
+            var text = builder.ToString();
+            if (firstKey is null)
+            {
+                firstKey = text;
+                continue;
+            }
+
+            seen ??= new HashSet<string>(StringComparer.Ordinal) { firstKey };
+            if (seen.Add(text))
             {
                 continue;
             }

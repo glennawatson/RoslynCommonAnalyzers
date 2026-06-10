@@ -32,8 +32,8 @@ internal static class Sst1625DuplicateDocumentationBenchmarkSource
         => $$"""
            internal class C{{index}}
            {
-               /// <summary>Does the work.</summary>
-               /// <param name="x">The input value.</param>
+               /// <summary>Does the work with <see cref="System.Console"/>.</summary>
+               /// <param name="x">The input value for <see cref="System.String"/>.</param>
                public void M(int x)
                {
                }
@@ -47,8 +47,8 @@ internal static class Sst1625DuplicateDocumentationBenchmarkSource
         => $$"""
            internal class C{{index}}
            {
-               /// <summary>The same text.</summary>
-               /// <param name="x">The same text.</param>
+               /// <summary>The same <see cref="System.Console"/> text.</summary>
+               /// <param name="x">The same <see cref="System.Console"/> text.</param>
                public void M(int x)
                {
                }

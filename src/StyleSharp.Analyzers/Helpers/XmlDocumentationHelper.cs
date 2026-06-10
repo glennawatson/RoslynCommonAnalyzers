@@ -153,6 +153,26 @@ internal static class XmlDocumentationHelper
     }
 
     /// <summary>
+    /// Appends the element's normalized prose <em>and</em> the targets of any inline references
+    /// (a <c>cref</c>, a <c>paramref</c>/<c>typeparamref</c> <c>name</c>, or another attribute value
+    /// such as <c>langword</c>/<c>href</c>) to <paramref name="builder"/>, forming the comparison key
+    /// for duplicate-documentation detection. Including the reference target is what stops two elements
+    /// whose prose matches but whose references differ — e.g. <c>&lt;see cref="Write(string)"/&gt;</c>
+    /// versus <c>&lt;see cref="Write(string, int)"/&gt;</c> — from being treated as copies. Only the
+    /// element's own content is walked, so the element's own start-tag attributes (such as a
+    /// <c>&lt;param&gt;</c>'s <c>name</c>) never enter the key — two equally-worded parameters with
+    /// different names are still a genuine duplicate. The caller owns the builder so it can be cleared
+    /// and reused across a comment's elements, keeping the scan to one buffer per documentation comment.
+    /// </summary>
+    /// <param name="element">The element whose comparison key is built.</param>
+    /// <param name="builder">The reusable buffer that receives the key.</param>
+    public static void AppendDuplicateComparisonKey(XmlElementSyntax element, System.Text.StringBuilder builder)
+    {
+        var state = new NormalizeState(builder);
+        AppendContentKey(element.Content, ref state);
+    }
+
+    /// <summary>
     /// Determines whether an element's prose should gain a terminal period — i.e.
     /// its last significant content is plain text not already ending in terminal
     /// punctuation. Skips elements whose content ends with an inline element (e.g.
@@ -362,7 +382,16 @@ internal static class XmlDocumentationHelper
             return true;
         }
 
-        foreach (var character in token.ValueText)
+        AppendCollapsed(token.ValueText, ref state);
+        return true;
+    }
+
+    /// <summary>Appends a string to the builder, collapsing runs of whitespace to single spaces.</summary>
+    /// <param name="value">The text to append.</param>
+    /// <param name="state">The accumulating builder state.</param>
+    private static void AppendCollapsed(string value, ref NormalizeState state)
+    {
+        foreach (var character in value)
         {
             if (char.IsWhiteSpace(character))
             {
@@ -378,7 +407,97 @@ internal static class XmlDocumentationHelper
 
             state.Builder.Append(character);
         }
+    }
 
+    /// <summary>Appends the comparison-key text for a node list, recursing into nested elements.</summary>
+    /// <param name="content">The content nodes to walk.</param>
+    /// <param name="state">The accumulating builder state.</param>
+    private static void AppendContentKey(SyntaxList<XmlNodeSyntax> content, ref NormalizeState state)
+    {
+        foreach (var node in content)
+        {
+            switch (node)
+            {
+                case XmlTextSyntax text:
+                {
+                    AppendTextTokens(text, ref state);
+                    break;
+                }
+
+                case XmlEmptyElementSyntax empty:
+                {
+                    AppendAttributeValues(empty.Attributes, ref state);
+                    break;
+                }
+
+                case XmlElementSyntax inner:
+                {
+                    AppendAttributeValues(inner.StartTag.Attributes, ref state);
+                    AppendContentKey(inner.Content, ref state);
+                    break;
+                }
+            }
+        }
+    }
+
+    /// <summary>Appends the literal text tokens of an XML text node, collapsing whitespace.</summary>
+    /// <param name="text">The XML text node.</param>
+    /// <param name="state">The accumulating builder state.</param>
+    private static void AppendTextTokens(XmlTextSyntax text, ref NormalizeState state)
+    {
+        foreach (var token in text.TextTokens)
+        {
+            if (token.IsKind(SyntaxKind.XmlTextLiteralToken))
+            {
+                AppendCollapsed(token.ValueText, ref state);
+            }
+        }
+    }
+
+    /// <summary>Appends the distinguishing values of an inline reference's attributes (cref, name, langword, …).</summary>
+    /// <param name="attributes">The attributes of an inline reference element.</param>
+    /// <param name="state">The accumulating builder state.</param>
+    private static void AppendAttributeValues(SyntaxList<XmlAttributeSyntax> attributes, ref NormalizeState state)
+    {
+        foreach (var attribute in attributes)
+        {
+            switch (attribute)
+            {
+                case XmlCrefAttributeSyntax cref:
+                {
+                    state.PendingSpace = state.Builder.Length > 0;
+                    DescendantTraversalHelper.VisitDescendantTokens(cref.Cref, ref state, AppendTokenValue);
+                    break;
+                }
+
+                case XmlNameAttributeSyntax name:
+                {
+                    state.PendingSpace = state.Builder.Length > 0;
+                    AppendCollapsed(name.Identifier.Identifier.ValueText, ref state);
+                    break;
+                }
+
+                case XmlTextAttributeSyntax value:
+                {
+                    state.PendingSpace = state.Builder.Length > 0;
+                    foreach (var token in value.TextTokens)
+                    {
+                        AppendCollapsed(token.ValueText, ref state);
+                    }
+
+                    break;
+                }
+            }
+        }
+    }
+
+    /// <summary>Appends a token's value text to the builder (used for cref tokens), collapsing whitespace.</summary>
+    /// <param name="token">The visited token.</param>
+    /// <param name="state">The accumulating builder state.</param>
+    /// <returns><see langword="true"/> to continue scanning.</returns>
+    private static bool AppendTokenValue(in SyntaxToken token, ref NormalizeState state)
+    {
+        AppendCollapsed(token.ValueText, ref state);
         return true;
     }
 

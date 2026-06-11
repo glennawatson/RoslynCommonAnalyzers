@@ -34,6 +34,9 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>The fix action that removes whitespace immediately after the token.</summary>
     internal const string RemoveAfter = "RemoveAfter";
 
+    /// <summary>Editorconfig key choosing the collection-expression inner-bracket style ('none' tight, default; 'space' padded). Governs SST1010/SST1011.</summary>
+    internal const string CollectionExpressionSpacingKey = "stylesharp.collection_expression_spacing";
+
     /// <summary>The width of the comment opener, used to find the first character of the comment text.</summary>
     private const int CommentOpenerLength = 2;
 
@@ -112,13 +115,14 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     {
         var text = context.Tree.GetText(context.CancellationToken);
         var root = context.Tree.GetRoot(context.CancellationToken);
+        var collectionPadded = ReadCollectionExpressionPadded(context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Tree));
 
         var previous = default(SyntaxToken);
         foreach (var token in root.DescendantTokens())
         {
             ProcessTrivia(context, text, token.LeadingTrivia, isTrailing: false);
             ProcessTrivia(context, text, token.TrailingTrivia, isTrailing: true);
-            CheckPair(context, previous, token);
+            CheckPair(context, previous, token, collectionPadded);
             previous = token;
         }
     }
@@ -127,7 +131,8 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
-    private static void CheckPair(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
+    /// <param name="collectionPadded">Whether collection-expression brackets are padded ('[ 1 ]').</param>
+    private static void CheckPair(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, bool collectionPadded)
     {
         if (previous.IsKind(SyntaxKind.None))
         {
@@ -141,6 +146,11 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
         CheckBinaryOperator(context, previous, current, separation);
         CheckBraces(context, previous, current, separation);
         CheckColon(context, previous, current, separation);
+
+        // Square-bracket spacing runs for every separation (not just Space): a padded collection
+        // expression must *add* a space to an otherwise adjacent bracket.
+        CheckOpeningBracket(context, previous, current, separation, collectionPadded);
+        CheckClosingBracket(context, previous, current, separation, collectionPadded);
         if (separation != Separation.Space)
         {
             return;
@@ -153,9 +163,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
         CheckImplicitArray(context, previous, current);
         CheckIncrementDecrement(context, previous, current);
         CheckUnarySign(context, previous, current);
-        CheckClosingBracket(context, current);
         CheckParentheses(context, previous, current);
-        CheckOpeningBracket(context, previous, current);
         CheckPointerSymbol(context, previous);
     }
 
@@ -176,21 +184,85 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
-    private static void CheckOpeningBracket(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
+    /// <param name="separation">The whitespace separation between the tokens.</param>
+    /// <param name="collectionPadded">Whether collection-expression brackets are padded ('[ 1 ]').</param>
+    private static void CheckOpeningBracket(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation, bool collectionPadded)
     {
-        // A space before '[' after 'new'/'stackalloc' is the implicit-array case owned by SST1026.
-        var spaceBefore = current.IsKind(SyntaxKind.OpenBracketToken)
-            && current.Parent is not AttributeListSyntax
-            && !previous.IsKind(SyntaxKind.NewKeyword)
-            && !previous.IsKind(SyntaxKind.StackAllocKeyword);
-        var spaceAfter = previous.IsKind(SyntaxKind.OpenBracketToken) && previous.Parent is not AttributeListSyntax;
-        if (!spaceBefore && !spaceAfter)
+        CheckSpaceBeforeOpen(context, previous, current, separation);
+
+        // Spacing AFTER '[' (previous is the bracket).
+        if (!previous.IsKind(SyntaxKind.OpenBracketToken) || previous.Parent is AttributeListSyntax)
+        {
+            return;
+        }
+
+        if (IsCollectionLikeBracket(previous.Parent))
+        {
+            CheckCollectionInnerAfterOpen(context, previous, current, separation, collectionPadded);
+        }
+        else if (separation == Separation.Space)
+        {
+            Report(context, SpacingRules.OpeningSquareBracket, current, RemoveBefore);
+        }
+    }
+
+    /// <summary>Reports a space before an element-access / array '[' (SST1010). Collection-expression and list-pattern brackets are exempt.</summary>
+    /// <param name="context">The syntax tree analysis context.</param>
+    /// <param name="previous">The earlier token.</param>
+    /// <param name="current">The later token (the candidate '[').</param>
+    /// <param name="separation">The whitespace separation between the tokens.</param>
+    private static void CheckSpaceBeforeOpen(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
+    {
+        // A collection-expression / list-pattern '[' opens a new construct after an operator/keyword
+        // ('x = [1]', 'x is [1]'), so its leading space belongs to those rules and is always allowed —
+        // this is the collection friendliness. A space before '[' after 'new'/'stackalloc' is the
+        // implicit-array case owned by SST1026.
+        if (separation != Separation.Space
+            || !current.IsKind(SyntaxKind.OpenBracketToken)
+            || current.Parent is AttributeListSyntax
+            || IsCollectionLikeBracket(current.Parent)
+            || previous.IsKind(SyntaxKind.NewKeyword)
+            || previous.IsKind(SyntaxKind.StackAllocKeyword))
         {
             return;
         }
 
         Report(context, SpacingRules.OpeningSquareBracket, current, RemoveBefore);
     }
+
+    /// <summary>Applies the configured collection-expression inner-spacing style to the space after '['.</summary>
+    /// <param name="context">The syntax tree analysis context.</param>
+    /// <param name="open">The opening bracket token.</param>
+    /// <param name="current">The token following the bracket.</param>
+    /// <param name="separation">The whitespace separation between the tokens.</param>
+    /// <param name="collectionPadded">Whether collection-expression brackets are padded ('[ 1 ]').</param>
+    private static void CheckCollectionInnerAfterOpen(SyntaxTreeAnalysisContext context, SyntaxToken open, SyntaxToken current, Separation separation, bool collectionPadded)
+    {
+        // An empty collection ('[]') is handled with the closing bracket so the single inner space is
+        // reported once; never force padding into an empty collection.
+        if (current.IsKind(SyntaxKind.CloseBracketToken))
+        {
+            return;
+        }
+
+        if (collectionPadded)
+        {
+            if (separation == Separation.Adjacent)
+            {
+                Report(context, SpacingRules.OpeningSquareBracket, open, AddAfter);
+            }
+        }
+        else if (separation == Separation.Space)
+        {
+            Report(context, SpacingRules.OpeningSquareBracket, current, RemoveBefore);
+        }
+    }
+
+    /// <summary>Returns whether a '[' / ']' opens a collection expression or list pattern (the literal '[...]' forms).</summary>
+    /// <param name="parent">The bracket token's parent node.</param>
+    /// <returns><see langword="true"/> for a collection expression or list pattern.</returns>
+    private static bool IsCollectionLikeBracket(SyntaxNode? parent)
+        => parent is CollectionExpressionSyntax or ListPatternSyntax;
 
     /// <summary>Reports a space inside parentheses — after '(' (SST1008) or before ')' (SST1009).</summary>
     /// <param name="context">The syntax tree analysis context.</param>
@@ -410,18 +482,68 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>Reports a space before a closing square bracket (SST1011).</summary>
+    /// <summary>Reports incorrect spacing before a closing square bracket (SST1011), honouring the collection-expression style.</summary>
     /// <param name="context">The syntax tree analysis context.</param>
-    /// <param name="current">The later token.</param>
-    private static void CheckClosingBracket(SyntaxTreeAnalysisContext context, SyntaxToken current)
+    /// <param name="previous">The earlier token.</param>
+    /// <param name="current">The later token (the candidate ']').</param>
+    /// <param name="separation">The whitespace separation between the tokens.</param>
+    /// <param name="collectionPadded">Whether collection-expression brackets are padded ('[ 1 ]').</param>
+    private static void CheckClosingBracket(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation, bool collectionPadded)
     {
         if (!current.IsKind(SyntaxKind.CloseBracketToken) || current.Parent is AttributeListSyntax)
         {
             return;
         }
 
-        Report(context, SpacingRules.ClosingSquareBracket, current, RemoveBefore);
+        if (IsCollectionLikeBracket(current.Parent))
+        {
+            CheckCollectionInnerBeforeClose(context, previous, current, separation, collectionPadded);
+        }
+        else if (separation == Separation.Space)
+        {
+            // Element-access / array ']' must not be preceded by a space.
+            Report(context, SpacingRules.ClosingSquareBracket, current, RemoveBefore);
+        }
     }
+
+    /// <summary>Applies the configured collection-expression inner-spacing style to the space before ']'.</summary>
+    /// <param name="context">The syntax tree analysis context.</param>
+    /// <param name="previous">The token preceding the bracket.</param>
+    /// <param name="current">The closing bracket token.</param>
+    /// <param name="separation">The whitespace separation between the tokens.</param>
+    /// <param name="collectionPadded">Whether collection-expression brackets are padded ('[ 1 ]').</param>
+    private static void CheckCollectionInnerBeforeClose(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation, bool collectionPadded)
+    {
+        // An empty collection ('[]' or '[ ]') is kept tight and never forced to pad.
+        if (previous.IsKind(SyntaxKind.OpenBracketToken))
+        {
+            if (!collectionPadded && separation == Separation.Space)
+            {
+                Report(context, SpacingRules.ClosingSquareBracket, current, RemoveBefore);
+            }
+
+            return;
+        }
+
+        if (collectionPadded)
+        {
+            if (separation == Separation.Adjacent)
+            {
+                Report(context, SpacingRules.ClosingSquareBracket, current, AddBefore);
+            }
+        }
+        else if (separation == Separation.Space)
+        {
+            Report(context, SpacingRules.ClosingSquareBracket, current, RemoveBefore);
+        }
+    }
+
+    /// <summary>Reads the collection-expression inner-spacing style ('none' tight, default; 'space' padded).</summary>
+    /// <param name="options">The analyzer config options for the syntax tree.</param>
+    /// <returns><see langword="true"/> when collection expressions should be padded ('[ 1, 2 ]').</returns>
+    private static bool ReadCollectionExpressionPadded(AnalyzerConfigOptions options)
+        => options.TryGetValue(CollectionExpressionSpacingKey, out var value)
+            && string.Equals(value, "space", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Returns whether the token is an increment or decrement operator.</summary>
     /// <param name="token">The token.</param>

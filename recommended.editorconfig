@@ -14,6 +14,7 @@
 # stylesharp.union_member_naming = pascal_case             # SST1315
 # stylesharp.record_parameter_naming = pascal_case         # SST1801
 # stylesharp.conditional_operator_placement = leading      # SST1145
+# stylesharp.collection_expression_spacing = none          # SST1010/1011 (set 'space' for padded '[ 1, 2 ]')
 # stylesharp.summary_single_line_max_length = 100          # SST1653
 # stylesharp.namespace_root = MyCompany.MyProduct          # SST1417 (also reads MSBuild RootNamespace)
 # stylesharp.max_switch_sections = 30                      # SST1423
@@ -270,7 +271,7 @@ dotnet_diagnostic.SST1006.severity = warning # A preprocessor keyword is precede
 dotnet_diagnostic.SST1007.severity = warning # An operator keyword is not followed by a space
 dotnet_diagnostic.SST1008.severity = warning # An opening parenthesis is followed by a space
 dotnet_diagnostic.SST1009.severity = warning # A closing parenthesis is preceded by a space
-# dotnet_diagnostic.SST1010.severity = warning # An opening square bracket has adjacent whitespace (opt-in)
+# dotnet_diagnostic.SST1010.severity = warning # Opening square bracket spacing (opt-in; friendly with collection expressions — see stylesharp.collection_expression_spacing)
 dotnet_diagnostic.SST1011.severity = warning # A closing square bracket is preceded by a space
 dotnet_diagnostic.SST1012.severity = warning # An opening brace is not followed by a space on a single line
 dotnet_diagnostic.SST1013.severity = warning # A closing brace is not preceded by a space on a single line

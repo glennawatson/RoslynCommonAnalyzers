@@ -53,6 +53,7 @@ Some rules expose options. Current options:
 | `stylesharp.extension_container_preferred_suffix` | [SST1704](rules/SST1704.md) | `Extensions`, `Mixins` | `Extensions` |
 | `stylesharp.namespace_root` | [SST1417](rules/SST1417.md) | namespace text | MSBuild `RootNamespace` |
 | `stylesharp.conditional_operator_placement` | [SST1145](rules/SST1145.md) | `leading`, `trailing` | `leading` |
+| `stylesharp.collection_expression_spacing` | [SST1010](rules/SST1010.md) / [SST1011](rules/SST1011.md) | `none`, `space` | `none` |
 | `stylesharp.summary_single_line_max_length` | [SST1653](rules/SST1653.md) | positive integer | `100` |
 | `stylesharp.max_switch_sections` | [SST1423](rules/SST1423.md) | positive integer | `30` |
 | `stylesharp.document_exposed_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
@@ -111,6 +112,32 @@ false`):
 [*.cs]
 stylesharp.document_internal_elements = false
 ```
+
+### Collection expression spacing
+
+`stylesharp.collection_expression_spacing` chooses the inner-bracket style for C#
+`[...]` literals — **collection expressions** (`x = [1, 2]`) and **list patterns**
+(`x is [1, 2]`). It governs both the opening bracket ([SST1010](rules/SST1010.md))
+and the closing bracket ([SST1011](rules/SST1011.md)), keeping the two sides
+symmetric.
+
+- `none` (default) — tight `[1, 2]`. Inner padding is removed.
+- `space` — padded `[ 1, 2 ]`. Inner padding is required.
+
+```ini
+[*.cs]
+stylesharp.collection_expression_spacing = space
+```
+
+The **outer** space before `[` (after `=`, `return`, `is`, `(`, `,`, etc.) is always
+allowed regardless of this option — that is what lets SST1010 be enabled alongside
+collection expressions without rewriting `x = [1, 2]` to `x =[1, 2]`. Empty
+collections stay `[]` under either setting. Element-access and array brackets
+(`items[0]`, `new int[4]`) are never affected by this option and are always tight.
+
+Because SST1010 is opt-in (off by default), enabling the padded style end-to-end
+requires turning SST1010 on as well; otherwise only the closing bracket (SST1011, on
+by default) is enforced.
 
 ## Adding options to new rules
 

@@ -673,6 +673,203 @@ public class SpacingAnalyzerUnitTest
         await VerifySpacing.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies SST1010 (enabled) leaves the outer space before a collection-expression '[' alone (the C# 12 'x = [1, 2]' style).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CollectionExpressionOuterSpaceAllowedAsync()
+    {
+        var test = new VerifySpacing.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private static readonly int[] Field = [1, 2, 3];
+                       }
+                       """
+        };
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies SST1010 (enabled) leaves the outer space before a list-pattern '[' alone ('x is [1, 2]').</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ListPatternOuterSpaceAllowedAsync()
+    {
+        var test = new VerifySpacing.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private static bool M(int[] a) => a is [1, 2];
+                       }
+                       """
+        };
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies that by default (tight) inner padding in a collection expression is reported and removed, while the outer space is kept.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CollectionExpressionInnerSpaceRemovedByDefaultAsync()
+    {
+        var test = new VerifySpacing.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private static readonly int[] Field = [ {|SST1010:1|}, 2 {|SST1011:]|};
+                       }
+                       """,
+            FixedCode = """
+                        internal class C
+                        {
+                            private static readonly int[] Field = [1, 2];
+                        }
+                        """
+        };
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies that with collection_expression_spacing = space, a padded collection expression produces no diagnostics.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CollectionExpressionPaddedAllowedAsync()
+    {
+        var test = new VerifySpacing.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private static readonly int[] Field = [ 1, 2, 3 ];
+                       }
+                       """
+        };
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+            stylesharp.collection_expression_spacing = space
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies that with collection_expression_spacing = space, a tight collection expression is reported and inner padding is added.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CollectionExpressionPaddedRequiresInnerSpaceAsync()
+    {
+        var test = new VerifySpacing.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private static readonly int[] Field = {|SST1010:[|}1, 2, 3{|SST1011:]|};
+                       }
+                       """,
+            FixedCode = """
+                        internal class C
+                        {
+                            private static readonly int[] Field = [ 1, 2, 3 ];
+                        }
+                        """
+        };
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+            stylesharp.collection_expression_spacing = space
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies an empty collection expression stays tight ('[]') even when collection_expression_spacing = space.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task EmptyCollectionExpressionStaysTightWhenPaddedAsync()
+    {
+        var test = new VerifySpacing.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private static readonly int[] Field = [];
+                       }
+                       """
+        };
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+            stylesharp.collection_expression_spacing = space
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the collection_expression_spacing option does not affect indexer brackets, which stay tight.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task IndexerUnaffectedByPaddedOptionAsync()
+    {
+        var test = new VerifySpacing.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private static int M(int[] arr) => arr[ {|SST1010:0|} {|SST1011:]|};
+                       }
+                       """,
+            FixedCode = """
+                        internal class C
+                        {
+                            private static int M(int[] arr) => arr[0];
+                        }
+                        """
+        };
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+            stylesharp.collection_expression_spacing = space
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a documentation line abutting the '///' is reported (SST1004) and a space added.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

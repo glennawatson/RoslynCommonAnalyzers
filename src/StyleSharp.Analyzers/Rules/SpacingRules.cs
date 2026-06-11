@@ -157,12 +157,12 @@ internal static class SpacingRules
         "A closing brace should be preceded by a space",
         "A non-empty single-line brace block has a space before the closing brace.");
 
-    /// <summary>SST1010 — an opening square bracket has adjacent whitespace (opt-in; conflicts with collection expressions).</summary>
+    /// <summary>SST1010 — an opening square bracket is spaced incorrectly (opt-in).</summary>
     public static readonly DiagnosticDescriptor OpeningSquareBracket = CreateOptIn(
         "SST1010",
         "Opening square brackets should be spaced correctly",
-        "An opening square bracket should not be preceded or followed by a space",
-        "The '[' of an element access or array has no adjacent whitespace. Off by default — it conflicts with the C# 12 collection-expression style ('x = [1, 2]').");
+        "Fix the spacing at the opening square bracket",
+        "An element-access or array '[' has no adjacent whitespace. Collection-expression brackets follow 'stylesharp.collection_expression_spacing' ('none'/'space'). Off by default.");
 
     /// <summary>SST1023 — a dereference or address-of symbol is followed by a space (opt-in; unsafe pointer code only).</summary>
     public static readonly DiagnosticDescriptor PointerSymbolSpacing = CreateOptIn(
@@ -185,12 +185,12 @@ internal static class SpacingRules
         "Add a space after the 'operator' keyword",
         "The 'operator' keyword is followed by a space before the operator symbol or target type.");
 
-    /// <summary>SST1011 — a closing square bracket is preceded by a space.</summary>
+    /// <summary>SST1011 — a closing square bracket is spaced incorrectly.</summary>
     public static readonly DiagnosticDescriptor ClosingSquareBracket = Create(
         "SST1011",
         "Closing square brackets should be spaced correctly",
-        "A closing square bracket should not be preceded by a space",
-        "A closing ']' is not preceded by whitespace.");
+        "Fix the spacing at the closing square bracket",
+        "A closing ']' has no preceding whitespace, unless 'stylesharp.collection_expression_spacing = space' selects the padded '[ 1, 2 ]' style.");
 
     /// <summary>SST1020 — an increment or decrement symbol is separated from its operand by a space.</summary>
     public static readonly DiagnosticDescriptor IncrementDecrementSpacing = Create(

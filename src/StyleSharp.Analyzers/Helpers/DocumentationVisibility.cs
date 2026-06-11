@@ -74,6 +74,68 @@ internal static class DocumentationVisibility
         coverage.PrivateElements || NeedsByEffective(node, Accessibility.NotApplicable, coverage);
 
     /// <summary>
+    /// Returns whether a field declaration requires documentation. Fields are governed by the exposed /
+    /// internal toggles when their effective accessibility is non-private, and by the separate
+    /// <see cref="DocumentationCoverage.PrivateFields"/> toggle when it is private — matching StyleCop's
+    /// dedicated <c>documentPrivateFields</c> knob. <c>private protected</c> is treated as private. The
+    /// decision is independent of <see cref="DocumentationCoverage.PrivateElements"/>.
+    /// </summary>
+    /// <param name="field">The field (or event-field) declaration.</param>
+    /// <param name="coverage">The configured documentation-coverage scope.</param>
+    /// <returns><see langword="true"/> when the field must be documented.</returns>
+    public static bool FieldNeedsDocumentation(BaseFieldDeclarationSyntax field, in DocumentationCoverage coverage)
+    {
+        var bucket = FieldBucket(DeclaredAccessibilityOf(field));
+        for (var parent = field.Parent; parent is not null; parent = parent.Parent)
+        {
+            switch (parent)
+            {
+                case BaseTypeDeclarationSyntax type:
+                {
+                    var container = Bucket(DeclaredAccessibilityOf(type));
+                    if (container < bucket)
+                    {
+                        bucket = container;
+                    }
+
+                    break;
+                }
+
+                case BaseNamespaceDeclarationSyntax:
+                case CompilationUnitSyntax:
+                    return FieldBucketInScope(bucket, coverage);
+            }
+        }
+
+        return FieldBucketInScope(bucket, coverage);
+    }
+
+    /// <summary>Maps a field's coverage bucket onto the exposed / internal / private-fields toggles.</summary>
+    /// <param name="bucket">The coverage bucket.</param>
+    /// <param name="coverage">The configured documentation-coverage scope.</param>
+    /// <returns><see langword="true"/> when the bucket is in scope.</returns>
+    private static bool FieldBucketInScope(int bucket, in DocumentationCoverage coverage) => bucket switch
+    {
+        ExposedBucket => coverage.ExposedElements,
+        InternalBucket => coverage.InternalElements,
+        _ => coverage.PrivateFields,
+    };
+
+    /// <summary>
+    /// Collapses a field's own declared accessibility into its coverage bucket. Unlike <see cref="Bucket"/>,
+    /// <see cref="Accessibility.ProtectedAndInternal"/> (<c>private protected</c>) collapses to the private
+    /// bucket so it follows <see cref="DocumentationCoverage.PrivateFields"/>.
+    /// </summary>
+    /// <param name="accessibility">The field's declared accessibility.</param>
+    /// <returns>The bucket: exposed, internal, or private (0).</returns>
+    private static int FieldBucket(Accessibility accessibility) => accessibility switch
+    {
+        Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal => ExposedBucket,
+        Accessibility.Internal => InternalBucket,
+        _ => 0,
+    };
+
+    /// <summary>
     /// Returns whether a declaration is in scope once its own accessibility is narrowed by every containing
     /// type. The effective visibility collapses to three buckets — exposed, internal, hidden — which is all
     /// the exposed/internal coverage toggles distinguish; the most restrictive bucket along the chain wins.

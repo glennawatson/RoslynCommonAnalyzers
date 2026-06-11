@@ -104,7 +104,7 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
             return document;
         }
 
-        return document.WithSyntaxRoot(root.ReplaceNode(target, AddSuppressions(target, movedCodes)));
+        return document.WithSyntaxRoot(root.ReplaceNode(target, AddSuppressions(target, movedCodes, DetermineEndOfLine(root))));
     }
 
     /// <summary>Returns whether a directive lists any compiler (<c>CS</c> or numeric) code.</summary>
@@ -191,12 +191,13 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
     /// <summary>Prepends a [SuppressMessage] attribute list for each moved code to the member.</summary>
     /// <param name="member">The member to annotate.</param>
     /// <param name="movedCodes">The codes to suppress.</param>
+    /// <param name="newLine">The end-of-line trivia matching the document's existing line endings.</param>
     /// <returns>The member with the new attribute lists.</returns>
-    private static MemberDeclarationSyntax AddSuppressions(MemberDeclarationSyntax member, List<string> movedCodes)
+    private static MemberDeclarationSyntax AddSuppressions(MemberDeclarationSyntax member, List<string> movedCodes, SyntaxTrivia newLine)
     {
         var leading = member.GetLeadingTrivia();
         var indent = IndentTrivia(leading);
-        var endOfLine = SyntaxFactory.TriviaList(SyntaxFactory.EndOfLine("\n"));
+        var endOfLine = SyntaxFactory.TriviaList(newLine);
 
         var attributeLists = new AttributeListSyntax[movedCodes.Count];
         for (var i = 0; i < movedCodes.Count; i++)
@@ -235,6 +236,22 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
         return SyntaxFactory.Attribute(
             SyntaxFactory.ParseName(SuppressMessageType),
             SyntaxFactory.AttributeArgumentList(SyntaxFactory.SeparatedList(arguments, separators)));
+    }
+
+    /// <summary>Returns the document's prevailing end-of-line trivia so inserted lines match it.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <returns>The first end-of-line trivia found, or a line feed when the document has none.</returns>
+    private static SyntaxTrivia DetermineEndOfLine(SyntaxNode root)
+    {
+        foreach (var trivia in root.DescendantTrivia())
+        {
+            if (trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+            {
+                return trivia;
+            }
+        }
+
+        return SyntaxFactory.EndOfLine("\n");
     }
 
     /// <summary>Creates a string literal expression.</summary>

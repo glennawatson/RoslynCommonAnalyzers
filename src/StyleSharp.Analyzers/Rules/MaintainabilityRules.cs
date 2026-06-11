@@ -192,6 +192,13 @@ internal static class MaintainabilityRules
         "Do not reassign the captured primary-constructor parameter '{0}'",
         "Reassigning a class or struct primary-constructor parameter mutates its hidden captured field, which is surprising. Use a separate local or explicit field instead.");
 
+    /// <summary>SST1426 — a <c>#pragma warning disable</c> silences an analyzer warning that a scoped <c>[SuppressMessage]</c> should handle (StyleSharp original).</summary>
+    public static readonly DiagnosticDescriptor PreferSuppressMessageOverPragma = Create(
+        "SST1426",
+        "Use [SuppressMessage] instead of #pragma warning disable",
+        "Suppress '{0}' with a scoped [SuppressMessage] attribute instead of '#pragma warning disable'",
+        "Analyzer warnings use a scoped [SuppressMessage] attribute, not a #pragma warning disable directive. Compiler (CS) warnings are exempt because only a pragma can disable them.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

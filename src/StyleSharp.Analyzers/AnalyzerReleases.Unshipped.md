@@ -5,6 +5,7 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
+SST1426 | Maintainability | Warning | Sst1426PragmaWarningDisableAnalyzer
 SST1654 | Documentation | Warning | ExtensionBlockDocumentationAnalyzer
 SST1655 | Documentation | Warning | ExtensionBlockDocumentationAnalyzer
 SST1656 | Documentation | Warning | ExtensionBlockDocumentationAnalyzer

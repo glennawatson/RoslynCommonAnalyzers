@@ -135,6 +135,7 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST1423](rules/SST1423.md) | A switch statement exceeds the configured section count. |
 | [SST1424](rules/SST1424.md) | A private field is never assigned outside construction. Opt-in. |
 | [SST1425](rules/SST1425.md) | A captured primary-constructor parameter is reassigned. |
+| [SST1426](rules/SST1426.md) | A `#pragma warning disable` silences an analyzer warning that a scoped `[SuppressMessage]` should handle. |
 | [SST1450](rules/SST1450.md) | Files should be stored as UTF-8 without a byte order mark. Opt-in. |
 
 ## Modernization

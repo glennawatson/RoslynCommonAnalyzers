@@ -19,7 +19,8 @@
 # stylesharp.max_switch_sections = 30                      # SST1423
 # stylesharp.document_exposed_elements = true              # SST1600/1601/1602/1654 coverage scope
 # stylesharp.document_internal_elements = true             # SST1600/1601/1602/1654 (set false to require only the public API surface)
-# stylesharp.document_private_elements = false             # SST1600/1601/1602/1654
+# stylesharp.document_private_elements = false             # SST1600/1601/1602/1654 (non-field private members)
+# stylesharp.document_private_fields = false               # SST1600 (set true to also require private fields)
 # stylesharp.document_interfaces = all                     # SST1600/1601 (all | exposed | none)
 
 [*.cs]

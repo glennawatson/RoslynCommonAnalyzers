@@ -58,6 +58,7 @@ Some rules expose options. Current options:
 | `stylesharp.document_exposed_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_internal_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_private_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `false` |
+| `stylesharp.document_private_fields` | SST1600 | `true`, `false` | `false` |
 | `stylesharp.document_interfaces` | SST1600 / [SST1601](rules/SST1601.md) | `all`, `exposed`, `none` | `all` |
 | `file_header_template` | [SST1633](rules/SST1633.md) | header text (`\n` separates lines, `{fileName}` substituted), or `unset` | `unset` |
 
@@ -76,18 +77,27 @@ default in the table above.
 
 ### Documentation coverage scope
 
-The four `document_*` options control **which declarations the "must be documented"
+The `document_*` options control **which declarations the "must be documented"
 rules apply to** — SST1600 (elements), SST1601 (partial elements), SST1602 (enum
 members), and SST1654 (extension blocks). They mirror the analyzer's
 `documentExposedElements` / `documentInternalElements` / `documentPrivateElements` /
-`documentInterfaces` settings, including the same defaults, so a project moving from
-the analyzer keeps the same coverage out of the box:
+`documentPrivateFields` / `documentInterfaces` settings, including the same defaults,
+so a project moving from the analyzer keeps the same coverage out of the box:
 
 - `document_exposed_elements` (default `true`) — public and protected elements.
 - `document_internal_elements` (default `true`) — internal elements. **On by
   default**, so an internal type or member with no `///` comment is reported.
-- `document_private_elements` (default `false`) — private elements. Off by default;
-  turn it on to require documentation everywhere.
+- `document_private_elements` (default `false`) — private elements **other than
+  fields**. Off by default; turn it on to require documentation everywhere except
+  private fields.
+- `document_private_fields` (default `false`, SST1600 only) — private fields. Off by
+  default, matching the analyzer's separate `documentPrivateFields` knob, so existing
+  builds are unaffected. Turn it on to require a `///` comment on private fields.
+  This gate is **independent** of `document_private_elements` — it covers fields and
+  nothing else, and need not be combined with it. A private **const** is treated as a
+  private field and follows this option. (Non-private fields are governed by
+  `document_exposed_elements` / `document_internal_elements`, like any other member,
+  with `private protected` treated as private.)
 - `document_interfaces` (default `all`) — `all` documents every interface and its
   members regardless of accessibility, `exposed` only non-internal interfaces, and
   `none` never requires interface documentation.

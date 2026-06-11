@@ -28,8 +28,12 @@ internal static class DocumentationOptions
     /// <summary>Editorconfig key controlling whether internal elements require documentation.</summary>
     public const string DocumentInternalElementsKey = "stylesharp.document_internal_elements";
 
-    /// <summary>Editorconfig key controlling whether private elements require documentation.</summary>
+    /// <summary>Editorconfig key controlling whether private elements (other than fields) require documentation.</summary>
     public const string DocumentPrivateElementsKey = "stylesharp.document_private_elements";
+
+    /// <summary>Editorconfig key controlling whether private fields require documentation. Independent of
+    /// <see cref="DocumentPrivateElementsKey"/>; mirrors the analyzer's separate <c>documentPrivateFields</c> knob.</summary>
+    public const string DocumentPrivateFieldsKey = "stylesharp.document_private_fields";
 
     /// <summary>Editorconfig key controlling how interfaces and their members are documented (<c>all</c>/<c>exposed</c>/<c>none</c>).</summary>
     public const string DocumentInterfacesKey = "stylesharp.document_interfaces";
@@ -37,7 +41,7 @@ internal static class DocumentationOptions
     /// <summary>
     /// Reads the documentation-coverage scope (which accessibilities the SST1600/SST1601/SST1602/SST1654
     /// "must be documented" rules apply to) from <c>.editorconfig</c>. The defaults match the analyzer's
-    /// <c>documentationRules</c>: exposed on, internal on, private off, interfaces <c>all</c>.
+    /// <c>documentationRules</c>: exposed on, internal on, private off, private fields off, interfaces <c>all</c>.
     /// </summary>
     /// <param name="options">The analyzer config options for the relevant syntax tree.</param>
     /// <returns>The configured (or default) coverage scope.</returns>
@@ -46,6 +50,7 @@ internal static class DocumentationOptions
             ReadBool(options, DocumentExposedElementsKey, defaultValue: true),
             ReadBool(options, DocumentInternalElementsKey, defaultValue: true),
             ReadBool(options, DocumentPrivateElementsKey, defaultValue: false),
+            ReadBool(options, DocumentPrivateFieldsKey, defaultValue: false),
             ReadInterfaceMode(options));
 
     /// <summary>Reads the single-line summary length limit, preferring the rule-specific key.</summary>

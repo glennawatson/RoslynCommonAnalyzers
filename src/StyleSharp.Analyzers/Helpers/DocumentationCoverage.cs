@@ -11,10 +11,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <param name="ExposedElements">Whether public/protected elements require documentation.</param>
 /// <param name="InternalElements">Whether internal elements require documentation.</param>
-/// <param name="PrivateElements">Whether private elements require documentation.</param>
+/// <param name="PrivateElements">Whether private elements (other than fields) require documentation.</param>
+/// <param name="PrivateFields">Whether private fields require documentation. Gates fields only and is
+/// independent of <paramref name="PrivateElements"/>; mirrors the analyzer's separate <c>documentPrivateFields</c> knob.</param>
 /// <param name="Interfaces">How interfaces and their members are documented.</param>
 internal readonly record struct DocumentationCoverage(
     bool ExposedElements,
     bool InternalElements,
     bool PrivateElements,
+    bool PrivateFields,
     DocumentationInterfaceMode Interfaces);

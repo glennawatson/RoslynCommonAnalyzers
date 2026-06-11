@@ -63,6 +63,41 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             SyntaxKind.DestructorDeclaration,
             SyntaxKind.PropertyDeclaration,
             SyntaxKind.EnumMemberDeclaration);
+
+        context.RegisterSyntaxNodeAction(
+            AnalyzeField,
+            SyntaxKind.FieldDeclaration,
+            SyntaxKind.EventFieldDeclaration);
+    }
+
+    /// <summary>
+    /// Reports each undocumented declarator of a field (or event-field) declaration when the field is in
+    /// coverage scope. A multi-declarator field is reported once per name, mirroring the naming rules.
+    /// Property / event backing fields carry no syntax of their own, and <c>[GeneratedCode]</c> members are
+    /// skipped by <see cref="GeneratedCodeAnalysisFlags.None"/>, so neither reaches this path.
+    /// </summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeField(SyntaxNodeAnalysisContext context)
+    {
+        var field = (BaseFieldDeclarationSyntax)context.Node;
+
+        // The whole declaration shares one documentation comment; a present comment satisfies coverage for
+        // every declarator (the summary/content rules for documented members are handled elsewhere).
+        if (XmlDocumentationHelper.GetDocumentationComment(field) is not null)
+        {
+            return;
+        }
+
+        var coverage = DocumentationOptions.ReadCoverage(context.Options.AnalyzerConfigOptionsProvider.GetOptions(field.SyntaxTree));
+        if (!DocumentationVisibility.FieldNeedsDocumentation(field, coverage))
+        {
+            return;
+        }
+
+        foreach (var variable in field.Declaration.Variables)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ElementsMustBeDocumented, variable.Identifier.GetLocation(), variable.Identifier.ValueText));
+        }
     }
 
     /// <summary>Dispatches a member declaration to the documentation checks.</summary>

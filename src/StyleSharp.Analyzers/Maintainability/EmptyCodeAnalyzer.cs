@@ -53,6 +53,28 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for a non-null, statement-free block.</returns>
     internal static bool IsEmptyBlock(BlockSyntax? body) => body is { Statements.Count: 0 };
 
+    /// <summary>Returns whether an empty block carries a comment that documents its intentional emptiness.</summary>
+    /// <param name="block">The empty block.</param>
+    /// <returns><see langword="true"/> when a comment sits between the braces.</returns>
+    internal static bool ContainsComment(BlockSyntax block)
+        => HasCommentTrivia(block.OpenBraceToken.TrailingTrivia) || HasCommentTrivia(block.CloseBraceToken.LeadingTrivia);
+
+    /// <summary>Returns whether a trivia list contains a single-line or multi-line comment.</summary>
+    /// <param name="trivia">The trivia list to scan.</param>
+    /// <returns><see langword="true"/> when a comment is present.</returns>
+    private static bool HasCommentTrivia(SyntaxTriviaList trivia)
+    {
+        for (var i = 0; i < trivia.Count; i++)
+        {
+            if (trivia[i].IsKind(SyntaxKind.SingleLineCommentTrivia) || trivia[i].IsKind(SyntaxKind.MultiLineCommentTrivia))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Reports SST1433 for a type whose sole constructor is a public, parameterless, empty default.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeConstructor(SyntaxNodeAnalysisContext context)
@@ -139,12 +161,21 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
         var method = (MethodDeclarationSyntax)context.Node;
 
         // 'partial', 'abstract', and 'extern' methods have no body to fill; overrides are a common
-        // legitimate empty hook and are left to the author's judgment via this opt-in rule.
+        // legitimate empty hook; and a comment inside the body documents an intentional no-op.
         if (!IsEmptyBlock(method.Body)
             || method.AttributeLists.Count > 0
             || ModifierListHelper.Contains(method.Modifiers, SyntaxKind.OverrideKeyword)
             || ModifierListHelper.Contains(method.Modifiers, SyntaxKind.PartialKeyword)
-            || ModifierListHelper.Contains(method.Modifiers, SyntaxKind.VirtualKeyword))
+            || ModifierListHelper.Contains(method.Modifiers, SyntaxKind.VirtualKeyword)
+            || ContainsComment(method.Body!))
+        {
+            return;
+        }
+
+        // Bind only for an empty, undocumented, non-override method (rare): an empty body that
+        // implements an interface member is a legitimate no-op (a null IDisposable, a stub handler).
+        if (context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is { } symbol
+            && MethodNamingAnalyzer.ResolveBaseMethod(symbol) is not null)
         {
             return;
         }
@@ -157,7 +188,7 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeEmbeddedBlock(SyntaxNodeAnalysisContext context)
     {
         var block = (BlockSyntax)context.Node;
-        if (block.Statements.Count != 0 || !IsLoopOrGuardBody(block))
+        if (block.Statements.Count != 0 || !IsLoopOrGuardBody(block) || ContainsComment(block))
         {
             return;
         }

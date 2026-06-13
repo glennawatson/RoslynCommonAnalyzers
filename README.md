@@ -44,13 +44,13 @@ The rule catalog is intentionally split out of this README so the GitHub landing
 - `Readability` for query layout, unique-line lists, tuple/null/style conventions, expression simplification, redundant-code removal, and similar readability rules
 - `Ordering` for using ordering, modifier ordering, accessor ordering, and member ordering
 - `Layout` for brace placement, blank-line rules, and block consistency
-- `Naming` for .NET naming conventions
-- `Maintainability` for access modifiers, precedence, auto-properties, nameof, trailing commas, redundant modifiers, and related rules
+- `Naming` for .NET naming conventions, async-method suffixes, and override parameter names
+- `Maintainability` for access modifiers, precedence, auto-properties, nameof, trailing commas, redundant modifiers, exception handling, type design, and related rules
 - `Documentation` for XML docs, file headers, and documentation quality rules
 - `Extensions` for C# 14 extension-block conventions
 - `Records` for record and record-struct conventions
 - `Concurrency` for lock usage rules
-- `Modernization` for runtime throw-helper adoption
+- `Modernization` for runtime throw-helper adoption and pattern-matching forms
 - `CollectionExpressions` for collection-expression usage
 - `ModernSyntax` for new language features such as the C# 14 `field` keyword
 

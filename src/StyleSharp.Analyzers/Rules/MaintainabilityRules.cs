@@ -205,6 +205,41 @@ internal static class MaintainabilityRules
         "Make this member private; 'protected' has no effect in a sealed type",
         "A sealed type cannot be derived from, so a 'protected' member is reachable only as if it were private. Mark it private (or drop 'protected' from 'protected internal').");
 
+    /// <summary>SST1428 — an abstract type exposes a <c>public</c> constructor that only derived types can call.</summary>
+    public static readonly DiagnosticDescriptor NoPublicConstructorOnAbstractType = Create(
+        "SST1428",
+        "Abstract types should not declare public constructors",
+        "Make this constructor 'protected'; only a derived type can call it",
+        "An abstract type cannot be instantiated directly, so a 'public' constructor is misleading. A 'protected' (or private) constructor states that only derived types call it.");
+
+    /// <summary>SST1429 — a <c>catch</c> clause swallows the base <see cref="System.Exception"/> with an empty body.</summary>
+    public static readonly DiagnosticDescriptor NoEmptyCatchOfBaseException = Create(
+        "SST1429",
+        "Empty catch clauses should not swallow the base exception",
+        "Handle, rethrow, or narrow this catch; an empty catch of the base exception hides failures",
+        "A 'catch (Exception) { }' (or bare 'catch { }') with an empty body silently discards every error, including ones the code is not prepared for. Handle it, rethrow, or catch a narrower type.");
+
+    /// <summary>SST1430 — <c>throw ex;</c> in a catch resets the captured stack trace instead of preserving it.</summary>
+    public static readonly DiagnosticDescriptor PreserveStackTraceOnRethrow = Create(
+        "SST1430",
+        "Rethrow with 'throw;' to preserve the stack trace",
+        "Use 'throw;' instead of 'throw {0};' so the original stack trace is kept",
+        "Re-throwing the caught exception with 'throw ex;' overwrites its stack trace with the rethrow location. A bare 'throw;' keeps the original trace intact.");
+
+    /// <summary>SST1431 — a <c>static</c> member of a generic type never mentions the type's type parameters.</summary>
+    public static readonly DiagnosticDescriptor StaticMemberShouldUseTypeParameter = Create(
+        "SST1431",
+        "Static members of a generic type should use a type parameter",
+        "Reference a type parameter, or move '{0}' off the generic type",
+        "A static member whose signature ignores its generic type's type parameters forces callers to pick an arbitrary type argument, and usually belongs on a non-generic type.");
+
+    /// <summary>SST1432 — a class declares only static members yet is not marked <c>static</c> (opt-in).</summary>
+    public static readonly DiagnosticDescriptor MakeClassStatic = CreateOptIn(
+        "SST1432",
+        "Classes with only static members should be static",
+        "Mark '{0}' as 'static'; it declares only static members",
+        "A class whose members are all static can be marked 'static' to forbid instantiation. Off by default, since marking a published, instantiable type 'static' is a breaking change.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

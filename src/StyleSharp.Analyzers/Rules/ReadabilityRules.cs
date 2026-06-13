@@ -37,7 +37,7 @@ internal static class ReadabilityRules
         "Replace the empty string literal with 'string.Empty'",
         "An empty string is written as 'string.Empty' rather than \"\" so its intent is explicit.");
 
-    /// <summary>SST1121 — a framework type name is used instead of its built-in alias (opt-in; duplicates the rule).</summary>
+    /// <summary>SST1121 — a framework type name is used instead of its built-in alias (opt-in).</summary>
     public static readonly DiagnosticDescriptor UseBuiltInTypeAlias = CreateOptIn(
         "SST1121",
         "Use built-in type alias",
@@ -344,6 +344,83 @@ internal static class ReadabilityRules
         "Redundant base types should be removed",
         "Remove the redundant base type '{0}'; it is already implied",
         "Listing 'object' as a base type, or 'int' as an enum's underlying type, restates the compiler default and can be removed.");
+
+    /// <summary>SST1178 — a constructor calls <c>: base()</c> with no arguments, which the compiler already emits.</summary>
+    public static readonly DiagnosticDescriptor NoRedundantBaseConstructorCall = Create(
+        "SST1178",
+        "Redundant base constructor calls should be removed",
+        "Remove the redundant ': base()' call; the compiler already calls the base constructor",
+        "A parameterless ': base()' initializer restates what the compiler emits automatically and can be removed.");
+
+    /// <summary>SST1179 — a <c>default:</c> switch section contains only <c>break;</c>, matching the implicit fall-through.</summary>
+    public static readonly DiagnosticDescriptor NoRedundantDefaultSwitchSection = Create(
+        "SST1179",
+        "Redundant default switch sections should be removed",
+        "Remove the redundant 'default' section; it only breaks, like the absent default",
+        "A 'default:' section whose only statement is 'break;' behaves the same as having no default section, so it adds nothing.");
+
+    /// <summary>SST1180 — an <c>else</c> clause has an empty body (<c>else { }</c> or <c>else ;</c>).</summary>
+    public static readonly DiagnosticDescriptor NoEmptyElseClause = Create(
+        "SST1180",
+        "Empty else clauses should be removed",
+        "Remove the empty 'else' clause; it has no effect",
+        "An 'else' clause whose body is empty does nothing and only adds noise to the 'if' statement.");
+
+    /// <summary>SST1181 — an override does nothing but forward to the same base member with the same arguments.</summary>
+    public static readonly DiagnosticDescriptor NoRedundantOverride = Create(
+        "SST1181",
+        "Redundant overriding members should be removed",
+        "Remove the redundant override of '{0}'; it only forwards to the base member",
+        "An override that does nothing but call the base member with the same arguments has no effect and can be deleted so the inherited member is used directly.");
+
+    /// <summary>SST1182 — a conditional expression yields the boolean literals <c>true</c>/<c>false</c> for its branches.</summary>
+    public static readonly DiagnosticDescriptor NoConditionalBooleanLiteral = Create(
+        "SST1182",
+        "Conditional expressions should not just return boolean literals",
+        "Use the condition directly instead of returning 'true'/'false' from a conditional expression",
+        "A 'c ? true : false' yields the condition itself, and 'c ? false : true' yields its negation, so the conditional expression is unnecessary.");
+
+    /// <summary>SST1183 — an interpolated string has no interpolations and is just a constant string.</summary>
+    public static readonly DiagnosticDescriptor NoRedundantInterpolatedString = Create(
+        "SST1183",
+        "Interpolated strings without interpolations should be plain strings",
+        "Remove the '$' prefix; this interpolated string contains no interpolations",
+        "An interpolated string with no '{...}' holes is a constant string, so the '$' prefix only adds noise.");
+
+    /// <summary>SST1184 — a verbatim string literal contains no characters that need verbatim quoting.</summary>
+    public static readonly DiagnosticDescriptor NoRedundantVerbatimString = Create(
+        "SST1184",
+        "Verbatim string literals without escapes should be regular strings",
+        "Remove the '@' prefix; this verbatim string needs no verbatim quoting",
+        "A verbatim ('@') string whose text contains no backslash, embedded quote, or line break reads the same as a regular string literal, so the '@' adds nothing.");
+
+    /// <summary>SST1185 — an assignment recomputes its own target (<c>x = x + y</c>) instead of using a compound operator.</summary>
+    public static readonly DiagnosticDescriptor UseCompoundAssignment = Create(
+        "SST1185",
+        "Use a compound assignment operator",
+        "Use the '{0}' compound assignment operator",
+        "An assignment of the form 'x = x op y' reads more directly as the compound assignment 'x op= y'.");
+
+    /// <summary>SST1186 — a literal sits on the left of a comparison (<c>0 == count</c>) rather than the right.</summary>
+    public static readonly DiagnosticDescriptor LiteralOnRightOfComparison = Create(
+        "SST1186",
+        "A literal should be on the right side of a comparison",
+        "Place the literal on the right side of the comparison",
+        "A comparison reads more naturally with the variable first and the literal second ('count == 0' rather than '0 == count').");
+
+    /// <summary>SST1187 — an assignment is used as the value of another assignment (<c>a = b = c</c>).</summary>
+    public static readonly DiagnosticDescriptor NoChainedAssignment = Create(
+        "SST1187",
+        "Assignments should not be chained",
+        "Split this chained assignment into separate statements",
+        "Chaining assignments ('a = b = c') hides one of the writes; writing each assignment on its own statement makes both targets obvious.");
+
+    /// <summary>SST1188 — a default expression names its type (<c>default(T)</c>) where the bare <c>default</c> literal suffices.</summary>
+    public static readonly DiagnosticDescriptor UseDefaultLiteral = Create(
+        "SST1188",
+        "Use the 'default' literal instead of 'default(T)'",
+        "Use the 'default' literal; the target type is already known",
+        "When the target type is inferred from context, the 'default' literal is clearer than the explicit 'default(T)' form.");
 
     /// <summary>Creates a Warning-severity Readability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

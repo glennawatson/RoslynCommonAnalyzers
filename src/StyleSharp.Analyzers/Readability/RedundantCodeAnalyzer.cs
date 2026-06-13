@@ -14,6 +14,10 @@ namespace StyleSharp.Analyzers;
 /// <item><description>SST1174 — a <c>return;</c> at the tail of a void member, or a <c>continue;</c> at the tail of a loop body, has no effect.</description></item>
 /// <item><description>SST1176 — a field, event, or auto-property is initialized to the type's default value (opt-in).</description></item>
 /// <item><description>SST1177 — a base list restates a compiler-implied type (<c>class C : object</c>, <c>enum E : int</c>).</description></item>
+/// <item><description>SST1178 — a constructor calls a parameterless <c>: base()</c> that the compiler already emits.</description></item>
+/// <item><description>SST1179 — a <c>default:</c> switch section whose only statement is <c>break;</c> matches having no default.</description></item>
+/// <item><description>SST1180 — an <c>else</c> clause has an empty body.</description></item>
+/// <item><description>SST1181 — an <c>override</c> does nothing but forward to the same base member.</description></item>
 /// </list>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -23,7 +27,11 @@ public sealed class RedundantCodeAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
         ReadabilityRules.NoRedundantJump,
         ReadabilityRules.NoMemberInitializedToDefault,
-        ReadabilityRules.NoRedundantInheritanceList);
+        ReadabilityRules.NoRedundantInheritanceList,
+        ReadabilityRules.NoRedundantBaseConstructorCall,
+        ReadabilityRules.NoRedundantDefaultSwitchSection,
+        ReadabilityRules.NoEmptyElseClause,
+        ReadabilityRules.NoRedundantOverride);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -36,6 +44,10 @@ public sealed class RedundantCodeAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeFieldInitializer, SyntaxKind.FieldDeclaration, SyntaxKind.EventFieldDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzePropertyInitializer, SyntaxKind.PropertyDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzeBaseList, SyntaxKind.ClassDeclaration, SyntaxKind.RecordDeclaration, SyntaxKind.EnumDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzeBaseConstructorCall, SyntaxKind.BaseConstructorInitializer);
+        context.RegisterSyntaxNodeAction(AnalyzeDefaultSwitchSection, SyntaxKind.SwitchSection);
+        context.RegisterSyntaxNodeAction(AnalyzeElseClause, SyntaxKind.ElseClause);
+        context.RegisterSyntaxNodeAction(AnalyzeRedundantOverride, SyntaxKind.MethodDeclaration, SyntaxKind.PropertyDeclaration);
     }
 
     /// <summary>Returns whether an initializer value is syntactically the default for any type it can bind to.</summary>
@@ -175,6 +187,79 @@ public sealed class RedundantCodeAnalyzer : DiagnosticAnalyzer
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantInheritanceList, firstBaseType.GetLocation(), symbol.ToDisplayString()));
+    }
+
+    /// <summary>Reports SST1178 for a parameterless <c>: base()</c> constructor initializer.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeBaseConstructorCall(SyntaxNodeAnalysisContext context)
+    {
+        var initializer = (ConstructorInitializerSyntax)context.Node;
+        if (initializer.ArgumentList.Arguments.Count != 0)
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantBaseConstructorCall, initializer.GetLocation()));
+    }
+
+    /// <summary>Reports SST1179 for a <c>default:</c> switch section whose only statement is <c>break;</c>.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeDefaultSwitchSection(SyntaxNodeAnalysisContext context)
+    {
+        var section = (SwitchSectionSyntax)context.Node;
+
+        // Only a lone 'default:' label is safe to drop. A shared 'case X: default:' section still
+        // needs its case labels, and a multi-statement body may rely on the explicit section.
+        if (section.Labels.Count != 1
+            || !section.Labels[0].IsKind(SyntaxKind.DefaultSwitchLabel)
+            || section.Statements.Count != 1
+            || !section.Statements[0].IsKind(SyntaxKind.BreakStatement))
+        {
+            return;
+        }
+
+        var defaultLabel = (DefaultSwitchLabelSyntax)section.Labels[0];
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantDefaultSwitchSection, defaultLabel.Keyword.GetLocation()));
+    }
+
+    /// <summary>Reports SST1180 for an <c>else</c> clause whose body is empty.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeElseClause(SyntaxNodeAnalysisContext context)
+    {
+        var elseClause = (ElseClauseSyntax)context.Node;
+
+        // 'else if (...)' carries an IfStatement body and is never empty, so only a bare block or
+        // stray semicolon reaches the report.
+        var isEmpty = elseClause.Statement switch
+        {
+            BlockSyntax block => block.Statements.Count == 0,
+            EmptyStatementSyntax => true,
+            _ => false
+        };
+        if (!isEmpty)
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoEmptyElseClause, elseClause.ElseKeyword.GetLocation()));
+    }
+
+    /// <summary>Reports SST1181 for an <c>override</c> that only forwards to the same base member.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeRedundantOverride(SyntaxNodeAnalysisContext context)
+    {
+        if (context.Node is MethodDeclarationSyntax method && OverrideForwardingAnalysis.IsPlainForwardingMethod(method))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantOverride, method.Identifier.GetLocation(), method.Identifier.ValueText));
+            return;
+        }
+
+        if (context.Node is not PropertyDeclarationSyntax property || !OverrideForwardingAnalysis.IsPlainForwardingProperty(property))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantOverride, property.Identifier.GetLocation(), property.Identifier.ValueText));
     }
 
     /// <summary>Returns whether a boxed numeric literal value is zero.</summary>

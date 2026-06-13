@@ -14,6 +14,13 @@ namespace StyleSharp.Analyzers;
 /// <item><description>SST1172 — a comparison wrapped in a logical-not (<c>!(a == b)</c>) should use the opposite operator.</description></item>
 /// <item><description>SST1173 — an anonymous-type member restates a name that would be inferred (<c>new { X = obj.X }</c>).</description></item>
 /// <item><description>SST1175 — a cast targets the type the operand already has (<c>(int)anInt</c>).</description></item>
+/// <item><description>SST1182 — a conditional expression yields the boolean literals (<c>c ? true : false</c>).</description></item>
+/// <item><description>SST1183 — an interpolated string has no interpolations.</description></item>
+/// <item><description>SST1184 — a verbatim string needs no verbatim quoting.</description></item>
+/// <item><description>SST1185 — an assignment recomputes its target (<c>x = x + y</c>) instead of using a compound operator.</description></item>
+/// <item><description>SST1186 — a literal sits on the left of a comparison (<c>0 == n</c>).</description></item>
+/// <item><description>SST1187 — an assignment is chained as the value of another assignment (<c>a = b = c</c>).</description></item>
+/// <item><description>SST1188 — a <c>default(T)</c> is written where the bare <c>default</c> literal suffices.</description></item>
 /// </list>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -23,7 +30,14 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
         ReadabilityRules.NoInvertedBooleanCheck,
         ReadabilityRules.NoRedundantAnonymousTypeMemberName,
-        ReadabilityRules.NoRedundantCast);
+        ReadabilityRules.NoRedundantCast,
+        ReadabilityRules.NoConditionalBooleanLiteral,
+        ReadabilityRules.NoRedundantInterpolatedString,
+        ReadabilityRules.NoRedundantVerbatimString,
+        ReadabilityRules.UseCompoundAssignment,
+        ReadabilityRules.LiteralOnRightOfComparison,
+        ReadabilityRules.NoChainedAssignment,
+        ReadabilityRules.UseDefaultLiteral);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -34,6 +48,12 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeInvertedBooleanCheck, SyntaxKind.LogicalNotExpression);
         context.RegisterSyntaxNodeAction(AnalyzeAnonymousTypeMember, SyntaxKind.AnonymousObjectMemberDeclarator);
         context.RegisterSyntaxNodeAction(AnalyzeRedundantCast, SyntaxKind.CastExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeConditionalBooleanLiteral, SyntaxKind.ConditionalExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeInterpolatedString, SyntaxKind.InterpolatedStringExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeStringLiteral, SyntaxKind.StringLiteralExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeSimpleAssignment, SyntaxKind.SimpleAssignmentExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeComparison, SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeDefaultExpression, SyntaxKind.DefaultExpression);
     }
 
     /// <summary>Returns the name an anonymous-type member would infer from its expression, or <see langword="null"/>.</summary>
@@ -157,6 +177,161 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantCast, cast.Type.GetLocation(), targetType.ToDisplayString()));
     }
+
+    /// <summary>Reports SST1182 when a conditional expression yields only the boolean literals.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeConditionalBooleanLiteral(SyntaxNodeAnalysisContext context)
+    {
+        var conditional = (ConditionalExpressionSyntax)context.Node;
+        var whenTrue = conditional.WhenTrue;
+        var whenFalse = conditional.WhenFalse;
+
+        // Flag only the 'true'/'false' pairing; 'c ? true : true' is a different (always-true) smell.
+        var collapses = (whenTrue.IsKind(SyntaxKind.TrueLiteralExpression) && whenFalse.IsKind(SyntaxKind.FalseLiteralExpression))
+            || (whenTrue.IsKind(SyntaxKind.FalseLiteralExpression) && whenFalse.IsKind(SyntaxKind.TrueLiteralExpression));
+        if (!collapses)
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoConditionalBooleanLiteral, conditional.GetLocation()));
+    }
+
+    /// <summary>Reports SST1183 when an interpolated string contains no interpolations.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeInterpolatedString(SyntaxNodeAnalysisContext context)
+    {
+        var interpolated = (InterpolatedStringExpressionSyntax)context.Node;
+        var contents = interpolated.Contents;
+        for (var i = 0; i < contents.Count; i++)
+        {
+            if (contents[i].IsKind(SyntaxKind.Interpolation))
+            {
+                return;
+            }
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantInterpolatedString, interpolated.GetLocation()));
+    }
+
+    /// <summary>Reports SST1184 when a verbatim string literal needs no verbatim quoting.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeStringLiteral(SyntaxNodeAnalysisContext context)
+    {
+        var literal = (LiteralExpressionSyntax)context.Node;
+        var text = literal.Token.Text;
+
+        // Only '@'-prefixed literals are verbatim; regular and raw string literals start differently.
+        if (text.Length == 0 || text[0] != '@' || NeedsVerbatimQuoting(literal.Token.ValueText))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantVerbatimString, literal.GetLocation()));
+    }
+
+    /// <summary>Reports SST1185 for a self-recomputing assignment, or SST1187 for a chained assignment.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeSimpleAssignment(SyntaxNodeAnalysisContext context)
+    {
+        var assignment = (AssignmentExpressionSyntax)context.Node;
+
+        // SST1187: the value of this assignment is itself an assignment ('a = b = c').
+        if (assignment.Right.IsKind(SyntaxKind.SimpleAssignmentExpression))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoChainedAssignment, assignment.GetLocation()));
+            return;
+        }
+
+        // SST1185: the value recomputes the target ('x = x op y') and the target is side-effect-free.
+        if (assignment.Right is not BinaryExpressionSyntax binary
+            || !CompoundAssignmentOperators.TryMap(binary.Kind(), out _, out _, out var operatorText)
+            || !CompoundAssignmentOperators.IsSideEffectFreeTarget(assignment.Left)
+            || !SyntaxFactory.AreEquivalent(assignment.Left, binary.Left))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.UseCompoundAssignment, assignment.GetLocation(), operatorText));
+    }
+
+    /// <summary>Reports SST1186 when a non-null literal sits on the left of an equality comparison.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeComparison(SyntaxNodeAnalysisContext context)
+    {
+        var comparison = (BinaryExpressionSyntax)context.Node;
+
+        // Null comparisons belong to the 'is null' rule, and two literals are a constant-folding concern.
+        if (!IsReorderableLiteral(comparison.Left) || IsReorderableLiteral(comparison.Right))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.LiteralOnRightOfComparison, comparison.GetLocation()));
+    }
+
+    /// <summary>Reports SST1188 when <c>default(T)</c> sits in a target-typed position that accepts bare <c>default</c>.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeDefaultExpression(SyntaxNodeAnalysisContext context)
+    {
+        var defaultExpression = (DefaultExpressionSyntax)context.Node;
+        if (!IsTargetTypedDefaultPosition(defaultExpression))
+        {
+            return;
+        }
+
+        // Bare 'default' only keeps the meaning when the inferred type equals the spelled-out type.
+        var info = context.SemanticModel.GetTypeInfo(defaultExpression, context.CancellationToken);
+        if (info.Type is null
+            || info.ConvertedType is null
+            || !SymbolEqualityComparer.IncludeNullability.Equals(info.Type, info.ConvertedType))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.UseDefaultLiteral, defaultExpression.GetLocation()));
+    }
+
+    /// <summary>Returns whether a string's text needs the verbatim form (has a backslash, quote, or line break).</summary>
+    /// <param name="value">The decoded string value.</param>
+    /// <returns><see langword="true"/> when a regular literal could not hold the same text unescaped.</returns>
+    private static bool NeedsVerbatimQuoting(string value)
+    {
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (value[i] is '\\' or '"' or '\n' or '\r')
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether an expression is a literal that may be moved to the right of a comparison.</summary>
+    /// <param name="expression">The comparison operand.</param>
+    /// <returns><see langword="true"/> for any literal other than <c>null</c>.</returns>
+    private static bool IsReorderableLiteral(ExpressionSyntax expression)
+        => expression is LiteralExpressionSyntax literal && !literal.IsKind(SyntaxKind.NullLiteralExpression);
+
+    /// <summary>Returns whether a <c>default(T)</c> sits where the compiler supplies an unambiguous target type.</summary>
+    /// <param name="defaultExpression">The default expression.</param>
+    /// <returns><see langword="true"/> for a return, arrow body, assignment value, or non-<c>var</c> initializer.</returns>
+    private static bool IsTargetTypedDefaultPosition(DefaultExpressionSyntax defaultExpression) => defaultExpression.Parent switch
+    {
+        ReturnStatementSyntax => true,
+        ArrowExpressionClauseSyntax => true,
+        AssignmentExpressionSyntax assignment => assignment.Right == defaultExpression,
+        EqualsValueClauseSyntax equals => !IsVarLocalInitializer(equals),
+        _ => false
+    };
+
+    /// <summary>Returns whether an initializer belongs to a <c>var</c> local, where bare <c>default</c> has no type.</summary>
+    /// <param name="equals">The initializer clause.</param>
+    /// <returns><see langword="true"/> when the initializer is for a <c>var</c>-typed local declaration.</returns>
+    private static bool IsVarLocalInitializer(EqualsValueClauseSyntax equals)
+        => equals.Parent is VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration }
+            && declaration.Type.IsVar;
 
     /// <summary>Returns whether a relational operand is nullable, floating-point, or conditional-access.</summary>
     /// <param name="operand">The operand to inspect.</param>

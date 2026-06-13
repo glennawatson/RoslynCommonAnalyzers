@@ -137,6 +137,11 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST1425](rules/SST1425.md) | A captured primary-constructor parameter is reassigned. |
 | [SST1426](rules/SST1426.md) | A `#pragma warning disable` silences an analyzer warning that a scoped `[SuppressMessage]` should handle. |
 | [SST1427](rules/SST1427.md) | A `protected` member of a sealed type has no effect, since the type cannot be derived. |
+| [SST1428](rules/SST1428.md) | An abstract type declares a `public` constructor that only derived types can call. |
+| [SST1429](rules/SST1429.md) | An empty `catch` of the base exception (or a bare `catch`) silently swallows every error. |
+| [SST1430](rules/SST1430.md) | `throw ex;` re-throws the caught exception and discards its original stack trace. |
+| [SST1431](rules/SST1431.md) | A static member of a generic type ignores the type's type parameters. |
+| [SST1432](rules/SST1432.md) | A class declares only static members and could be marked `static`. Opt-in. |
 | [SST1450](rules/SST1450.md) | Files should be stored as UTF-8 without a byte order mark. Opt-in. |
 
 ## Modernization
@@ -148,6 +153,8 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST2002](rules/SST2002.md) | A whitespace check plus throw should use `ArgumentException.ThrowIfNullOrWhiteSpace`. Opt-in. |
 | [SST2003](rules/SST2003.md) | A disposed check should use `ObjectDisposedException.ThrowIf`. |
 | [SST2004](rules/SST2004.md) | A range check should use an `ArgumentOutOfRangeException.ThrowIf...` helper. |
+| [SST2005](rules/SST2005.md) | An `as` cast compared to `null` (`x as T != null`) should use the `is` type pattern. |
+| [SST2006](rules/SST2006.md) | A negated type test (`!(x is T)`) should use the `is not` pattern. |
 
 ## Collection Expressions
 
@@ -182,6 +189,8 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST1314](rules/SST1314.md) | Type parameters should begin with `T`. |
 | [SST1315](rules/SST1315.md) | Union member names should use the configured casing. |
 | [SST1316](rules/SST1316.md) | Tuple element names should use the configured casing. |
+| [SST1317](rules/SST1317.md) | Task-returning method names should end with `Async`. |
+| [SST1318](rules/SST1318.md) | Overriding or implementing parameter names should match the base member. |
 
 ## Ordering
 
@@ -285,6 +294,17 @@ The unique-line list family was renumbered to `SST1150`-`SST1171`. The detailed 
 | [SST1175](rules/SST1175.md) | A cast targets the type the operand already has. |
 | [SST1176](rules/SST1176.md) | A field, event, or auto-property is initialized to its type's default value. Opt-in. |
 | [SST1177](rules/SST1177.md) | A base list restates a compiler-implied type (`object` base, `int` enum). |
+| [SST1178](rules/SST1178.md) | A parameterless `: base()` constructor call restates the compiler default. |
+| [SST1179](rules/SST1179.md) | A `default:` switch section whose only statement is `break;` adds nothing. |
+| [SST1180](rules/SST1180.md) | An `else` clause has an empty body. |
+| [SST1181](rules/SST1181.md) | An `override` only forwards to the same base member. |
+| [SST1182](rules/SST1182.md) | A conditional expression just yields the boolean literals (`c ? true : false`). |
+| [SST1183](rules/SST1183.md) | An interpolated string has no interpolations. |
+| [SST1184](rules/SST1184.md) | A verbatim string literal needs no verbatim quoting. |
+| [SST1185](rules/SST1185.md) | An assignment recomputes its target (`x = x + y`) instead of using a compound operator. |
+| [SST1186](rules/SST1186.md) | A literal sits on the left of an equality comparison (`0 == count`). |
+| [SST1187](rules/SST1187.md) | An assignment is chained as the value of another assignment (`a = b = c`). |
+| [SST1188](rules/SST1188.md) | A `default(T)` is written where the bare `default` literal suffices. |
 
 ## Records
 

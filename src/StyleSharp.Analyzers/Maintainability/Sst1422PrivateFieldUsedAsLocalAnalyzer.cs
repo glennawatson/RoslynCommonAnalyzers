@@ -24,10 +24,16 @@ public sealed class Sst1422PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var declaration = (FieldDeclarationSyntax)context.Node;
+
+        // The field is local-equivalent only when its first access writes it outright, with no value
+        // flowing in from a previous call. A plain '=' whose right side does not read the field is the
+        // only safe reset: a compound or coalescing assignment ('+=', '??=') reads the old value first,
+        // and so does a right side that mentions the field ('_x = _x + 1'), so both keep cross-call state.
         if (!TryGetCandidate(context, declaration, out var variable, out var field, out var method)
             || method!.Body is not { Statements.Count: > 0 } body
-            || body.Statements[0] is not ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assignment }
-            || !IsFieldTarget(context.SemanticModel, assignment.Left, field!, context.CancellationToken))
+            || body.Statements[0] is not ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment }
+            || !IsFieldTarget(context.SemanticModel, assignment.Left, field!, context.CancellationToken)
+            || RightSideReadsField(assignment.Right, field!, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -149,4 +155,26 @@ public sealed class Sst1422PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
         IFieldSymbol field,
         CancellationToken cancellationToken)
         => SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(expression, cancellationToken).Symbol, field);
+
+    /// <summary>Returns whether the right side of the resetting assignment reads the field.</summary>
+    /// <param name="right">The assignment's right-hand side.</param>
+    /// <param name="field">The field symbol.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when the field's previous value flows into the reset.</returns>
+    private static bool RightSideReadsField(ExpressionSyntax right, IFieldSymbol field, SemanticModel model, CancellationToken cancellationToken)
+    {
+        foreach (var token in right.DescendantTokens())
+        {
+            if (token.IsKind(SyntaxKind.IdentifierToken)
+                && string.Equals(token.ValueText, field.Name, StringComparison.Ordinal)
+                && token.Parent is IdentifierNameSyntax identifier
+                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

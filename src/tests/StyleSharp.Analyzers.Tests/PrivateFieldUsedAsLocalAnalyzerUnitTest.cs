@@ -118,4 +118,104 @@ public class PrivateFieldUsedAsLocalAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies a lazily-initialized cache (<c>??=</c> reads before writing) is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task LazyInitializedFieldIsCleanAsync()
+        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+            """
+            #nullable enable
+            using System;
+
+            public sealed class C
+            {
+                private Action? _handler;
+
+                public void Post(Action drain)
+                {
+                    _handler ??= drain;
+                    Run(_handler);
+                }
+
+                private static void Run(Action handler) => handler();
+            }
+            """);
+
+    /// <summary>Verifies a compound assignment as the first access (read before write) is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task CompoundAssignmentFirstAccessIsCleanAsync()
+        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _acc;
+
+                public int Add(int value)
+                {
+                    _acc += value;
+                    return _acc;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a guarded null-assignment (lazy cache) is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task GuardedNullAssignmentIsCleanAsync()
+        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+            """
+            #nullable enable
+            public sealed class C
+            {
+                private string? _cache;
+
+                public string Get(string compute)
+                {
+                    if (_cache is null)
+                    {
+                        _cache = compute;
+                    }
+
+                    return _cache;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a field whose reset reads its own previous value (a running counter) is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task SelfReferencingResetIsCleanAsync()
+        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _counter;
+
+                public int Next()
+                {
+                    _counter = _counter + 1;
+                    return _counter;
+                }
+            }
+            """);
+
+    /// <summary>Verifies an unconditional reset that does not read the field is still reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task UnconditionalResetStillReportedAsync()
+        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int {|SST1422:_scratch|};
+
+                public int Compute(int value)
+                {
+                    _scratch = value * 2;
+                    return _scratch;
+                }
+            }
+            """);
 }

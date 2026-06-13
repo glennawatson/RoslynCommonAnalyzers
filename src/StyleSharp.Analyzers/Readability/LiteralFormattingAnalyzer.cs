@@ -21,6 +21,9 @@ public sealed class LiteralFormattingAnalyzer : DiagnosticAnalyzer
     /// <summary>The digit count at or above which a separator-free integer literal is flagged.</summary>
     private const int DigitThreshold = 5;
 
+    /// <summary>The number of leading quotes that open a raw string literal.</summary>
+    private const int RawStringQuoteRun = 3;
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
         ReadabilityRules.UseDigitSeparators,
@@ -101,13 +104,24 @@ public sealed class LiteralFormattingAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeStringLiteral(SyntaxNodeAnalysisContext context)
     {
         var literal = (LiteralExpressionSyntax)context.Node;
-        if (!HasRawControlCharacter(literal.Token.Text))
+        var text = literal.Token.Text;
+
+        // Only a regular string literal supports escape sequences, so it is the only place the suggested
+        // fix applies. Verbatim ('@"…"') and raw ('"""…"""') literals hold their content verbatim — the
+        // newlines of a multi-line raw or verbatim string, and any tabs, are intentional, not escapable.
+        if (text.Length == 0 || text[0] == '@' || IsRawStringLiteral(text) || !HasRawControlCharacter(text))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.EscapeControlCharacters, literal.GetLocation()));
     }
+
+    /// <summary>Returns whether a literal's text begins a raw string literal (three or more quotes).</summary>
+    /// <param name="text">The literal token text.</param>
+    /// <returns><see langword="true"/> for a raw string literal.</returns>
+    private static bool IsRawStringLiteral(string text)
+        => text.Length >= RawStringQuoteRun && text[0] == '"' && text[1] == '"' && text[RawStringQuoteRun - 1] == '"';
 
     /// <summary>Returns whether the remainder of a numeric literal from <paramref name="start"/> is a valid integer suffix.</summary>
     /// <param name="text">The literal token text.</param>

@@ -27,7 +27,7 @@ public class MemberDocumentationAnalyzerUnitTest
     public async Task MissingDocumentationAsync()
         => await Verify.VerifyAnalyzerAsync("public class {|SST1600:Widget|} { }");
 
-    /// <summary>Verifies an internal type is required by default (matching the analyzer's documentInternalElements default), while a private nested type is not.</summary>
+    /// <summary>Verifies an internal type is required by default (internal elements are documented by default), while a private nested type is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task InternalRequiredPrivateIgnoredAsync()

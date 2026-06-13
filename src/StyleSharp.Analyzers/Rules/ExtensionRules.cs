@@ -5,8 +5,8 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Diagnostic descriptors for the C# 14 extension-block rules (SST17xx). These have no the analyzer
-/// counterpart — they cover the new <c>extension(Receiver) { … }</c> member syntax.
+/// Diagnostic descriptors for the C# 14 extension-block rules (SST17xx). These
+/// cover the new <c>extension(Receiver) { … }</c> member syntax.
 /// </summary>
 internal static class ExtensionRules
 {

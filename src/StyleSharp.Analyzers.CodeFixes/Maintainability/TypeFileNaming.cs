@@ -8,11 +8,11 @@ using System.Text;
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Derives the file name that a type declaration should live in, mirroring the ReSharper/Rider
-/// and the analyzer conventions. Generic types use a file-name-safe arity marker chosen by the
-/// <c>stylesharp.file_naming_convention</c> option: <c>the analyzer</c> (default) renders the type
+/// Derives the file name that a type declaration should live in. Generic types use a
+/// file-name-safe arity marker chosen by the
+/// <c>stylesharp.file_naming_convention</c> option: the default renders the type
 /// parameter names in braces (<c>Widget{TKey,TValue}.cs</c>) while <c>metadata</c> renders the
-/// arity with a backtick (<c>Widget`2.cs</c>). Both forms are accepted by the SST1649 analyzer.
+/// arity with a backtick (<c>Widget`2.cs</c>). Both forms are accepted by the analyzer.
 /// </summary>
 internal static class TypeFileNaming
 {
@@ -22,7 +22,7 @@ internal static class TypeFileNaming
     /// <summary>The configuration value selecting the backtick-arity (metadata) convention.</summary>
     private const string MetadataValue = "metadata";
 
-    /// <summary>Reads the configured generic file-naming convention for a rule, falling back to the general key, then the the analyzer default.</summary>
+    /// <summary>Reads the configured generic file-naming convention for a rule, falling back to the general key, then the brace default.</summary>
     /// <param name="options">The analyzer config options for the document's tree.</param>
     /// <param name="ruleId">The diagnostic id whose rule-specific override is checked first.</param>
     /// <returns><see langword="true"/> to use the backtick-arity (metadata) convention; otherwise the brace convention.</returns>

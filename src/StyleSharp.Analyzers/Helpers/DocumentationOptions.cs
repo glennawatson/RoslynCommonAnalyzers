@@ -32,7 +32,7 @@ internal static class DocumentationOptions
     public const string DocumentPrivateElementsKey = "stylesharp.document_private_elements";
 
     /// <summary>Editorconfig key controlling whether private fields require documentation. Independent of
-    /// <see cref="DocumentPrivateElementsKey"/>; mirrors the analyzer's separate <c>documentPrivateFields</c> knob.</summary>
+    /// <see cref="DocumentPrivateElementsKey"/>, via the separate <c>documentPrivateFields</c> knob.</summary>
     public const string DocumentPrivateFieldsKey = "stylesharp.document_private_fields";
 
     /// <summary>Editorconfig key controlling how interfaces and their members are documented (<c>all</c>/<c>exposed</c>/<c>none</c>).</summary>
@@ -40,8 +40,8 @@ internal static class DocumentationOptions
 
     /// <summary>
     /// Reads the documentation-coverage scope (which accessibilities the SST1600/SST1601/SST1602/SST1654
-    /// "must be documented" rules apply to) from <c>.editorconfig</c>. The defaults match the analyzer's
-    /// <c>documentationRules</c>: exposed on, internal on, private off, private fields off, interfaces <c>all</c>.
+    /// "must be documented" rules apply to) from <c>.editorconfig</c>. The defaults are:
+    /// exposed on, internal on, private off, private fields off, interfaces <c>all</c>.
     /// </summary>
     /// <param name="options">The analyzer config options for the relevant syntax tree.</param>
     /// <returns>The configured (or default) coverage scope.</returns>

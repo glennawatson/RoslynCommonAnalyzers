@@ -26,9 +26,9 @@ internal static class DocumentationConventions
     /// <summary>
     /// Returns the expected leading text for a property summary based on its accessors.
     /// A setter with its own (more restrictive) access modifier is treated as not
-    /// externally settable, so the summary reads "Gets " (folding in the rule). An
-    /// <c>init</c> accessor is likewise treated as read-oriented — matching the analyzer's
-    /// the rule, an init-only property's summary begins with "Gets ", not "Gets or sets ".
+    /// externally settable, so the summary reads "Gets ". An
+    /// <c>init</c> accessor is likewise treated as read-oriented —
+    /// an init-only property's summary begins with "Gets ", not "Gets or sets ".
     /// </summary>
     /// <param name="property">The property declaration.</param>
     /// <returns>"Gets ", "Sets ", or "Gets or sets " (with a trailing space).</returns>

@@ -5,7 +5,7 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// How the documentation-coverage rules treat interfaces and their members, mirroring the analyzer's
+/// How the documentation-coverage rules treat interfaces and their members, via the
 /// <c>documentInterfaces</c> setting.
 /// </summary>
 internal enum DocumentationInterfaceMode

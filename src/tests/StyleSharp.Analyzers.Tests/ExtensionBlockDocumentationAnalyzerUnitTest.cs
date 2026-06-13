@@ -117,7 +117,7 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies an extension block in an internal container is reported by default (matching the analyzer's documentInternalElements default).</summary>
+    /// <summary>Verifies an extension block in an internal container is reported by default (internal elements are documented by default).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task InternalContainerReportedByDefaultAsync()

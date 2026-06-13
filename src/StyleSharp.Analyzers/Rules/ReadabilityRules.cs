@@ -5,8 +5,7 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Single source of truth for the readability (SST11xx) diagnostic descriptors, the StyleSharp
-/// counterparts of the analyzer's SA11xx readability rules.
+/// Single source of truth for the readability (SST11xx) diagnostic descriptors.
 /// </summary>
 internal static class ReadabilityRules
 {
@@ -43,7 +42,7 @@ internal static class ReadabilityRules
         "SST1121",
         "Use built-in type alias",
         "Use the built-in alias '{0}' instead of '{1}'",
-        "A built-in alias ('int', 'string', …) is used instead of the framework type name ('System.Int32', 'String'). Off by default — the analyzer's the rule covers the same ground faster.");
+        "A built-in alias ('int', 'string', …) is used instead of the framework type name ('System.Int32', 'String'). Off by default.");
 
     /// <summary>SST1125 — a <c>Nullable&lt;T&gt;</c> type is written in long form instead of the <c>T?</c> shorthand.</summary>
     public static readonly DiagnosticDescriptor UseNullableShorthand = Create(
@@ -241,14 +240,14 @@ internal static class ReadabilityRules
         "Use the literal suffix '{0}' instead of a cast",
         "A typed numeric literal uses a suffix ('1L', '2.0f') rather than a cast applied to an untyped literal.");
 
-    /// <summary>SST1141 — an explicit <c>ValueTuple&lt;...&gt;</c> is used where tuple syntax would do (mirrors the rule).</summary>
+    /// <summary>SST1141 — an explicit <c>ValueTuple&lt;...&gt;</c> is used where tuple syntax would do.</summary>
     public static readonly DiagnosticDescriptor UseTupleSyntax = Create(
         "SST1141",
         "Use tuple syntax",
         "Use tuple syntax instead of the ValueTuple<...> type",
         "A value tuple type is written with the language tuple syntax '(T1, T2)' rather than the underlying ValueTuple<...> type.");
 
-    /// <summary>SST1142 — a tuple element is accessed by <c>ItemN</c> where it has a name (mirrors the rule).</summary>
+    /// <summary>SST1142 — a tuple element is accessed by <c>ItemN</c> where it has a name.</summary>
     public static readonly DiagnosticDescriptor ReferToTupleElementByName = Create(
         "SST1142",
         "Refer to tuple elements by name",
@@ -303,6 +302,48 @@ internal static class ReadabilityRules
         "Prefer the 'is null' pattern for null checks",
         "Use '{0}' for this null check",
         "A null check is written as 'x is null' or 'x is not null' rather than 'x == null' or 'x != null', which reads directly and ignores overloaded equality operators.");
+
+    /// <summary>SST1172 — a comparison is wrapped in a logical-not (<c>!(a == b)</c>) instead of using the opposite operator.</summary>
+    public static readonly DiagnosticDescriptor NoInvertedBooleanCheck = Create(
+        "SST1172",
+        "Negated comparisons should use the opposite operator",
+        "Drop the '!' and write this comparison with '{0}'",
+        "A comparison negated with '!' reads more directly using the opposite operator: '!(a == b)' becomes 'a != b'. Relational forms are flagged only for non-nullable, non-float operands.");
+
+    /// <summary>SST1173 — an anonymous-type member restates a name that would be inferred (<c>new { X = obj.X }</c>).</summary>
+    public static readonly DiagnosticDescriptor NoRedundantAnonymousTypeMemberName = Create(
+        "SST1173",
+        "Redundant anonymous-type member names should be omitted",
+        "Omit the redundant member name '{0}'",
+        "When an anonymous-type member is assigned from a member or variable of the same name, the name is inferred and can be omitted: 'new { obj.X }' instead of 'new { X = obj.X }'.");
+
+    /// <summary>SST1174 — a <c>return;</c> or <c>continue;</c> at the tail of its block has no effect.</summary>
+    public static readonly DiagnosticDescriptor NoRedundantJump = Create(
+        "SST1174",
+        "Redundant jump statements should be removed",
+        "Remove this redundant '{0}' statement; control already continues here",
+        "A 'return;' at the end of a void member or a 'continue;' at the end of a loop body does nothing, because control already flows to the same place.");
+
+    /// <summary>SST1175 — a cast targets the type the operand already has (<c>(int)anInt</c>).</summary>
+    public static readonly DiagnosticDescriptor NoRedundantCast = Create(
+        "SST1175",
+        "Unnecessary casts should be removed",
+        "Drop the unnecessary cast to '{0}'; the operand already has that type",
+        "A cast whose target type (including nullability) matches the operand's own type does nothing and only adds noise.");
+
+    /// <summary>SST1176 — a field, event, or auto-property is initialized to the type's default (opt-in).</summary>
+    public static readonly DiagnosticDescriptor NoMemberInitializedToDefault = CreateOptIn(
+        "SST1176",
+        "Members should not be initialized to their default value",
+        "Drop the initializer; '{0}' already starts at its default value",
+        "Fields, events, and auto-properties already start at the type default, so '= 0', '= false', '= null', and '= default' add nothing. Off by default; explicit defaults are a defensible style.");
+
+    /// <summary>SST1177 — a base list restates a type the compiler already implies (<c>class C : object</c>).</summary>
+    public static readonly DiagnosticDescriptor NoRedundantInheritanceList = Create(
+        "SST1177",
+        "Redundant base types should be removed",
+        "Remove the redundant base type '{0}'; it is already implied",
+        "Listing 'object' as a base type, or 'int' as an enum's underlying type, restates the compiler default and can be removed.");
 
     /// <summary>Creates a Warning-severity Readability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

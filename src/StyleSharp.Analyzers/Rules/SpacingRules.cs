@@ -5,8 +5,7 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Single source of truth for the spacing (SST10xx) diagnostic descriptors, the StyleSharp
-/// counterparts of the analyzer's SA10xx spacing rules.
+/// Single source of truth for the spacing (SST10xx) diagnostic descriptors.
 /// </summary>
 internal static class SpacingRules
 {

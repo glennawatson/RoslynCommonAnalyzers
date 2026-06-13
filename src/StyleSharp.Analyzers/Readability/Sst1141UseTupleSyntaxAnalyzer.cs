@@ -6,7 +6,7 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Reports an explicit <c>ValueTuple&lt;...&gt;</c> type where the language tuple syntax
-/// <c>(T1, T2)</c> would do (SST1141, mirrors the rule). The common no-diagnostic path is a
+/// <c>(T1, T2)</c> would do (SST1141). The common no-diagnostic path is a
 /// single name comparison, so the semantic model is consulted only for a generic name actually
 /// spelled <c>ValueTuple</c>.
 /// </summary>

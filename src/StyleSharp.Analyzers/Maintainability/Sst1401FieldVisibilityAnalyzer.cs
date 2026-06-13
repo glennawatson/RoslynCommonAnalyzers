@@ -32,7 +32,7 @@ public sealed class Sst1401FieldVisibilityAnalyzer : DiagnosticAnalyzer
         var modifiers = field.Modifiers;
 
         // Constants and static readonly fields (e.g. singleton instances) are exposed
-        // values that cannot be reassigned, so the analyzer's the rule leaves them alone.
+        // values that cannot be reassigned, so the rule leaves them alone.
         if (ModifierListHelper.Contains(modifiers, SyntaxKind.ConstKeyword)
             || (ModifierListHelper.Contains(modifiers, SyntaxKind.StaticKeyword)
                 && ModifierListHelper.Contains(modifiers, SyntaxKind.ReadOnlyKeyword))

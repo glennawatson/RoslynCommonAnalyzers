@@ -61,7 +61,10 @@ jobs:
             minor) VERSION="${MAJ}.$((MIN+1)).0" ;;
             patch) VERSION="${MAJ}.${MIN}.$((PAT+1))" ;;
           esac
-          echo "Latest RTM tag: $LAST -> next: $VERSION"
+          # Enforce a minimum release version floor.
+          FLOOR="3.8.0"
+          VERSION="$(printf '%s\n%s\n' "$VERSION" "$FLOOR" | sort -V | tail -1)"
+          echo "Latest RTM tag: $LAST -> next: $VERSION (floor $FLOOR)"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
           echo "MINVERVERSIONOVERRIDE=$VERSION" >> "$GITHUB_ENV"

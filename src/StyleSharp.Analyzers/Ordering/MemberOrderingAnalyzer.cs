@@ -5,7 +5,7 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Checks that the members of a type appear in the analyzer's conventional order
+/// Checks that the members of a type appear in the conventional order
 /// (SST1201–SST1214): by kind, then accessibility, then constant, then static,
 /// then readonly. Each adjacent out-of-order pair reports the first dimension it
 /// violates. The whole type's members are ranked in a single syntactic pass.

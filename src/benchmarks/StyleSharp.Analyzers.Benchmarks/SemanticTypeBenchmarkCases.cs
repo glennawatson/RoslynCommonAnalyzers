@@ -17,7 +17,7 @@ internal static class SemanticTypeBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState CreateRedundantModifier(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new Sst1419RedundantModifierAnalyzer(), SemanticTypeBenchmarkSource.GenerateRedundantModifier, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new RedundantModifierAnalyzer(), SemanticTypeBenchmarkSource.GenerateRedundantModifier, nodes);
 
     /// <summary>Creates the prepared benchmark state for default-value-type-constructor analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>

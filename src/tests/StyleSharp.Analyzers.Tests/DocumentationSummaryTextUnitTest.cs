@@ -59,7 +59,7 @@ public class DocumentationSummaryTextUnitTest
         await VerifyProperty.VerifyCodeFixAsync(Source, FixedSource);
     }
 
-    /// <summary>Verifies an init-only property summary should begin with "Gets" (matching the analyzer), not "Gets or sets".</summary>
+    /// <summary>Verifies an init-only property summary should begin with "Gets", not "Gets or sets".</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task InitOnlyPropertyExpectsGetsAsync()
@@ -82,7 +82,7 @@ public class DocumentationSummaryTextUnitTest
         await VerifyProperty.VerifyAnalyzerAsync(Source);
     }
 
-    /// <summary>Verifies the fix prefixes an init-only property summary with "Gets" (matching the analyzer).</summary>
+    /// <summary>Verifies the fix prefixes an init-only property summary with "Gets".</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task InitOnlyPropertyFixedWithGetsAsync()

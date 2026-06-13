@@ -46,12 +46,12 @@ internal static class NamingRules
         "Field '{0}' is accessible and should begin with an upper-case letter",
         "Public, internal, and protected fields follow the .NET PascalCase convention.");
 
-    /// <summary>SST1309 — private fields should be _camelCase (runtime convention; inverts the analyzer the rule).</summary>
+    /// <summary>SST1309 — private fields should be _camelCase (runtime convention).</summary>
     public static readonly DiagnosticDescriptor PrivateFieldUnderscoreCamelCase = Create(
         "SST1309",
         "Private fields should be _camelCase",
         "Private field '{0}' should be named using a leading underscore and camelCase (for example, _value)",
-        "Private fields use the .NET runtime convention of a leading underscore followed by camelCase. This is the inverse of the analyzer's the rule.");
+        "Private fields use the .NET runtime convention of a leading underscore followed by camelCase.");
 
     /// <summary>SST1311 — static readonly fields should be PascalCase.</summary>
     public static readonly DiagnosticDescriptor StaticReadonlyPascalCase = Create(
@@ -107,21 +107,21 @@ internal static class NamingRules
         "SST1306",
         "Field names should begin with a lower-case letter",
         "Field '{0}' should begin with a lower-case letter",
-        "Field names begin with a lower-case letter (the analyzer the rule). Off by default — it conflicts with the runtime _camelCase convention enforced by SST1309.");
+        "Field names begin with a lower-case letter. Off by default — it conflicts with the runtime _camelCase convention enforced by SST1309.");
 
     /// <summary>SST1308 — field names should not be prefixed with m_ or s_ (opt-in; conflicts with our s_ allowance).</summary>
     public static readonly DiagnosticDescriptor NoFieldPrefix = CreateOptIn(
         "SST1308",
         "Field names should not be prefixed",
         "Field '{0}' should not be prefixed with '{1}'",
-        "Field names are not prefixed with 'm_', 's_', or 't_' (the analyzer the rule). Off by default — the repository allows the 's_' prefix for static fields.");
+        "Field names are not prefixed with 'm_', 's_', or 't_'. Off by default — the repository allows the 's_' prefix for static fields.");
 
     /// <summary>SST1310 — field names should not contain underscores (opt-in; conflicts with SST1309).</summary>
     public static readonly DiagnosticDescriptor FieldNoUnderscore = CreateOptIn(
         "SST1310",
         "Field names should not contain underscores",
         "Field '{0}' should not contain an underscore",
-        "Field names do not contain underscores (the analyzer the rule). Off by default — it conflicts with the runtime _camelCase convention enforced by SST1309.");
+        "Field names do not contain underscores. Off by default — it conflicts with the runtime _camelCase convention enforced by SST1309.");
 
     /// <summary>Every fixable naming id, for the shared rename code fix.</summary>
     public static readonly ImmutableArray<string> AllFixableIds = ImmutableArrays.Of(

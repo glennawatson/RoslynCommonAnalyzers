@@ -184,22 +184,73 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The type syntax to scan.</param>
     /// <param name="typeParameters">The type parameters to look for.</param>
     /// <returns><see langword="true"/> when an identifier in the type matches a type parameter name.</returns>
-    private static bool TypeMentionsAnyParameter(TypeSyntax type, TypeParameterListSyntax typeParameters)
+    /// <remarks>
+    /// A structural recursion over the known type-syntax shapes, rather than an iterator-based
+    /// <c>DescendantTokens()</c> walk, so the scan allocates nothing. Unrecognized shapes return
+    /// <see langword="true"/> (assume a reference) so the rule never reports a false positive.
+    /// </remarks>
+    [SuppressMessage("Critical Code Smell", "S1541:Methods and properties should not be too complex", Justification = "A flat type-shape dispatch switch is a zero-allocation jump table.")]
+    private static bool TypeMentionsAnyParameter(TypeSyntax type, TypeParameterListSyntax typeParameters) => type switch
     {
-        foreach (var token in type.DescendantTokens())
-        {
-            if (!token.IsKind(SyntaxKind.IdentifierToken))
-            {
-                continue;
-            }
+        PredefinedTypeSyntax => false,
+        IdentifierNameSyntax identifier => MatchesParameter(identifier.Identifier.ValueText, typeParameters),
+        GenericNameSyntax generic => TypeArgumentsMentionAnyParameter(generic.TypeArgumentList.Arguments, typeParameters),
+        QualifiedNameSyntax qualified => TypeMentionsAnyParameter(qualified.Left, typeParameters) || TypeMentionsAnyParameter(qualified.Right, typeParameters),
+        AliasQualifiedNameSyntax alias => TypeMentionsAnyParameter(alias.Name, typeParameters),
+        ArrayTypeSyntax array => TypeMentionsAnyParameter(array.ElementType, typeParameters),
+        NullableTypeSyntax nullable => TypeMentionsAnyParameter(nullable.ElementType, typeParameters),
+        PointerTypeSyntax pointer => TypeMentionsAnyParameter(pointer.ElementType, typeParameters),
+        RefTypeSyntax refType => TypeMentionsAnyParameter(refType.Type, typeParameters),
+        TupleTypeSyntax tuple => TupleMentionsAnyParameter(tuple.Elements, typeParameters),
+        _ => true
+    };
 
-            var parameters = typeParameters.Parameters;
-            for (var i = 0; i < parameters.Count; i++)
+    /// <summary>Returns whether a name matches one of the type parameters.</summary>
+    /// <param name="name">The identifier text.</param>
+    /// <param name="typeParameters">The type parameters to look for.</param>
+    /// <returns><see langword="true"/> when the name is a type parameter name.</returns>
+    private static bool MatchesParameter(string name, TypeParameterListSyntax typeParameters)
+    {
+        var parameters = typeParameters.Parameters;
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            if (string.Equals(parameters[i].Identifier.ValueText, name, StringComparison.Ordinal))
             {
-                if (string.Equals(parameters[i].Identifier.ValueText, token.ValueText, StringComparison.Ordinal))
-                {
-                    return true;
-                }
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether any generic type argument references a type parameter.</summary>
+    /// <param name="arguments">The type argument list.</param>
+    /// <param name="typeParameters">The type parameters to look for.</param>
+    /// <returns><see langword="true"/> when an argument mentions a type parameter.</returns>
+    private static bool TypeArgumentsMentionAnyParameter(SeparatedSyntaxList<TypeSyntax> arguments, TypeParameterListSyntax typeParameters)
+    {
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (TypeMentionsAnyParameter(arguments[i], typeParameters))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether any tuple element type references a type parameter.</summary>
+    /// <param name="elements">The tuple element list.</param>
+    /// <param name="typeParameters">The type parameters to look for.</param>
+    /// <returns><see langword="true"/> when an element mentions a type parameter.</returns>
+    private static bool TupleMentionsAnyParameter(SeparatedSyntaxList<TupleElementSyntax> elements, TypeParameterListSyntax typeParameters)
+    {
+        for (var i = 0; i < elements.Count; i++)
+        {
+            if (TypeMentionsAnyParameter(elements[i].Type, typeParameters))
+            {
+                return true;
             }
         }
 

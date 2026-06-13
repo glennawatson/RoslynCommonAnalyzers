@@ -123,6 +123,20 @@ internal static class NamingRules
         "Field '{0}' should not contain an underscore",
         "Field names do not contain underscores. Off by default — it conflicts with the runtime _camelCase convention enforced by SST1309.");
 
+    /// <summary>SST1317 — an asynchronous (task-returning) method name does not end with the <c>Async</c> suffix.</summary>
+    public static readonly DiagnosticDescriptor AsyncMethodSuffix = Create(
+        "SST1317",
+        "Asynchronous method names should end with 'Async'",
+        "Rename '{0}' to end with the 'Async' suffix",
+        "A method that returns a task is named with an 'Async' suffix so callers see it is awaitable. Overrides and interface implementations are skipped, since their names follow the base member.");
+
+    /// <summary>SST1318 — an overriding or implementing parameter name does not match the name on the base member.</summary>
+    public static readonly DiagnosticDescriptor ParameterNameMatchesBase = Create(
+        "SST1318",
+        "Overriding parameter names should match the base declaration",
+        "Rename parameter '{0}' to match the base member",
+        "When a method overrides or implements another, its parameter names match the base declaration so call-site argument names and documentation stay consistent.");
+
     /// <summary>Every fixable naming id, for the shared rename code fix.</summary>
     public static readonly ImmutableArray<string> AllFixableIds = ImmutableArrays.Of(
         "SST1300",
@@ -135,7 +149,9 @@ internal static class NamingRules
         "SST1312",
         "SST1313",
         "SST1314",
-        "SST1315");
+        "SST1315",
+        "SST1317",
+        "SST1318");
 
     /// <summary>Creates a Warning-severity Naming descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

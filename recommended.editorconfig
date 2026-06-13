@@ -139,6 +139,11 @@ dotnet_diagnostic.SST1423.severity = warning # A switch statement exceeds the co
 dotnet_diagnostic.SST1425.severity = warning # A captured primary-constructor parameter is reassigned
 dotnet_diagnostic.SST1426.severity = warning # An analyzer warning is silenced with #pragma instead of a scoped [SuppressMessage]
 dotnet_diagnostic.SST1427.severity = warning # A sealed type has a protected member, where protected has no effect
+dotnet_diagnostic.SST1428.severity = warning # An abstract type declares a public constructor only derived types can call
+dotnet_diagnostic.SST1429.severity = warning # An empty catch of the base exception silently swallows every error
+dotnet_diagnostic.SST1430.severity = warning # 'throw ex;' re-throws and discards the original stack trace
+dotnet_diagnostic.SST1431.severity = warning # A static member of a generic type ignores the type's type parameters
+# dotnet_diagnostic.SST1432.severity = warning # A class declares only static members and could be marked static (opt-in)
 # dotnet_diagnostic.SST1450.severity = warning # Files should be stored as UTF-8 without a byte order mark (opt-in)
 
 # Modernization
@@ -147,6 +152,8 @@ dotnet_diagnostic.SST2000.severity = warning # A null check + throw should use A
 # dotnet_diagnostic.SST2002.severity = warning # A whitespace check + throw should use ArgumentException.ThrowIfNullOrWhiteSpace (opt-in)
 dotnet_diagnostic.SST2003.severity = warning # A disposed check should use ObjectDisposedException.ThrowIf
 dotnet_diagnostic.SST2004.severity = warning # A range check should use an ArgumentOutOfRangeException.ThrowIf... helper
+dotnet_diagnostic.SST2005.severity = warning # An 'as' cast compared to null should use the 'is' type pattern
+dotnet_diagnostic.SST2006.severity = warning # A negated type test '!(x is T)' should use the 'is not' pattern
 
 # Collection expressions
 dotnet_diagnostic.SST2100.severity = warning # An empty collection creation can use []
@@ -172,6 +179,8 @@ dotnet_diagnostic.SST1313.severity = warning # Parameters should be camelCase
 dotnet_diagnostic.SST1314.severity = warning # Type parameters should begin with T
 dotnet_diagnostic.SST1315.severity = warning # Union member names should use the configured casing (default PascalCase)
 dotnet_diagnostic.SST1316.severity = warning # Tuple element names should use the configured casing (default PascalCase)
+dotnet_diagnostic.SST1317.severity = warning # Task-returning method names should end with 'Async'
+dotnet_diagnostic.SST1318.severity = warning # Overriding/implementing parameter names should match the base member
 
 # Ordering
 dotnet_diagnostic.SST1200.severity = warning # Using directives should be placed outside the namespace
@@ -264,6 +273,17 @@ dotnet_diagnostic.SST1174.severity = warning # A trailing return;/continue; has 
 dotnet_diagnostic.SST1175.severity = warning # A cast targets the type the operand already has
 # dotnet_diagnostic.SST1176.severity = warning # A field, event, or auto-property is initialized to its type default (opt-in)
 dotnet_diagnostic.SST1177.severity = warning # A base list restates a compiler-implied type (object base, int enum)
+dotnet_diagnostic.SST1178.severity = warning # A parameterless ': base()' constructor call restates the compiler default
+dotnet_diagnostic.SST1179.severity = warning # A 'default:' switch section whose only statement is 'break;' adds nothing
+dotnet_diagnostic.SST1180.severity = warning # An 'else' clause has an empty body
+dotnet_diagnostic.SST1181.severity = warning # An override only forwards to the same base member
+dotnet_diagnostic.SST1182.severity = warning # A conditional expression just yields the boolean literals (c ? true : false)
+dotnet_diagnostic.SST1183.severity = warning # An interpolated string has no interpolations
+dotnet_diagnostic.SST1184.severity = warning # A verbatim string literal needs no verbatim quoting
+dotnet_diagnostic.SST1185.severity = warning # An assignment recomputes its target (x = x + y) instead of a compound operator
+dotnet_diagnostic.SST1186.severity = warning # A literal sits on the left of an equality comparison (0 == count)
+dotnet_diagnostic.SST1187.severity = warning # An assignment is chained as the value of another (a = b = c)
+dotnet_diagnostic.SST1188.severity = warning # A 'default(T)' is written where the bare 'default' literal suffices
 
 # Records
 # dotnet_diagnostic.SST1800.severity = warning # A record class is neither sealed nor abstract (opt-in)

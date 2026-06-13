@@ -5,10 +5,11 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Diagnostic descriptors for the modernization rules (SST20xx). Each suggests a
-/// modern runtime throw-helper in place of a hand-written argument guard, and each
-/// is gated on the helper actually existing in the referenced framework, so the
-/// rule lights up only where the replacement compiles.
+/// Diagnostic descriptors for the modernization rules (SST20xx). These point hand-written
+/// code at a clearer modern equivalent — a runtime throw-helper in place of an argument
+/// guard, or a pattern-matching form in place of an <c>as</c>/<c>is</c> idiom. Throw-helper
+/// rules are gated on the helper existing in the referenced framework, so they light up only
+/// where the replacement compiles.
 /// </summary>
 internal static class ModernizationRules
 {
@@ -46,6 +47,20 @@ internal static class ModernizationRules
         "Use ArgumentOutOfRangeException range helpers",
         "Replace the range check with 'ArgumentOutOfRangeException.{0}'",
         "A simple range check is replaced by the matching ArgumentOutOfRangeException.ThrowIf helper (.NET 8+).");
+
+    /// <summary>SST2005 — an <c>as</c> cast compared to <c>null</c> should use the <c>is</c> type pattern.</summary>
+    public static readonly DiagnosticDescriptor UseIsPatternOverAsNullCheck = Create(
+        "SST2005",
+        "Use the 'is' type pattern instead of comparing an 'as' cast to null",
+        "Use '{0}' instead of comparing an 'as' cast to null",
+        "Casting with 'as' and then comparing to null ('x as T != null') restates a type test that 'x is T' (or 'x is not T') expresses directly, without the throwaway local.");
+
+    /// <summary>SST2006 — a negated type test (<c>!(x is T)</c>) should use the <c>is not</c> pattern.</summary>
+    public static readonly DiagnosticDescriptor UseNegatedIsPattern = Create(
+        "SST2006",
+        "Use the 'is not' pattern instead of negating an 'is' check",
+        "Use 'is not' instead of negating the 'is' check",
+        "A type test negated with '!' reads more directly as the 'is not' pattern: '!(x is T)' becomes 'x is not T'.");
 
     /// <summary>Creates a Warning-severity Modernization descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

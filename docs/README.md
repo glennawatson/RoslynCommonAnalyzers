@@ -142,6 +142,13 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST1430](rules/SST1430.md) | `throw ex;` re-throws the caught exception and discards its original stack trace. |
 | [SST1431](rules/SST1431.md) | A static member of a generic type ignores the type's type parameters. |
 | [SST1432](rules/SST1432.md) | A class declares only static members and could be marked `static`. Opt-in. |
+| [SST1433](rules/SST1433.md) | A type's only constructor is a public, parameterless, empty default. |
+| [SST1434](rules/SST1434.md) | A finalizer has an empty body. |
+| [SST1435](rules/SST1435.md) | A namespace declaration has no members. |
+| [SST1436](rules/SST1436.md) | A class, struct, or record has no members. Opt-in. |
+| [SST1437](rules/SST1437.md) | An interface has no members. Opt-in. |
+| [SST1438](rules/SST1438.md) | A method has an empty body. Opt-in. |
+| [SST1439](rules/SST1439.md) | A loop or guard statement has an empty embedded block. |
 | [SST1450](rules/SST1450.md) | Files should be stored as UTF-8 without a byte order mark. Opt-in. |
 
 ## Modernization
@@ -305,6 +312,10 @@ The unique-line list family was renumbered to `SST1150`-`SST1171`. The detailed 
 | [SST1186](rules/SST1186.md) | A literal sits on the left of an equality comparison (`0 == count`). |
 | [SST1187](rules/SST1187.md) | An assignment is chained as the value of another assignment (`a = b = c`). |
 | [SST1188](rules/SST1188.md) | A `default(T)` is written where the bare `default` literal suffices. |
+| [SST1189](rules/SST1189.md) | An assignment copies a value onto itself (`x = x`). |
+| [SST1190](rules/SST1190.md) | A prefix-negation operator is applied twice (`!!x`, `~~x`). |
+| [SST1191](rules/SST1191.md) | A long base-10 integer literal has no digit separators. Opt-in. |
+| [SST1192](rules/SST1192.md) | A string literal embeds a raw control character. Opt-in. |
 
 ## Records
 

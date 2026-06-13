@@ -277,3 +277,14 @@ SST1317 | Naming | Warning | MethodNamingAnalyzer
 SST1318 | Naming | Warning | MethodNamingAnalyzer
 SST2005 | Modernization | Warning | PatternMatchingAnalyzer
 SST2006 | Modernization | Warning | PatternMatchingAnalyzer
+SST1189 | Readability | Warning | ExpressionSimplificationAnalyzer
+SST1190 | Readability | Warning | ExpressionSimplificationAnalyzer
+SST1191 | Readability | Disabled | LiteralFormattingAnalyzer
+SST1192 | Readability | Disabled | LiteralFormattingAnalyzer
+SST1433 | Maintainability | Warning | EmptyCodeAnalyzer
+SST1434 | Maintainability | Warning | EmptyCodeAnalyzer
+SST1435 | Maintainability | Warning | EmptyCodeAnalyzer
+SST1436 | Maintainability | Disabled | EmptyCodeAnalyzer
+SST1437 | Maintainability | Disabled | EmptyCodeAnalyzer
+SST1438 | Maintainability | Disabled | EmptyCodeAnalyzer
+SST1439 | Maintainability | Warning | EmptyCodeAnalyzer

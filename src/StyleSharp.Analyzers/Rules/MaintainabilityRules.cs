@@ -240,6 +240,55 @@ internal static class MaintainabilityRules
         "Mark '{0}' as 'static'; it declares only static members",
         "A class whose members are all static can be marked 'static' to forbid instantiation. Off by default, since marking a published, instantiable type 'static' is a breaking change.");
 
+    /// <summary>SST1433 — a public parameterless constructor with an empty body restates the compiler default.</summary>
+    public static readonly DiagnosticDescriptor NoRedundantConstructor = Create(
+        "SST1433",
+        "Redundant constructors should be removed",
+        "Remove this redundant constructor; the compiler supplies an equivalent default constructor",
+        "A type's only constructor being a public, parameterless, empty constructor restates the default constructor the compiler would emit anyway, so it can be removed.");
+
+    /// <summary>SST1434 — a finalizer has an empty body and only slows down garbage collection.</summary>
+    public static readonly DiagnosticDescriptor NoEmptyFinalizer = Create(
+        "SST1434",
+        "Empty finalizers should be removed",
+        "Remove this empty finalizer; it only burdens the garbage collector",
+        "An empty finalizer does no cleanup yet forces the runtime to track the object on the finalization queue, so it should be removed.");
+
+    /// <summary>SST1435 — a namespace declaration contains no members.</summary>
+    public static readonly DiagnosticDescriptor NoEmptyNamespace = Create(
+        "SST1435",
+        "Empty namespace declarations should be removed",
+        "Remove this empty namespace declaration",
+        "A namespace declaration with no members serves no purpose and can be deleted.");
+
+    /// <summary>SST1436 — a class, struct, or record declares no members (opt-in).</summary>
+    public static readonly DiagnosticDescriptor NoEmptyType = CreateOptIn(
+        "SST1436",
+        "Empty types should not be declared",
+        "Add members to '{0}' or remove it; an empty type is rarely intentional",
+        "A class, struct, or record with no members is usually an oversight. Off by default, because empty types are sometimes used as markers, DTOs, or extension points.");
+
+    /// <summary>SST1437 — an interface declares no members (opt-in).</summary>
+    public static readonly DiagnosticDescriptor NoEmptyInterface = CreateOptIn(
+        "SST1437",
+        "Empty interfaces should not be declared",
+        "Add members to '{0}' or remove it; an empty interface adds no contract",
+        "An interface with no members defines no contract and is often better expressed with an attribute. Off by default, because marker interfaces are an accepted pattern.");
+
+    /// <summary>SST1438 — a method has an empty body (opt-in).</summary>
+    public static readonly DiagnosticDescriptor NoEmptyMethod = CreateOptIn(
+        "SST1438",
+        "Methods should not be empty",
+        "Give '{0}' a body or document why it is intentionally empty",
+        "An empty method body usually signals unfinished work. Off by default, because empty overrides, virtual hooks, and interface implementations are legitimately empty.");
+
+    /// <summary>SST1439 — a loop or guard statement has an empty embedded block.</summary>
+    public static readonly DiagnosticDescriptor NoEmptyNestedBlock = Create(
+        "SST1439",
+        "Nested code blocks should not be left empty",
+        "Fill or remove this empty block; an empty loop or guard body is usually a mistake",
+        "An empty block as the body of a loop ('while', 'for', 'foreach', 'do') or guard ('if', 'lock', 'fixed', 'using') usually means missing code or a stray semicolon.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

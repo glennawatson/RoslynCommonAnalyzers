@@ -8,7 +8,7 @@ namespace StyleSharp.Analyzers;
 /// Decides whether a declaration is in scope for the documentation-coverage rules
 /// (SST1600/SST1601/SST1602/SST1654), using only syntax (modifiers + containing
 /// types) so no semantic model binding is needed. The decision honours the
-/// <see cref="DocumentationCoverage"/> options, mirroring StyleCop's
+/// <see cref="DocumentationCoverage"/> options via the
 /// <c>documentExposedElements</c> / <c>documentInternalElements</c> /
 /// <c>documentPrivateElements</c> / <c>documentInterfaces</c> settings and their
 /// effective-accessibility handling for nested types.
@@ -52,8 +52,8 @@ internal static class DocumentationVisibility
                 : coverage.PrivateElements;
         }
 
-        // With private documentation enabled every remaining element is in scope (StyleCop only carves
-        // out private fields here, which this analyzer does not document).
+        // With private documentation enabled every remaining element is in scope (private fields are
+        // carved out here, since this analyzer does not document them).
         if (coverage.PrivateElements)
         {
             return true;
@@ -76,7 +76,7 @@ internal static class DocumentationVisibility
     /// <summary>
     /// Returns whether a field declaration requires documentation. Fields are governed by the exposed /
     /// internal toggles when their effective accessibility is non-private, and by the separate
-    /// <see cref="DocumentationCoverage.PrivateFields"/> toggle when it is private — matching StyleCop's
+    /// <see cref="DocumentationCoverage.PrivateFields"/> toggle when it is private — via the
     /// dedicated <c>documentPrivateFields</c> knob. <c>private protected</c> is treated as private. The
     /// decision is independent of <see cref="DocumentationCoverage.PrivateElements"/>.
     /// </summary>

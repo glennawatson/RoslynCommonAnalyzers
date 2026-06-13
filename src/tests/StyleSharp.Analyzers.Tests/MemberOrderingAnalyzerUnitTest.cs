@@ -305,7 +305,7 @@ public class MemberOrderingAnalyzerUnitTest
         await Assert.That(facts.IsReadOnly).IsTrue();
     }
 
-    /// <summary>Verifies kind ranking maps ordered member declarations to their StyleCop families.</summary>
+    /// <summary>Verifies kind ranking maps ordered member declarations to their member-kind families.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task KindRankMapsOrderedMemberKindsAsync()

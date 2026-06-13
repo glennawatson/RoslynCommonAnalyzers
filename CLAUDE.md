@@ -45,8 +45,8 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   `SuppressMessageAttribute` on a proven perf-motivated large `switch` statement
   when the switch is measurably better than the non-suppressed alternatives.
   Keep that exception narrow, document the justification inline, and do not use it
-  for anything else. The repo builds its own source with StyleCop + Roslynator +
-  SonarAnalyzer under `TreatWarningsAsErrors`, including the benchmark project.
+  for anything else. The repo builds its own source under `TreatWarningsAsErrors`
+  with a strict analyzer set, including the benchmark project.
 
 - **Repo layout:** repo metadata stays at the repository root, but build entry
   points live under `src/`. Run `dotnet` commands from `src/`; projects are
@@ -107,7 +107,7 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   intentionally off. An analyzer (or code fix) that reports **exactly one** id is
   named `Sst<id><Concept>Analyzer` (e.g. `Sst1400AccessModifierAnalyzer`), and its
   code fix mirrors it (`Sst1400AccessModifierCodeFixProvider`) in the same folder —
-  so `SA1649` keeps the file name in sync with the type, and grepping the bare id
+  so the file name stays in sync with the type, and grepping the bare id
   lands on both. An analyzer that reports **multiple** ids keeps a descriptive name
   (`SpacingAnalyzer`, `MemberDocumentationAnalyzer`) for perf — bundling ids into
   one tree walk matters more than a 1:1 file map — and **must** enumerate every id
@@ -161,14 +161,12 @@ behind `#if ROSLYN_5_OR_GREATER` only when structural probing won't do.
 
 ## Diagnostic id scheme
 
-- `SST11xx` — readability rules, mirroring StyleCop's `SA11xx` numbers. The
-  "parameters/arguments must be on unique lines" family (one analyzer per syntax
-  kind) lives at the **end** of the range, `SST1150`–`SST1171`, since StyleCop has
-  no per-kind equivalent; they supersede the StyleCop `SA1116`/`SA1117` split-list
-  rules, which are therefore not ported separately.
-- `SST13xx` — naming rules, mirroring StyleCop's `SA13xx` numbers for
-  discoverability, but **adapted to .NET runtime conventions** (e.g. SST1309
-  requires private fields to be `_camelCase`, inverting SA1309).
+- `SST11xx` — readability rules. The "parameters/arguments must be on unique lines"
+  family (one analyzer per syntax kind) lives at the **end** of the range,
+  `SST1150`–`SST1171`; it covers per-kind split-list layout that the broader
+  readability rules do not.
+- `SST13xx` — naming rules, **adapted to .NET runtime conventions** (e.g. SST1309
+  requires private fields to be `_camelCase`).
 
 Adding a rule: descriptor in `NamingRules` (or inline), an analyzer, tests, a
 `docs/rules/SST####.md` page, and a row in `AnalyzerReleases.Unshipped.md`

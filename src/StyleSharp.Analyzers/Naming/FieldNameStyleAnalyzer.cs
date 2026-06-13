@@ -5,11 +5,11 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Reports the StyleCop field-name style rules that conflict with this repository's runtime
+/// Reports the alternative field-name style rules that conflict with this repository's runtime
 /// <c>_camelCase</c> convention and are therefore disabled by default: field names beginning
 /// with an upper-case letter (SST1306), field names prefixed with <c>m_</c>/<c>s_</c>/<c>t_</c>
 /// (SST1308), and field names containing an underscore (SST1310). Enable them in
-/// <c>.editorconfig</c> only if you prefer the StyleCop style over SST1309.
+/// <c>.editorconfig</c> only if you prefer that style over SST1309.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class FieldNameStyleAnalyzer : DiagnosticAnalyzer
@@ -32,7 +32,7 @@ public sealed class FieldNameStyleAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.FieldDeclaration);
     }
 
-    /// <summary>Checks each declared field name against the StyleCop field-name style rules.</summary>
+    /// <summary>Checks each declared field name against the alternative field-name style rules.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {

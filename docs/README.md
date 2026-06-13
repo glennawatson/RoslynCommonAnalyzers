@@ -136,6 +136,7 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST1424](rules/SST1424.md) | A private field is never assigned outside construction. Opt-in. |
 | [SST1425](rules/SST1425.md) | A captured primary-constructor parameter is reassigned. |
 | [SST1426](rules/SST1426.md) | A `#pragma warning disable` silences an analyzer warning that a scoped `[SuppressMessage]` should handle. |
+| [SST1427](rules/SST1427.md) | A `protected` member of a sealed type has no effect, since the type cannot be derived. |
 | [SST1450](rules/SST1450.md) | Files should be stored as UTF-8 without a byte order mark. Opt-in. |
 
 ## Modernization
@@ -278,6 +279,12 @@ The unique-line list family was renumbered to `SST1150`-`SST1171`. The detailed 
 | [SST1169](rules/SST0020.md) | Require each type parameter on a unique line. |
 | [SST1170](rules/SST0021.md) | Require each type argument on a unique line. |
 | [SST1171](rules/SST0022.md) | Require each function-pointer parameter on a unique line. |
+| [SST1172](rules/SST1172.md) | A comparison is negated with `!` instead of using the opposite operator. |
+| [SST1173](rules/SST1173.md) | An anonymous-type member restates a name that would be inferred. |
+| [SST1174](rules/SST1174.md) | A `return;` at the tail of a void member, or a `continue;` at the tail of a loop, has no effect. |
+| [SST1175](rules/SST1175.md) | A cast targets the type the operand already has. |
+| [SST1176](rules/SST1176.md) | A field, event, or auto-property is initialized to its type's default value. Opt-in. |
+| [SST1177](rules/SST1177.md) | A base list restates a compiler-implied type (`object` base, `int` enum). |
 
 ## Records
 

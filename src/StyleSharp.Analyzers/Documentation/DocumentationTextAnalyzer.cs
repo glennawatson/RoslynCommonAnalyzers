@@ -8,7 +8,7 @@ namespace StyleSharp.Analyzers;
 /// Reports documentation summaries whose prose falls short of basic quality checks: it
 /// should begin with a capital letter (SST1628), contain more than one word (SST1630), be
 /// made up mostly of letters rather than symbols (SST1631), and meet a minimum length
-/// (SST1632). All four are opt-in, matching StyleCop's defaults.
+/// (SST1632). All four are opt-in by default.
 /// </summary>
 /// <remarks>
 /// Diagnostics: SST1627, SST1628, SST1630, SST1631, SST1632.

@@ -4,9 +4,9 @@ This is the performance doctrine for every analyzer and code fix in
 StyleSharp.Analyzers. Analyzers run on **every keystroke** in the IDE and on
 **every build**; a wasteful pattern multiplied across dozens of rules and
 millions of syntax nodes is the difference between a snappy and a sluggish
-editing experience. StyleCop's reputation for slowness is precisely what this
-project sets out to beat, so performance is a first-class requirement here, not
-an afterthought.
+editing experience. Beating the sluggishness common to style analyzers is exactly
+what this project sets out to do, so performance is a first-class requirement here,
+not an afterthought.
 
 This document describes *approaches*. Concrete measurements are not pinned here
 (they go stale); produce them on demand with the benchmark harness under
@@ -306,21 +306,22 @@ table records them so the cost is a deliberate choice, not a surprise. Where a r
 | Rule(s) | Cost | Default | Notes |
 | --- | --- | --- | --- |
 | SST1305 (Hungarian notation) | Heuristic + per-name `string` slicing | **Off** | Pattern-matches name prefixes against an allow-list; inherently fuzzy. Opt-in. |
-| SST1306 / SST1308 / SST1310 (field-name styles) | Cheap | **Off** | Conflict with the runtime `_camelCase` convention (SST1309); shipped for consumers who want the StyleCop style. |
+| SST1306 / SST1308 / SST1310 (field-name styles) | Cheap | **Off** | Conflict with the runtime `_camelCase` convention (SST1309); shipped for consumers who want the alternative field-name style. |
 | SST1507, SST1517, SST1518 (blank-line / file-boundary) | One `RegisterSyntaxTreeAction` line-table scan per file | On | Scans the cached line table once; no per-node cost. |
 | SST1512 / SST1515 (single-line comment spacing) | `RegisterSyntaxTreeAction` + a `FindTrivia` per candidate line | On | Heaviest of the layout rules — still once per file, not per node. |
 | SST1626 (misplaced `///`) | `FirstAncestorOrSelf` walk per doc comment | On | Only runs on documentation trivia, which is sparse. |
 | SST1516 / SST1201–SST1217 (ordering) | Pairwise scan of a member / using list | On | Lists are short; single pass, no allocations on the clean path. |
 
-### Rules intentionally **not** ported for performance reasons
+### Rules intentionally omitted or off for performance reasons
 
-- **SA1650 (spelling)** — needs an embedded dictionary and per-word lookups over all
-  documentation text. Too heavy for an always-on analyzer; not ported.
-- **SA1503 → [SST1503](rules/SST1503.md)** *is* ported but **off by default**: the
-  repository's `.editorconfig` defers brace-omission to Sonar's `S121` (measured faster).
-  Enable `SST1503` instead of `S121` if you are not running SonarAnalyzer.
-- **SA1121 (use built-in type alias)** is left to Roslynator's `RCS1013` (measured
-  faster); StyleSharp does not duplicate it.
+- **Spelling checks** — would need an embedded dictionary and per-word lookups over all
+  documentation text. Too heavy for an always-on analyzer, so StyleSharp ships no
+  spelling rule.
+- **[SST1503](rules/SST1503.md)** (require braces) ships but is **off by default**:
+  enforcing braces is left as an opt-in so the rule only runs where it is wanted. Enable
+  `SST1503` in `.editorconfig` if you want it on.
+- **Built-in type alias** enforcement is intentionally not included; StyleSharp leaves
+  that check to other tooling rather than duplicating it.
 
 When adding a rule that must walk the whole tree (a `RegisterSyntaxTreeAction`), prefer a
 single pass over the cached line table or token stream, and add it to the table above so

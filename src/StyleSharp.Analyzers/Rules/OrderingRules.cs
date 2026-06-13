@@ -6,7 +6,7 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Single source of truth for the ordering (SST12xx) diagnostic descriptors.
-/// Members are ordered by StyleCop's default precedence: kind, then accessibility,
+/// Members are ordered by the default precedence: kind, then accessibility,
 /// then constant, then static, then readonly.
 /// </summary>
 internal static class OrderingRules
@@ -46,7 +46,7 @@ internal static class OrderingRules
         "Static readonly field '{0}' should appear before the static non-readonly fields",
         "Static readonly fields appear before static non-readonly fields of the same accessibility.");
 
-    /// <summary>SST1215 — instance readonly fields should appear before instance non-readonly fields (mirrors SA1215).</summary>
+    /// <summary>SST1215 — instance readonly fields should appear before instance non-readonly fields.</summary>
     public static readonly DiagnosticDescriptor InstanceReadonlyBeforeNonReadonly = Create(
         "SST1215",
         "Instance readonly fields should appear before instance non-readonly fields",

@@ -5,8 +5,8 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Diagnostic descriptors for the record rules (SST18xx). These have no StyleCop
-/// counterpart — they cover conventions specific to C# <c>record</c> and
+/// Diagnostic descriptors for the record rules (SST18xx). These cover
+/// conventions specific to C# <c>record</c> and
 /// <c>record struct</c> declarations (sealing, positional-parameter casing,
 /// init-only properties, and readonly value records).
 /// </summary>

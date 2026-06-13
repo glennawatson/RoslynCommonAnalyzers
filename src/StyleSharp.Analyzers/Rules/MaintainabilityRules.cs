@@ -5,8 +5,7 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Single source of truth for the maintainability (SST14xx) diagnostic descriptors,
-/// the StyleSharp counterparts of StyleCop's SA14xx maintainability rules.
+/// Single source of truth for the maintainability (SST14xx) diagnostic descriptors.
 /// </summary>
 internal static class MaintainabilityRules
 {
@@ -108,7 +107,7 @@ internal static class MaintainabilityRules
         "This file should be saved as UTF-8 without a byte order mark",
         "Source files are stored as UTF-8 without a byte order mark. Off by default — enable either this or SST1412, not both.");
 
-    /// <summary>SST1414 — a tuple type in a member signature has an unnamed element (mirrors SA1414).</summary>
+    /// <summary>SST1414 — a tuple type in a member signature has an unnamed element.</summary>
     public static readonly DiagnosticDescriptor TupleSignatureElementNames = Create(
         "SST1414",
         "Tuple types in signatures should have element names",
@@ -198,6 +197,13 @@ internal static class MaintainabilityRules
         "Use [SuppressMessage] instead of #pragma warning disable",
         "Suppress '{0}' with a scoped [SuppressMessage] attribute instead of '#pragma warning disable'",
         "Analyzer warnings use a scoped [SuppressMessage] attribute, not a #pragma warning disable directive. Compiler (CS) warnings are exempt because only a pragma can disable them.");
+
+    /// <summary>SST1427 — a <c>protected</c> member of a sealed type has no effect, since the type cannot be derived.</summary>
+    public static readonly DiagnosticDescriptor NoProtectedInSealed = Create(
+        "SST1427",
+        "Protected members of sealed types should not be used",
+        "Make this member private; 'protected' has no effect in a sealed type",
+        "A sealed type cannot be derived from, so a 'protected' member is reachable only as if it were private. Mark it private (or drop 'protected' from 'protected internal').");
 
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

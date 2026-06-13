@@ -144,6 +144,13 @@ dotnet_diagnostic.SST1429.severity = warning # An empty catch of the base except
 dotnet_diagnostic.SST1430.severity = warning # 'throw ex;' re-throws and discards the original stack trace
 dotnet_diagnostic.SST1431.severity = warning # A static member of a generic type ignores the type's type parameters
 # dotnet_diagnostic.SST1432.severity = warning # A class declares only static members and could be marked static (opt-in)
+dotnet_diagnostic.SST1433.severity = warning # A public parameterless empty sole constructor restates the default
+dotnet_diagnostic.SST1434.severity = warning # An empty finalizer only burdens the garbage collector
+dotnet_diagnostic.SST1435.severity = warning # A namespace declaration has no members
+# dotnet_diagnostic.SST1436.severity = warning # A class, struct, or record has no members (opt-in)
+# dotnet_diagnostic.SST1437.severity = warning # An interface has no members (opt-in)
+# dotnet_diagnostic.SST1438.severity = warning # A method has an empty body (opt-in)
+dotnet_diagnostic.SST1439.severity = warning # A loop or guard statement has an empty embedded block
 # dotnet_diagnostic.SST1450.severity = warning # Files should be stored as UTF-8 without a byte order mark (opt-in)
 
 # Modernization
@@ -284,6 +291,10 @@ dotnet_diagnostic.SST1185.severity = warning # An assignment recomputes its targ
 dotnet_diagnostic.SST1186.severity = warning # A literal sits on the left of an equality comparison (0 == count)
 dotnet_diagnostic.SST1187.severity = warning # An assignment is chained as the value of another (a = b = c)
 dotnet_diagnostic.SST1188.severity = warning # A 'default(T)' is written where the bare 'default' literal suffices
+dotnet_diagnostic.SST1189.severity = warning # An assignment copies a value onto itself (x = x)
+dotnet_diagnostic.SST1190.severity = warning # A prefix-negation operator is applied twice (!!x, ~~x)
+# dotnet_diagnostic.SST1191.severity = warning # A long base-10 integer literal has no digit separators (opt-in)
+# dotnet_diagnostic.SST1192.severity = warning # A string literal embeds a raw control character (opt-in)
 
 # Records
 # dotnet_diagnostic.SST1800.severity = warning # A record class is neither sealed nor abstract (opt-in)

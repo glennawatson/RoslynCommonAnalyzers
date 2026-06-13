@@ -422,6 +422,34 @@ internal static class ReadabilityRules
         "Use the 'default' literal; the target type is already known",
         "When the target type is inferred from context, the 'default' literal is clearer than the explicit 'default(T)' form.");
 
+    /// <summary>SST1189 — an assignment copies a value onto itself (<c>x = x</c>), which has no effect.</summary>
+    public static readonly DiagnosticDescriptor NoSelfAssignment = Create(
+        "SST1189",
+        "Variables should not be self-assigned",
+        "Remove this self-assignment of '{0}'; it has no effect",
+        "Assigning a variable, field, or property to itself does nothing and usually signals a typo where a different target or source was meant.");
+
+    /// <summary>SST1190 — a value is negated twice (<c>!!x</c>, <c>~~x</c>), which cancels out.</summary>
+    public static readonly DiagnosticDescriptor NoDoubledNegation = Create(
+        "SST1190",
+        "Doubled negation operators should be removed",
+        "Remove the doubled '{0}' operator; the two cancel out",
+        "Applying the same prefix-negation operator twice ('!!x', '~~x') returns the original value, so the pair only adds noise.");
+
+    /// <summary>SST1191 — a long numeric literal has no digit separators (opt-in).</summary>
+    public static readonly DiagnosticDescriptor UseDigitSeparators = CreateOptIn(
+        "SST1191",
+        "Long numeric literals should use digit separators",
+        "Add digit separators to '{0}' so the magnitude is easy to read",
+        "A numeric literal with many digits is easier to read in groups ('1_000_000' rather than '1000000'). Off by default; grouping style is a matter of taste.");
+
+    /// <summary>SST1192 — a string literal embeds a non-printable control character verbatim (opt-in).</summary>
+    public static readonly DiagnosticDescriptor EscapeControlCharacters = CreateOptIn(
+        "SST1192",
+        "Control characters in string literals should be escaped",
+        "Replace the embedded control character with an explicit escape sequence",
+        "A literal that embeds a raw tab or other control character is easy to misread or alter by accident; an explicit escape ('\\t') states the intent. Off by default.");
+
     /// <summary>Creates a Warning-severity Readability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

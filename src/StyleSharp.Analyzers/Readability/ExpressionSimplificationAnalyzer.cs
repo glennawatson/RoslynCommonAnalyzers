@@ -21,6 +21,8 @@ namespace StyleSharp.Analyzers;
 /// <item><description>SST1186 — a literal sits on the left of a comparison (<c>0 == n</c>).</description></item>
 /// <item><description>SST1187 — an assignment is chained as the value of another assignment (<c>a = b = c</c>).</description></item>
 /// <item><description>SST1188 — a <c>default(T)</c> is written where the bare <c>default</c> literal suffices.</description></item>
+/// <item><description>SST1189 — an assignment copies a side-effect-free target onto itself (<c>x = x</c>).</description></item>
+/// <item><description>SST1190 — a prefix-negation operator is applied twice (<c>!!x</c>, <c>~~x</c>).</description></item>
 /// </list>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -37,7 +39,9 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
         ReadabilityRules.UseCompoundAssignment,
         ReadabilityRules.LiteralOnRightOfComparison,
         ReadabilityRules.NoChainedAssignment,
-        ReadabilityRules.UseDefaultLiteral);
+        ReadabilityRules.UseDefaultLiteral,
+        ReadabilityRules.NoSelfAssignment,
+        ReadabilityRules.NoDoubledNegation);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -54,6 +58,7 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeSimpleAssignment, SyntaxKind.SimpleAssignmentExpression);
         context.RegisterSyntaxNodeAction(AnalyzeComparison, SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
         context.RegisterSyntaxNodeAction(AnalyzeDefaultExpression, SyntaxKind.DefaultExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeDoubledNegation, SyntaxKind.LogicalNotExpression, SyntaxKind.BitwiseNotExpression);
     }
 
     /// <summary>Returns the name an anonymous-type member would infer from its expression, or <see langword="null"/>.</summary>
@@ -243,6 +248,14 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // SST1189: the assignment copies a side-effect-free target onto itself ('x = x').
+        if (CompoundAssignmentOperators.IsSideEffectFreeTarget(assignment.Left)
+            && SyntaxFactory.AreEquivalent(assignment.Left, assignment.Right))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoSelfAssignment, assignment.GetLocation(), assignment.Left.ToString()));
+            return;
+        }
+
         // SST1185: the value recomputes the target ('x = x op y') and the target is side-effect-free.
         if (assignment.Right is not BinaryExpressionSyntax binary
             || !CompoundAssignmentOperators.TryMap(binary.Kind(), out _, out _, out var operatorText)
@@ -290,6 +303,26 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.UseDefaultLiteral, defaultExpression.GetLocation()));
+    }
+
+    /// <summary>Reports SST1190 when a prefix-negation operator is applied twice (<c>!!x</c>, <c>~~x</c>).</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeDoubledNegation(SyntaxNodeAnalysisContext context)
+    {
+        var unary = (PrefixUnaryExpressionSyntax)context.Node;
+
+        // Report once on the outermost operator of a run, so '!!!x' is flagged a single time.
+        if (unary.Parent is PrefixUnaryExpressionSyntax outer && outer.IsKind(unary.Kind()))
+        {
+            return;
+        }
+
+        if (Unwrap(unary.Operand) is not PrefixUnaryExpressionSyntax inner || !inner.IsKind(unary.Kind()))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoDoubledNegation, unary.GetLocation(), unary.OperatorToken.ValueText));
     }
 
     /// <summary>Returns whether a string's text needs the verbatim form (has a backslash, quote, or line break).</summary>

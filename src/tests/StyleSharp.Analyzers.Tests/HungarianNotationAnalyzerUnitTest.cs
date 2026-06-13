@@ -37,4 +37,68 @@ public class HungarianNotationAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies a prefix outside the built-in allow-list is reported when not configured.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UnconfiguredPrefixReportedAsync()
+        => await VerifyHungarian.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private int {|SST1305:vmCount|};
+            }
+            """);
+
+    /// <summary>Verifies the rule-specific editorconfig allow-list suppresses a configured prefix.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RuleSpecificAllowedPrefixIsCleanAsync()
+    {
+        var test = new VerifyHungarian.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private int vmCount;
+                       }
+                       """
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.SST1305.allowed_hungarian_prefixes = vm, wpf
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the general editorconfig allow-list suppresses a configured prefix.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task GeneralAllowedPrefixIsCleanAsync()
+    {
+        var test = new VerifyHungarian.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private int vmCount;
+                       }
+                       """
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.allowed_hungarian_prefixes = vm
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
 }

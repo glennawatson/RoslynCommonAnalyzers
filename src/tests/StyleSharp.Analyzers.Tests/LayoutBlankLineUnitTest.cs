@@ -101,4 +101,22 @@ public class LayoutBlankLineUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies a single blank line after a conditional directive is not flagged (SST1507 does not treat the directive line as blank).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BlankLineAfterConditionalDirectiveNotFlaggedAsync()
+        => await VerifyBlanks.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private void M()
+                {
+            #if true
+
+                    System.Console.WriteLine();
+            #endif
+                }
+            }
+            """);
 }

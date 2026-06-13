@@ -62,6 +62,7 @@ Some rules expose options. Current options:
 | `stylesharp.document_private_fields` | SST1600 | `true`, `false` | `false` |
 | `stylesharp.document_interfaces` | SST1600 / [SST1601](rules/SST1601.md) | `all`, `exposed`, `none` | `all` |
 | `file_header_template` | [SST1633](rules/SST1633.md) | header text (`\n` separates lines, `{fileName}` substituted), or `unset` | `unset` |
+| `stylesharp.file_naming_convention` | [SST1402](rules/SST1402.md) / [SST1649](rules/SST1649.md) code fixes | `the analyzer` (`Widget{T}.cs`), `metadata` (`Widget`1.cs`) | `the analyzer` |
 
 Example:
 

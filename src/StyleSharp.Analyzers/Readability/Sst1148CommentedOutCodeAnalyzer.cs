@@ -35,21 +35,23 @@ public sealed class Sst1148CommentedOutCodeAnalyzer : DiagnosticAnalyzer
         {
             if (trivia.SpanStart < firstTokenStart
                 || !trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
-                || !LooksLikeCode(text, trivia.Span))
+                || !TryGetCodeSignal(text, trivia.Span, out var signal))
             {
                 continue;
             }
 
-            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoCommentedOutCode, trivia.GetLocation()));
+            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoCommentedOutCode, trivia.GetLocation(), signal));
         }
     }
 
-    /// <summary>Classifies a comment with span-only textual checks.</summary>
+    /// <summary>Classifies a comment with span-only textual checks, reporting which signal matched.</summary>
     /// <param name="text">The source text.</param>
     /// <param name="span">The comment span.</param>
+    /// <param name="signal">A short description of the matched code-like signal.</param>
     /// <returns><see langword="true"/> for a conservative code-like shape.</returns>
-    private static bool LooksLikeCode(SourceText text, TextSpan span)
+    private static bool TryGetCodeSignal(SourceText text, TextSpan span, out string signal)
     {
+        signal = string.Empty;
         var start = span.Start + 2;
         var end = span.End;
         while (start < end && char.IsWhiteSpace(text[start]))
@@ -62,10 +64,36 @@ public sealed class Sst1148CommentedOutCodeAnalyzer : DiagnosticAnalyzer
             end--;
         }
 
-        return end - start >= MinimumCodeLength
-            && !StartsWithMarker(text, start, end)
-            && (IsCodeTerminator(text[end - 1]) || StartsWithCodeKeyword(text, start, end));
+        if (end - start < MinimumCodeLength || StartsWithMarker(text, start, end))
+        {
+            return false;
+        }
+
+        var last = text[end - 1];
+        if (IsCodeTerminator(last))
+        {
+            signal = TerminatorSignal(last);
+            return true;
+        }
+
+        if (!StartsWithCodeKeyword(text, start, end))
+        {
+            return false;
+        }
+
+        signal = "it begins with a code keyword";
+        return true;
     }
+
+    /// <summary>Returns a short description of a statement-terminator signal.</summary>
+    /// <param name="terminator">The final content character.</param>
+    /// <returns>A constant description naming the terminator.</returns>
+    private static string TerminatorSignal(char terminator) => terminator switch
+    {
+        ';' => "it ends with a ';'",
+        '{' => "it ends with a '{'",
+        _ => "it ends with a '}'"
+    };
 
     /// <summary>Returns whether text starts with a non-code comment marker.</summary>
     /// <param name="text">The source text.</param>

@@ -43,4 +43,21 @@ public class CommentedOutCodeAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies real commented-out statements (assignment, call, bare jump) are still reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task CommentedStatementsAreReportedAsync()
+        => await VerifyCommentedCode.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public void M()
+                {
+                    {|SST1148:// _total = 0;|}
+                    {|SST1148:// Compute(value);|}
+                    {|SST1148:// break;|}
+                }
+            }
+            """);
 }

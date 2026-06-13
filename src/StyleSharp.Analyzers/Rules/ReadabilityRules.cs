@@ -293,8 +293,8 @@ internal static class ReadabilityRules
     public static readonly DiagnosticDescriptor NoCommentedOutCode = CreateOptIn(
         "SST1148",
         "Commented-out code should be removed",
-        "Remove this commented-out code",
-        "Source control preserves old code; comments are reserved for explanation. Off by default because code detection is heuristic.");
+        "This comment resembles commented-out code ({0}); remove it, or reword it if it is prose",
+        "Source control preserves old code; comments are for explanation. Detection is a shape heuristic — prose ending in ';', '{', or '}', or starting with a keyword can trip it. Off by default.");
 
     /// <summary>SST1149 — a null check uses <c>== null</c> / <c>!= null</c> instead of the pattern form.</summary>
     public static readonly DiagnosticDescriptor PreferIsNullPattern = Create(

@@ -161,6 +161,40 @@ public class DocumentationSummaryTextUnitTest
         await VerifyConstructor.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a private constructor using the "Prevents a default instance" wording is accepted (no SST1642).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PrivateConstructorPreventsDefaultInstanceAsync()
+    {
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Prevents a default instance of the <see cref="C"/> class from being created.</summary>
+                private C() { }
+            }
+            """;
+
+        await VerifyConstructor.VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies a private constructor may still use the standard "Initializes a new instance" wording.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PrivateConstructorInitializesAsync()
+    {
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Initializes a new instance of the <see cref="C"/> class.</summary>
+                private C() { }
+            }
+            """;
+
+        await VerifyConstructor.VerifyAnalyzerAsync(Source);
+    }
+
     /// <summary>Verifies a constructor-style destructor summary is accepted.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

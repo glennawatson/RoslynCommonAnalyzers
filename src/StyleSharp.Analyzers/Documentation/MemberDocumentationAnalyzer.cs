@@ -196,9 +196,19 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="constructor">The constructor declaration.</param>
     /// <returns>The summary requirement, or <see langword="null"/>.</returns>
     private static SummaryPrefix? ConstructorRequirement(ConstructorDeclarationSyntax constructor)
-        => ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword)
-            ? null
-            : new SummaryPrefix(DocumentationConventions.ConstructorStandardPrefix, DocumentationRules.ConstructorStandardText);
+    {
+        if (ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword))
+        {
+            return null;
+        }
+
+        // An explicitly-private constructor may instead use the "Prevents a default instance of the
+        // <see cref="..."/> class from being created." phrasing, matching StyleCop's SA1642.
+        var alternative = ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.PrivateKeyword)
+            ? DocumentationConventions.PrivateConstructorStandardPrefix
+            : null;
+        return new SummaryPrefix(DocumentationConventions.ConstructorStandardPrefix, DocumentationRules.ConstructorStandardText, alternative);
+    }
 
     /// <summary>Returns the accessor-summary requirement for a property.</summary>
     /// <param name="property">The property declaration.</param>
@@ -360,18 +370,29 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var hasRequiredPrefix = XmlDocumentationHelper.LeadingTextStartsWith(element, required.Text.AsSpan());
-        if (required.Rule.Id == DocumentationRules.PropertySummaryOmitsRestrictedSetter.Id)
-        {
-            hasRequiredPrefix &= !XmlDocumentationHelper.LeadingTextStartsWith(element, "Gets or sets ".AsSpan());
-        }
-
-        if (hasRequiredPrefix)
+        if (SummaryHasRequiredPrefix(element, required))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(required.Rule, element.GetLocation(), required.Text));
+    }
+
+    /// <summary>Returns whether a summary's leading text satisfies its required convention.</summary>
+    /// <param name="element">The <c>&lt;summary&gt;</c> element.</param>
+    /// <param name="required">The required leading-text convention.</param>
+    /// <returns><see langword="true"/> when the leading text matches the convention.</returns>
+    private static bool SummaryHasRequiredPrefix(XmlElementSyntax element, SummaryPrefix required)
+    {
+        if (required.Rule.Id == DocumentationRules.PropertySummaryOmitsRestrictedSetter.Id)
+        {
+            // A "Gets " requirement for a restricted setter must not be satisfied by "Gets or sets ".
+            return XmlDocumentationHelper.LeadingTextStartsWith(element, required.Text.AsSpan())
+                && !XmlDocumentationHelper.LeadingTextStartsWith(element, "Gets or sets ".AsSpan());
+        }
+
+        return XmlDocumentationHelper.LeadingTextStartsWith(element, required.Text.AsSpan())
+            || (required.AlternativeText is { } alternative && XmlDocumentationHelper.LeadingTextStartsWith(element, alternative.AsSpan()));
     }
 
     /// <summary>Reports parameters that lack a matching <c>&lt;param&gt;</c> element.</summary>
@@ -590,5 +611,6 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <summary>A required leading-text convention for a summary (e.g. "Gets or sets ").</summary>
     /// <param name="Text">The expected leading text.</param>
     /// <param name="Rule">The rule reported when the summary does not start with the text.</param>
-    private readonly record struct SummaryPrefix(string Text, DiagnosticDescriptor Rule);
+    /// <param name="AlternativeText">An additional accepted leading text, or <see langword="null"/>.</param>
+    private readonly record struct SummaryPrefix(string Text, DiagnosticDescriptor Rule, string? AlternativeText = null);
 }

@@ -71,8 +71,14 @@ public sealed class Sst1633FileHeaderAnalyzer : DiagnosticAnalyzer
 
                 index++;
             }
-            else if (!trivia.IsKind(SyntaxKind.WhitespaceTrivia) && !trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+            else if (!trivia.IsKind(SyntaxKind.WhitespaceTrivia)
+                && !trivia.IsKind(SyntaxKind.EndOfLineTrivia)
+                && !trivia.IsDirective
+                && !trivia.IsKind(SyntaxKind.DisabledTextTrivia))
             {
+                // Skip over preprocessor directives (#if/#else/#endif/#region/#pragma/#nullable …) and
+                // their disabled branches so a header that sits among or after them is still located,
+                // rather than aborting the scan at the first directive.
                 break;
             }
         }

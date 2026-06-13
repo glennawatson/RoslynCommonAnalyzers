@@ -98,6 +98,90 @@ public class FileHeaderAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a header then blank line then #if/#else is accepted.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task HeaderThenBlankThenIfElseAsync()
+    {
+        var test = new Verify.Test
+        {
+            TestCode = """
+                // Copyright text.
+
+                #if NET
+                namespace N { }
+                #else
+                namespace N { }
+                #endif
+                """
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a header then #if/#else with no blank line is accepted.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task HeaderThenIfElseNoBlankAsync()
+    {
+        var test = new Verify.Test
+        {
+            TestCode = """
+                // Copyright text.
+                #if NET
+                namespace N { }
+                #else
+                namespace N { }
+                #endif
+                """
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a header that follows an active #if directive is still located.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ActiveDirectiveBeforeHeaderAsync()
+    {
+        var test = new Verify.Test
+        {
+            TestCode = """
+                #if true
+                // Copyright text.
+                namespace N { }
+                #endif
+                """
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a header then an active #if branch is accepted.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task HeaderThenActiveIfAsync()
+    {
+        var test = new Verify.Test
+        {
+            TestCode = """
+                // Copyright text.
+
+                #if true
+                namespace N { }
+                #else
+                namespace M { }
+                #endif
+                """
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a multi-line outdated header followed by a blank line is replaced while the blank line is preserved.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -62,4 +62,33 @@ public class EmptyTypeMethodAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies an empty method documented with a comment is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DocumentedEmptyMethodIsCleanAsync()
+        => await VerifyEmpty.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public void Configure()
+                {
+                    // No configuration is needed for the default pipeline.
+                }
+            }
+            """);
+
+    /// <summary>Verifies an empty method that implements an interface member (a no-op) is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task EmptyInterfaceImplementationIsCleanAsync()
+        => await VerifyEmpty.VerifyAnalyzerAsync(
+            """
+            public sealed class NullScope : System.IDisposable
+            {
+                public void Dispose()
+                {
+                }
+            }
+            """);
 }

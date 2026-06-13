@@ -13,6 +13,13 @@ internal static class DocumentationConventions
     /// <summary>The required leading text of a constructor summary.</summary>
     public const string ConstructorStandardPrefix = "Initializes a new instance of the ";
 
+    /// <summary>
+    /// The alternative leading text accepted for an explicitly <c>private</c> constructor —
+    /// the "prevent instantiation" phrasing (e.g. for a static-only utility type). A private
+    /// constructor may use either this or <see cref="ConstructorStandardPrefix"/>.
+    /// </summary>
+    public const string PrivateConstructorStandardPrefix = "Prevents a default instance of the ";
+
     /// <summary>The required leading text of a destructor summary.</summary>
     public const string DestructorStandardPrefix = "Finalizes an instance of the ";
 

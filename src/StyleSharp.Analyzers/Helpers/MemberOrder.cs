@@ -105,12 +105,20 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         var isConst = facts.IsConst;
         var isStatic = isConst || facts.IsStatic;
 
+        // A static constructor has no access modifier and is implicitly "private", but it always
+        // belongs immediately before the instance constructors regardless of their accessibility.
+        // Rank it as public so its placement before a public/internal instance constructor is not
+        // flagged by the access dimension (SST1202); the static dimension still orders it first.
+        var access = kind == ConstructorKind && facts.IsStatic
+            ? PublicAccess
+            : AccessRank(facts, member.Parent is InterfaceDeclarationSyntax);
+
         // The readonly ordering rules (SST1214/SST1215) apply only to fields. 'readonly' on a method
         // or struct (e.g. 'public readonly bool Equals(...)', 'readonly struct') must not be treated as
         // a readonly field, so non-field members stay in the non-readonly rank.
         return new MemberOrder(
             kind,
-            AccessRank(facts, member.Parent is InterfaceDeclarationSyntax),
+            access,
             isConst ? 0 : 1,
             isStatic ? 0 : 1,
             facts.IsReadOnly && kind == FieldKind ? 0 : 1);

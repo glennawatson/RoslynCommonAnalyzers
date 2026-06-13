@@ -120,6 +120,20 @@ public class MemberOrderingAnalyzerUnitTest
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a static constructor before a public instance constructor is accepted (no SST1202).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task StaticConstructorBeforePublicConstructorAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                static C() { }
+
+                public C() { }
+            }
+            """);
+
     /// <summary>Verifies an instance readonly field after a non-readonly field of the same accessibility is reported (SST1215) and moved up.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

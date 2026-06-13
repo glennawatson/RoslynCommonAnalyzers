@@ -110,4 +110,147 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies a mutable struct field with a non-readonly method invoked is not reported (readonly would mutate a copy).</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MutableStructFieldWithMutatingMethodIsCleanAsync()
+        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public struct Counter
+            {
+                private int _value;
+
+                public void Increment() => _value++;
+
+                public void Set(int value) => _value = value;
+
+                public readonly int Value => _value;
+            }
+
+            public sealed class Holder
+            {
+                private Counter _counter;
+
+                public Holder(Counter counter) => _counter = counter;
+
+                public void Bump() => _counter.Increment();
+
+                public int Read() => _counter.Value;
+            }
+            """);
+
+    /// <summary>Verifies a mutable struct field passed by ref is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MutableStructFieldPassedByRefIsCleanAsync()
+        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public struct Counter
+            {
+                private int _value;
+
+                public void Increment() => _value++;
+
+                public void Set(int value) => _value = value;
+            }
+
+            public sealed class Holder
+            {
+                private Counter _counter;
+
+                public Holder(Counter counter) => _counter = counter;
+
+                public void Bump() => Mutate(ref _counter);
+
+                private static void Mutate(ref Counter counter) => counter.Increment();
+            }
+            """);
+
+    /// <summary>Verifies a mutable struct field whose non-readonly property setter is used is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MutableStructFieldWithSetterUsedIsCleanAsync()
+        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public struct Box
+            {
+                public int Value { get; set; }
+            }
+
+            public sealed class Holder
+            {
+                private Box _box;
+
+                public Holder(Box box) => _box = box;
+
+                public void Bump() => _box.Value = 5;
+            }
+            """);
+
+    /// <summary>Verifies a readonly-struct field assigned only in the constructor is still reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ReadonlyStructFieldStillReportedAsync()
+        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public readonly struct Token
+            {
+                private readonly int _id;
+
+                public Token(int id) => _id = id;
+
+                public int Describe() => _id;
+            }
+
+            public sealed class Holder
+            {
+                private Token {|SST1424:_token|};
+
+                public Holder(Token token) => _token = token;
+
+                public int Read() => _token.Describe();
+            }
+            """);
+
+    /// <summary>Verifies a reference-type field assigned only in the constructor is still reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ReferenceTypeFieldStillReportedAsync()
+        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public sealed class Holder
+            {
+                private string {|SST1424:_name|};
+
+                public Holder(string name) => _name = name;
+
+                public int Length() => _name.Length;
+            }
+            """);
+
+    /// <summary>Verifies a value-type field only read through a readonly getter is still reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ValueTypeFieldReadThroughReadonlyGetterStillReportedAsync()
+        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public struct Counter
+            {
+                private int _value;
+
+                public void Increment() => _value++;
+
+                public readonly int Value => _value;
+            }
+
+            public sealed class Holder
+            {
+                private Counter {|SST1424:_counter|};
+
+                public Holder(Counter counter) => _counter = counter;
+
+                public int Read() => _counter.Value;
+            }
+            """);
 }

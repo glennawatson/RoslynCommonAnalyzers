@@ -67,10 +67,14 @@ public sealed class Sst1424FieldShouldBeReadonlyAnalyzer : DiagnosticAnalyzer
         IFieldSymbol field,
         CancellationToken cancellationToken)
     {
+        // A non-readonly struct field can be mutated in place through a non-readonly member; making it
+        // 'readonly' would run that member against a defensive copy and silently drop the mutation.
+        var mutableStruct = field.Type is INamedTypeSymbol { TypeKind: TypeKind.Struct, IsReadOnly: false, SpecialType: SpecialType.None };
+
         var references = FieldReferenceAnalysis.FieldNameReferences(type, field.Name);
         for (var i = 0; i < references.Count; i++)
         {
-            if (IsWriteOutsideConstructor(references[i], model, type, field, cancellationToken))
+            if (IsDisqualifyingUseOutsideConstructor(references[i], model, type, field, mutableStruct, cancellationToken))
             {
                 return true;
             }
@@ -79,24 +83,80 @@ public sealed class Sst1424FieldShouldBeReadonlyAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether an identifier writes to the target field outside an allowed instance constructor.</summary>
+    /// <summary>Returns whether an identifier writes to (or mutates) the field outside an allowed instance constructor.</summary>
     /// <param name="identifier">The identifier to inspect.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="type">The containing type.</param>
     /// <param name="field">The field symbol.</param>
+    /// <param name="mutableStruct">Whether the field is a non-readonly struct that can be mutated in place.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the identifier is an invalid write.</returns>
-    private static bool IsWriteOutsideConstructor(
+    /// <returns><see langword="true"/> when the identifier disqualifies the field from a readonly suggestion.</returns>
+    private static bool IsDisqualifyingUseOutsideConstructor(
         IdentifierNameSyntax identifier,
         SemanticModel model,
         TypeDeclarationSyntax type,
         IFieldSymbol field,
+        bool mutableStruct,
         CancellationToken cancellationToken)
         => identifier.Identifier.ValueText == field.Name
             && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field)
-            && FieldReferenceAnalysis.IsWrite(identifier)
-            && (identifier.FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>() is not null
-                || identifier.FirstAncestorOrSelf<LocalFunctionStatementSyntax>() is not null
-                || identifier.FirstAncestorOrSelf<ConstructorDeclarationSyntax>() is not { } constructor
-                || constructor.Parent != type);
+            && (FieldReferenceAnalysis.IsWrite(identifier) || (mutableStruct && MutatesReceiver(identifier, model, cancellationToken)))
+            && IsOutsideInstanceConstructor(identifier, type);
+
+    /// <summary>Returns whether an identifier lies outside an instance constructor of the field's own type.</summary>
+    /// <param name="identifier">The identifier to inspect.</param>
+    /// <param name="type">The containing type.</param>
+    /// <returns><see langword="true"/> when the identifier is not in a direct constructor body of <paramref name="type"/>.</returns>
+    private static bool IsOutsideInstanceConstructor(IdentifierNameSyntax identifier, TypeDeclarationSyntax type)
+        => identifier.FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>() is not null
+            || identifier.FirstAncestorOrSelf<LocalFunctionStatementSyntax>() is not null
+            || identifier.FirstAncestorOrSelf<ConstructorDeclarationSyntax>() is not { } constructor
+            || constructor.Parent != type;
+
+    /// <summary>Returns whether a field identifier is the receiver of a member or element access that mutates it.</summary>
+    /// <param name="identifier">The field identifier (potential receiver).</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when the access is not provably non-mutating.</returns>
+    private static bool MutatesReceiver(IdentifierNameSyntax identifier, SemanticModel model, CancellationToken cancellationToken)
+        => identifier.Parent switch
+        {
+            MemberAccessExpressionSyntax member when member.Expression == identifier => AccessMutatesReceiver(member, model, cancellationToken),
+            ElementAccessExpressionSyntax element when element.Expression == identifier => AccessMutatesReceiver(element, model, cancellationToken),
+            _ => false
+        };
+
+    /// <summary>Returns whether an access on the struct receiver invokes a member that is not provably readonly.</summary>
+    /// <param name="access">The member or element access whose receiver is the field.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when the accessed member can mutate the struct.</returns>
+    private static bool AccessMutatesReceiver(ExpressionSyntax access, SemanticModel model, CancellationToken cancellationToken)
+        => model.GetSymbolInfo(access, cancellationToken).Symbol switch
+        {
+            // A non-readonly instance method writes through 'this'; a readonly one cannot.
+            IMethodSymbol method => !method.IsReadOnly,
+
+            // Writing a property/indexer uses the setter (always mutating); reading uses the getter.
+            IPropertySymbol property => IsWritePosition(access)
+                ? property.SetMethod is not { IsReadOnly: true }
+                : property.GetMethod is not { IsReadOnly: true },
+
+            // Reading a nested field is harmless; assigning one mutates the struct.
+            IFieldSymbol => IsWritePosition(access),
+
+            // Unresolved or other member kinds (events, etc.) are treated conservatively as mutating.
+            _ => true
+        };
+
+    /// <summary>Returns whether an expression occupies an assignment, increment, decrement, or ref/out position.</summary>
+    /// <param name="expression">The expression to classify.</param>
+    /// <returns><see langword="true"/> when the expression is written rather than read.</returns>
+    private static bool IsWritePosition(ExpressionSyntax expression)
+        => expression.Parent switch
+        {
+            AssignmentExpressionSyntax assignment when assignment.Left == expression => true,
+            PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression) || prefix.IsKind(SyntaxKind.PreDecrementExpression),
+            _ => expression.Parent is PostfixUnaryExpressionSyntax or ArgumentSyntax { RefOrOutKeyword.RawKind: not 0 }
+        };
 }

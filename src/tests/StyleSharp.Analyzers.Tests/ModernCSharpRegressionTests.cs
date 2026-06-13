@@ -7,27 +7,27 @@ using Microsoft.CodeAnalysis.Testing;
 namespace StyleSharp.Analyzers.Tests;
 
 /// <summary>
-/// Regression tests pinning the modern-C# idioms that StyleCop.Analyzers has open false-positive
-/// bugs for. Each asserts that the StyleSharp counterpart stays silent, guarding the "correct on
-/// modern C#" guarantee. Issue numbers reference the StyleCopAnalyzers tracker.
+/// Regression tests pinning modern-C# idioms that are prone to false positives.
+/// Each asserts that the StyleSharp rule stays silent, guarding the "correct on
+/// modern C#" guarantee.
 /// </summary>
 public class ModernCSharpRegressionTests
 {
-    /// <summary>A discard parameter '_' is not a naming violation (cf. StyleCop #2974).</summary>
+    /// <summary>A discard parameter '_' is not a naming violation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task DiscardParameterIsCleanAsync()
         => await CSharpAnalyzerVerifier<Sst1313ParameterNamingAnalyzer>.VerifyAnalyzerAsync(
             "public class C { public void M(int _, int __) { } }");
 
-    /// <summary>A discard local '_' is not a naming violation (cf. StyleCop #3057).</summary>
+    /// <summary>A discard local '_' is not a naming violation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task DiscardLocalIsCleanAsync()
         => await CSharpAnalyzerVerifier<Sst1312LocalVariableNamingAnalyzer>.VerifyAnalyzerAsync(
             "public class C { public void M() { _ = System.Math.Abs(-1); } }");
 
-    /// <summary>A multi-line collection expression does not trip element indentation (cf. StyleCop #3904).</summary>
+    /// <summary>A multi-line collection expression does not trip element indentation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task CollectionExpressionIndentationIsCleanAsync()
@@ -44,7 +44,7 @@ public class ModernCSharpRegressionTests
             }
             """);
 
-    /// <summary>A using directive with a file-scoped namespace keeps its placement clean (cf. StyleCop #3578).</summary>
+    /// <summary>A using directive with a file-scoped namespace keeps its placement clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task FileScopedNamespaceUsingPlacementIsCleanAsync()
@@ -60,7 +60,7 @@ public class ModernCSharpRegressionTests
             }
             """);
 
-    /// <summary>A tuple deconstruction discard is not a tuple-element naming violation (cf. StyleCop #3878).</summary>
+    /// <summary>A tuple deconstruction discard is not a tuple-element naming violation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task DeconstructionDiscardIsCleanAsync()

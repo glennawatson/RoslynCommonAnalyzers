@@ -4,13 +4,15 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>Removes the modifier reported by SST1419.</summary>
+/// <summary>Removes the modifier reported by SST1419 (redundant) or SST1427 (<c>protected</c> in a sealed type).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RemoveModifierCodeFixProvider))]
 [Shared]
 public sealed class RemoveModifierCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.NoRedundantModifier.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
+        MaintainabilityRules.NoRedundantModifier.Id,
+        MaintainabilityRules.NoProtectedInSealed.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -49,5 +51,12 @@ public sealed class RemoveModifierCodeFixProvider : CodeFixProvider
     /// <param name="token">The modifier token to remove.</param>
     /// <returns>The updated document.</returns>
     internal static Document RemoveModifier(Document document, SyntaxNode root, MemberDeclarationSyntax declaration, SyntaxToken token)
-        => document.WithSyntaxRoot(root.ReplaceNode(declaration, declaration.WithModifiers(declaration.Modifiers.Remove(token))));
+    {
+        // Removing the first modifier would otherwise drop the declaration's leading indentation, so
+        // carry it over. For a non-leading modifier this is a no-op.
+        var updated = declaration
+            .WithModifiers(declaration.Modifiers.Remove(token))
+            .WithLeadingTrivia(declaration.GetLeadingTrivia());
+        return document.WithSyntaxRoot(root.ReplaceNode(declaration, updated));
+    }
 }

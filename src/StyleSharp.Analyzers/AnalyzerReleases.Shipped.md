@@ -245,3 +245,15 @@ SST2004 | Modernization | Warning | ArgumentGuardAnalyzer
 SST2100 | CollectionExpressions | Warning | EmptyCollectionExpressionAnalyzer
 SST2101 | CollectionExpressions | Disabled | ExplicitCollectionExpressionAnalyzer
 SST2200 | ModernSyntax | Disabled | PreferFieldKeywordAnalyzer
+SST1426 | Maintainability | Warning | Sst1426PragmaWarningDisableAnalyzer
+SST1654 | Documentation | Warning | ExtensionBlockDocumentationAnalyzer
+SST1655 | Documentation | Warning | ExtensionBlockDocumentationAnalyzer
+SST1656 | Documentation | Warning | ExtensionBlockDocumentationAnalyzer
+SST1657 | Documentation | Warning | ExtensionBlockDocumentationAnalyzer
+SST1172 | Readability | Warning | ExpressionSimplificationAnalyzer
+SST1173 | Readability | Warning | ExpressionSimplificationAnalyzer
+SST1174 | Readability | Warning | RedundantCodeAnalyzer
+SST1175 | Readability | Warning | ExpressionSimplificationAnalyzer
+SST1176 | Readability | Disabled | RedundantCodeAnalyzer
+SST1177 | Readability | Warning | RedundantCodeAnalyzer
+SST1427 | Maintainability | Warning | RedundantModifierAnalyzer

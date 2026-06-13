@@ -8,7 +8,7 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// The ordering rank of a type member, computed once from syntax. Members compare
-/// lexicographically by StyleCop's default precedence — kind, accessibility,
+/// lexicographically by the default precedence — kind, accessibility,
 /// constant, static, readonly — and each dimension maps to a diagnostic.
 /// </summary>
 /// <param name="Kind">The member-kind rank (fields first … nested unions last).</param>
@@ -161,7 +161,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         return false;
     }
 
-    /// <summary>Compares this rank with another in StyleCop's precedence order.</summary>
+    /// <summary>Compares this rank with another in the default precedence order.</summary>
     /// <param name="other">The rank to compare against.</param>
     /// <returns>Negative when this sorts first, positive when last, zero when equal.</returns>
     public int CompareTo(in MemberOrder other) => CompareDimensions(this, other);
@@ -249,7 +249,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         return new(isPublic, isInternal, isProtected, isPrivate, isConst, isStatic, isReadOnly);
     }
 
-    /// <summary>Compares two member-order values in StyleCop's precedence order.</summary>
+    /// <summary>Compares two member-order values in the default precedence order.</summary>
     /// <param name="left">The left order.</param>
     /// <param name="right">The right order.</param>
     /// <returns>Negative when <paramref name="left"/> sorts first, positive when last, zero when equal.</returns>

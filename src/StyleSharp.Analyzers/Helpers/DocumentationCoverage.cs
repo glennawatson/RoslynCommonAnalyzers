@@ -6,14 +6,14 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// The configured documentation-coverage scope: which accessibilities the SST1600/SST1601/SST1602/SST1654
-/// "must be documented" rules apply to. Mirrors StyleCop's <c>documentExposedElements</c> /
+/// "must be documented" rules apply to, via the <c>documentExposedElements</c> /
 /// <c>documentInternalElements</c> / <c>documentPrivateElements</c> / <c>documentInterfaces</c> settings.
 /// </summary>
 /// <param name="ExposedElements">Whether public/protected elements require documentation.</param>
 /// <param name="InternalElements">Whether internal elements require documentation.</param>
 /// <param name="PrivateElements">Whether private elements (other than fields) require documentation.</param>
 /// <param name="PrivateFields">Whether private fields require documentation. Gates fields only and is
-/// independent of <paramref name="PrivateElements"/>; mirrors StyleCop's separate <c>documentPrivateFields</c> knob.</param>
+/// independent of <paramref name="PrivateElements"/>, via the separate <c>documentPrivateFields</c> knob.</param>
 /// <param name="Interfaces">How interfaces and their members are documented.</param>
 internal readonly record struct DocumentationCoverage(
     bool ExposedElements,

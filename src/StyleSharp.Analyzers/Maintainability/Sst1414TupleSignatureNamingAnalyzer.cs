@@ -5,8 +5,8 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Reports a tuple type in a member signature that has an unnamed element (SST1414, mirrors
-/// SA1414). A tuple type that appears inside a statement (a local) is a deliberately separate
+/// Reports a tuple type in a member signature that has an unnamed element (SST1414).
+/// A tuple type that appears inside a statement (a local) is a deliberately separate
 /// case and is not reported; the check is purely syntactic.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]

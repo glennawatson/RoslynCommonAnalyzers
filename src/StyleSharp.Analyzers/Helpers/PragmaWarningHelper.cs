@@ -9,7 +9,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Shared classification of <c>#pragma warning</c> error codes. A compiler warning (<c>CS####</c>
 /// or a bare numeric code) can only be silenced with a <c>#pragma</c>, so SST1426 leaves it alone;
-/// any other code (an analyzer id such as <c>SST1309</c>, <c>CA2000</c>, <c>SA1600</c>) can move to a
+/// any other code (an analyzer id such as <c>SST1309</c> or <c>CA2000</c>) can move to a
 /// scoped <c>[SuppressMessage]</c> attribute.
 /// </summary>
 internal static class PragmaWarningHelper

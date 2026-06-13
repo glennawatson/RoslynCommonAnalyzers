@@ -7,7 +7,7 @@ using VerifyFieldStyle = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
 
 namespace StyleSharp.Analyzers.Tests;
 
-/// <summary>Unit tests for the opt-in StyleCop field-name style rules (SST1306/SST1308/SST1310).</summary>
+/// <summary>Unit tests for the opt-in field-name style rules (SST1306/SST1308/SST1310).</summary>
 public class FieldNameStyleAnalyzerUnitTest
 {
     /// <summary>Verifies a field name containing an underscore is reported (SST1310) when the rule is enabled.</summary>

@@ -10,7 +10,7 @@ namespace StyleSharp.Analyzers;
 /// <see cref="DocumentationCoverage"/> options): a block without a <c>&lt;summary&gt;</c> (SST1654),
 /// an undocumented receiver parameter (SST1655) or type parameter (SST1656), and a
 /// <c>&lt;param&gt;</c>/<c>&lt;typeparam&gt;</c> element that references a name the block does not
-/// declare (SST1657 — the StyleSharp counterpart of Roslynator's RCS1263 for extension blocks). A
+/// declare (SST1657). A
 /// class with no extension block bails after a single membership scan, and on the Roslyn 4.8 floor
 /// the syntax cannot occur, so nothing is reported.
 /// </summary>

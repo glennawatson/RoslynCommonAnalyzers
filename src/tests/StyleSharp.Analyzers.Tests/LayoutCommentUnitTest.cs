@@ -170,6 +170,25 @@ public class LayoutCommentUnitTest
         await Assert.That(SingleLineCommentSpacingAnalyzer.IsStandaloneComment(text, comment)).IsFalse();
     }
 
+    /// <summary>Verifies a comment that opens an #if branch after a blank line is not flagged (SST1512/SST1515 exempt the directive boundary).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CommentAfterConditionalDirectiveWithBlankNotFlaggedAsync()
+        => await VerifyComment.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private void M()
+                {
+            #if true
+
+                    // comment opening the branch
+                    System.Console.WriteLine();
+            #endif
+                }
+            }
+            """);
+
     /// <summary>Parses the first single-line comment trivia from the supplied source.</summary>
     /// <param name="source">The source containing the target comment.</param>
     /// <returns>The parsed single-line comment trivia.</returns>

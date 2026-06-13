@@ -55,6 +55,7 @@ Some rules expose options. Current options:
 | `stylesharp.collection_expression_spacing` | [SST1010](rules/SST1010.md) / [SST1011](rules/SST1011.md) | `none`, `space` | `none` |
 | `stylesharp.summary_single_line_max_length` | [SST1653](rules/SST1653.md) | positive integer | `100` |
 | `stylesharp.max_switch_sections` | [SST1423](rules/SST1423.md) | positive integer | `30` |
+| `stylesharp.allowed_hungarian_prefixes` | [SST1305](rules/SST1305.md) | comma-separated prefixes | built-in list only |
 | `stylesharp.document_exposed_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_internal_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_private_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `false` |

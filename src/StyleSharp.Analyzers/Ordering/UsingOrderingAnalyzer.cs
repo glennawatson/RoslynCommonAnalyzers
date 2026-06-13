@@ -66,9 +66,46 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
         for (var index = 1; index < usings.Count; index++)
         {
             var current = CreateDirectiveData(usings[index]);
-            CheckPair(context, previous, current);
+
+            // A conditional compilation directive (#if/#elif/#else/#endif) between two directives
+            // separates mutually-exclusive branches, so the ordering chain restarts: each branch is
+            // sorted on its own and directives are never compared across the boundary. Without this,
+            // an active branch's directives are compared against the unconditional ones around it,
+            // producing false SST1208/1210/… reports for placements that cannot be corrected.
+            if (!ConditionalDirectiveBetween(previous.Directive, current.Directive))
+            {
+                CheckPair(context, previous, current);
+            }
+
             previous = current;
         }
+    }
+
+    /// <summary>Returns whether a conditional compilation directive separates two adjacent using directives.</summary>
+    /// <param name="previous">The earlier directive.</param>
+    /// <param name="current">The later directive.</param>
+    /// <returns><see langword="true"/> when an <c>#if</c>/<c>#elif</c>/<c>#else</c>/<c>#endif</c> lies between them.</returns>
+    private static bool ConditionalDirectiveBetween(UsingDirectiveSyntax previous, UsingDirectiveSyntax current)
+        => HasConditionalDirective(previous.GetTrailingTrivia()) || HasConditionalDirective(current.GetLeadingTrivia());
+
+    /// <summary>Returns whether a trivia list contains a conditional compilation directive.</summary>
+    /// <param name="trivia">The trivia list to scan.</param>
+    /// <returns><see langword="true"/> when a conditional directive is present.</returns>
+    private static bool HasConditionalDirective(SyntaxTriviaList trivia)
+    {
+        for (var index = 0; index < trivia.Count; index++)
+        {
+            switch (trivia[index].Kind())
+            {
+                case SyntaxKind.IfDirectiveTrivia:
+                case SyntaxKind.ElifDirectiveTrivia:
+                case SyntaxKind.ElseDirectiveTrivia:
+                case SyntaxKind.EndIfDirectiveTrivia:
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Precomputes the ordering metadata for one using directive.</summary>

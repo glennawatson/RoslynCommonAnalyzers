@@ -44,6 +44,15 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
                 continue;
             }
 
+            // The sort reassigns each slot's trivia by position, which would scramble any
+            // conditional compilation directives (#if/#elif/#else/#endif) living in the using
+            // block. Those usings cannot be reordered across branches anyway, so don't offer the
+            // fix when the block spans conditional directives — matching the member-ordering fix.
+            if (UsingsSpanConditionalDirectives(Usings(container)))
+            {
+                continue;
+            }
+
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Sort using directives",
@@ -85,6 +94,43 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
         var newContainer = WithUsings(container, SyntaxFactory.List(rebuilt));
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         return document.WithSyntaxRoot(root!.ReplaceNode(container, newContainer));
+    }
+
+    /// <summary>Returns whether a using list spans conditional compilation directives.</summary>
+    /// <param name="usings">The using directives to scan.</param>
+    /// <returns><see langword="true"/> when an <c>#if</c>/<c>#elif</c>/<c>#else</c>/<c>#endif</c> lies within the block.</returns>
+    private static bool UsingsSpanConditionalDirectives(SyntaxList<UsingDirectiveSyntax> usings)
+    {
+        for (var index = 0; index < usings.Count; index++)
+        {
+            var directive = usings[index];
+            if (HasConditionalDirective(directive.GetLeadingTrivia()) || HasConditionalDirective(directive.GetTrailingTrivia()))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a trivia list contains a conditional compilation directive.</summary>
+    /// <param name="trivia">The trivia list to scan.</param>
+    /// <returns><see langword="true"/> when a conditional directive is present.</returns>
+    private static bool HasConditionalDirective(SyntaxTriviaList trivia)
+    {
+        for (var index = 0; index < trivia.Count; index++)
+        {
+            switch (trivia[index].Kind())
+            {
+                case SyntaxKind.IfDirectiveTrivia:
+                case SyntaxKind.ElifDirectiveTrivia:
+                case SyntaxKind.ElseDirectiveTrivia:
+                case SyntaxKind.EndIfDirectiveTrivia:
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns the using list of a container that holds using directives.</summary>

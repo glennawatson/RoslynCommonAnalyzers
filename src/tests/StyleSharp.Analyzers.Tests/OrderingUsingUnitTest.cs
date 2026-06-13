@@ -172,6 +172,65 @@ public class OrderingUsingUnitTest
         await VerifyUsing.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies directives separated by a conditional directive are sorted independently (no SST1210 across the boundary).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalDirectiveResetsOrderingAsync()
+        => await VerifyUsing.VerifyAnalyzerAsync(
+            """
+            using System.Threading;
+            #if true
+            using System.Collections;
+            #endif
+
+            internal class C
+            {
+            }
+            """);
+
+    /// <summary>Verifies a directive after an #endif is not compared against the conditional branch (no SST1210).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalElseBranchResetsOrderingAsync()
+        => await VerifyUsing.VerifyAnalyzerAsync(
+            """
+            #if false
+            using System.Threading;
+            #else
+            using System.Globalization;
+            #endif
+            using System.Collections;
+
+            internal class C
+            {
+            }
+            """);
+
+    /// <summary>Verifies directives inside the same conditional block are still alphabetised (SST1210), and the sort fix is suppressed to avoid scrambling directives.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WithinConditionalBlockStillAlphabeticalAsync()
+    {
+        const string Source = """
+            #if true
+            using System.Threading;
+            {|SST1210:using System.Collections;|}
+            #endif
+
+            internal class C
+            {
+            }
+            """;
+
+        var test = new VerifyUsing.Test
+        {
+            TestCode = Source,
+            FixedCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a using directive inside a namespace is reported (SST1200).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -10,7 +10,7 @@ namespace StyleSharp.Analyzers;
 /// parameter / type-parameter / return-value documentation
 /// (SST1611/SST1618/SST1615/SST1617), and terminal punctuation (SST1629).
 /// Reading each member's documentation comment once keeps this far cheaper than
-/// the analyzer's one-analyzer-per-rule design.
+/// a one-analyzer-per-rule design.
 /// </summary>
 /// <remarks>
 /// Diagnostics: SST1600, SST1602, SST1604, SST1606, SST1608, SST1611, SST1612, SST1613, SST1614, SST1615, SST1616, SST1617, SST1618, SST1620, SST1621, SST1622, SST1623, SST1624,
@@ -203,7 +203,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         }
 
         // An explicitly-private constructor may instead use the "Prevents a default instance of the
-        // <see cref="..."/> class from being created." phrasing, matching the analyzer's the rule.
+        // <see cref="..."/> class from being created." phrasing.
         var alternative = ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.PrivateKeyword)
             ? DocumentationConventions.PrivateConstructorStandardPrefix
             : null;

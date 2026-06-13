@@ -5,9 +5,8 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Single source of truth for the layout (SST15xx) diagnostic descriptors, the
-/// StyleSharp counterparts of the analyzer's SA15xx layout rules. the rule has no
-/// counterpart here — the repository defers brace-omission to the analyzer's the rule.
+/// Single source of truth for the layout (SST15xx) diagnostic descriptors. The
+/// repository does not flag brace omission here — that concern is deferred elsewhere.
 /// </summary>
 internal static class LayoutRules
 {

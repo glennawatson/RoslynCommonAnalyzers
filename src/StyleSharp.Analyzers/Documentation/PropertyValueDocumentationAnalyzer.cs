@@ -7,7 +7,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Reports a documented property whose documentation omits a <c>&lt;value&gt;</c> element
 /// (SST1609) or whose <c>&lt;value&gt;</c> element has no text (SST1610). Both rules are
-/// opt-in, matching the analyzer's defaults.
+/// opt-in by default.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class PropertyValueDocumentationAnalyzer : DiagnosticAnalyzer

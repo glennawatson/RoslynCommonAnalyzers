@@ -6,7 +6,7 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Reports access to a named tuple element through its positional <c>ItemN</c> field instead of
-/// its name (SST1142, mirrors the rule). The no-diagnostic path is a name-shape check, so the
+/// its name (SST1142). The no-diagnostic path is a name-shape check, so the
 /// semantic model is consulted only for a member access actually named <c>ItemN</c>.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]

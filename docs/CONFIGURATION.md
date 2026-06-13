@@ -4,11 +4,10 @@ StyleSharp is configured entirely through **`.editorconfig`** — the same file 
 already use for `dotnet_diagnostic.*` severities and .NET code style. There is no
 separate JSON configuration file.
 
-## Why `.editorconfig` and not `the analyzer.json`
+## Why `.editorconfig` and not a separate config file
 
-the analyzer.Analyzers configures rule behaviour through a separate `the analyzer.json`
-file. StyleSharp deliberately does **not** do that. Instead it follows the
-approach the .NET SDK's own **CA analyzers** use:
+StyleSharp deliberately does **not** use a separate JSON configuration file.
+Instead it follows the approach the .NET SDK's own **CA analyzers** use:
 
 - Options are read from the compiler-provided `AnalyzerConfigOptionsProvider` —
   StyleSharp never reads the `.editorconfig` from disk itself. The compiler parses
@@ -62,7 +61,7 @@ Some rules expose options. Current options:
 | `stylesharp.document_private_fields` | SST1600 | `true`, `false` | `false` |
 | `stylesharp.document_interfaces` | SST1600 / [SST1601](rules/SST1601.md) | `all`, `exposed`, `none` | `all` |
 | `file_header_template` | [SST1633](rules/SST1633.md) | header text (`\n` separates lines, `{fileName}` substituted), or `unset` | `unset` |
-| `stylesharp.file_naming_convention` | [SST1402](rules/SST1402.md) / [SST1649](rules/SST1649.md) code fixes | `the analyzer` (`Widget{T}.cs`), `metadata` (`Widget`1.cs`) | `the analyzer` |
+| `stylesharp.file_naming_convention` | [SST1402](rules/SST1402.md) / [SST1649](rules/SST1649.md) code fixes | `braces` (`Widget{T}.cs`), `metadata` (`Widget`1.cs`) | `braces` |
 
 Example:
 
@@ -81,10 +80,9 @@ default in the table above.
 
 The `document_*` options control **which declarations the "must be documented"
 rules apply to** — SST1600 (elements), SST1601 (partial elements), SST1602 (enum
-members), and SST1654 (extension blocks). They mirror the analyzer's
-`documentExposedElements` / `documentInternalElements` / `documentPrivateElements` /
-`documentPrivateFields` / `documentInterfaces` settings, including the same defaults,
-so a project moving from the analyzer keeps the same coverage out of the box:
+members), and SST1654 (extension blocks). Each option maps to one accessibility
+scope, and the defaults are chosen so a project gets sensible coverage out of the
+box:
 
 - `document_exposed_elements` (default `true`) — public and protected elements.
 - `document_internal_elements` (default `true`) — internal elements. **On by
@@ -93,8 +91,8 @@ so a project moving from the analyzer keeps the same coverage out of the box:
   fields**. Off by default; turn it on to require documentation everywhere except
   private fields.
 - `document_private_fields` (default `false`, SST1600 only) — private fields. Off by
-  default, matching the analyzer's separate `documentPrivateFields` knob, so existing
-  builds are unaffected. Turn it on to require a `///` comment on private fields.
+  default, as a separate knob from `document_private_elements`, so existing builds are
+  unaffected. Turn it on to require a `///` comment on private fields.
   This gate is **independent** of `document_private_elements` — it covers fields and
   nothing else, and need not be combined with it. A private **const** is treated as a
   private field and follows this option. (Non-private fields are governed by
@@ -106,8 +104,7 @@ so a project moving from the analyzer keeps the same coverage out of the box:
 
 Coverage uses **effective accessibility**: a `public` member of an `internal` class
 is treated as internal, so it follows `document_internal_elements`. To require only
-the public API surface to be documented (the analyzer's `documentInternalElements:
-false`):
+the public API surface to be documented, turn `document_internal_elements` off:
 
 ```ini
 [*.cs]

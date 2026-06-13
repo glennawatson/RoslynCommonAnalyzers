@@ -30,6 +30,7 @@
 dotnet_diagnostic.SST1900.severity = warning # A dedicated object lock field should be a System.Threading.Lock
 dotnet_diagnostic.SST1901.severity = warning # A lock targets a field or property reachable from outside the declaring type
 # dotnet_diagnostic.SST1902.severity = warning # A lock targets this, a Type, or a string (opt-in)
+dotnet_diagnostic.SST1903.severity = warning # A lock targets a newly-created object that nothing else can observe
 
 # Documentation
 dotnet_diagnostic.SST1600.severity = warning # Externally visible members should be documented
@@ -124,7 +125,7 @@ dotnet_diagnostic.SST1410.severity = warning # An anonymous method has an empty 
 dotnet_diagnostic.SST1411.severity = warning # An attribute uses an empty argument list
 # dotnet_diagnostic.SST1412.severity = warning # Files should be stored as UTF-8 with a byte order mark (opt-in)
 dotnet_diagnostic.SST1413.severity = warning # A multi-line initializer omits the trailing comma
-dotnet_diagnostic.SST1414.severity = warning # A tuple type in a member signature has an unnamed element (mirrors SA1414)
+dotnet_diagnostic.SST1414.severity = warning # A tuple type in a member signature has an unnamed element
 dotnet_diagnostic.SST1415.severity = warning # An argument-exception constructor uses a string literal where nameof would track renames (StyleSharp original)
 # dotnet_diagnostic.SST1416.severity = warning # A public member is declared in a type that is not externally visible (opt-in)
 # dotnet_diagnostic.SST1417.severity = warning # A namespace does not match the file's folder structure (opt-in)
@@ -135,6 +136,9 @@ dotnet_diagnostic.SST1421.severity = warning # A property has a setter but no ge
 # dotnet_diagnostic.SST1422.severity = warning # A private field acts only as method-local temporary storage (opt-in)
 dotnet_diagnostic.SST1423.severity = warning # A switch statement exceeds the configured section count
 # dotnet_diagnostic.SST1424.severity = warning # A private field is never assigned outside construction (opt-in)
+dotnet_diagnostic.SST1425.severity = warning # A captured primary-constructor parameter is reassigned
+dotnet_diagnostic.SST1426.severity = warning # An analyzer warning is silenced with #pragma instead of a scoped [SuppressMessage]
+dotnet_diagnostic.SST1427.severity = warning # A sealed type has a protected member, where protected has no effect
 # dotnet_diagnostic.SST1450.severity = warning # Files should be stored as UTF-8 without a byte order mark (opt-in)
 
 # Modernization
@@ -160,7 +164,7 @@ dotnet_diagnostic.SST1304.severity = warning # Non-private readonly fields shoul
 # dotnet_diagnostic.SST1306.severity = warning # Field names should begin with a lower-case letter (opt-in)
 dotnet_diagnostic.SST1307.severity = warning # Accessible fields should be PascalCase
 # dotnet_diagnostic.SST1308.severity = warning # Field names should not be prefixed with m_ or s_ (opt-in)
-dotnet_diagnostic.SST1309.severity = warning # Private fields should be _camelCase (runtime convention; inverts StyleCop SA1309)
+dotnet_diagnostic.SST1309.severity = warning # Private fields should be _camelCase (runtime convention)
 # dotnet_diagnostic.SST1310.severity = warning # Field names should not contain underscores (opt-in)
 dotnet_diagnostic.SST1311.severity = warning # Static readonly fields should be PascalCase
 dotnet_diagnostic.SST1312.severity = warning # Local variables should be camelCase
@@ -185,7 +189,7 @@ dotnet_diagnostic.SST1211.severity = warning # Using alias directives should be 
 dotnet_diagnostic.SST1212.severity = warning # Property accessors should be ordered with get first
 dotnet_diagnostic.SST1213.severity = warning # Event accessors should be ordered with add first
 dotnet_diagnostic.SST1214.severity = warning # Static readonly fields should appear before static non-readonly fields
-dotnet_diagnostic.SST1215.severity = warning # Instance readonly fields should appear before instance non-readonly fields (mirrors SA1215)
+dotnet_diagnostic.SST1215.severity = warning # Instance readonly fields should appear before instance non-readonly fields
 dotnet_diagnostic.SST1216.severity = warning # Using static directives should be placed after regular usings and before aliases
 dotnet_diagnostic.SST1217.severity = warning # Using static directives should be ordered alphabetically
 
@@ -223,14 +227,15 @@ dotnet_diagnostic.SST1135.severity = warning # A using directive names a namespa
 dotnet_diagnostic.SST1136.severity = warning # Several enum members share a line
 dotnet_diagnostic.SST1137.severity = warning # Sibling elements are indented differently from one another
 dotnet_diagnostic.SST1139.severity = warning # A numeric literal is cast where a literal suffix would express the type
-dotnet_diagnostic.SST1141.severity = warning # An explicit ValueTuple<...> is used where tuple syntax would do (mirrors SA1141)
-dotnet_diagnostic.SST1142.severity = warning # A tuple element is accessed by ItemN where it has a name (mirrors SA1142)
+dotnet_diagnostic.SST1141.severity = warning # An explicit ValueTuple<...> is used where tuple syntax would do
+dotnet_diagnostic.SST1142.severity = warning # A tuple element is accessed by ItemN where it has a name
 dotnet_diagnostic.SST1143.severity = warning # A boolean expression is compared to a true/false literal (StyleSharp original)
 # dotnet_diagnostic.SST1144.severity = warning # Stacked case labels could be combined into one or pattern (opt-in)
 dotnet_diagnostic.SST1145.severity = warning # A wrapped conditional expression places ?/: inconsistently (StyleSharp original)
 dotnet_diagnostic.SST1146.severity = warning # An if statement follows a closing brace on the same line
 # dotnet_diagnostic.SST1147.severity = warning # A conditional expression is nested inside another conditional expression (opt-in)
 # dotnet_diagnostic.SST1148.severity = warning # A regular comment appears to contain C# code (opt-in)
+dotnet_diagnostic.SST1149.severity = warning # A null check uses == null / != null instead of the 'is null' pattern
 dotnet_diagnostic.SST1150.severity = warning # Require each constructor parameter on a unique line
 dotnet_diagnostic.SST1151.severity = warning # Require each method parameter on a unique line
 dotnet_diagnostic.SST1152.severity = warning # Require each delegate parameter on a unique line
@@ -253,6 +258,12 @@ dotnet_diagnostic.SST1168.severity = warning # Require each conversion-operator 
 dotnet_diagnostic.SST1169.severity = warning # Require each type parameter on a unique line
 dotnet_diagnostic.SST1170.severity = warning # Require each type argument on a unique line
 dotnet_diagnostic.SST1171.severity = warning # Require each function-pointer parameter on a unique line
+dotnet_diagnostic.SST1172.severity = warning # A comparison is negated with ! instead of using the opposite operator
+dotnet_diagnostic.SST1173.severity = warning # An anonymous-type member restates a name that would be inferred
+dotnet_diagnostic.SST1174.severity = warning # A trailing return;/continue; has no effect
+dotnet_diagnostic.SST1175.severity = warning # A cast targets the type the operand already has
+# dotnet_diagnostic.SST1176.severity = warning # A field, event, or auto-property is initialized to its type default (opt-in)
+dotnet_diagnostic.SST1177.severity = warning # A base list restates a compiler-implied type (object base, int enum)
 
 # Records
 # dotnet_diagnostic.SST1800.severity = warning # A record class is neither sealed nor abstract (opt-in)

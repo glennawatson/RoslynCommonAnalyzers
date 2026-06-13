@@ -12,7 +12,7 @@ using VerifyMember = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
 
 namespace StyleSharp.Analyzers.Tests;
 
-/// <summary>Edge-case tests informed by the the analyzer issue tracker (records, structs, period/quotes, Task, inheritdoc, file names).</summary>
+/// <summary>Edge-case documentation tests (records, structs, period/quotes, Task, inheritdoc, file names).</summary>
 public class DocumentationEdgeCaseUnitTest
 {
     /// <summary>Verifies a positional record parameter without a &lt;param&gt; is reported (SST1611).</summary>

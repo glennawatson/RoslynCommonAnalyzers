@@ -147,7 +147,7 @@ internal static class DocumentationRules
         "SST1644",
         "Documentation headers should not contain blank lines",
         "Remove this blank documentation line",
-        "Documentation prose remains contiguous rather than containing empty '///' lines. Off by default because the upstream the analyzer rule is deprecated.");
+        "Documentation prose remains contiguous rather than containing empty '///' lines. Off by default.");
 
     /// <summary>SST1642 — constructor summaries should begin with the standard text.</summary>
     public static readonly DiagnosticDescriptor ConstructorStandardText = Create(
@@ -186,8 +186,8 @@ internal static class DocumentationRules
 
     /// <summary>
     /// SST1653 — a <c>&lt;summary&gt;</c> whose text fits within the configured
-    /// length should be written on a single line. StyleSharp-original (no the analyzer
-    /// equivalent); the length is set with <c>stylesharp.summary_single_line_max_length</c>.
+    /// length should be written on a single line. The length is set with
+    /// <c>stylesharp.summary_single_line_max_length</c>.
     /// </summary>
     public static readonly DiagnosticDescriptor SingleLineSummary = Create(
         "SST1653",
@@ -235,14 +235,14 @@ internal static class DocumentationRules
         "SST1609",
         "Property documentation should have a value",
         "Documentation for property '{0}' should contain a <value>",
-        "A documented property includes a <value> element. Off by default, matching the analyzer.");
+        "A documented property includes a <value> element. Off by default.");
 
     /// <summary>SST1610 — property value element should have text (opt-in).</summary>
     public static readonly DiagnosticDescriptor PropertyValueMustHaveText = CreateOptIn(
         "SST1610",
         "Property value documentation should have text",
         "The <value> for property '{0}' should not be empty",
-        "A property's <value> element contains text. Off by default, matching the analyzer.");
+        "A property's <value> element contains text. Off by default.");
 
     /// <summary>SST1619 — generic type parameters of a partial type should be documented (opt-in).</summary>
     public static readonly DiagnosticDescriptor PartialTypeParametersDocumented = CreateOptIn(
@@ -263,28 +263,28 @@ internal static class DocumentationRules
         "SST1628",
         "Documentation text should begin with a capital letter",
         "The documentation summary should begin with a capital letter",
-        "Documentation summary text begins with a capital letter. Off by default, matching the analyzer.");
+        "Documentation summary text begins with a capital letter. Off by default.");
 
     /// <summary>SST1630 — documentation text should contain whitespace between words (opt-in).</summary>
     public static readonly DiagnosticDescriptor TextContainsWhitespace = CreateOptIn(
         "SST1630",
         "Documentation text should contain whitespace",
         "The documentation summary should contain more than one word",
-        "Documentation summary text contains whitespace (more than a single word). Off by default, matching the analyzer.");
+        "Documentation summary text contains whitespace (more than a single word). Off by default.");
 
     /// <summary>SST1631 — documentation text should be mostly letters (opt-in).</summary>
     public static readonly DiagnosticDescriptor TextCharacterPercentage = CreateOptIn(
         "SST1631",
         "Documentation text should be mostly letters",
         "The documentation summary should be made up mostly of letters, not symbols",
-        "At least half of a documentation summary's characters are letters or whitespace. Off by default, matching the analyzer.");
+        "At least half of a documentation summary's characters are letters or whitespace. Off by default.");
 
     /// <summary>SST1632 — documentation text should meet a minimum length (opt-in).</summary>
     public static readonly DiagnosticDescriptor TextMinimumLength = CreateOptIn(
         "SST1632",
         "Documentation text should meet a minimum length",
         "The documentation summary is too short to be meaningful",
-        "Documentation summary text is at least a few characters long. Off by default, matching the analyzer.");
+        "Documentation summary text is at least a few characters long. Off by default.");
 
     /// <summary>SST1648 — inheritdoc should only be used on inheriting elements.</summary>
     public static readonly DiagnosticDescriptor InheritDocValid = Create(
@@ -319,7 +319,7 @@ internal static class DocumentationRules
         "SST1657",
         "Extension block documentation should reference a real parameter or type parameter",
         "'{0}' does not match any parameter or type parameter of the extension block",
-        "Each <param> and <typeparam> element in an extension block's documentation refers to a name the block declares (the StyleSharp counterpart of the analyzer's the rule for extension blocks).");
+        "Each <param> and <typeparam> element in an extension block's documentation refers to a name the block declares.");
 
     /// <summary>Creates a Warning-severity Documentation descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

@@ -6,8 +6,7 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Reports a framework type name used where its built-in C# keyword alias would read better
-/// (SST1121) — <c>Int32</c> or <c>System.Int32</c> instead of <c>int</c>. Disabled by default;
-/// the analyzer's the rule covers the same ground faster.
+/// (SST1121) — <c>Int32</c> or <c>System.Int32</c> instead of <c>int</c>. Disabled by default.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1121BuiltInTypeAliasAnalyzer : DiagnosticAnalyzer

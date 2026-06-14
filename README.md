@@ -118,3 +118,5 @@ MIT — see [LICENSE](LICENSE).
 This project was inspired by [StyleCop.Analyzers](https://github.com/DotNetAnalyzers/StyleCopAnalyzers). The analyzers and code fixes here are written from scratch, and no StyleCop.Analyzers source code was copied. Some diagnostic IDs, titles, and messages do mirror StyleCop's for familiarity, so StyleCop.Analyzers' MIT license is included in [LICENSE](LICENSE).
 
 Thanks to Sam Harwell and the StyleCop.Analyzers contributors. Their work set the standard this project learned from.
+
+Some analyzers here were also inspired by [Roslynator](https://github.com/dotnet/roslynator). As with StyleCop, the code was developed independently and no Roslynator source code was copied. Roslynator is licensed under the Apache License 2.0, referenced in [LICENSE](LICENSE).

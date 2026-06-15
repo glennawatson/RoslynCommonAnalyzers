@@ -7,7 +7,8 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Reports a control-flow statement whose embedded child spans multiple lines but omits its
 /// braces (SST1519). A single-line child is left to the analyzer's the rule; an <c>else if</c> chain is
-/// not treated as an unbraced child.
+/// not treated as an unbraced child, and neither is a stacked scope statement
+/// (<c>using</c> / <c>lock</c> / <c>fixed</c>) whose own braced body already groups the block.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1519MultiLineChildBraceAnalyzer : DiagnosticAnalyzer
@@ -28,8 +29,10 @@ public sealed class Sst1519MultiLineChildBraceAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
+        // A block needs no braces added; an if child carries an else-if chain; and a stacked scope
+        // statement (using/lock/fixed) already braces its own body, so the outer one is intentional.
         if (!LayoutHelpers.TryGetEmbeddedStatement(context.Node, out var child)
-            || child is BlockSyntax or IfStatementSyntax)
+            || child is BlockSyntax or IfStatementSyntax or UsingStatementSyntax or LockStatementSyntax or FixedStatementSyntax)
         {
             return;
         }

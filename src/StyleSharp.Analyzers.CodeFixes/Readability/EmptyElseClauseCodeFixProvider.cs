@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes an empty <c>else</c> clause from its <c>if</c> statement (SST1180).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(EmptyElseClauseCodeFixProvider))]
 [Shared]
-public sealed class EmptyElseClauseCodeFixProvider : CodeFixProvider
+public sealed class EmptyElseClauseCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoEmptyElseClause.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,24 @@ public sealed class EmptyElseClauseCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(EmptyElseClauseCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ElseClauseSyntax>() is not { Parent: IfStatementSyntax ifStatement })
+        {
+            return;
+        }
+
+        // Drop any whitespace the then-branch left before 'else', then re-attach the statement's own
+        // trailing trivia (what followed the else block) so the line break after the 'if' is preserved.
+        var withoutElse = ifStatement
+            .WithStatement(ifStatement.Statement.WithTrailingTrivia(SyntaxFactory.TriviaList()))
+            .WithElse(null)
+            .WithTrailingTrivia(ifStatement.GetTrailingTrivia());
+
+        editor.ReplaceNode(ifStatement, withoutElse);
     }
 
     /// <summary>Drops the empty <c>else</c> clause and any whitespace the <c>then</c> branch left trailing.</summary>

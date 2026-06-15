@@ -51,6 +51,34 @@ public class IsPatternOverAsNullCheckAnalyzerUnitTest
         await VerifyAsNull.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every <c>as</c>/null comparison in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public bool A(object x) => {|SST2005:(x as string) != null|};
+
+                                  public bool B(object x) => {|SST2005:(x as string) == null|};
+
+                                  public bool D(object x) => {|SST2005:(x as System.Exception) != null|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public bool A(object x) => x is string;
+
+                                       public bool B(object x) => x is not string;
+
+                                       public bool D(object x) => x is System.Exception;
+                                   }
+                                   """;
+        await VerifyAsNull.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies an ordinary null check and an existing pattern are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

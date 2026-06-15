@@ -78,6 +78,54 @@ public class Sst1156ElementAccessExpressionAnalyzersUnitTest
         await Verifysst0007.VerifyCodeFixAsync(test, expected, fixtest);
     }
 
+    /// <summary>Verifies Fix All rewrites every element-access expression with split arguments in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            public class Foo
+            {
+                public int this[int a, int b] => 0;
+                public int this[int a, int b, int c] => 0;
+
+                public void M()
+                {
+                    var first = {|SST1156:this[
+                        1, 2]|};
+                    var second = {|SST1156:this[
+                        3, 4, 5]|};
+                    var third = {|SST1156:this[
+                        6, 7]|};
+                }
+            }
+            """;
+
+        const string FixedSource = """
+            public class Foo
+            {
+                public int this[int a, int b] => 0;
+                public int this[int a, int b, int c] => 0;
+
+                public void M()
+                {
+                    var first = this[
+                        1,
+                        2];
+                    var second = this[
+                        3,
+                        4,
+                        5];
+                    var third = this[
+                        6,
+                        7];
+                }
+            }
+            """;
+
+        await Verifysst0007.VerifyCodeFixAsync(Test, FixedSource);
+    }
+
     /// <summary>Builds a fixture whose parameters are split unevenly across lines along with the expected diagnostic span.</summary>
     /// <param name="number">The number of parameters to generate.</param>
     /// <returns>The generated source text and the expected diagnostic span.</returns>

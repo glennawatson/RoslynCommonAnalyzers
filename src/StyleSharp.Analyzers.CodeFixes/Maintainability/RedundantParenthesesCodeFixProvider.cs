@@ -7,7 +7,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes an empty anonymous-method parameter list (SST1410) or attribute argument list (SST1411).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantParenthesesCodeFixProvider))]
 [Shared]
-public sealed class RedundantParenthesesCodeFixProvider : CodeFixProvider
+public sealed class RedundantParenthesesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -15,7 +15,7 @@ public sealed class RedundantParenthesesCodeFixProvider : CodeFixProvider
         MaintainabilityRules.RemoveAttributeParentheses.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -42,6 +42,18 @@ public sealed class RedundantParenthesesCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(RedundantParenthesesCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        var node = editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan);
+        if (Rewrite(node) is not { } rewritten)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(rewritten.Original, rewritten.Replacement);
     }
 
     /// <summary>Removes the empty parentheses from the reported node when it still matches.</summary>

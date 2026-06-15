@@ -62,4 +62,49 @@ public class Sst1169TypeParameterListAnalyzersUnitTest
 
         await Verifysst0020.VerifyCodeFixAsync(Test, FixedSource);
     }
+
+    /// <summary>Verifies Fix All rewrites every type parameter list in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            public class Foo{|SST1169:<
+                T1, T2>|}
+            {
+            }
+
+            public class Bar{|SST1169:<
+                T1, T2>|}
+            {
+            }
+
+            public class Baz{|SST1169:<
+                T1, T2>|}
+            {
+            }
+            """;
+
+        const string FixedSource = """
+            public class Foo<
+                T1,
+                T2>
+            {
+            }
+
+            public class Bar<
+                T1,
+                T2>
+            {
+            }
+
+            public class Baz<
+                T1,
+                T2>
+            {
+            }
+            """;
+
+        await Verifysst0020.VerifyCodeFixAsync(Test, FixedSource);
+    }
 }

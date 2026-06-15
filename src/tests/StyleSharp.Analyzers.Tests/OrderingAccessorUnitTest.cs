@@ -61,6 +61,64 @@ public class OrderingAccessorUnitTest
             }
             """);
 
+    /// <summary>Verifies Fix All reorders every misordered accessor pair in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  private int _x;
+                                  private int _y;
+
+                                  public int X
+                                  {
+                                      set => _x = value;
+                                      {|SST1212:get|} => _x;
+                                  }
+
+                                  public int Y
+                                  {
+                                      set => _y = value;
+                                      {|SST1212:get|} => _y;
+                                  }
+
+                                  public event System.EventHandler E
+                                  {
+                                      remove { }
+                                      {|SST1213:add|} { }
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private int _x;
+                                       private int _y;
+
+                                       public int X
+                                       {
+                                           get => _x;
+                                           set => _x = value;
+                                       }
+
+                                       public int Y
+                                       {
+                                           get => _y;
+                                           set => _y = value;
+                                       }
+
+                                       public event System.EventHandler E
+                                       {
+                                           add { }
+                                           remove { }
+                                       }
+                                   }
+                                   """;
+        await VerifyAccessorOrder.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies an add accessor after a remove accessor is reported (SST1213) and reordered.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

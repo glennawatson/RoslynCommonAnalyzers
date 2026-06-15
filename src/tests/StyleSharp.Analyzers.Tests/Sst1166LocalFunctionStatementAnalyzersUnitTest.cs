@@ -94,4 +94,69 @@ public class Sst1166LocalFunctionStatementAnalyzersUnitTest
 
         await Verifysst0017.VerifyCodeFixAsync(Test, FixedSource);
     }
+
+    /// <summary>Verifies Fix All rewrites every local function with split parameters in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            public class Foo
+            {
+                public void M()
+                {
+                    {|SST1166:void First(
+                        int a, int b)
+                    {
+                    }|}
+
+                    {|SST1166:void Second(
+                        int c, int d)
+                    {
+                    }|}
+
+                    {|SST1166:void Third(
+                        int e, int f)
+                    {
+                    }|}
+
+                    First(1, 2);
+                    Second(3, 4);
+                    Third(5, 6);
+                }
+            }
+            """;
+
+        const string FixedSource = """
+            public class Foo
+            {
+                public void M()
+                {
+                    void First(
+                        int a,
+                        int b)
+                    {
+                    }
+
+                    void Second(
+                        int c,
+                        int d)
+                    {
+                    }
+
+                    void Third(
+                        int e,
+                        int f)
+                    {
+                    }
+
+                    First(1, 2);
+                    Second(3, 4);
+                    Third(5, 6);
+                }
+            }
+            """;
+
+        await Verifysst0017.VerifyCodeFixAsync(Test, FixedSource);
+    }
 }

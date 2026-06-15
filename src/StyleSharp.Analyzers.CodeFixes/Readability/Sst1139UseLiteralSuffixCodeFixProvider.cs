@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces a numeric literal cast with the equivalent literal suffix (SST1139).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1139UseLiteralSuffixCodeFixProvider))]
 [Shared]
-public sealed class Sst1139UseLiteralSuffixCodeFixProvider : CodeFixProvider
+public sealed class Sst1139UseLiteralSuffixCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseLiteralSuffix.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -41,6 +41,20 @@ public sealed class Sst1139UseLiteralSuffixCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1139UseLiteralSuffixCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not CastExpressionSyntax cast
+            || Sst1139UseLiteralSuffixAnalyzer.SuffixFor(cast) is not { } suffix)
+        {
+            return;
+        }
+
+        var literal = (LiteralExpressionSyntax)Sst1139UseLiteralSuffixAnalyzer.Unwrap(cast.Expression);
+        var suffixed = SyntaxFactory.ParseExpression(literal.Token.Text + suffix).WithTriviaFrom(cast);
+        editor.ReplaceNode(cast, suffixed);
     }
 
     /// <summary>Replaces the cast with the suffixed literal.</summary>

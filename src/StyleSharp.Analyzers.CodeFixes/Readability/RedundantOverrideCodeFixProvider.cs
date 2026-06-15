@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Deletes an <c>override</c> that only forwards to its base member (SST1181).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantOverrideCodeFixProvider))]
 [Shared]
-public sealed class RedundantOverrideCodeFixProvider : CodeFixProvider
+public sealed class RedundantOverrideCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantOverride.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,17 @@ public sealed class RedundantOverrideCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(RedundantOverrideCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
+        {
+            return;
+        }
+
+        editor.RemoveNode(member, SyntaxRemoveOptions.KeepNoTrivia);
     }
 
     /// <summary>Removes the redundant override member so the inherited member is used directly.</summary>

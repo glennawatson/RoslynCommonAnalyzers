@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public sealed class Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesAnalyzer.DiagnosticId);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -43,6 +43,24 @@ public sealed class Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesCod
                 return;
             }
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ElementAccessExpressionSyntax node)
+        {
+            return;
+        }
+
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
+        var newNode = node.ConvertNodeIfAble(
+                          node => node.ArgumentList?.Arguments,
+                          (node, parameters) => node.WithArgumentList(
+                              SyntaxFactory.BracketedArgumentList(parameters)
+                                  .WithOpenBracketToken(node.ArgumentList!.OpenBracketToken.WithTrailingTrivia(endOfLine))))
+                      ?? node;
+        editor.ReplaceNode(node, newNode);
     }
 
     /// <summary>Rewrites the element access expression so each parameter is placed on its own line.</summary>

@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces a <c>c ? true : false</c> conditional with the condition itself, or its negation (SST1182).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ConditionalBooleanLiteralCodeFixProvider))]
 [Shared]
-public sealed class ConditionalBooleanLiteralCodeFixProvider : CodeFixProvider
+public sealed class ConditionalBooleanLiteralCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoConditionalBooleanLiteral.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,22 @@ public sealed class ConditionalBooleanLiteralCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(ConditionalBooleanLiteralCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ConditionalExpressionSyntax conditional)
+        {
+            return;
+        }
+
+        var condition = conditional.Condition.WithoutTrivia();
+        var replacement = conditional.WhenTrue.IsKind(SyntaxKind.TrueLiteralExpression)
+            ? condition
+            : Negate(condition);
+
+        editor.ReplaceNode(conditional, replacement.WithTriviaFrom(conditional));
     }
 
     /// <summary>Replaces the conditional with the condition, negating it when the branches are swapped.</summary>

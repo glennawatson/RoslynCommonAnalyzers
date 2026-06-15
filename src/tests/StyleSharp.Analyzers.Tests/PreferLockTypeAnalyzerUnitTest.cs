@@ -119,6 +119,64 @@ public class PreferLockTypeAnalyzerUnitTest
         await VerifyNet90Async(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every lock-only object field in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class A
+                              {
+                                  private readonly object {|SST1900:_gate|} = new();
+
+                                  public void M()
+                                  {
+                                      lock (_gate)
+                                      {
+                                      }
+                                  }
+                              }
+
+                              public class B
+                              {
+                                  private readonly object {|SST1900:_sync|} = new();
+
+                                  public void M()
+                                  {
+                                      lock (_sync)
+                                      {
+                                      }
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class A
+                                   {
+                                       private readonly System.Threading.Lock _gate = new();
+
+                                       public void M()
+                                       {
+                                           lock (_gate)
+                                           {
+                                           }
+                                       }
+                                   }
+
+                                   public class B
+                                   {
+                                       private readonly System.Threading.Lock _sync = new();
+
+                                       public void M()
+                                       {
+                                           lock (_sync)
+                                           {
+                                           }
+                                       }
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
     /// <summary>Verifies an object field used for anything other than locking is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

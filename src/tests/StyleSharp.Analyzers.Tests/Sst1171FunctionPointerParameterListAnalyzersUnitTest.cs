@@ -69,6 +69,44 @@ public class Sst1171FunctionPointerParameterListAnalyzersUnitTest
         await RunAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every function pointer parameter list in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+            unsafe class C
+            {
+                delegate*{|SST1171:<
+                    int, string, void>|} f;
+                delegate*{|SST1171:<
+                    int, string, void>|} g;
+                delegate*{|SST1171:<
+                    int, string, void>|} h;
+            }
+            """;
+
+        const string FixedSource = """
+            unsafe class C
+            {
+                delegate*<
+                    int,
+                    string,
+                    void> f;
+                delegate*<
+                    int,
+                    string,
+                    void> g;
+                delegate*<
+                    int,
+                    string,
+                    void> h;
+            }
+            """;
+
+        await RunAsync(Source, FixedSource);
+    }
+
     /// <summary>Runs the code fix verifier with unsafe compilation enabled.</summary>
     /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
     /// <param name="fixedSource">The expected source after the code fix, or <see langword="null"/> to only verify the analyzer.</param>

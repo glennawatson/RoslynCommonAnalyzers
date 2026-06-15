@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes an empty namespace declaration (SST1435).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(EmptyNamespaceCodeFixProvider))]
 [Shared]
-public sealed class EmptyNamespaceCodeFixProvider : CodeFixProvider
+public sealed class EmptyNamespaceCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.NoEmptyNamespace.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,17 @@ public sealed class EmptyNamespaceCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(EmptyNamespaceCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<BaseNamespaceDeclarationSyntax>() is not { } declaration)
+        {
+            return;
+        }
+
+        editor.RemoveNode(declaration, SyntaxRemoveOptions.KeepNoTrivia);
     }
 
     /// <summary>Removes the empty namespace declaration.</summary>

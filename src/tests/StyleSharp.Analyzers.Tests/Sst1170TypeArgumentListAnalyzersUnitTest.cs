@@ -66,4 +66,39 @@ public class Sst1170TypeArgumentListAnalyzersUnitTest
 
         await Verifysst0021.VerifyCodeFixAsync(Test, FixedSource);
     }
+
+    /// <summary>Verifies Fix All rewrites every type argument list in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            public class Foo
+            {
+                private readonly System.Collections.Generic.Dictionary{|SST1170:<
+                    int, string>|} _first = new();
+                private readonly System.Collections.Generic.Dictionary{|SST1170:<
+                    int, string>|} _second = new();
+                private readonly System.Collections.Generic.Dictionary{|SST1170:<
+                    int, string>|} _third = new();
+            }
+            """;
+
+        const string FixedSource = """
+            public class Foo
+            {
+                private readonly System.Collections.Generic.Dictionary<
+                    int,
+                    string> _first = new();
+                private readonly System.Collections.Generic.Dictionary<
+                    int,
+                    string> _second = new();
+                private readonly System.Collections.Generic.Dictionary<
+                    int,
+                    string> _third = new();
+            }
+            """;
+
+        await Verifysst0021.VerifyCodeFixAsync(Test, FixedSource);
+    }
 }

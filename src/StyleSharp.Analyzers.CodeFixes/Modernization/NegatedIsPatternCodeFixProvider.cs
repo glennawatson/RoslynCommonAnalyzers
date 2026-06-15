@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites a negated type test <c>!(x is T)</c> as the <c>x is not T</c> pattern (SST2006).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(NegatedIsPatternCodeFixProvider))]
 [Shared]
-public sealed class NegatedIsPatternCodeFixProvider : CodeFixProvider
+public sealed class NegatedIsPatternCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernizationRules.UseNegatedIsPattern.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -40,6 +40,20 @@ public sealed class NegatedIsPatternCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(NegatedIsPatternCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not PrefixUnaryExpressionSyntax not
+            || PatternMatchingAnalyzer.Unwrap(not.Operand) is not BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression } isExpression
+            || isExpression.Right is not TypeSyntax type)
+        {
+            return;
+        }
+
+        var replacement = PatternMatchingAnalyzer.BuildIsNotPattern(isExpression.Left, type).WithTriviaFrom(not);
+        editor.ReplaceNode(not, replacement);
     }
 
     /// <summary>Replaces the negated type test with the <c>is not</c> pattern.</summary>

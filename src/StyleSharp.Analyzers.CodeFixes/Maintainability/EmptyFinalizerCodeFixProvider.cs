@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes an empty finalizer (SST1434).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(EmptyFinalizerCodeFixProvider))]
 [Shared]
-public sealed class EmptyFinalizerCodeFixProvider : CodeFixProvider
+public sealed class EmptyFinalizerCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.NoEmptyFinalizer.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,17 @@ public sealed class EmptyFinalizerCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(EmptyFinalizerCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<DestructorDeclarationSyntax>() is not { } finalizer)
+        {
+            return;
+        }
+
+        editor.RemoveNode(finalizer, SyntaxRemoveOptions.KeepNoTrivia);
     }
 
     /// <summary>Removes the empty finalizer.</summary>

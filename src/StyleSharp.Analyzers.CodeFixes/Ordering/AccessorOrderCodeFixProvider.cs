@@ -10,7 +10,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>Reorders property/event accessors so get/add appears before set/remove (SST1212/SST1213).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AccessorOrderCodeFixProvider))]
 [Shared]
-public sealed class AccessorOrderCodeFixProvider : CodeFixProvider
+public sealed class AccessorOrderCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -18,7 +18,7 @@ public sealed class AccessorOrderCodeFixProvider : CodeFixProvider
         OrderingRules.EventAccessorOrder.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -45,12 +45,33 @@ public sealed class AccessorOrderCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<AccessorListSyntax>() is not { } list)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(list, Reorder(list));
+    }
+
     /// <summary>Reorders the accessor list into canonical order, keeping each slot's trivia.</summary>
     /// <param name="document">The document to fix.</param>
     /// <param name="list">The accessor list.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The updated document.</returns>
     internal static async Task<Document> ReorderAsync(Document document, AccessorListSyntax list, CancellationToken cancellationToken)
+    {
+        var newList = Reorder(list);
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        return document.WithSyntaxRoot(root!.ReplaceNode(list, newList));
+    }
+
+    /// <summary>Rebuilds the accessor list in canonical order, keeping each slot's trivia.</summary>
+    /// <param name="list">The accessor list.</param>
+    /// <returns>The reordered accessor list.</returns>
+    private static AccessorListSyntax Reorder(AccessorListSyntax list)
     {
         var original = list.Accessors;
         var ordered = new AccessorDeclarationSyntax[original.Count];
@@ -69,9 +90,7 @@ public sealed class AccessorOrderCodeFixProvider : CodeFixProvider
                 .WithTrailingTrivia(original[index].GetTrailingTrivia());
         }
 
-        var newList = list.WithAccessors(SyntaxFactory.List(rebuilt));
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        return document.WithSyntaxRoot(root!.ReplaceNode(list, newList));
+        return list.WithAccessors(SyntaxFactory.List(rebuilt));
     }
 
     /// <summary>Returns the canonical rank of an accessor — get/add before set/init/remove.</summary>

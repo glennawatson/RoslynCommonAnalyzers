@@ -31,6 +31,34 @@ public class DefaultValueTypeConstructorAnalyzerUnitTest
         await VerifyDefaultCtor.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All replaces every parameterless value-type construction in a document in a single pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  private static System.DateTime First() => {|SST1129:new System.DateTime()|};
+
+                                  private static System.TimeSpan Second() => {|SST1129:new System.TimeSpan()|};
+
+                                  private static System.Guid Third() => {|SST1129:new System.Guid()|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private static System.DateTime First() => default(System.DateTime);
+
+                                       private static System.TimeSpan Second() => default(System.TimeSpan);
+
+                                       private static System.Guid Third() => default(System.Guid);
+                                   }
+                                   """;
+        await VerifyDefaultCtor.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a reference-type construction and a constructor with arguments are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Merges stacked case labels into a single <c>case A or B:</c> pattern label (SST1144).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1144PreferOrPatternCodeFixProvider))]
 [Shared]
-public sealed class Sst1144PreferOrPatternCodeFixProvider : CodeFixProvider
+public sealed class Sst1144PreferOrPatternCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.PreferOrPattern.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,17 @@ public sealed class Sst1144PreferOrPatternCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1144PreferOrPatternCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<SwitchSectionSyntax>() is not { } section)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(section, Merge(section));
     }
 
     /// <summary>Replaces the switch section with its combined <c>or</c>-pattern form.</summary>

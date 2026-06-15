@@ -31,6 +31,36 @@ public class MakeClassStaticAnalyzerUnitTest
         await VerifyMakeStatic.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All marks every all-static class static in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class {|SST1432:Helpers|}
+                              {
+                                  public static int Add(int x, int y) => x + y;
+                              }
+
+                              public class {|SST1432:Utilities|}
+                              {
+                                  public static int Sub(int x, int y) => x - y;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public static class Helpers
+                                   {
+                                       public static int Add(int x, int y) => x + y;
+                                   }
+
+                                   public static class Utilities
+                                   {
+                                       public static int Sub(int x, int y) => x - y;
+                                   }
+                                   """;
+        await VerifyMakeStatic.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a class with an instance member and an already-static class are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

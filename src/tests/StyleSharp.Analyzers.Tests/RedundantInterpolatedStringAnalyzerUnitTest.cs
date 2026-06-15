@@ -31,6 +31,34 @@ public class RedundantInterpolatedStringAnalyzerUnitTest
         await VerifyInterpolated.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All strips every interpolation-free prefix across a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public string A() => {|SST1183:$"hello"|};
+
+                                  public string B() => {|SST1183:$"world"|};
+
+                                  public string D() => {|SST1183:$"again"|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public string A() => "hello";
+
+                                       public string B() => "world";
+
+                                       public string D() => "again";
+                                   }
+                                   """;
+        await VerifyInterpolated.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies an interpolated string with a real hole is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

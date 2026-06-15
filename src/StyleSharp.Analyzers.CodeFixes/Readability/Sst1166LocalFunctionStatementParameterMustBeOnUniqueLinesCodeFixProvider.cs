@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1166LocalFunctionStatementParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1166LocalFunctionStatementParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public sealed class Sst1166LocalFunctionStatementParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(Sst1166LocalFunctionStatementParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -43,6 +43,28 @@ public sealed class Sst1166LocalFunctionStatementParameterMustBeOnUniqueLinesCod
                 return;
             }
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not LocalFunctionStatementSyntax node)
+        {
+            return;
+        }
+
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
+        var newNode = node.ConvertNodeIfAble(
+            param => param.ParameterList?.Parameters,
+            (syntax, parameters) => syntax.WithParameterList(
+                SyntaxFactory.ParameterList(parameters)
+                    .WithOpenParenToken(syntax.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))));
+        if (newNode is null)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(node, newNode);
     }
 
     /// <summary>Rewrites the declaration so each parameter is placed on its own line.</summary>

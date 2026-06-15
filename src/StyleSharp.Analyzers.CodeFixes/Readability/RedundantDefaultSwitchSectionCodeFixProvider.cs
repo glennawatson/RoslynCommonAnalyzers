@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a redundant <c>default:</c> switch section that only breaks (SST1179).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantDefaultSwitchSectionCodeFixProvider))]
 [Shared]
-public sealed class RedundantDefaultSwitchSectionCodeFixProvider : CodeFixProvider
+public sealed class RedundantDefaultSwitchSectionCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantDefaultSwitchSection.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,17 @@ public sealed class RedundantDefaultSwitchSectionCodeFixProvider : CodeFixProvid
                     equivalenceKey: nameof(RedundantDefaultSwitchSectionCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<SwitchSectionSyntax>() is not { } section)
+        {
+            return;
+        }
+
+        editor.RemoveNode(section, SyntaxRemoveOptions.KeepNoTrivia);
     }
 
     /// <summary>Removes the redundant <c>default:</c> section from its switch.</summary>

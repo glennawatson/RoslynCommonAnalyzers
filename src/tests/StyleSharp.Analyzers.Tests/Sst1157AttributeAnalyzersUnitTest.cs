@@ -78,6 +78,68 @@ public class Sst1157AttributeAnalyzersUnitTest
         await Verifysst0008.VerifyCodeFixAsync(test, expected, fixtest);
     }
 
+    /// <summary>Verifies Fix All rewrites every attribute argument list with split arguments in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            using System;
+
+            public sealed class MyAttribute : Attribute
+            {
+                public MyAttribute(int a, int b) { }
+                public MyAttribute(int a, int b, int c) { }
+            }
+
+            public class Foo
+            {
+                [{|SST1157:My(
+                    1, 2)|}]
+                public void First() { }
+
+                [{|SST1157:My(
+                    3, 4, 5)|}]
+                public void Second() { }
+
+                [{|SST1157:My(
+                    6, 7)|}]
+                public void Third() { }
+            }
+            """;
+
+        const string FixedSource = """
+            using System;
+
+            public sealed class MyAttribute : Attribute
+            {
+                public MyAttribute(int a, int b) { }
+                public MyAttribute(int a, int b, int c) { }
+            }
+
+            public class Foo
+            {
+                [My(
+                    1,
+                    2)]
+                public void First() { }
+
+                [My(
+                    3,
+                    4,
+                    5)]
+                public void Second() { }
+
+                [My(
+                    6,
+                    7)]
+                public void Third() { }
+            }
+            """;
+
+        await Verifysst0008.VerifyCodeFixAsync(Test, FixedSource);
+    }
+
     /// <summary>Builds a fixture whose parameters are split unevenly across lines along with the expected diagnostic span.</summary>
     /// <param name="number">The number of parameters to generate.</param>
     /// <returns>The generated source text and the expected diagnostic span.</returns>

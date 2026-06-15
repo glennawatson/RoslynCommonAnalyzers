@@ -10,13 +10,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RecordInitOnlyCodeFixProvider))]
 [Shared]
-public sealed class RecordInitOnlyCodeFixProvider : CodeFixProvider
+public sealed class RecordInitOnlyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(RecordRules.InitOnlyProperty.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -41,6 +41,26 @@ public sealed class RecordInitOnlyCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(RecordInitOnlyCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not AccessorDeclarationSyntax accessor)
+        {
+            return;
+        }
+
+        var initKeyword = SyntaxFactory.Token(accessor.Keyword.LeadingTrivia, SyntaxKind.InitKeyword, accessor.Keyword.TrailingTrivia);
+        var initAccessor = SyntaxFactory.AccessorDeclaration(SyntaxKind.InitAccessorDeclaration)
+            .WithAttributeLists(accessor.AttributeLists)
+            .WithModifiers(accessor.Modifiers)
+            .WithKeyword(initKeyword)
+            .WithBody(accessor.Body)
+            .WithExpressionBody(accessor.ExpressionBody)
+            .WithSemicolonToken(accessor.SemicolonToken);
+
+        editor.ReplaceNode(accessor, initAccessor);
     }
 
     /// <summary>Replaces the set accessor with an equivalent init accessor.</summary>

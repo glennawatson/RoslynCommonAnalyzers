@@ -38,6 +38,39 @@ public class UseTupleSyntaxAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies Fix All rewrites every explicit ValueTuple type in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  public {|SST1141:ValueTuple<int, string>|} A() => default;
+
+                                  public {|SST1141:ValueTuple<string, int>|} B() => default;
+
+                                  public {|SST1141:ValueTuple<int, int>|} D() => default;
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       public (int, string) A() => default;
+
+                                       public (string, int) B() => default;
+
+                                       public (int, int) D() => default;
+                                   }
+                                   """;
+        var test = new VerifyTuple.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies tuple syntax and a single-argument ValueTuple are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

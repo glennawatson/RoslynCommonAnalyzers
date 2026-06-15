@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a redundant initialization to a type's default value (SST1176).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(MemberInitializedToDefaultCodeFixProvider))]
 [Shared]
-public sealed class MemberInitializedToDefaultCodeFixProvider : CodeFixProvider
+public sealed class MemberInitializedToDefaultCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoMemberInitializedToDefault.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -37,6 +37,33 @@ public sealed class MemberInitializedToDefaultCodeFixProvider : CodeFixProvider
                     cancellationToken => Task.FromResult(Apply(context.Document, root, initializer)),
                     equivalenceKey: nameof(MemberInitializedToDefaultCodeFixProvider)),
                 diagnostic);
+        }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<EqualsValueClauseSyntax>() is not { } initializer)
+        {
+            return;
+        }
+
+        // A property carries the initializer plus a trailing ';'; both must go. A field/event keeps
+        // its own ';' on the declaration, so only the declarator's initializer is removed.
+        if (initializer.Parent is PropertyDeclarationSyntax property)
+        {
+            var trimmed = property
+                .WithInitializer(null)
+                .WithSemicolonToken(default)
+                .WithTrailingTrivia(property.GetTrailingTrivia());
+            editor.ReplaceNode(property, trimmed);
+            return;
+        }
+
+        if (initializer.Parent is VariableDeclaratorSyntax declarator)
+        {
+            var trimmed = declarator.WithInitializer(null).WithTrailingTrivia(declarator.GetTrailingTrivia());
+            editor.ReplaceNode(declarator, trimmed);
         }
     }
 

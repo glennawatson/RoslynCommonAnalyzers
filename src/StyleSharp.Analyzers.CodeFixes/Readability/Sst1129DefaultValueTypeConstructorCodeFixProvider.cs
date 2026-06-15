@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces a parameterless value-type construction with <c>default(T)</c> (SST1129).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1129DefaultValueTypeConstructorCodeFixProvider))]
 [Shared]
-public sealed class Sst1129DefaultValueTypeConstructorCodeFixProvider : CodeFixProvider
+public sealed class Sst1129DefaultValueTypeConstructorCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.DefaultValueTypeConstructor.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -40,6 +40,17 @@ public sealed class Sst1129DefaultValueTypeConstructorCodeFixProvider : CodeFixP
                     equivalenceKey: nameof(Sst1129DefaultValueTypeConstructorCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ObjectCreationExpressionSyntax creation)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(creation, SyntaxFactory.DefaultExpression(creation.Type.WithoutTrivia()).WithTriviaFrom(creation));
     }
 
     /// <summary>Replaces the construction with a <c>default(T)</c> expression.</summary>

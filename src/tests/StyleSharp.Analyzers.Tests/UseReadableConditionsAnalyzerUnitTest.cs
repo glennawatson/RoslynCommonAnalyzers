@@ -51,6 +51,34 @@ public class UseReadableConditionsAnalyzerUnitTest
         await VerifyReadableConditions.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every yoda condition in a document in a single pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  private static bool First(int count) => {|SST1131:0 == count|};
+
+                                  private static bool Second(int count) => {|SST1131:0 < count|};
+
+                                  private static bool Third(int count) => {|SST1131:0 == count|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private static bool First(int count) => count == 0;
+
+                                       private static bool Second(int count) => count > 0;
+
+                                       private static bool Third(int count) => count == 0;
+                                   }
+                                   """;
+        await VerifyReadableConditions.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a natural comparison and a literal-only comparison are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

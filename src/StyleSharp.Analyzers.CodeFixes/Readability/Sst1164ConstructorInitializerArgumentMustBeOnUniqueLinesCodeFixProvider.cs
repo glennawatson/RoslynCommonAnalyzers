@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public sealed class Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesAnalyzer.DiagnosticId);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -43,6 +43,24 @@ public sealed class Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesCode
                 return;
             }
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ConstructorInitializerSyntax node)
+        {
+            return;
+        }
+
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
+        var newNode = node.ConvertNodeIfAble(
+                          node => node.ArgumentList?.Arguments,
+                          (node, parameters) => node.WithArgumentList(
+                              SyntaxFactory.ArgumentList(parameters)
+                                  .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                      ?? node;
+        editor.ReplaceNode(node, newNode);
     }
 
     /// <summary>Rewrites the argument expression so each argument is placed on its own line.</summary>

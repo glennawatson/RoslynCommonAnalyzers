@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1165PrimaryConstructorBaseTypeArgumentMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1165PrimaryConstructorBaseTypeArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public sealed class Sst1165PrimaryConstructorBaseTypeArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(Sst1165PrimaryConstructorBaseTypeArgumentMustBeOnUniqueLinesAnalyzer.DiagnosticId);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -43,6 +43,24 @@ public sealed class Sst1165PrimaryConstructorBaseTypeArgumentMustBeOnUniqueLines
                 return;
             }
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not PrimaryConstructorBaseTypeSyntax node)
+        {
+            return;
+        }
+
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
+        var newNode = node.ConvertNodeIfAble(
+                          parametersList => parametersList.ArgumentList?.Arguments,
+                          (argumentParameters, parameters) => argumentParameters.WithArgumentList(
+                              SyntaxFactory.ArgumentList(parameters)
+                                  .WithOpenParenToken(argumentParameters.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                      ?? node;
+        editor.ReplaceNode(node, newNode);
     }
 
     /// <summary>Rewrites the argument expression so each argument is placed on its own line.</summary>

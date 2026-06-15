@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public sealed class Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLinesAnalyzer.DiagnosticId);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -45,6 +45,17 @@ public sealed class Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLinesCo
         }
     }
 
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ObjectCreationExpressionSyntax node)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(node, BuildNode(node));
+    }
+
     /// <summary>Rewrites the object creation expression so each parameter is placed on its own line.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root of the document.</param>
@@ -52,13 +63,21 @@ public sealed class Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLinesCo
     /// <returns>A task producing the updated document.</returns>
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, ObjectCreationExpressionSyntax node)
     {
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-                          node => node.ArgumentList?.Arguments,
-                          (node, parameters) => node.WithArgumentList(
-                              SyntaxFactory.ArgumentList(parameters)
-                                  .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                      ?? node;
+        var newNode = BuildNode(node);
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
+    }
+
+    /// <summary>Builds the rewritten object creation expression with each argument on its own line.</summary>
+    /// <param name="node">The object creation expression to rewrite.</param>
+    /// <returns>The rewritten expression.</returns>
+    private static ObjectCreationExpressionSyntax BuildNode(ObjectCreationExpressionSyntax node)
+    {
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
+        return node.ConvertNodeIfAble(
+                   node => node.ArgumentList?.Arguments,
+                   (node, parameters) => node.WithArgumentList(
+                       SyntaxFactory.ArgumentList(parameters)
+                           .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+               ?? node;
     }
 }

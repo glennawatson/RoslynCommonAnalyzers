@@ -78,6 +78,52 @@ public class Sst1153IndexerDeclarationAnalyzersUnitTest
         await Verifysst0004.VerifyCodeFixAsync(test, expected, fixtest);
     }
 
+    /// <summary>Verifies Fix All rewrites every indexer declaration with split parameters in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            public class Foo
+            {
+                {|SST1153:public int this[
+                    int a, int b] => default;|}
+
+                {|SST1153:public int this[
+                    int c, int d, int e] => default;|}
+            }
+
+            public class Bar
+            {
+                {|SST1153:public int this[
+                    int f, int g] => default;|}
+            }
+            """;
+
+        const string FixedSource = """
+            public class Foo
+            {
+                public int this[
+                    int a,
+                    int b] => default;
+
+                public int this[
+                    int c,
+                    int d,
+                    int e] => default;
+            }
+
+            public class Bar
+            {
+                public int this[
+                    int f,
+                    int g] => default;
+            }
+            """;
+
+        await Verifysst0004.VerifyCodeFixAsync(Test, FixedSource);
+    }
+
     /// <summary>Builds a fixture whose parameters are split unevenly across lines along with the expected diagnostic span.</summary>
     /// <param name="number">The number of parameters to generate.</param>
     /// <returns>The generated source text and the expected diagnostic span.</returns>

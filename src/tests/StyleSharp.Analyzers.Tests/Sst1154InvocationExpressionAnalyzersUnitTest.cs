@@ -78,6 +78,54 @@ public class Sst1154InvocationExpressionAnalyzersUnitTest
         await Verifysst0005.VerifyCodeFixAsync(test, expected, fixtest);
     }
 
+    /// <summary>Verifies Fix All rewrites every invocation expression with split arguments in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            public class Foo
+            {
+                public void Target(int a, int b) { }
+                public void Target3(int a, int b, int c) { }
+
+                public void M()
+                {
+                    {|SST1154:Target(
+                        1, 2)|};
+                    {|SST1154:Target3(
+                        3, 4, 5)|};
+                    {|SST1154:Target(
+                        6, 7)|};
+                }
+            }
+            """;
+
+        const string FixedSource = """
+            public class Foo
+            {
+                public void Target(int a, int b) { }
+                public void Target3(int a, int b, int c) { }
+
+                public void M()
+                {
+                    Target(
+                        1,
+                        2);
+                    Target3(
+                        3,
+                        4,
+                        5);
+                    Target(
+                        6,
+                        7);
+                }
+            }
+            """;
+
+        await Verifysst0005.VerifyCodeFixAsync(Test, FixedSource);
+    }
+
     /// <summary>Builds a fixture whose parameters are split unevenly across lines along with the expected diagnostic span.</summary>
     /// <param name="number">The number of parameters to generate.</param>
     /// <returns>The generated source text and the expected diagnostic span.</returns>

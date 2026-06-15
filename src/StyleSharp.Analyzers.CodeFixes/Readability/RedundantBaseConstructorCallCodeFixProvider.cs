@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a redundant parameterless <c>: base()</c> constructor initializer (SST1178).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantBaseConstructorCallCodeFixProvider))]
 [Shared]
-public sealed class RedundantBaseConstructorCallCodeFixProvider : CodeFixProvider
+public sealed class RedundantBaseConstructorCallCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantBaseConstructorCall.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -39,6 +39,18 @@ public sealed class RedundantBaseConstructorCallCodeFixProvider : CodeFixProvide
                     equivalenceKey: nameof(RedundantBaseConstructorCallCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ConstructorInitializerSyntax initializer
+            || initializer.Parent is not ConstructorDeclarationSyntax constructor)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(constructor, constructor.WithInitializer(null));
     }
 
     /// <summary>Drops the constructor initializer, leaving the parameter list to flow into the body.</summary>

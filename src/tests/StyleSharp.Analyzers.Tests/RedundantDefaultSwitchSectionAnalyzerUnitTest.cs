@@ -47,6 +47,62 @@ public class RedundantDefaultSwitchSectionAnalyzerUnitTest
         await VerifyDefaultSection.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every redundant default section across a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public void A(int value)
+                                  {
+                                      switch (value)
+                                      {
+                                          case 1:
+                                              return;
+                                          {|SST1179:default|}:
+                                              break;
+                                      }
+                                  }
+
+                                  public void B(int value)
+                                  {
+                                      switch (value)
+                                      {
+                                          case 2:
+                                              return;
+                                          {|SST1179:default|}:
+                                              break;
+                                      }
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public void A(int value)
+                                       {
+                                           switch (value)
+                                           {
+                                               case 1:
+                                                   return;
+                                           }
+                                       }
+
+                                       public void B(int value)
+                                       {
+                                           switch (value)
+                                           {
+                                               case 2:
+                                                   return;
+                                           }
+                                       }
+                                   }
+                                   """;
+        await VerifyDefaultSection.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a default section that does real work is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

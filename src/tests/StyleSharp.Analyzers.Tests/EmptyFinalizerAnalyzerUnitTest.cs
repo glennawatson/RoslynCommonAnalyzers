@@ -35,6 +35,44 @@ public class EmptyFinalizerAnalyzerUnitTest
         await VerifyEmptyFinalizer.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every empty finalizer in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class A
+                              {
+                                  private int _value;
+
+                                  ~{|SST1434:A|}()
+                                  {
+                                  }
+                              }
+
+                              public class B
+                              {
+                                  private int _value;
+
+                                  ~{|SST1434:B|}()
+                                  {
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class A
+                                   {
+                                       private int _value;
+                                   }
+
+                                   public class B
+                                   {
+                                       private int _value;
+                                   }
+                                   """;
+        await VerifyEmptyFinalizer.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a finalizer that does work is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

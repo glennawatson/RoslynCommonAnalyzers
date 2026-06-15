@@ -31,6 +31,30 @@ public class UseNullableShorthandAnalyzerUnitTest
         await VerifyNullableShorthand.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every long-form Nullable&lt;T&gt; in a document in a single pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  private {|SST1125:System.Nullable<int>|} first;
+                                  private {|SST1125:System.Nullable<long>|} second;
+                                  private {|SST1125:System.Nullable<bool>|} third;
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private int? first;
+                                       private long? second;
+                                       private bool? third;
+                                   }
+                                   """;
+        await VerifyNullableShorthand.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies the shorthand form is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

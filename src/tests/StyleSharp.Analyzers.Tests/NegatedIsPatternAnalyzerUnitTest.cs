@@ -31,6 +31,34 @@ public class NegatedIsPatternAnalyzerUnitTest
         await VerifyNegatedIs.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every negated <c>is</c> check in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public bool A(object x) => {|SST2006:!(x is string)|};
+
+                                  public bool B(object x) => {|SST2006:!(x is int)|};
+
+                                  public bool D(object x) => {|SST2006:!(x is bool)|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public bool A(object x) => x is not string;
+
+                                       public bool B(object x) => x is not int;
+
+                                       public bool D(object x) => x is not bool;
+                                   }
+                                   """;
+        await VerifyNegatedIs.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies an existing <c>is not</c> pattern and a negated boolean are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

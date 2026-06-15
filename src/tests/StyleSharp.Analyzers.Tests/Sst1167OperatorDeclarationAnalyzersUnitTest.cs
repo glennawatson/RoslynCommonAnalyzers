@@ -66,4 +66,43 @@ public class Sst1167OperatorDeclarationAnalyzersUnitTest
 
         await Verifysst0018.VerifyCodeFixAsync(Test, FixedSource);
     }
+
+    /// <summary>Verifies Fix All rewrites every operator declaration in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            public class Foo
+            {
+                {|SST1167:public static Foo operator +(
+                    Foo a, Foo b) => a;|}
+
+                {|SST1167:public static Foo operator -(
+                    Foo a, Foo b) => a;|}
+
+                {|SST1167:public static Foo operator *(
+                    Foo a, Foo b) => a;|}
+            }
+            """;
+
+        const string FixedSource = """
+            public class Foo
+            {
+                public static Foo operator +(
+                    Foo a,
+                    Foo b) => a;
+
+                public static Foo operator -(
+                    Foo a,
+                    Foo b) => a;
+
+                public static Foo operator *(
+                    Foo a,
+                    Foo b) => a;
+            }
+            """;
+
+        await Verifysst0018.VerifyCodeFixAsync(Test, FixedSource);
+    }
 }

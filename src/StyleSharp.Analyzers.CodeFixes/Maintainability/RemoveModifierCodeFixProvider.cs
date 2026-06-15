@@ -7,7 +7,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes the modifier reported by SST1419 (redundant) or SST1427 (<c>protected</c> in a sealed type).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RemoveModifierCodeFixProvider))]
 [Shared]
-public sealed class RemoveModifierCodeFixProvider : CodeFixProvider
+public sealed class RemoveModifierCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -15,7 +15,7 @@ public sealed class RemoveModifierCodeFixProvider : CodeFixProvider
         MaintainabilityRules.NoProtectedInSealed.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -42,6 +42,23 @@ public sealed class RemoveModifierCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(RemoveModifierCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        var token = editor.OriginalRoot.FindToken(diagnostic.Location.SourceSpan.Start);
+        if (token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } declaration)
+        {
+            return;
+        }
+
+        // Removing the first modifier would otherwise drop the declaration's leading indentation, so
+        // carry it over. For a non-leading modifier this is a no-op.
+        var updated = declaration
+            .WithModifiers(declaration.Modifiers.Remove(token))
+            .WithLeadingTrivia(declaration.GetLeadingTrivia());
+        editor.ReplaceNode(declaration, updated);
     }
 
     /// <summary>Removes the reported modifier token from the declaration.</summary>

@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a self-assignment statement (SST1189).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(SelfAssignmentCodeFixProvider))]
 [Shared]
-public sealed class SelfAssignmentCodeFixProvider : CodeFixProvider
+public sealed class SelfAssignmentCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoSelfAssignment.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,17 @@ public sealed class SelfAssignmentCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(SelfAssignmentCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not AssignmentExpressionSyntax { Parent: ExpressionStatementSyntax statement })
+        {
+            return;
+        }
+
+        editor.RemoveNode(statement, SyntaxRemoveOptions.KeepNoTrivia);
     }
 
     /// <summary>Removes the self-assignment statement, dropping its line.</summary>

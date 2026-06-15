@@ -9,7 +9,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>Adds the implicit access modifier to a declaration that omits one (SST1400).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1400AccessModifierCodeFixProvider))]
 [Shared]
-public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider
+public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -17,7 +17,7 @@ public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider
         OrderingRules.PartialElementAccess.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -48,6 +48,23 @@ public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1400AccessModifierCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (!diagnostic.Properties.TryGetValue(Sst1400AccessModifierAnalyzer.ModifierKey, out var modifier) || string.IsNullOrEmpty(modifier))
+        {
+            return;
+        }
+
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
+        {
+            return;
+        }
+
+        var accessibility = string.Equals(modifier, "internal", StringComparison.Ordinal) ? Accessibility.Internal : Accessibility.Private;
+        editor.ReplaceNode(member, editor.Generator.WithAccessibility(member, accessibility));
     }
 
     /// <summary>Applies the implicit accessibility to the member.</summary>

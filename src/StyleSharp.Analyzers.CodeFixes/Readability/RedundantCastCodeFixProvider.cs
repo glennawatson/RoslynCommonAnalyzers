@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes an unnecessary cast (SST1175), keeping the operand expression.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantCastCodeFixProvider))]
 [Shared]
-public sealed class RedundantCastCodeFixProvider : CodeFixProvider
+public sealed class RedundantCastCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantCast.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,17 @@ public sealed class RedundantCastCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(RedundantCastCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<CastExpressionSyntax>() is not { } cast)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(cast, cast.Expression.WithTriviaFrom(cast));
     }
 
     /// <summary>Replaces the cast expression with its operand.</summary>

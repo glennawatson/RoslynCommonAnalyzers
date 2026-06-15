@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a redundant trailing <c>return;</c> or <c>continue;</c> statement (SST1174).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantJumpCodeFixProvider))]
 [Shared]
-public sealed class RedundantJumpCodeFixProvider : CodeFixProvider
+public sealed class RedundantJumpCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantJump.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,17 @@ public sealed class RedundantJumpCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(RedundantJumpCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not StatementSyntax statement)
+        {
+            return;
+        }
+
+        editor.RemoveNode(statement, SyntaxRemoveOptions.KeepNoTrivia);
     }
 
     /// <summary>Removes the redundant jump statement, dropping its line.</summary>

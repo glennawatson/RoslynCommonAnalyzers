@@ -82,4 +82,51 @@ public class Sst1163ImplicitObjectCreationExpressionAnalyzersUnitTest
 
         await Verifysst0014.VerifyCodeFixAsync(Test, FixedSource);
     }
+
+    /// <summary>Verifies Fix All rewrites every implicit object creation with split arguments in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            public class Foo
+            {
+                public Foo(int a, int b)
+                {
+                }
+
+                public static Foo First() => {|SST1163:new(
+                    1, 2)|};
+
+                public static Foo Second() => {|SST1163:new(
+                    3, 4)|};
+
+                public static Foo Third() => {|SST1163:new(
+                    5, 6)|};
+            }
+            """;
+
+        const string FixedSource = """
+            public class Foo
+            {
+                public Foo(int a, int b)
+                {
+                }
+
+                public static Foo First() => new(
+                    1,
+                    2);
+
+                public static Foo Second() => new(
+                    3,
+                    4);
+
+                public static Foo Third() => new(
+                    5,
+                    6);
+            }
+            """;
+
+        await Verifysst0014.VerifyCodeFixAsync(Test, FixedSource);
+    }
 }

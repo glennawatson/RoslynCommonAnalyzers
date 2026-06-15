@@ -66,4 +66,56 @@ public class RedundantConstructorAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies Fix All removes every redundant constructor across multiple types in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class A
+                              {
+                                  private int _value;
+
+                                  public {|SST1433:A|}()
+                                  {
+                                  }
+                              }
+
+                              public class B
+                              {
+                                  private int _value;
+
+                                  public {|SST1433:B|}()
+                                  {
+                                  }
+                              }
+
+                              public class C
+                              {
+                                  private int _value;
+
+                                  public {|SST1433:C|}()
+                                  {
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class A
+                                   {
+                                       private int _value;
+                                   }
+
+                                   public class B
+                                   {
+                                       private int _value;
+                                   }
+
+                                   public class C
+                                   {
+                                       private int _value;
+                                   }
+                                   """;
+        await VerifyRedundantCtor.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

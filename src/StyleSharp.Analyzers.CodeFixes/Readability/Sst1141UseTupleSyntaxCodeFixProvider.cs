@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites an explicit <c>ValueTuple&lt;...&gt;</c> type to tuple syntax (SST1141).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1141UseTupleSyntaxCodeFixProvider))]
 [Shared]
-public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider
+public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseTupleSyntax.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -40,6 +40,17 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1141UseTupleSyntaxCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<GenericNameSyntax>() is not { } generic)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(ReplaceTarget(generic), BuildTuple(generic));
     }
 
     /// <summary>Replaces the explicit <c>ValueTuple&lt;...&gt;</c> spelling with tuple syntax.</summary>

@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces <c>default(T)</c> with the bare <c>default</c> literal (SST1188).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(UseDefaultLiteralCodeFixProvider))]
 [Shared]
-public sealed class UseDefaultLiteralCodeFixProvider : CodeFixProvider
+public sealed class UseDefaultLiteralCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseDefaultLiteral.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,19 @@ public sealed class UseDefaultLiteralCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(UseDefaultLiteralCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not DefaultExpressionSyntax defaultExpression)
+        {
+            return;
+        }
+
+        var literal = SyntaxFactory.LiteralExpression(SyntaxKind.DefaultLiteralExpression, SyntaxFactory.Token(SyntaxKind.DefaultKeyword))
+            .WithTriviaFrom(defaultExpression);
+        editor.ReplaceNode(defaultExpression, literal);
     }
 
     /// <summary>Swaps the explicit <c>default(T)</c> for the target-typed <c>default</c> literal.</summary>

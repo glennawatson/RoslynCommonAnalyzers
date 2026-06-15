@@ -48,6 +48,43 @@ public class EmptyCollectionExpressionAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies Fix All rewrites every empty-collection occurrence in one pass.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              using System;
+                              using System.Collections.Generic;
+
+                              public class C
+                              {
+                                  public int[] A = {|SST2100:Array.Empty<int>()|};
+                                  public List<int> B = {|SST2100:new List<int>()|};
+                                  public string[] D = {|SST2100:Array.Empty<string>()|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+                                   using System.Collections.Generic;
+
+                                   public class C
+                                   {
+                                       public int[] A = [];
+                                       public List<int> B = [];
+                                       public string[] D = [];
+                                   }
+                                   """;
+        var test = new VerifyEmptyCollection.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a targetless var initialization is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

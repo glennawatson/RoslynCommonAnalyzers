@@ -31,6 +31,34 @@ public class RedundantCastAnalyzerUnitTest
         await VerifyRedundantCast.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every identity cast across a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public int A(int x) => ({|SST1175:int|})x;
+
+                                  public int B(int y) => ({|SST1175:int|})y;
+
+                                  public int D(int z) => ({|SST1175:int|})z;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public int A(int x) => x;
+
+                                       public int B(int y) => y;
+
+                                       public int D(int z) => z;
+                                   }
+                                   """;
+        await VerifyRedundantCast.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a cast that widens to a different type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

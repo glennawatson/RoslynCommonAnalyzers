@@ -77,4 +77,38 @@ public class RedundantModifierAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies Fix All removes every redundant single-part partial modifier (SST1419) in one pass.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public {|SST1419:partial|} class A
+                              {
+                              }
+
+                              public {|SST1419:partial|} class B
+                              {
+                              }
+
+                              public {|SST1419:partial|} class C
+                              {
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class A
+                                   {
+                                   }
+
+                                   public class B
+                                   {
+                                   }
+
+                                   public class C
+                                   {
+                                   }
+                                   """;
+        await VerifyModifier.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

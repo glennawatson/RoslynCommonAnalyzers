@@ -46,6 +46,60 @@ public class EmptyElseClauseAnalyzerUnitTest
         await VerifyEmptyElse.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every empty else clause in a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public void A(bool flag)
+                                  {
+                                      if (flag)
+                                      {
+                                          System.Console.WriteLine();
+                                      }
+                                      {|SST1180:else|}
+                                      {
+                                      }
+                                  }
+
+                                  public void B(bool flag)
+                                  {
+                                      if (flag)
+                                      {
+                                          System.Console.WriteLine();
+                                      }
+                                      {|SST1180:else|}
+                                      {
+                                      }
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public void A(bool flag)
+                                       {
+                                           if (flag)
+                                           {
+                                               System.Console.WriteLine();
+                                           }
+                                       }
+
+                                       public void B(bool flag)
+                                       {
+                                           if (flag)
+                                           {
+                                               System.Console.WriteLine();
+                                           }
+                                       }
+                                   }
+                                   """;
+        await VerifyEmptyElse.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a non-empty <c>else</c> and an <c>else if</c> chain are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

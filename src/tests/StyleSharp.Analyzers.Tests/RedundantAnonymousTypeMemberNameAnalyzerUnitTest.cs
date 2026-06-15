@@ -65,6 +65,44 @@ public class RedundantAnonymousTypeMemberNameAnalyzerUnitTest
         await VerifyRedundantName.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every redundant member name in a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class P
+                              {
+                                  public int X { get; set; }
+
+                                  public int Y { get; set; }
+                              }
+
+                              public class C
+                              {
+                                  public object A(P p) => new { {|SST1173:X|} = p.X, {|SST1173:Y|} = p.Y };
+
+                                  public object B(int count) => new { {|SST1173:count|} = count };
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class P
+                                   {
+                                       public int X { get; set; }
+
+                                       public int Y { get; set; }
+                                   }
+
+                                   public class C
+                                   {
+                                       public object A(P p) => new { p.X, p.Y };
+
+                                       public object B(int count) => new { count };
+                                   }
+                                   """;
+        await VerifyRedundantName.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a member name that differs from the inferred name is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

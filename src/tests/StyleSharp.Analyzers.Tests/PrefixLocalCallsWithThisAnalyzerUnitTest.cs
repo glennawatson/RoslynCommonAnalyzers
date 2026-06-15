@@ -35,6 +35,34 @@ public class PrefixLocalCallsWithThisAnalyzerUnitTest
         await VerifyThisPrefix.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All prefixes every bare instance-member reference in a document in a single pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  private int first;
+                                  private int second;
+                                  private int third;
+
+                                  private int M() => {|SST1101:first|} + {|SST1101:second|} + {|SST1101:third|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private int first;
+                                       private int second;
+                                       private int third;
+
+                                       private int M() => this.first + this.second + this.third;
+                                   }
+                                   """;
+        await VerifyThisPrefix.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies only the bare instance reference is flagged — qualified, static, and local references are skipped.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

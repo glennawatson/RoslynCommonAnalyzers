@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1159ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1159ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public sealed class Sst1159ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(Sst1159ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -43,6 +43,24 @@ public sealed class Sst1159ParenthesizedLambdaExpressionParameterMustBeOnUniqueL
                 return;
             }
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ParenthesizedLambdaExpressionSyntax node)
+        {
+            return;
+        }
+
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
+        var newNode = node.ConvertNodeIfAble(
+                          node => node.ParameterList?.Parameters,
+                          (node, parameters) => node.WithParameterList(
+                              SyntaxFactory.ParameterList(parameters)
+                                  .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                      ?? node;
+        editor.ReplaceNode(node, newNode);
     }
 
     /// <summary>Rewrites the parenthesized lambda expression so each parameter is placed on its own line.</summary>

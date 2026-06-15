@@ -68,4 +68,34 @@ public class UseCompoundAssignmentAnalyzerUnitTest
                                    """;
         await VerifyCompound.VerifyCodeFixAsync(Source, FixedSource);
     }
+
+    /// <summary>Verifies Fix All folds every recompute assignment in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public void M(int a, int b, int c)
+                                  {
+                                      {|SST1185:a = a + 1|};
+                                      {|SST1185:b = b * 2|};
+                                      {|SST1185:c = c - 3|};
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public void M(int a, int b, int c)
+                                       {
+                                           a += 1;
+                                           b *= 2;
+                                           c -= 3;
+                                       }
+                                   }
+                                   """;
+        await VerifyCompound.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

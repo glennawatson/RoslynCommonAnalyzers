@@ -62,4 +62,37 @@ public class Sst1165PrimaryConstructorBaseTypeAnalyzersUnitTest
 
         await Verifysst0016.VerifyCodeFixAsync(Test, FixedSource);
     }
+
+    /// <summary>Verifies Fix All rewrites every primary constructor base type with split arguments in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            public record Bar(int x, int y);
+            public record Foo(int a, int b) : {|SST1165:Bar(
+                a, b)|};
+            public record Qux(int a, int b) : {|SST1165:Bar(
+                a, b)|};
+            public record Quux(int a, int b) : {|SST1165:Bar(
+                a, b)|};
+            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            """;
+
+        const string FixedSource = """
+            public record Bar(int x, int y);
+            public record Foo(int a, int b) : Bar(
+                a,
+                b);
+            public record Qux(int a, int b) : Bar(
+                a,
+                b);
+            public record Quux(int a, int b) : Bar(
+                a,
+                b);
+            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            """;
+
+        await Verifysst0016.VerifyCodeFixAsync(Test, FixedSource);
+    }
 }

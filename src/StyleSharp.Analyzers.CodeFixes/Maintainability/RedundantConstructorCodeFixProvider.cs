@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a redundant public, parameterless, empty constructor (SST1433).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantConstructorCodeFixProvider))]
 [Shared]
-public sealed class RedundantConstructorCodeFixProvider : CodeFixProvider
+public sealed class RedundantConstructorCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.NoRedundantConstructor.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,17 @@ public sealed class RedundantConstructorCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(RedundantConstructorCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ConstructorDeclarationSyntax>() is not { } constructor)
+        {
+            return;
+        }
+
+        editor.RemoveNode(constructor, SyntaxRemoveOptions.KeepNoTrivia);
     }
 
     /// <summary>Removes the redundant constructor so the compiler supplies the default.</summary>

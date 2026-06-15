@@ -31,6 +31,36 @@ public class UsingDirectiveQualifiedAnalyzerUnitTest
         await VerifyUsingQualified.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All qualifies every relative using directive in one pass (SST1135).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              namespace System.Threading
+                              {
+                                  using {|SST1135:Tasks|};
+                              }
+
+                              namespace System.Collections
+                              {
+                                  using {|SST1135:Generic|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   namespace System.Threading
+                                   {
+                                       using System.Threading.Tasks;
+                                   }
+
+                                   namespace System.Collections
+                                   {
+                                       using System.Collections.Generic;
+                                   }
+                                   """;
+        await VerifyUsingQualified.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a fully qualified using is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

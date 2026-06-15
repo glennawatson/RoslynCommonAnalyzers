@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
 using System.Text;
 using Microsoft.CodeAnalysis.Text;
 
@@ -10,13 +11,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Collapses a short multi-line <c>&lt;summary&gt;</c> onto a single line (SST1653).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1653SingleLineSummaryCodeFixProvider))]
 [Shared]
-public sealed class Sst1653SingleLineSummaryCodeFixProvider : CodeFixProvider
+public sealed class Sst1653SingleLineSummaryCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DocumentationRules.SingleLineSummary.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -44,6 +45,18 @@ public sealed class Sst1653SingleLineSummaryCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
+        if (node.FirstAncestorOrSelf<XmlElementSyntax>() is not { } summary)
+        {
+            return;
+        }
+
+        changes.Add(BuildChange(text, summary));
+    }
+
     /// <summary>Rewrites the summary element's text so the tags and content sit on one line.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="summary">The summary element to collapse.</param>
@@ -52,11 +65,17 @@ public sealed class Sst1653SingleLineSummaryCodeFixProvider : CodeFixProvider
     internal static async Task<Document> CollapseAsync(Document document, XmlElementSyntax summary, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        return document.WithText(text.WithChanges(BuildChange(text, summary)));
+    }
 
+    /// <summary>Builds the single-line replacement change for a summary element.</summary>
+    /// <param name="text">The document's source text.</param>
+    /// <param name="summary">The summary element to collapse.</param>
+    /// <returns>The text change that collapses the summary onto one line.</returns>
+    private static TextChange BuildChange(SourceText text, XmlElementSyntax summary)
+    {
         var innerSpan = TextSpan.FromBounds(summary.StartTag.Span.End, summary.EndTag.Span.Start);
-        var collapsed = Collapse(text, innerSpan);
-
-        return document.WithText(text.WithChanges(new TextChange(summary.Span, "<summary>" + collapsed + "</summary>")));
+        return new TextChange(summary.Span, "<summary>" + Collapse(text, innerSpan) + "</summary>");
     }
 
     /// <summary>Strips <c>///</c> exteriors and collapses whitespace runs to single spaces, trimming the ends.</summary>

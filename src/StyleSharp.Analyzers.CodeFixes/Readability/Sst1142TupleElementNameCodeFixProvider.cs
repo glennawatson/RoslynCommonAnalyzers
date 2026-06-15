@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces a positional <c>ItemN</c> tuple access with the element's name (SST1142).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1142TupleElementNameCodeFixProvider))]
 [Shared]
-public sealed class Sst1142TupleElementNameCodeFixProvider : CodeFixProvider
+public sealed class Sst1142TupleElementNameCodeFixProvider : CodeFixProvider, IAsyncBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.ReferToTupleElementByName.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => AsyncBatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -43,6 +43,28 @@ public sealed class Sst1142TupleElementNameCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1142TupleElementNameCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    async Task IAsyncBatchableCodeFix.RegisterEditsAsync(DocumentEditor editor, Diagnostic diagnostic, CancellationToken cancellationToken)
+    {
+        var semanticModel = await editor.OriginalDocument.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
+        if (semanticModel is null)
+        {
+            return;
+        }
+
+        if (editor.OriginalRoot
+            .FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)
+            .FirstAncestorOrSelf<IdentifierNameSyntax>() is not { Parent: MemberAccessExpressionSyntax access } identifier
+            || !Sst1142TupleElementNameAnalyzer.TryGetReplacementName(access, semanticModel, cancellationToken, out var name)
+            || string.IsNullOrEmpty(name))
+        {
+            return;
+        }
+
+        var renamed = identifier.WithIdentifier(SyntaxFactory.Identifier(name!).WithTriviaFrom(identifier.Identifier));
+        editor.ReplaceNode(identifier, renamed);
     }
 
     /// <summary>Replaces the tuple member name with the semantic element name.</summary>

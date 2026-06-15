@@ -46,6 +46,48 @@ public class LayoutBraceRequirementUnitTest
         await VerifyMultiLine.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All wraps every multi-line unbraced child (SST1519) in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task MultiLineChildFixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    {|SST1519:if|} (x)
+                        System.Console
+                            .WriteLine();
+
+                    {|SST1519:while|} (x)
+                        System.Console
+                            .WriteLine();
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    if (x)
+                    {
+                        System.Console
+                            .WriteLine();
+                    }
+
+                    while (x)
+                    {
+                        System.Console
+                            .WriteLine();
+                    }
+                }
+            }
+            """;
+        await VerifyMultiLine.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a single-line unbraced child is not flagged (left to the rule).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -86,6 +128,60 @@ public class LayoutBraceRequirementUnitTest
             {
                 private void M(bool x)
                 {
+                    if (x)
+                    {
+                        System.Console.WriteLine();
+                    }
+                    else
+                    {
+                        System.Console.WriteLine();
+                    }
+                }
+            }
+            """;
+        await VerifyConsistent.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies Fix All makes every inconsistent if/else chain (SST1520) consistent in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConsistentBracesFixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    {|SST1520:if|} (x)
+                    {
+                        System.Console.WriteLine();
+                    }
+                    else
+                        System.Console.WriteLine();
+
+                    {|SST1520:if|} (x)
+                    {
+                        System.Console.WriteLine();
+                    }
+                    else
+                        System.Console.WriteLine();
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    if (x)
+                    {
+                        System.Console.WriteLine();
+                    }
+                    else
+                    {
+                        System.Console.WriteLine();
+                    }
+
                     if (x)
                     {
                         System.Console.WriteLine();

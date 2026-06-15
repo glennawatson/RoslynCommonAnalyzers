@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
+
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -9,13 +11,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Prefixes a property summary with the accessor phrase ("Gets ", "Sets ", "Gets or sets ") (SST1623).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(PropertySummaryCodeFixProvider))]
 [Shared]
-public sealed class PropertySummaryCodeFixProvider : CodeFixProvider
+public sealed class PropertySummaryCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DocumentationRules.PropertySummaryAccessors.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -46,6 +48,25 @@ public sealed class PropertySummaryCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
+        if (node.FirstAncestorOrSelf<XmlElementSyntax>() is not { } summary
+            || XmlDocumentationHelper.DocumentedMember(summary) is not PropertyDeclarationSyntax property)
+        {
+            return;
+        }
+
+        var prefix = DocumentationConventions.PropertyAccessorPrefix(property);
+        if (!TryBuildChange(summary, prefix, out var change))
+        {
+            return;
+        }
+
+        changes.Add(change);
+    }
+
     /// <summary>Inserts the accessor prefix and lower-cases the first existing word.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="summary">The summary element.</param>
@@ -54,13 +75,29 @@ public sealed class PropertySummaryCodeFixProvider : CodeFixProvider
     /// <returns>The updated document.</returns>
     internal static async Task<Document> ApplyAsync(Document document, XmlElementSyntax summary, string prefix, CancellationToken cancellationToken)
     {
-        if (!XmlDocumentationHelper.TryGetFirstTextCharacter(summary, out var first, out var position))
+        if (!TryBuildChange(summary, prefix, out var change))
         {
             return document;
         }
 
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var replacement = prefix + char.ToLowerInvariant(first);
-        return document.WithText(text.WithChanges(new TextChange(new(position, 1), replacement)));
+        return document.WithText(text.WithChanges(change));
+    }
+
+    /// <summary>Builds the prefix-insertion change that lower-cases the first existing word of the summary.</summary>
+    /// <param name="summary">The summary element.</param>
+    /// <param name="prefix">The accessor prefix.</param>
+    /// <param name="change">The resulting text change when the summary has a first text character.</param>
+    /// <returns><see langword="true"/> when a change was produced.</returns>
+    private static bool TryBuildChange(XmlElementSyntax summary, string prefix, out TextChange change)
+    {
+        if (!XmlDocumentationHelper.TryGetFirstTextCharacter(summary, out var first, out var position))
+        {
+            change = default;
+            return false;
+        }
+
+        change = new TextChange(new(position, 1), prefix + char.ToLowerInvariant(first));
+        return true;
     }
 }

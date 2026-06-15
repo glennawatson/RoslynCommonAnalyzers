@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -13,7 +14,7 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1504AccessorConsistencyCodeFixProvider))]
 [Shared]
-public sealed class Sst1504AccessorConsistencyCodeFixProvider : CodeFixProvider
+public sealed class Sst1504AccessorConsistencyCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <summary>The fixed brace/open-close edits added when expanding one single-line block accessor.</summary>
     private const int BlockExpansionBaseChanges = 2;
@@ -22,7 +23,7 @@ public sealed class Sst1504AccessorConsistencyCodeFixProvider : CodeFixProvider
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.AccessorLineConsistency.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -49,6 +50,23 @@ public sealed class Sst1504AccessorConsistencyCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not AccessorListSyntax list)
+        {
+            return;
+        }
+
+        var local = new List<TextChange>(EstimatedChangeCapacity(list));
+        if (!TryBuildChanges(text, list, local))
+        {
+            return;
+        }
+
+        changes.AddRange(local);
+    }
+
     /// <summary>Expands every single-line block accessor in the list onto multiple lines.</summary>
     /// <param name="document">The document to fix.</param>
     /// <param name="list">The accessor list to normalise.</param>
@@ -57,8 +75,24 @@ public sealed class Sst1504AccessorConsistencyCodeFixProvider : CodeFixProvider
     internal static async Task<Document> ExpandAsync(Document document, AccessorListSyntax list, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var newLine = LayoutFixHelpers.DetectNewLine(text);
         var changes = new List<TextChange>(EstimatedChangeCapacity(list));
+
+        if (!TryBuildChanges(text, list, changes) || changes.Count == 0)
+        {
+            return document;
+        }
+
+        return document.WithText(text.WithChanges(changes));
+    }
+
+    /// <summary>Appends the changes that expand every single-line block accessor in the list.</summary>
+    /// <param name="text">The document's source text.</param>
+    /// <param name="list">The accessor list to normalise.</param>
+    /// <param name="changes">The change set to append to.</param>
+    /// <returns><see langword="true"/> when the rewrite is safe; <see langword="false"/> when a comment blocks it.</returns>
+    private static bool TryBuildChanges(SourceText text, AccessorListSyntax list, List<TextChange> changes)
+    {
+        var newLine = LayoutFixHelpers.DetectNewLine(text);
 
         foreach (var accessor in list.Accessors)
         {
@@ -70,11 +104,11 @@ public sealed class Sst1504AccessorConsistencyCodeFixProvider : CodeFixProvider
 
             if (!LayoutFixHelpers.TryAppendBlockExpansion(text, body, newLine, changes))
             {
-                return document;
+                return false;
             }
         }
 
-        return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
+        return true;
     }
 
     /// <summary>Estimates the number of text changes needed to expand single-line block accessors.</summary>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -12,7 +13,7 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ChainedBlockSpacingCodeFixProvider))]
 [Shared]
-public sealed class ChainedBlockSpacingCodeFixProvider : CodeFixProvider
+public sealed class ChainedBlockSpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -20,7 +21,7 @@ public sealed class ChainedBlockSpacingCodeFixProvider : CodeFixProvider
         LayoutRules.WhileFooterNotPrecededByBlankLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +39,17 @@ public sealed class ChainedBlockSpacingCodeFixProvider : CodeFixProvider
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        if (!TryBuildChange(text, diagnostic.Location.SourceSpan, out var change))
+        {
+            return;
+        }
+
+        changes.Add(change);
+    }
+
     /// <summary>Removes the run of blank lines directly above the reported keyword.</summary>
     /// <param name="document">The document to fix.</param>
     /// <param name="keywordSpan">The span of the reported keyword.</param>
@@ -46,12 +58,25 @@ public sealed class ChainedBlockSpacingCodeFixProvider : CodeFixProvider
     internal static async Task<Document> RemoveAsync(Document document, TextSpan keywordSpan, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        return TryBuildChange(text, keywordSpan, out var change)
+            ? document.WithText(text.WithChanges(change))
+            : document;
+    }
+
+    /// <summary>Computes the change that removes the run of blank lines directly above the reported keyword.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="keywordSpan">The span of the reported keyword.</param>
+    /// <param name="change">The computed text change when one applies.</param>
+    /// <returns><see langword="true"/> when blank lines were found to remove.</returns>
+    private static bool TryBuildChange(SourceText text, TextSpan keywordSpan, out TextChange change)
+    {
         var keywordLine = text.Lines.GetLineFromPosition(keywordSpan.Start).LineNumber;
 
         var last = keywordLine - 1;
         if (last < 0 || !LayoutHelpers.IsBlankLine(text, last))
         {
-            return document;
+            change = default;
+            return false;
         }
 
         var first = last;
@@ -61,6 +86,7 @@ public sealed class ChainedBlockSpacingCodeFixProvider : CodeFixProvider
         }
 
         var span = TextSpan.FromBounds(text.Lines[first].Start, text.Lines[last].EndIncludingLineBreak);
-        return document.WithText(text.WithChanges(new TextChange(span, string.Empty)));
+        change = new TextChange(span, string.Empty);
+        return true;
     }
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -14,13 +15,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(BracePlacementCodeFixProvider))]
 [Shared]
-public sealed class BracePlacementCodeFixProvider : CodeFixProvider
+public sealed class BracePlacementCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.BracesOnOwnLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -48,6 +49,18 @@ public sealed class BracePlacementCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        var brace = root.FindToken(diagnostic.Location.SourceSpan.Start);
+        if (!brace.IsKind(SyntaxKind.OpenBraceToken) && !brace.IsKind(SyntaxKind.CloseBraceToken))
+        {
+            return;
+        }
+
+        BuildChanges(text, brace, changes);
+    }
+
     /// <summary>Builds the text changes that move the brace and its line-mates onto separate lines.</summary>
     /// <param name="document">The document to fix.</param>
     /// <param name="brace">The reported brace token.</param>
@@ -56,14 +69,24 @@ public sealed class BracePlacementCodeFixProvider : CodeFixProvider
     internal static async Task<Document> PlaceOnOwnLineAsync(Document document, SyntaxToken brace, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        var changes = new List<TextChange>(2);
+
+        BuildChanges(text, brace, changes);
+
+        return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
+    }
+
+    /// <summary>Appends the leading and trailing line breaks that put the brace on its own line.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="brace">The reported brace token.</param>
+    /// <param name="changes">The change set to append to.</param>
+    private static void BuildChanges(SourceText text, SyntaxToken brace, List<TextChange> changes)
+    {
         var braceLine = text.Lines.GetLineFromPosition(brace.SpanStart).LineNumber;
         var newLine = LayoutFixHelpers.DetectNewLine(text);
-        var changes = new List<TextChange>(2);
 
         AddLeadingBreak(text, brace, braceLine, newLine, changes);
         AddTrailingBreak(text, brace, braceLine, newLine, changes);
-
-        return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
     }
 
     /// <summary>Returns the indent the brace should sit at on its own line.</summary>

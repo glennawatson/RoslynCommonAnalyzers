@@ -132,6 +132,69 @@ public class LayoutFileAndChainUnitTest
         await VerifyChain.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes the blank line before every chained keyword (SST1510/SST1511) in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    if (x)
+                    {
+                    }
+
+                    {|SST1510:else|}
+                    {
+                    }
+
+                    do
+                    {
+                    }
+
+                    {|SST1511:while|} (x);
+
+                    if (x)
+                    {
+                    }
+
+                    {|SST1510:else|}
+                    {
+                    }
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M(bool x)
+                {
+                    if (x)
+                    {
+                    }
+                    else
+                    {
+                    }
+
+                    do
+                    {
+                    }
+                    while (x);
+
+                    if (x)
+                    {
+                    }
+                    else
+                    {
+                    }
+                }
+            }
+            """;
+        await VerifyChain.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies an 'else' that directly follows the if block is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

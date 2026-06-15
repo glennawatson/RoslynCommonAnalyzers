@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -12,7 +13,7 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(SingleLineCommentSpacingCodeFixProvider))]
 [Shared]
-public sealed class SingleLineCommentSpacingCodeFixProvider : CodeFixProvider
+public sealed class SingleLineCommentSpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -20,7 +21,7 @@ public sealed class SingleLineCommentSpacingCodeFixProvider : CodeFixProvider
         LayoutRules.SingleLineCommentNotFollowedByBlankLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -39,6 +40,18 @@ public sealed class SingleLineCommentSpacingCodeFixProvider : CodeFixProvider
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        var insertBefore = diagnostic.Id == LayoutRules.SingleLineCommentPrecededByBlankLine.Id;
+        if (TryBuildChange(text, diagnostic.Location.SourceSpan, insertBefore) is not { } change)
+        {
+            return;
+        }
+
+        changes.Add(change);
+    }
+
     /// <summary>Inserts or removes the blank line adjacent to the comment.</summary>
     /// <param name="document">The document to fix.</param>
     /// <param name="commentSpan">The span of the reported comment.</param>
@@ -48,18 +61,30 @@ public sealed class SingleLineCommentSpacingCodeFixProvider : CodeFixProvider
     internal static async Task<Document> FixAsync(Document document, TextSpan commentSpan, bool insertBefore, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        return TryBuildChange(text, commentSpan, insertBefore) is { } change
+            ? document.WithText(text.WithChanges(change))
+            : document;
+    }
+
+    /// <summary>Builds the blank-line insert/remove change for a reported comment, if any is needed.</summary>
+    /// <param name="text">The document's source text.</param>
+    /// <param name="commentSpan">The span of the reported comment.</param>
+    /// <param name="insertBefore">When <see langword="true"/>, inserts a blank line above the comment; otherwise removes the blank line below it.</param>
+    /// <returns>The text change to apply, or <see langword="null"/> when no change is required.</returns>
+    private static TextChange? TryBuildChange(SourceText text, TextSpan commentSpan, bool insertBefore)
+    {
         var commentLine = text.Lines.GetLineFromPosition(commentSpan.Start).LineNumber;
 
         if (insertBefore)
         {
             var position = text.Lines[commentLine].Start;
-            return document.WithText(text.WithChanges(new TextChange(new(position, 0), LayoutFixHelpers.DetectNewLine(text))));
+            return new TextChange(new(position, 0), LayoutFixHelpers.DetectNewLine(text));
         }
 
         var first = commentLine + 1;
         if (!LayoutHelpers.IsBlankLine(text, first))
         {
-            return document;
+            return null;
         }
 
         var last = first;
@@ -69,6 +94,6 @@ public sealed class SingleLineCommentSpacingCodeFixProvider : CodeFixProvider
         }
 
         var span = TextSpan.FromBounds(text.Lines[first].Start, text.Lines[last].EndIncludingLineBreak);
-        return document.WithText(text.WithChanges(new TextChange(span, string.Empty)));
+        return new TextChange(span, string.Empty);
     }
 }

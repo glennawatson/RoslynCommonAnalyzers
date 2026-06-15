@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -9,13 +10,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Wraps a multi-line embedded statement in braces (SST1519).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1519MultiLineChildBraceCodeFixProvider))]
 [Shared]
-public sealed class Sst1519MultiLineChildBraceCodeFixProvider : CodeFixProvider
+public sealed class Sst1519MultiLineChildBraceCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.BracesForMultiLineChild.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -42,6 +43,19 @@ public sealed class Sst1519MultiLineChildBraceCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1519MultiLineChildBraceCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not { } control
+            || !LayoutHelpers.TryGetEmbeddedStatement(control, out var child)
+            || child is BlockSyntax)
+        {
+            return;
+        }
+
+        LayoutFixHelpers.AppendBraceWrap(text, child, LayoutFixHelpers.DetectNewLine(text), changes);
     }
 
     /// <summary>Wraps the embedded statement in braces.</summary>

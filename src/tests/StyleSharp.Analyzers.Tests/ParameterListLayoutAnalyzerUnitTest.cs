@@ -204,6 +204,38 @@ public class ParameterListLayoutAnalyzerUnitTest
         await VerifyParameterLayoutFix.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All moves every off-line opening parenthesis onto its declaration line in one pass (SST1110).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  private static void M
+                                      {|SST1110:(|}int x) => _ = x;
+
+                                  private static void N
+                                      {|SST1110:(|}int y) => _ = y;
+
+                                  private static void O
+                                      {|SST1110:(|}int z) => _ = z;
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private static void M(int x) => _ = x;
+
+                                       private static void N(int y) => _ = y;
+
+                                       private static void O(int z) => _ = z;
+                                   }
+                                   """;
+
+        await VerifyParameterLayoutFix.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a parenthesized callback lambda on the next argument line is not flagged as SST1110.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

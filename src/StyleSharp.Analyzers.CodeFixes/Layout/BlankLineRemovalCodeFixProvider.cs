@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
+
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -13,7 +15,7 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(BlankLineRemovalCodeFixProvider))]
 [Shared]
-public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider
+public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -22,7 +24,7 @@ public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider
         LayoutRules.OpenBraceNotPrecededByBlankLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -41,6 +43,18 @@ public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        var after = diagnostic.Id == LayoutRules.OpenBraceNotFollowedByBlankLine.Id;
+        if (!TryBuildChange(text, diagnostic.Location.SourceSpan, after, out var change))
+        {
+            return;
+        }
+
+        changes.Add(change);
+    }
+
     /// <summary>Deletes the run of blank lines directly above or below the brace line.</summary>
     /// <param name="document">The document to fix.</param>
     /// <param name="braceSpan">The span of the reported brace token.</param>
@@ -50,6 +64,22 @@ public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider
     internal static async Task<Document> RemoveBlankLinesAsync(Document document, TextSpan braceSpan, bool after, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        if (!TryBuildChange(text, braceSpan, after, out var change))
+        {
+            return document;
+        }
+
+        return document.WithText(text.WithChanges(change));
+    }
+
+    /// <summary>Builds the change that deletes the run of blank lines directly above or below the brace line.</summary>
+    /// <param name="text">The document's source text.</param>
+    /// <param name="braceSpan">The span of the reported brace token.</param>
+    /// <param name="after">When <see langword="true"/>, removes blank lines below the brace; otherwise above it.</param>
+    /// <param name="change">The resulting deletion change when a blank line is present.</param>
+    /// <returns><see langword="true"/> when a change was produced.</returns>
+    private static bool TryBuildChange(SourceText text, TextSpan braceSpan, bool after, out TextChange change)
+    {
         var braceLine = text.Lines.GetLineFromPosition(braceSpan.Start).LineNumber;
 
         int first;
@@ -59,7 +89,8 @@ public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider
             first = braceLine + 1;
             if (!LayoutHelpers.IsBlankLine(text, first))
             {
-                return document;
+                change = default;
+                return false;
             }
 
             last = first;
@@ -73,7 +104,8 @@ public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider
             last = braceLine - 1;
             if (!LayoutHelpers.IsBlankLine(text, last))
             {
-                return document;
+                change = default;
+                return false;
             }
 
             first = last;
@@ -84,6 +116,7 @@ public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider
         }
 
         var span = TextSpan.FromBounds(text.Lines[first].Start, text.Lines[last].EndIncludingLineBreak);
-        return document.WithText(text.WithChanges(new TextChange(span, string.Empty)));
+        change = new TextChange(span, string.Empty);
+        return true;
     }
 }

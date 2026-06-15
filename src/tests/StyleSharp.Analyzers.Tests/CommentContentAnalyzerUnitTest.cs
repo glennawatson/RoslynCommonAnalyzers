@@ -65,6 +65,36 @@ public class CommentContentAnalyzerUnitTest
         await VerifyCommentContent.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every empty comment in one pass (SST1120).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  {|SST1120://|}
+                                  private static void M()
+                                  {
+                                      var x = 1; {|SST1120://|}
+                                      {|SST1120://|}
+                                      _ = x;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private static void M()
+                                       {
+                                           var x = 1;
+                                           _ = x;
+                                       }
+                                   }
+                                   """;
+        await VerifyCommentContent.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies comments with text and commented-out code markers are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

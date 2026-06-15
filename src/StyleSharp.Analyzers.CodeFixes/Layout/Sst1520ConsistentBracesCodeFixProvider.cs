@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -9,13 +10,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Adds braces to every bare clause of an inconsistent if/else chain (SST1520).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1520ConsistentBracesCodeFixProvider))]
 [Shared]
-public sealed class Sst1520ConsistentBracesCodeFixProvider : CodeFixProvider
+public sealed class Sst1520ConsistentBracesCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.BracesUsedConsistently.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -42,6 +43,17 @@ public sealed class Sst1520ConsistentBracesCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not IfStatementSyntax ifStatement)
+        {
+            return;
+        }
+
+        AppendChainBraces(text, ifStatement, changes);
+    }
+
     /// <summary>Wraps every bare clause body in the if/else chain in braces.</summary>
     /// <param name="document">The document to fix.</param>
     /// <param name="ifStatement">The top of the if/else chain.</param>
@@ -50,9 +62,18 @@ public sealed class Sst1520ConsistentBracesCodeFixProvider : CodeFixProvider
     internal static async Task<Document> WrapChainAsync(Document document, IfStatementSyntax ifStatement, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var newLine = LayoutFixHelpers.DetectNewLine(text);
         var changes = new List<TextChange>(CountClauses(ifStatement) * 2);
+        AppendChainBraces(text, ifStatement, changes);
+        return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
+    }
 
+    /// <summary>Appends the brace-wrapping changes for every bare clause body in the chain.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="ifStatement">The top of the if/else chain.</param>
+    /// <param name="changes">The change set to append to.</param>
+    private static void AppendChainBraces(SourceText text, IfStatementSyntax ifStatement, List<TextChange> changes)
+    {
+        var newLine = LayoutFixHelpers.DetectNewLine(text);
         var current = ifStatement;
         while (true)
         {
@@ -71,8 +92,6 @@ public sealed class Sst1520ConsistentBracesCodeFixProvider : CodeFixProvider
             WrapIfBare(text, elseClause.Statement, newLine, changes);
             break;
         }
-
-        return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
     }
 
     /// <summary>Counts the clauses in an <c>if</c>/<c>else if</c>/<c>else</c> chain.</summary>

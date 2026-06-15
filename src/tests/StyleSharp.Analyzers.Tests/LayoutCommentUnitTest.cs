@@ -74,6 +74,42 @@ public class LayoutCommentUnitTest
         await VerifyComment.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every comment-spacing violation in one document in a single pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+            internal class C
+            {
+                private void M()
+                {
+                    var a = 1;
+                    {|SST1515:// first|}
+                    var b = a;
+                    {|SST1515:// second|}
+                    var c = b;
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M()
+                {
+                    var a = 1;
+
+                    // first
+                    var b = a;
+
+                    // second
+                    var c = b;
+                }
+            }
+            """;
+        await VerifyComment.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a comment that hugs its code with a blank line above is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

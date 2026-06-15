@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
+
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -9,13 +11,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Normalises the end of the file to a single trailing newline (SST1518).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1518FileEndingCodeFixProvider))]
 [Shared]
-public sealed class Sst1518FileEndingCodeFixProvider : CodeFixProvider
+public sealed class Sst1518FileEndingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.LineEndingsAtEndOfFile.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -32,6 +34,10 @@ public sealed class Sst1518FileEndingCodeFixProvider : CodeFixProvider
 
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+        => changes.Add(new TextChange(diagnostic.Location.SourceSpan, LayoutFixHelpers.DetectNewLine(text)));
 
     /// <summary>Replaces the trailing whitespace span with a single newline.</summary>
     /// <param name="document">The document to fix.</param>

@@ -59,6 +59,43 @@ public class DocumentationSummaryTextUnitTest
         await VerifyProperty.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All prefixes every reported property summary in one pass (SST1623).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// {|SST1623:<summary>The count.</summary>|}
+                public int Count { get; set; }
+
+                /// {|SST1623:<summary>The name.</summary>|}
+                public string Name { get; set; }
+
+                /// {|SST1623:<summary>The flag.</summary>|}
+                public bool Flag { get; set; }
+            }
+            """;
+        const string FixedSource = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Gets or sets the count.</summary>
+                public int Count { get; set; }
+
+                /// <summary>Gets or sets the name.</summary>
+                public string Name { get; set; }
+
+                /// <summary>Gets or sets the flag.</summary>
+                public bool Flag { get; set; }
+            }
+            """;
+
+        await VerifyProperty.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies an init-only property summary should begin with "Gets", not "Gets or sets".</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -161,6 +198,59 @@ public class DocumentationSummaryTextUnitTest
         await VerifyConstructor.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every reported constructor summary to the standard text in one pass (SST1642).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConstructorFixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+            /// <summary>A.</summary>
+            public class A
+            {
+                /// {|SST1642:<summary>Creates an A.</summary>|}
+                public A() { }
+            }
+
+            /// <summary>B.</summary>
+            public class B
+            {
+                /// {|SST1642:<summary>Creates a B.</summary>|}
+                public B() { }
+            }
+
+            /// <summary>D.</summary>
+            public class D
+            {
+                /// {|SST1642:<summary>Creates a D.</summary>|}
+                public D() { }
+            }
+            """;
+        const string FixedSource = """
+            /// <summary>A.</summary>
+            public class A
+            {
+                /// <summary>Initializes a new instance of the <see cref="A"/> class.</summary>
+                public A() { }
+            }
+
+            /// <summary>B.</summary>
+            public class B
+            {
+                /// <summary>Initializes a new instance of the <see cref="B"/> class.</summary>
+                public B() { }
+            }
+
+            /// <summary>D.</summary>
+            public class D
+            {
+                /// <summary>Initializes a new instance of the <see cref="D"/> class.</summary>
+                public D() { }
+            }
+            """;
+
+        await VerifyConstructor.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a private constructor using the "Prevents a default instance" wording is accepted (no SST1642).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -231,6 +321,59 @@ public class DocumentationSummaryTextUnitTest
             {
                 /// <summary>Finalizes an instance of the <see cref="C"/> class.</summary>
                 ~C() { }
+            }
+            """;
+
+        await VerifyDestructor.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies Fix All rewrites every reported destructor summary to the standard text in one pass (SST1643).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DestructorFixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+            /// <summary>A first container.</summary>
+            public class C
+            {
+                /// {|SST1643:<summary>Cleans up.</summary>|}
+                ~C() { }
+            }
+
+            /// <summary>A second container.</summary>
+            public class D
+            {
+                /// {|SST1643:<summary>Tears down.</summary>|}
+                ~D() { }
+            }
+
+            /// <summary>A third container.</summary>
+            public class E
+            {
+                /// {|SST1643:<summary>Disposes resources.</summary>|}
+                ~E() { }
+            }
+            """;
+        const string FixedSource = """
+            /// <summary>A first container.</summary>
+            public class C
+            {
+                /// <summary>Finalizes an instance of the <see cref="C"/> class.</summary>
+                ~C() { }
+            }
+
+            /// <summary>A second container.</summary>
+            public class D
+            {
+                /// <summary>Finalizes an instance of the <see cref="D"/> class.</summary>
+                ~D() { }
+            }
+
+            /// <summary>A third container.</summary>
+            public class E
+            {
+                /// <summary>Finalizes an instance of the <see cref="E"/> class.</summary>
+                ~E() { }
             }
             """;
 

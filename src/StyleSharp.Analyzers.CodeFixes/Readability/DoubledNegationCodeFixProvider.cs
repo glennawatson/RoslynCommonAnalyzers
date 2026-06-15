@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Collapses a run of doubled prefix-negation operators (SST1190).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(DoubledNegationCodeFixProvider))]
 [Shared]
-public sealed class DoubledNegationCodeFixProvider : CodeFixProvider
+public sealed class DoubledNegationCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoDoubledNegation.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,30 @@ public sealed class DoubledNegationCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(DoubledNegationCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not PrefixUnaryExpressionSyntax unary)
+        {
+            return;
+        }
+
+        var count = 0;
+        ExpressionSyntax current = unary;
+        while (ExpressionSimplificationAnalyzer.Unwrap(current) is PrefixUnaryExpressionSyntax peeled && peeled.IsKind(unary.Kind()))
+        {
+            count++;
+            current = peeled.Operand;
+        }
+
+        var operand = ExpressionSimplificationAnalyzer.Unwrap(current).WithoutTrivia();
+        ExpressionSyntax replacement = count % 2 == 0
+            ? operand
+            : SyntaxFactory.PrefixUnaryExpression(unary.Kind(), operand);
+
+        editor.ReplaceNode(unary, replacement.WithTriviaFrom(unary));
     }
 
     /// <summary>Peels every consecutive same-kind operator, keeping one only for an odd count.</summary>

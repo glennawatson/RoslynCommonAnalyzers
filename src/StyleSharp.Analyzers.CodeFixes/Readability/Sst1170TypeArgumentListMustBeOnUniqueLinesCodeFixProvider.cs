@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1170TypeArgumentListMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1170TypeArgumentListMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public sealed class Sst1170TypeArgumentListMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(Sst1170TypeArgumentListMustBeOnUniqueLinesAnalyzer.DiagnosticId);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -43,6 +43,24 @@ public sealed class Sst1170TypeArgumentListMustBeOnUniqueLinesCodeFixProvider : 
                 return;
             }
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not TypeArgumentListSyntax node)
+        {
+            return;
+        }
+
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: false);
+        var newList = UniqueLineCodeFixerHelper.SplitEntriesOntoOwnLines(node, node.Arguments);
+        var newNode = newList is null
+            ? node
+            : SyntaxFactory.TypeArgumentList(newList.Value)
+                .WithLessThanToken(node.LessThanToken.WithTrailingTrivia(endOfLine))
+                .WithGreaterThanToken(node.GreaterThanToken);
+        editor.ReplaceNode(node, newNode);
     }
 
     /// <summary>Rewrites the list so each type argument is placed on its own line.</summary>

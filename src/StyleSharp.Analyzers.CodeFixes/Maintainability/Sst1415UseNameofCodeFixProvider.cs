@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces a parameter-naming string literal with a <c>nameof</c> expression (SST1415).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1415UseNameofCodeFixProvider))]
 [Shared]
-public sealed class Sst1415UseNameofCodeFixProvider : CodeFixProvider
+public sealed class Sst1415UseNameofCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.UseNameofForParameter.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,18 @@ public sealed class Sst1415UseNameofCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1415UseNameofCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not LiteralExpressionSyntax literal)
+        {
+            return;
+        }
+
+        var nameofExpression = SyntaxFactory.ParseExpression($"nameof({literal.Token.ValueText})").WithTriviaFrom(literal);
+        editor.ReplaceNode(literal, nameofExpression);
     }
 
     /// <summary>Replaces the string literal with the corresponding <c>nameof</c> expression.</summary>

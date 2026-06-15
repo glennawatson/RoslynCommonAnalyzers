@@ -71,6 +71,44 @@ public class RedundantJumpAnalyzerUnitTest
         await VerifyRedundantJump.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every trailing redundant jump across a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public void A(int x)
+                                  {
+                                      System.Console.WriteLine(x);
+                                      {|SST1174:return;|}
+                                  }
+
+                                  public void B(int y)
+                                  {
+                                      System.Console.WriteLine(y);
+                                      {|SST1174:return;|}
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public void A(int x)
+                                       {
+                                           System.Console.WriteLine(x);
+                                       }
+
+                                       public void B(int y)
+                                       {
+                                           System.Console.WriteLine(y);
+                                       }
+                                   }
+                                   """;
+        await VerifyRedundantJump.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a <c>return;</c> that is not the tail of the method body is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

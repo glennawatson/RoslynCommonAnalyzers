@@ -31,6 +31,34 @@ public class RedundantVerbatimStringAnalyzerUnitTest
         await VerifyVerbatim.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All strips every needless verbatim prefix across a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public string A() => {|SST1184:@"hello"|};
+
+                                  public string B() => {|SST1184:@"world"|};
+
+                                  public string D() => {|SST1184:@"again"|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public string A() => "hello";
+
+                                       public string B() => "world";
+
+                                       public string D() => "again";
+                                   }
+                                   """;
+        await VerifyVerbatim.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a verbatim string with a backslash and a regular string are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

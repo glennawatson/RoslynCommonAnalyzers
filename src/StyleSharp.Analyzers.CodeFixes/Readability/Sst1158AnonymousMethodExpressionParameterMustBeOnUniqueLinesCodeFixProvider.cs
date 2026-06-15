@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public sealed class Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -43,6 +43,28 @@ public sealed class Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLines
                 return;
             }
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not AnonymousMethodExpressionSyntax node)
+        {
+            return;
+        }
+
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
+        var newNode = node.ConvertNodeIfAble(
+            inner => inner.ParameterList?.Parameters,
+            (inner, parameters) => inner.WithParameterList(
+                SyntaxFactory.ParameterList(parameters)
+                    .WithOpenParenToken(inner.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))));
+        if (newNode is null)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(node, newNode);
     }
 
     /// <summary>Rewrites the anonymous method expression so each parameter is placed on its own line.</summary>

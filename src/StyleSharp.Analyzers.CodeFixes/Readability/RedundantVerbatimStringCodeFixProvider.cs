@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Drops the <c>@</c> prefix from a verbatim string that needs no verbatim quoting (SST1184).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantVerbatimStringCodeFixProvider))]
 [Shared]
-public sealed class RedundantVerbatimStringCodeFixProvider : CodeFixProvider
+public sealed class RedundantVerbatimStringCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantVerbatimString.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,19 @@ public sealed class RedundantVerbatimStringCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(RedundantVerbatimStringCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not LiteralExpressionSyntax literal)
+        {
+            return;
+        }
+
+        var token = literal.Token;
+        var regular = SyntaxFactory.Literal(token.LeadingTrivia, SyntaxFactory.Literal(token.ValueText).Text, token.ValueText, token.TrailingTrivia);
+        editor.ReplaceNode(literal, literal.WithToken(regular));
     }
 
     /// <summary>Replaces the verbatim literal with a regular literal holding the same text.</summary>

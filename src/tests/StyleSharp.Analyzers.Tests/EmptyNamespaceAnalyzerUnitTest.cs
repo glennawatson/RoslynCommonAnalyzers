@@ -45,6 +45,54 @@ public class EmptyNamespaceAnalyzerUnitTest
         await VerifyEmptyNamespace.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every empty namespace in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class A
+                              {
+                                  private int _a;
+                              }
+
+                              namespace {|SST1435:First|}
+                              {
+                              }
+
+                              public class B
+                              {
+                                  private int _b;
+                              }
+
+                              namespace {|SST1435:Second|}
+                              {
+                              }
+
+                              public class D
+                              {
+                                  private int _d;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class A
+                                   {
+                                       private int _a;
+                                   }
+
+                                   public class B
+                                   {
+                                       private int _b;
+                                   }
+
+                                   public class D
+                                   {
+                                       private int _d;
+                                   }
+                                   """;
+        await VerifyEmptyNamespace.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a namespace with members is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

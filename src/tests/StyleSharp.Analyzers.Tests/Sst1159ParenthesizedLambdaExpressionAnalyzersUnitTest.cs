@@ -78,6 +78,64 @@ public class Sst1159ParenthesizedLambdaExpressionAnalyzersUnitTest
         await Verifysst0010.VerifyCodeFixAsync(test, expected, fixtest);
     }
 
+    /// <summary>Verifies Fix All rewrites every parenthesized lambda with split parameters in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            using System;
+
+            public class Foo
+            {
+                public void M()
+                {
+                    Action<int, int> first = {|SST1159:(
+                        int a, int b) =>
+                    {
+                    }|};
+                    Action<int, int, int> second = {|SST1159:(
+                        int c, int d, int e) =>
+                    {
+                    }|};
+                    Action<int, int> third = {|SST1159:(
+                        int f, int g) =>
+                    {
+                    }|};
+                }
+            }
+            """;
+
+        const string FixedSource = """
+            using System;
+
+            public class Foo
+            {
+                public void M()
+                {
+                    Action<int, int> first = (
+                        int a,
+                        int b) =>
+                    {
+                    };
+                    Action<int, int, int> second = (
+                        int c,
+                        int d,
+                        int e) =>
+                    {
+                    };
+                    Action<int, int> third = (
+                        int f,
+                        int g) =>
+                    {
+                    };
+                }
+            }
+            """;
+
+        await Verifysst0010.VerifyCodeFixAsync(Test, FixedSource);
+    }
+
     /// <summary>Builds a fixture whose parameters are split unevenly across lines along with the expected diagnostic span.</summary>
     /// <param name="number">The number of parameters to generate.</param>
     /// <returns>The generated source text and the expected diagnostic span.</returns>

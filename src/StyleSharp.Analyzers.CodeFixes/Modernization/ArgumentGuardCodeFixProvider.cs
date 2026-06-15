@@ -11,7 +11,7 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ArgumentGuardCodeFixProvider))]
 [Shared]
-public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider
+public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -22,7 +22,7 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider
         ModernizationRules.UseArgumentOutOfRangeThrowIf.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -48,6 +48,22 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(ArgumentGuardCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>() is not { } ifStatement)
+        {
+            return;
+        }
+
+        if (BuildReplacementStatement(diagnostic.Id, ifStatement) is not { } replacement)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(ifStatement, replacement.WithTriviaFrom(ifStatement));
     }
 
     /// <summary>Replaces the matched guard statement with the corresponding throw-helper call.</summary>

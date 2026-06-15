@@ -53,6 +53,70 @@ public class PreserveStackTraceAnalyzerUnitTest
         await VerifyRethrow.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All replaces every stack-trace-losing rethrow in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  public void M()
+                                  {
+                                      try
+                                      {
+                                      }
+                                      catch (Exception ex)
+                                      {
+                                          {|SST1430:throw ex;|}
+                                      }
+                                  }
+
+                                  public void N()
+                                  {
+                                      try
+                                      {
+                                      }
+                                      catch (Exception ex)
+                                      {
+                                          {|SST1430:throw ex;|}
+                                      }
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       public void M()
+                                       {
+                                           try
+                                           {
+                                           }
+                                           catch (Exception ex)
+                                           {
+                                               throw;
+                                           }
+                                       }
+
+                                       public void N()
+                                       {
+                                           try
+                                           {
+                                           }
+                                           catch (Exception ex)
+                                           {
+                                               throw;
+                                           }
+                                       }
+                                   }
+                                   """;
+        await VerifyRethrow.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a bare <c>throw;</c> and throwing a different exception are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

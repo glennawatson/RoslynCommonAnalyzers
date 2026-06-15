@@ -253,4 +253,42 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
                 public int Read() => _counter.Value;
             }
             """);
+
+    /// <summary>Verifies Fix All marks every constructor-only field readonly (SST1424) in one pass.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private int {|SST1424:_a|};
+                                  private int {|SST1424:_b|};
+                                  private int {|SST1424:_c|};
+
+                                  public C(int value)
+                                  {
+                                      _a = value;
+                                      _b = value;
+                                      _c = value;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       private readonly int _a;
+                                       private readonly int _b;
+                                       private readonly int _c;
+
+                                       public C(int value)
+                                       {
+                                           _a = value;
+                                           _b = value;
+                                           _c = value;
+                                       }
+                                   }
+                                   """;
+        await VerifyReadonlyField.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

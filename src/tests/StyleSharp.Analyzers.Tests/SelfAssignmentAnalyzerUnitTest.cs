@@ -42,6 +42,41 @@ public class SelfAssignmentAnalyzerUnitTest
         await VerifySelfAssign.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every self-assignment in a document in a single pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private int _first;
+                                  private int _second;
+                                  private int _third;
+
+                                  public void M()
+                                  {
+                                      {|SST1189:_first = _first|};
+                                      {|SST1189:_second = _second|};
+                                      {|SST1189:_third = _third|};
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       private int _first;
+                                       private int _second;
+                                       private int _third;
+
+                                       public void M()
+                                       {
+                                       }
+                                   }
+                                   """;
+        await VerifySelfAssign.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a genuine assignment and a constructor field assignment are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

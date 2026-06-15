@@ -38,6 +38,39 @@ public class EmptyStatementAnalyzerUnitTest
         await VerifyEmptyStatement.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every stray semicolon in a document in a single pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  private static void M()
+                                  {
+                                      var x = 1;
+                                      {|SST1106:;|}
+                                      var y = 2;
+                                      {|SST1106:;|}
+                                      var z = 3;
+                                      {|SST1106:;|}
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private static void M()
+                                       {
+                                           var x = 1;
+                                           var y = 2;
+                                           var z = 3;
+                                       }
+                                   }
+                                   """;
+        await VerifyEmptyStatement.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a normal statement is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

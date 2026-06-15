@@ -49,6 +49,42 @@ public class RedundantInheritanceListAnalyzerUnitTest
         await VerifyInheritance.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every redundant inheritance entry across a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class A : {|SST1177:object|}
+                              {
+                              }
+
+                              public class B : {|SST1177:object|}
+                              {
+                              }
+
+                              public enum E : {|SST1177:int|}
+                              {
+                                  X,
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class A
+                                   {
+                                   }
+
+                                   public class B
+                                   {
+                                   }
+
+                                   public enum E
+                                   {
+                                       X,
+                                   }
+                                   """;
+        await VerifyInheritance.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a real base type and a non-int enum underlying type are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

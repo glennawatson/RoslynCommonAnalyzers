@@ -33,6 +33,40 @@ public class RecordInitOnlyCodeFixProviderUnitTest
         await VerifyInitOnly.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every settable record property in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public sealed record Person
+                              {
+                                  public string Name { get; {|SST1802:set|}; }
+
+                                  public int Age { get; {|SST1802:set|}; }
+                              }
+                              public sealed record Address
+                              {
+                                  public string City { get; {|SST1802:set|}; }
+                              }
+                              namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+                              """;
+        const string FixedSource = """
+                                   public sealed record Person
+                                   {
+                                       public string Name { get; init; }
+
+                                       public int Age { get; init; }
+                                   }
+                                   public sealed record Address
+                                   {
+                                       public string City { get; init; }
+                                   }
+                                   namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+                                   """;
+        await VerifyInitOnly.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies init-only and get-only record properties, and a static settable property, are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

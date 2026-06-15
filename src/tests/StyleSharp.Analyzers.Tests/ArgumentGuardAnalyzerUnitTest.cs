@@ -244,6 +244,56 @@ public class ArgumentGuardAnalyzerUnitTest
         await VerifyNet80Async(Source, Source);
     }
 
+    /// <summary>Verifies Fix All rewrites every guard clause in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  public void A(object value)
+                                  {
+                                      {|SST2000:if (value is null) throw new ArgumentNullException(nameof(value));|}
+                                  }
+
+                                  public void B(object value)
+                                  {
+                                      {|SST2000:if (value == null) throw new ArgumentNullException(nameof(value));|}
+                                  }
+
+                                  public void D(int value)
+                                  {
+                                      {|SST2004:if (value < 0) throw new ArgumentOutOfRangeException(nameof(value));|}
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       public void A(object value)
+                                       {
+                                           ArgumentNullException.ThrowIfNull(value);
+                                       }
+
+                                       public void B(object value)
+                                       {
+                                           ArgumentNullException.ThrowIfNull(value);
+                                       }
+
+                                       public void D(int value)
+                                       {
+                                           ArgumentOutOfRangeException.ThrowIfNegative(value);
+                                       }
+                                   }
+                                   """;
+        await VerifyNet80Async(Source, FixedSource);
+    }
+
     /// <summary>Verifies the rule stays silent where ThrowIfNull does not exist (pre-.NET 6 reference assemblies).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

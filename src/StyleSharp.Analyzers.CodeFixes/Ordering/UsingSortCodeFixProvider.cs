@@ -26,6 +26,10 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
         OrderingRules.StaticUsingsAlphabetical.Id);
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// The fix re-sorts the whole using container, so every diagnostic in a file targets the same node;
+    /// the per-node batch editor cannot compose that, so the batch fixer (which sorts once) is kept.
+    /// </remarks>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>

@@ -31,6 +31,34 @@ public class UseLiteralSuffixAnalyzerUnitTest
         await VerifyLiteralSuffix.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every flagged cast in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  private long A() => {|SST1139:(long)1|};
+
+                                  private long B() => {|SST1139:(long)2|};
+
+                                  private long D() => {|SST1139:(long)3|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private long A() => 1L;
+
+                                       private long B() => 2L;
+
+                                       private long D() => 3L;
+                                   }
+                                   """;
+        await VerifyLiteralSuffix.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a suffixed literal and a non-suffixable cast are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

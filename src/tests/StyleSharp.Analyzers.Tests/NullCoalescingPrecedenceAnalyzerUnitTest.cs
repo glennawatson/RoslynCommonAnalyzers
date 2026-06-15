@@ -31,6 +31,30 @@ public class NullCoalescingPrecedenceAnalyzerUnitTest
         await VerifyCoalesce.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All parenthesizes every '??' binary operand in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public int M(int? a, int b, int c) => a ?? {|SST1418:b + c|};
+
+                                  public int N(int? d, int e, int f) => d ?? {|SST1418:e * f|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public int M(int? a, int b, int c) => a ?? (b + c);
+
+                                       public int N(int? d, int e, int f) => d ?? (e * f);
+                                   }
+                                   """;
+        await VerifyCoalesce.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies parenthesized operands and chained '??' are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

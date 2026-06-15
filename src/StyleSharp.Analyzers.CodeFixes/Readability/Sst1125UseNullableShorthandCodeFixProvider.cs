@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites a long-form <c>Nullable&lt;T&gt;</c> type as the <c>T?</c> shorthand (SST1125).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1125UseNullableShorthandCodeFixProvider))]
 [Shared]
-public sealed class Sst1125UseNullableShorthandCodeFixProvider : CodeFixProvider
+public sealed class Sst1125UseNullableShorthandCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseNullableShorthand.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -41,6 +41,20 @@ public sealed class Sst1125UseNullableShorthandCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1125UseNullableShorthandCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        var outer = editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan);
+        if (FindGeneric(outer) is not { } generic)
+        {
+            return;
+        }
+
+        var elementType = generic.TypeArgumentList.Arguments[0].WithoutTrivia();
+        var shorthand = SyntaxFactory.NullableType(elementType).WithTriviaFrom(outer);
+        editor.ReplaceNode(outer, shorthand);
     }
 
     /// <summary>Replaces the nullable type node with its <c>T?</c> shorthand.</summary>

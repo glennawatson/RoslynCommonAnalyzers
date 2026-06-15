@@ -12,13 +12,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1131UseReadableConditionsCodeFixProvider))]
 [Shared]
-public sealed class Sst1131UseReadableConditionsCodeFixProvider : CodeFixProvider
+public sealed class Sst1131UseReadableConditionsCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseReadableConditions.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -45,12 +45,29 @@ public sealed class Sst1131UseReadableConditionsCodeFixProvider : CodeFixProvide
         }
     }
 
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax comparison)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(comparison, BuildSwapped(comparison));
+    }
+
     /// <summary>Swaps the operands of the comparison and flips the operator.</summary>
     /// <param name="document">The document to fix.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="comparison">The comparison to rewrite.</param>
     /// <returns>The updated document.</returns>
     internal static Document Swap(Document document, SyntaxNode root, BinaryExpressionSyntax comparison)
+        => document.WithSyntaxRoot(root.ReplaceNode(comparison, BuildSwapped(comparison)));
+
+    /// <summary>Builds the comparison with its operands swapped and the operator flipped.</summary>
+    /// <param name="comparison">The comparison to rewrite.</param>
+    /// <returns>The rewritten comparison.</returns>
+    private static BinaryExpressionSyntax BuildSwapped(BinaryExpressionSyntax comparison)
     {
         var newLeft = comparison.Right
             .WithLeadingTrivia(comparison.Left.GetLeadingTrivia())
@@ -65,8 +82,7 @@ public sealed class Sst1131UseReadableConditionsCodeFixProvider : CodeFixProvide
             OperatorTokenKind(flipped),
             comparison.OperatorToken.TrailingTrivia);
 
-        var swapped = SyntaxFactory.BinaryExpression(flipped, newLeft, operatorToken, newRight);
-        return document.WithSyntaxRoot(root.ReplaceNode(comparison, swapped));
+        return SyntaxFactory.BinaryExpression(flipped, newLeft, operatorToken, newRight);
     }
 
     /// <summary>Returns the comparison kind that reads the same after the operands are swapped.</summary>

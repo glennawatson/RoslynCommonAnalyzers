@@ -52,4 +52,33 @@ public class Sst1162StructDeclarationAnalyzersUnitTest
 
         await Verifysst0013.VerifyCodeFixAsync(Test, FixedSource);
     }
+
+    /// <summary>Verifies Fix All rewrites every struct declaration with split primary constructor parameters in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            {|SST1162:public struct Foo(
+                int a, int b);|}
+            {|SST1162:public struct Bar(
+                int c, int d);|}
+            {|SST1162:public struct Baz(
+                int e, int f);|}
+            """;
+
+        const string FixedSource = """
+            public struct Foo(
+                int a,
+                int b);
+            public struct Bar(
+                int c,
+                int d);
+            public struct Baz(
+                int e,
+                int f);
+            """;
+
+        await Verifysst0013.VerifyCodeFixAsync(Test, FixedSource);
+    }
 }

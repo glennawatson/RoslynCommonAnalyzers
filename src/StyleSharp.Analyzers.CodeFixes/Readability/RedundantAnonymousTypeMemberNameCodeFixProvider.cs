@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a redundant anonymous-type member name (SST1173), keeping the inferred name.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantAnonymousTypeMemberNameCodeFixProvider))]
 [Shared]
-public sealed class RedundantAnonymousTypeMemberNameCodeFixProvider : CodeFixProvider
+public sealed class RedundantAnonymousTypeMemberNameCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantAnonymousTypeMemberName.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,18 @@ public sealed class RedundantAnonymousTypeMemberNameCodeFixProvider : CodeFixPro
                     equivalenceKey: nameof(RedundantAnonymousTypeMemberNameCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<AnonymousObjectMemberDeclaratorSyntax>() is not { } declarator)
+        {
+            return;
+        }
+
+        var expression = declarator.Expression.WithTriviaFrom(declarator);
+        editor.ReplaceNode(declarator, declarator.WithNameEquals(null).WithExpression(expression));
     }
 
     /// <summary>Removes the explicit name from the anonymous-type member declarator.</summary>

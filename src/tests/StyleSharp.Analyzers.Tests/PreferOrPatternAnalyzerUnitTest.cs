@@ -50,6 +50,68 @@ public class PreferOrPatternAnalyzerUnitTest
         await VerifyOrPattern.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All merges stacked case labels in every switch in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public int A(int x)
+                                  {
+                                      switch (x)
+                                      {
+                                          {|SST1144:case 1:|}
+                                          case 2:
+                                              return 0;
+                                          default:
+                                              return 1;
+                                      }
+                                  }
+
+                                  public int B(int x)
+                                  {
+                                      switch (x)
+                                      {
+                                          {|SST1144:case 3:|}
+                                          case 4:
+                                              return 0;
+                                          default:
+                                              return 1;
+                                      }
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public int A(int x)
+                                       {
+                                           switch (x)
+                                           {
+                                               case 1 or 2:
+                                                   return 0;
+                                               default:
+                                                   return 1;
+                                           }
+                                       }
+
+                                       public int B(int x)
+                                       {
+                                           switch (x)
+                                           {
+                                               case 3 or 4:
+                                                   return 0;
+                                               default:
+                                                   return 1;
+                                           }
+                                       }
+                                   }
+                                   """;
+        await VerifyOrPattern.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a single-label section and a guarded label are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

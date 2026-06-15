@@ -78,6 +78,60 @@ public class Sst1155ObjectCreationExpressionAnalyzersUnitTest
         await Verifysst0006.VerifyCodeFixAsync(test, expected, fixtest);
     }
 
+    /// <summary>Verifies Fix All rewrites every object-creation expression with split arguments in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            public class Target
+            {
+                public Target(int a, int b) { }
+                public Target(int a, int b, int c) { }
+            }
+
+            public class Foo
+            {
+                public void M()
+                {
+                    var first = {|SST1155:new Target(
+                        1, 2)|};
+                    var second = {|SST1155:new Target(
+                        3, 4, 5)|};
+                    var third = {|SST1155:new Target(
+                        6, 7)|};
+                }
+            }
+            """;
+
+        const string FixedSource = """
+            public class Target
+            {
+                public Target(int a, int b) { }
+                public Target(int a, int b, int c) { }
+            }
+
+            public class Foo
+            {
+                public void M()
+                {
+                    var first = new Target(
+                        1,
+                        2);
+                    var second = new Target(
+                        3,
+                        4,
+                        5);
+                    var third = new Target(
+                        6,
+                        7);
+                }
+            }
+            """;
+
+        await Verifysst0006.VerifyCodeFixAsync(Test, FixedSource);
+    }
+
     /// <summary>Builds a fixture whose parameters are split unevenly across lines along with the expected diagnostic span.</summary>
     /// <param name="number">The number of parameters to generate.</param>
     /// <returns>The generated source text and the expected diagnostic span.</returns>

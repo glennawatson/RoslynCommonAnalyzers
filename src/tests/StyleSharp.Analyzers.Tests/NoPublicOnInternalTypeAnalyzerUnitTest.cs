@@ -55,4 +55,44 @@ public class NoPublicOnInternalTypeAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies Fix All demotes every public member of an internal type (SST1416) in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  {|SST1416:public|} void M()
+                                  {
+                                  }
+
+                                  {|SST1416:public|} void N()
+                                  {
+                                  }
+
+                                  {|SST1416:public|} void O()
+                                  {
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       internal void M()
+                                       {
+                                       }
+
+                                       internal void N()
+                                       {
+                                       }
+
+                                       internal void O()
+                                       {
+                                       }
+                                   }
+                                   """;
+        await VerifyNoPublic.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

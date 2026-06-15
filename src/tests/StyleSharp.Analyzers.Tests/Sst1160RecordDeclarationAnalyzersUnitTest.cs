@@ -58,4 +58,35 @@ public class Sst1160RecordDeclarationAnalyzersUnitTest
 
         await Verifysst0011.VerifyCodeFixAsync(Test, FixedSource);
     }
+
+    /// <summary>Verifies Fix All rewrites every record declaration with split parameters in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            {|SST1160:public record Foo(
+                int a, int b);|}
+            {|SST1160:public record Bar(
+                int c, int d);|}
+            {|SST1160:public record Baz(
+                int e, int f);|}
+            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            """;
+
+        const string FixedSource = """
+            public record Foo(
+                int a,
+                int b);
+            public record Bar(
+                int c,
+                int d);
+            public record Baz(
+                int e,
+                int f);
+            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            """;
+
+        await Verifysst0011.VerifyCodeFixAsync(Test, FixedSource);
+    }
 }

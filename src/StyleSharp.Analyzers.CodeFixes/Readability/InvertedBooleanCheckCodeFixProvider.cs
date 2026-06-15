@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites an inverted comparison (SST1172) to use the opposite operator, dropping the <c>!</c>.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(InvertedBooleanCheckCodeFixProvider))]
 [Shared]
-public sealed class InvertedBooleanCheckCodeFixProvider : CodeFixProvider
+public sealed class InvertedBooleanCheckCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoInvertedBooleanCheck.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -40,6 +40,22 @@ public sealed class InvertedBooleanCheckCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(InvertedBooleanCheckCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not PrefixUnaryExpressionSyntax not
+            || ExpressionSimplificationAnalyzer.Unwrap(not.Operand) is not BinaryExpressionSyntax binary
+            || !ExpressionSimplificationAnalyzer.TryGetOpposite(binary.Kind(), out var expressionKind, out var tokenKind, out _))
+        {
+            return;
+        }
+
+        var left = binary.Left.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.Space);
+        var operatorToken = SyntaxFactory.Token(tokenKind).WithTrailingTrivia(SyntaxFactory.Space);
+        var right = binary.Right.WithoutTrivia();
+        editor.ReplaceNode(not, SyntaxFactory.BinaryExpression(expressionKind, left, operatorToken, right).WithTriviaFrom(not));
     }
 
     /// <summary>Replaces the inverted comparison with the opposite-operator form.</summary>

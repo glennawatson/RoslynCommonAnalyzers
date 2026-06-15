@@ -11,7 +11,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>Reorders declaration modifiers into the canonical order (SST1206/SST1207).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ModifierOrderCodeFixProvider))]
 [Shared]
-public sealed class ModifierOrderCodeFixProvider : CodeFixProvider
+public sealed class ModifierOrderCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -19,7 +19,7 @@ public sealed class ModifierOrderCodeFixProvider : CodeFixProvider
         OrderingRules.ProtectedBeforeInternal.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -44,6 +44,34 @@ public sealed class ModifierOrderCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(ModifierOrderCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not { } node || ModifierOrdering.Modifiers(node).Count < 2)
+        {
+            return;
+        }
+
+        var modifiers = ModifierOrdering.Modifiers(node);
+        var sorted = new SyntaxToken[modifiers.Count];
+        for (var i = 0; i < modifiers.Count; i++)
+        {
+            sorted[i] = modifiers[i];
+        }
+
+        Array.Sort(sorted, CompareModifiers);
+
+        var replacements = new Dictionary<int, SyntaxToken>(modifiers.Count);
+        for (var index = 0; index < modifiers.Count; index++)
+        {
+            replacements[modifiers[index].SpanStart] = sorted[index]
+                .WithLeadingTrivia(modifiers[index].LeadingTrivia)
+                .WithTrailingTrivia(modifiers[index].TrailingTrivia);
+        }
+
+        editor.ReplaceNode(node, node.ReplaceTokens(modifiers, (original, _) => replacements[original.SpanStart]));
     }
 
     /// <summary>Reorders the node's modifiers canonically, keeping each slot's trivia.</summary>

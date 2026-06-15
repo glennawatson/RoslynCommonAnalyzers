@@ -51,6 +51,34 @@ public class OrderingModifierUnitTest
         await VerifyModifier.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All reorders every misordered modifier list in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  static {|SST1206:public|} int M() => 0;
+
+                                  static {|SST1206:public|} int N() => 1;
+
+                                  internal {|SST1207:protected|} int P() => 2;
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       public static int M() => 0;
+
+                                       public static int N() => 1;
+
+                                       protected internal int P() => 2;
+                                   }
+                                   """;
+        await VerifyModifier.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies modifiers already in canonical order are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

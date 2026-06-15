@@ -245,4 +245,60 @@ public class MaintainabilityAnalyzerUnitTest
                                    """;
         await VerifyParens.VerifyCodeFixAsync(Source, FixedSource);
     }
+
+    /// <summary>Verifies Fix All rewrites every top-level type missing an access modifier (SST1400) in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AccessModifierFixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              class {|SST1400:A|} { }
+
+                              class {|SST1400:B|} { }
+
+                              class {|SST1400:C|} { }
+                              """;
+        const string FixedSource = """
+                                   internal class A { }
+
+                                   internal class B { }
+
+                                   internal class C { }
+                                   """;
+        await VerifyAccess.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies Fix All removes every empty attribute argument list (SST1411) in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RedundantParenthesesFixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  [System.Obsolete{|SST1411:()|}]
+                                  public void M() { }
+
+                                  [System.Obsolete{|SST1411:()|}]
+                                  public void N() { }
+
+                                  [System.Obsolete{|SST1411:()|}]
+                                  public void O() { }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       [System.Obsolete]
+                                       public void M() { }
+
+                                       [System.Obsolete]
+                                       public void N() { }
+
+                                       [System.Obsolete]
+                                       public void O() { }
+                                   }
+                                   """;
+        await VerifyParens.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

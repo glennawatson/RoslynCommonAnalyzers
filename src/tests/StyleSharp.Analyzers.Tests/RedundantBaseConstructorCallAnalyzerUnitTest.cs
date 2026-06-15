@@ -36,6 +36,40 @@ public class RedundantBaseConstructorCallAnalyzerUnitTest
         await VerifyBaseCall.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every redundant parameterless base call in a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public C()
+                                      {|SST1178:: base()|}
+                                  {
+                                  }
+
+                                  public C(int x)
+                                      {|SST1178:: base()|}
+                                  {
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public C()
+                                       {
+                                       }
+
+                                       public C(int x)
+                                       {
+                                       }
+                                   }
+                                   """;
+        await VerifyBaseCall.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a <c>: base(arg)</c> with arguments and a <c>: this()</c> chain are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

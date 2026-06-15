@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1168ConversionOperatorDeclarationParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1168ConversionOperatorDeclarationParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public sealed class Sst1168ConversionOperatorDeclarationParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(Sst1168ConversionOperatorDeclarationParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -43,6 +43,24 @@ public sealed class Sst1168ConversionOperatorDeclarationParameterMustBeOnUniqueL
                 return;
             }
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ConversionOperatorDeclarationSyntax node)
+        {
+            return;
+        }
+
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
+        var newNode = node.ConvertNodeIfAble(
+                          syntax => syntax.ParameterList?.Parameters,
+                          (syntax, parameters) => syntax.WithParameterList(
+                              SyntaxFactory.ParameterList(parameters)
+                                  .WithOpenParenToken(syntax.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                      ?? node;
+        editor.ReplaceNode(node, newNode);
     }
 
     /// <summary>Rewrites the declaration so each parameter is placed on its own line.</summary>

@@ -51,6 +51,34 @@ public class ConditionalBooleanLiteralAnalyzerUnitTest
         await VerifyConditional.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every boolean-literal conditional in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public bool A(int value) => {|SST1182:value > 0 ? true : false|};
+
+                                  public bool B(bool flag) => {|SST1182:flag ? false : true|};
+
+                                  public bool D(int value) => {|SST1182:value < 10 ? true : false|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public bool A(int value) => value > 0;
+
+                                       public bool B(bool flag) => !flag;
+
+                                       public bool D(int value) => value < 10;
+                                   }
+                                   """;
+        await VerifyConditional.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a conditional with non-literal branches is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

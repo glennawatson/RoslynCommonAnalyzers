@@ -31,6 +31,34 @@ public class LiteralOnRightOfComparisonAnalyzerUnitTest
         await VerifyLiteralOrder.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All swaps every left-literal comparison in a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public bool A(int count) => {|SST1186:0 == count|};
+
+                                  public bool B(int count) => {|SST1186:1 != count|};
+
+                                  public bool D(int count) => {|SST1186:2 == count|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public bool A(int count) => count == 0;
+
+                                       public bool B(int count) => count != 1;
+
+                                       public bool D(int count) => count == 2;
+                                   }
+                                   """;
+        await VerifyLiteralOrder.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies an already-right literal, a null comparison, and a two-variable comparison are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

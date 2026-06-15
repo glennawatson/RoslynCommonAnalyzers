@@ -11,13 +11,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1106EmptyStatementCodeFixProvider))]
 [Shared]
-public sealed class Sst1106EmptyStatementCodeFixProvider : CodeFixProvider
+public sealed class Sst1106EmptyStatementCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.EmptyStatement.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -42,6 +42,19 @@ public sealed class Sst1106EmptyStatementCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1106EmptyStatementCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not EmptyStatementSyntax { Parent: BlockSyntax or SwitchSectionSyntax or GlobalStatementSyntax } statement)
+        {
+            return;
+        }
+
+        // A top-level statement is wrapped in a GlobalStatementSyntax; remove the wrapper too.
+        var toRemove = statement.Parent is GlobalStatementSyntax global ? global : (SyntaxNode)statement;
+        editor.RemoveNode(toRemove, SyntaxRemoveOptions.KeepNoTrivia);
     }
 
     /// <summary>Removes the empty statement and its surrounding trivia.</summary>

@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites <c>x = x op y</c> as the compound assignment <c>x op= y</c> (SST1185).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(UseCompoundAssignmentCodeFixProvider))]
 [Shared]
-public sealed class UseCompoundAssignmentCodeFixProvider : CodeFixProvider
+public sealed class UseCompoundAssignmentCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseCompoundAssignment.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -40,6 +40,24 @@ public sealed class UseCompoundAssignmentCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(UseCompoundAssignmentCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not AssignmentExpressionSyntax assignment
+            || assignment.Right is not BinaryExpressionSyntax binary
+            || !CompoundAssignmentOperators.TryMap(binary.Kind(), out var assignmentKind, out var operatorToken, out _))
+        {
+            return;
+        }
+
+        // Reuse the original '=' spacing for the compound operator so 'x = ...' becomes 'x op= ...'.
+        var equals = assignment.OperatorToken;
+        var compoundOperator = SyntaxFactory.Token(equals.LeadingTrivia, operatorToken, equals.TrailingTrivia);
+        var replacement = SyntaxFactory.AssignmentExpression(assignmentKind, assignment.Left, compoundOperator, binary.Right.WithLeadingTrivia(SyntaxFactory.TriviaList()));
+
+        editor.ReplaceNode(assignment, replacement.WithTriviaFrom(assignment));
     }
 
     /// <summary>Collapses the self-recomputing assignment into its compound-operator form.</summary>

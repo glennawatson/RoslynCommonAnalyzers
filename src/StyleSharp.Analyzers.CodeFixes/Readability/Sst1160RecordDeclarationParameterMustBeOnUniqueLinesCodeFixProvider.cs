@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1160RecordDeclarationParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1160RecordDeclarationParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
+public sealed class Sst1160RecordDeclarationParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(Sst1160RecordDeclarationParameterMustBeOnUniqueLinesAnalyzer.DiagnosticId);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -45,6 +45,17 @@ public sealed class Sst1160RecordDeclarationParameterMustBeOnUniqueLinesCodeFixP
         }
     }
 
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not RecordDeclarationSyntax node)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(node, BuildNode(node));
+    }
+
     /// <summary>Rewrites the declaration so each parameter is placed on its own line.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root of the document.</param>
@@ -52,13 +63,21 @@ public sealed class Sst1160RecordDeclarationParameterMustBeOnUniqueLinesCodeFixP
     /// <returns>A task producing the updated document.</returns>
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, RecordDeclarationSyntax node)
     {
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-                          node => node.ParameterList?.Parameters,
-                          (node, parameters) => node.WithParameterList(
-                              SyntaxFactory.ParameterList(parameters)
-                                  .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                      ?? node;
+        var newNode = BuildNode(node);
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
+    }
+
+    /// <summary>Builds the rewritten declaration with each parameter on its own line.</summary>
+    /// <param name="node">The declaration to rewrite.</param>
+    /// <returns>The rewritten declaration.</returns>
+    private static RecordDeclarationSyntax BuildNode(RecordDeclarationSyntax node)
+    {
+        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
+        return node.ConvertNodeIfAble(
+                   node => node.ParameterList?.Parameters,
+                   (node, parameters) => node.WithParameterList(
+                       SyntaxFactory.ParameterList(parameters)
+                           .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+               ?? node;
     }
 }

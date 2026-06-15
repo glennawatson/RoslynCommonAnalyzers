@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Changes a misleading <c>public</c> member of a non-public type to <c>internal</c> (SST1416).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1416NoPublicOnInternalTypeCodeFixProvider))]
 [Shared]
-public sealed class Sst1416NoPublicOnInternalTypeCodeFixProvider : CodeFixProvider
+public sealed class Sst1416NoPublicOnInternalTypeCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.NoPublicOnInternalType.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -40,6 +40,17 @@ public sealed class Sst1416NoPublicOnInternalTypeCodeFixProvider : CodeFixProvid
                     equivalenceKey: nameof(Sst1416NoPublicOnInternalTypeCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(member, editor.Generator.WithAccessibility(member, Accessibility.Internal));
     }
 
     /// <summary>Sets the member's accessibility to internal.</summary>

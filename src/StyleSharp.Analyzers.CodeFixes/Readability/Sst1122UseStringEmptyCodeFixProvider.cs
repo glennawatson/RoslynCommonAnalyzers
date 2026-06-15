@@ -9,13 +9,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces an empty string literal with <c>string.Empty</c> (SST1122).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1122UseStringEmptyCodeFixProvider))]
 [Shared]
-public sealed class Sst1122UseStringEmptyCodeFixProvider : CodeFixProvider
+public sealed class Sst1122UseStringEmptyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseStringEmpty.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -40,6 +40,23 @@ public sealed class Sst1122UseStringEmptyCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1122UseStringEmptyCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not LiteralExpressionSyntax literal)
+        {
+            return;
+        }
+
+        var replacement = SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword)),
+                SyntaxFactory.IdentifierName("Empty"))
+            .WithTriviaFrom(literal);
+
+        editor.ReplaceNode(literal, replacement);
     }
 
     /// <summary>Replaces the empty string literal with a <c>string.Empty</c> member access.</summary>

@@ -7,7 +7,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a redundant comparison to a boolean literal (SST1143), negating when needed.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1143BooleanLiteralComparisonCodeFixProvider))]
 [Shared]
-public sealed class Sst1143BooleanLiteralComparisonCodeFixProvider : CodeFixProvider
+public sealed class Sst1143BooleanLiteralComparisonCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <summary>Expression kinds a prefix <c>!</c> binds to without needing parentheses.</summary>
     private static readonly HashSet<SyntaxKind> NegationSafeKinds =
@@ -29,7 +29,7 @@ public sealed class Sst1143BooleanLiteralComparisonCodeFixProvider : CodeFixProv
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoBooleanLiteralComparison.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -54,6 +54,17 @@ public sealed class Sst1143BooleanLiteralComparisonCodeFixProvider : CodeFixProv
                     equivalenceKey: nameof(Sst1143BooleanLiteralComparisonCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax binary)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(binary, Simplify(binary).WithTriviaFrom(binary));
     }
 
     /// <summary>Replaces the comparison with its simplified operand form.</summary>

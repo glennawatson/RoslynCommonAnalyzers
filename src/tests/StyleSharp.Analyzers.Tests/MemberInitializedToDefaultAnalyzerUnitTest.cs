@@ -39,6 +39,34 @@ public class MemberInitializedToDefaultAnalyzerUnitTest
         await VerifyDefaultInit.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All removes every default initializer in a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private int _count = {|SST1176:0|};
+
+                                  private string _name = {|SST1176:null|};
+
+                                  private bool _ready = {|SST1176:false|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       private int _count;
+
+                                       private string _name;
+
+                                       private bool _ready;
+                                   }
+                                   """;
+        await VerifyDefaultInit.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies non-default initializers and const fields are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

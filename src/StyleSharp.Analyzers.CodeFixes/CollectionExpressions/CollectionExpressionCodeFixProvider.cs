@@ -7,7 +7,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces SST2100/SST2101 collection creations with collection expressions.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(CollectionExpressionCodeFixProvider))]
 [Shared]
-public sealed class CollectionExpressionCodeFixProvider : CodeFixProvider
+public sealed class CollectionExpressionCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -15,7 +15,7 @@ public sealed class CollectionExpressionCodeFixProvider : CodeFixProvider
         CollectionExpressionRules.UseExplicitCollectionExpression.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -43,6 +43,17 @@ public sealed class CollectionExpressionCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not ExpressionSyntax expression)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(expression, BuildReplacement(expression, diagnostic.Id));
+    }
+
     /// <summary>Builds and applies the collection expression.</summary>
     /// <param name="document">The document.</param>
     /// <param name="root">The syntax root.</param>
@@ -50,6 +61,16 @@ public sealed class CollectionExpressionCodeFixProvider : CodeFixProvider
     /// <param name="diagnosticId">The diagnostic id.</param>
     /// <returns>The updated document.</returns>
     internal static Task<Document> ReplaceAsync(Document document, SyntaxNode root, ExpressionSyntax expression, string diagnosticId)
+    {
+        var replacement = BuildReplacement(expression, diagnosticId);
+        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(expression, replacement)));
+    }
+
+    /// <summary>Builds the collection-expression replacement for an offending creation.</summary>
+    /// <param name="expression">The expression to replace.</param>
+    /// <param name="diagnosticId">The diagnostic id.</param>
+    /// <returns>The collection-expression replacement, carrying the original trivia.</returns>
+    private static ExpressionSyntax BuildReplacement(ExpressionSyntax expression, string diagnosticId)
     {
         var replacementText = "[]";
         if (diagnosticId == CollectionExpressionRules.UseExplicitCollectionExpression.Id
@@ -59,7 +80,6 @@ public sealed class CollectionExpressionCodeFixProvider : CodeFixProvider
             replacementText = "[" + full[1..^1].ToString() + "]";
         }
 
-        var replacement = SyntaxFactory.ParseExpression(replacementText).WithTriviaFrom(expression);
-        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(expression, replacement)));
+        return SyntaxFactory.ParseExpression(replacementText).WithTriviaFrom(expression);
     }
 }

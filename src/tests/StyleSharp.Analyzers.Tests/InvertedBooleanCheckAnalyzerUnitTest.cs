@@ -71,6 +71,34 @@ public class InvertedBooleanCheckAnalyzerUnitTest
         await VerifyInverted.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every inverted comparison in a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public bool A(int a, int b) => {|SST1172:!(a == b)|};
+
+                                  public bool B(int a, int b) => {|SST1172:!(a < b)|};
+
+                                  public bool D(int a, int b) => {|SST1172:!(a >= b)|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public bool A(int a, int b) => a != b;
+
+                                       public bool B(int a, int b) => a >= b;
+
+                                       public bool D(int a, int b) => a < b;
+                                   }
+                                   """;
+        await VerifyInverted.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies relational inversion on nullable operands is not reported (it does not preserve null).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

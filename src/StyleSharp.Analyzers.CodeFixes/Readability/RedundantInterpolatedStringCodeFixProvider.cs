@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites an interpolation-free interpolated string as a plain string literal (SST1183).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantInterpolatedStringCodeFixProvider))]
 [Shared]
-public sealed class RedundantInterpolatedStringCodeFixProvider : CodeFixProvider
+public sealed class RedundantInterpolatedStringCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantInterpolatedString.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +38,23 @@ public sealed class RedundantInterpolatedStringCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(RedundantInterpolatedStringCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not InterpolatedStringExpressionSyntax interpolated)
+        {
+            return;
+        }
+
+        // The compiler merges adjacent text into one token, so an interpolation-free string holds 0 or 1 content.
+        var value = interpolated.Contents.Count == 1 && interpolated.Contents[0] is InterpolatedStringTextSyntax text
+            ? text.TextToken.ValueText
+            : string.Empty;
+
+        var literal = SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(value));
+        editor.ReplaceNode(interpolated, literal.WithTriviaFrom(interpolated));
     }
 
     /// <summary>Builds a regular string literal from the interpolated string's constant text.</summary>

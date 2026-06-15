@@ -51,6 +51,34 @@ public class DoubledNegationAnalyzerUnitTest
         await VerifyDoubledNegation.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All collapses every doubled negation in a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public bool A(bool flag) => {|SST1190:!!flag|};
+
+                                  public bool B(bool flag) => {|SST1190:!!flag|};
+
+                                  public bool D(bool flag) => {|SST1190:!!flag|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public bool A(bool flag) => flag;
+
+                                       public bool B(bool flag) => flag;
+
+                                       public bool D(bool flag) => flag;
+                                   }
+                                   """;
+        await VerifyDoubledNegation.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a single negation is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

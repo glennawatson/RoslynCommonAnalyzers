@@ -10,7 +10,7 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1900PreferLockTypeCodeFixProvider))]
 [Shared]
-public sealed class Sst1900PreferLockTypeCodeFixProvider : CodeFixProvider
+public sealed class Sst1900PreferLockTypeCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <summary>The fully-qualified <c>System.Threading.Lock</c> type syntax reused across fixes.</summary>
     private static readonly TypeSyntax LockTypeSyntax = SyntaxFactory.ParseTypeName("System.Threading.Lock");
@@ -19,7 +19,7 @@ public sealed class Sst1900PreferLockTypeCodeFixProvider : CodeFixProvider
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ConcurrencyRules.PreferLockType.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -44,6 +44,17 @@ public sealed class Sst1900PreferLockTypeCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1900PreferLockTypeCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<FieldDeclarationSyntax>() is not { } field)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(field, Rewrite(field));
     }
 
     /// <summary>Replaces the reported lock field with its <c>System.Threading.Lock</c> form.</summary>

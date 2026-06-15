@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a redundant base type from an inheritance list (SST1177).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantInheritanceListCodeFixProvider))]
 [Shared]
-public sealed class RedundantInheritanceListCodeFixProvider : CodeFixProvider
+public sealed class RedundantInheritanceListCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantInheritanceList.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -40,6 +40,19 @@ public sealed class RedundantInheritanceListCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseTypeSyntax>() is not { Parent: BaseListSyntax } baseType)
+        {
+            return;
+        }
+
+        var baseList = (BaseListSyntax)baseType.Parent!;
+        var typeDeclaration = baseList.Parent!;
+        editor.ReplaceNode(typeDeclaration, Rewrite(typeDeclaration, baseList));
+    }
+
     /// <summary>Removes the base type, dropping the whole base list when it was the only entry.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
@@ -49,11 +62,19 @@ public sealed class RedundantInheritanceListCodeFixProvider : CodeFixProvider
     {
         var baseList = (BaseListSyntax)baseType.Parent!;
         var typeDeclaration = baseList.Parent!;
+        return document.WithSyntaxRoot(root.ReplaceNode(typeDeclaration, Rewrite(typeDeclaration, baseList)));
+    }
 
+    /// <summary>Builds the type declaration with the redundant base type removed.</summary>
+    /// <param name="typeDeclaration">The type declaration owning the base list.</param>
+    /// <param name="baseList">The base list to trim or drop.</param>
+    /// <returns>The rewritten type declaration node.</returns>
+    private static SyntaxNode Rewrite(SyntaxNode typeDeclaration, BaseListSyntax baseList)
+    {
         if (baseList.Types.Count > 1)
         {
             var trimmedList = baseList.WithTypes(baseList.Types.RemoveAt(0));
-            return document.WithSyntaxRoot(root.ReplaceNode(typeDeclaration, typeDeclaration.ReplaceNode(baseList, trimmedList)));
+            return typeDeclaration.ReplaceNode(baseList, trimmedList);
         }
 
         // Removing the whole base list also drops the newline that lived as the base type's trailing
@@ -62,12 +83,10 @@ public sealed class RedundantInheritanceListCodeFixProvider : CodeFixProvider
         var stripped = (BaseTypeDeclarationSyntax)typeDeclaration.RemoveNode(baseList, SyntaxRemoveOptions.KeepNoTrivia)!;
         var brace = stripped.OpenBraceToken;
         var precedingToken = brace.GetPreviousToken();
-        var updated = stripped.ReplaceTokens(
+        return stripped.ReplaceTokens(
             [precedingToken, brace],
             (original, _) => original == brace
                 ? brace.WithLeadingTrivia(listTrivia.AddRange(brace.LeadingTrivia))
                 : precedingToken.WithTrailingTrivia());
-
-        return document.WithSyntaxRoot(root.ReplaceNode(typeDeclaration, updated));
     }
 }

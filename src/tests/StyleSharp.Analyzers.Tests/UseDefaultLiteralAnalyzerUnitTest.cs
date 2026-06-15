@@ -47,4 +47,28 @@ public class UseDefaultLiteralAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies Fix All shortens every redundant default expression in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public int First() => {|SST1188:default(int)|};
+                                  public int Second() => {|SST1188:default(int)|};
+                                  public int Third() => {|SST1188:default(int)|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public int First() => default;
+                                       public int Second() => default;
+                                       public int Third() => default;
+                                   }
+                                   """;
+        await VerifyDefaultLiteral.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

@@ -57,4 +57,54 @@ public class UseNameofAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies Fix All replaces every parameter-naming literal with nameof in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  public void M(string first, string second, string third)
+                                  {
+                                      throw new ArgumentNullException({|SST1415:"first"|});
+                                  }
+
+                                  public void N(string first, string second, string third)
+                                  {
+                                      throw new ArgumentNullException({|SST1415:"second"|});
+                                  }
+
+                                  public void O(string first, string second, string third)
+                                  {
+                                      throw new ArgumentNullException({|SST1415:"third"|});
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       public void M(string first, string second, string third)
+                                       {
+                                           throw new ArgumentNullException(nameof(first));
+                                       }
+
+                                       public void N(string first, string second, string third)
+                                       {
+                                           throw new ArgumentNullException(nameof(second));
+                                       }
+
+                                       public void O(string first, string second, string third)
+                                       {
+                                           throw new ArgumentNullException(nameof(third));
+                                       }
+                                   }
+                                   """;
+        await VerifyNameof.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

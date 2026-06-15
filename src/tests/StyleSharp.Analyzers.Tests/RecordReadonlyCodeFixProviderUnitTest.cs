@@ -33,6 +33,26 @@ public class RecordReadonlyCodeFixProviderUnitTest
         await VerifyReadonly.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All adds the readonly modifier to every non-readonly record struct in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public record struct {|SST1803:Point|}(int X, int Y);
+                              public record struct {|SST1803:Size|}(int Width, int Height);
+                              public record struct {|SST1803:Range|}(int Start, int End);
+                              namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+                              """;
+        const string FixedSource = """
+                                   public readonly record struct Point(int X, int Y);
+                                   public readonly record struct Size(int Width, int Height);
+                                   public readonly record struct Range(int Start, int End);
+                                   namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+                                   """;
+        await VerifyReadonly.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a readonly record struct and a record class are not reported by SST1803.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

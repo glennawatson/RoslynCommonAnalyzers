@@ -7,7 +7,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>Wraps an expression in parentheses to make its precedence explicit (SST1407, SST1408, SST1418).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(PrecedenceCodeFixProvider))]
 [Shared]
-public sealed class PrecedenceCodeFixProvider : CodeFixProvider
+public sealed class PrecedenceCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -16,7 +16,7 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider
         MaintainabilityRules.NullCoalescingPrecedence.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -41,6 +41,17 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(PrecedenceCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ExpressionSyntax expression)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(expression, SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia()).WithTriviaFrom(expression));
     }
 
     /// <summary>Replaces the expression with a parenthesized copy that keeps its surrounding trivia.</summary>

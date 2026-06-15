@@ -52,4 +52,33 @@ public class Sst1161ClassDeclarationAnalyzersUnitTest
 
         await Verifysst0012.VerifyCodeFixAsync(Test, FixedSource);
     }
+
+    /// <summary>Verifies Fix All rewrites every class declaration with split primary constructor parameters in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            {|SST1161:public class Foo(
+                int a, int b);|}
+            {|SST1161:public class Bar(
+                int c, int d);|}
+            {|SST1161:public class Baz(
+                int e, int f);|}
+            """;
+
+        const string FixedSource = """
+            public class Foo(
+                int a,
+                int b);
+            public class Bar(
+                int c,
+                int d);
+            public class Baz(
+                int e,
+                int f);
+            """;
+
+        await Verifysst0012.VerifyCodeFixAsync(Test, FixedSource);
+    }
 }

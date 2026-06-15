@@ -47,6 +47,34 @@ public class BooleanLiteralComparisonAnalyzerUnitTest
         await VerifyBool.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All simplifies every boolean-literal comparison in a single document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public bool A(bool x) => {|SST1143:x == true|};
+
+                                  public bool B(bool x) => {|SST1143:x == false|};
+
+                                  public bool D(bool x) => {|SST1143:x != true|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public bool A(bool x) => x;
+
+                                       public bool B(bool x) => !x;
+
+                                       public bool D(bool x) => !x;
+                                   }
+                                   """;
+        await VerifyBool.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies comparisons between two non-literal operands are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

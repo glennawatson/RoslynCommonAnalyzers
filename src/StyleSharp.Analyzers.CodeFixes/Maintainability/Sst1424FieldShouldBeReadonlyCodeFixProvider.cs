@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Adds <c>readonly</c> to a field reported by SST1424.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1424FieldShouldBeReadonlyCodeFixProvider))]
 [Shared]
-public sealed class Sst1424FieldShouldBeReadonlyCodeFixProvider : CodeFixProvider
+public sealed class Sst1424FieldShouldBeReadonlyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.FieldShouldBeReadonly.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -39,6 +39,18 @@ public sealed class Sst1424FieldShouldBeReadonlyCodeFixProvider : CodeFixProvide
                     equivalenceKey: nameof(Sst1424FieldShouldBeReadonlyCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<FieldDeclarationSyntax>() is not { } field)
+        {
+            return;
+        }
+
+        var updated = field.WithModifiers(field.Modifiers.Add(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)));
+        editor.ReplaceNode(field, updated);
     }
 
     /// <summary>Adds the readonly modifier to the field declaration.</summary>

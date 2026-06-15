@@ -7,13 +7,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites an <c>as</c> cast compared to null as an <c>is</c> type pattern (SST2005).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(IsPatternOverAsNullCheckCodeFixProvider))]
 [Shared]
-public sealed class IsPatternOverAsNullCheckCodeFixProvider : CodeFixProvider
+public sealed class IsPatternOverAsNullCheckCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernizationRules.UseIsPatternOverAsNullCheck.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -39,6 +39,25 @@ public sealed class IsPatternOverAsNullCheckCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(IsPatternOverAsNullCheckCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax comparison
+            || PatternMatchingAnalyzer.GetAsOperandComparedToNull(comparison) is not { } asExpression)
+        {
+            return;
+        }
+
+        var operand = asExpression.Left;
+        var type = (TypeSyntax)asExpression.Right;
+
+        ExpressionSyntax replacement = comparison.IsKind(SyntaxKind.NotEqualsExpression)
+            ? PatternMatchingAnalyzer.BuildIsTypeTest(operand, type)
+            : PatternMatchingAnalyzer.BuildIsNotPattern(operand, type);
+
+        editor.ReplaceNode(comparison, replacement.WithTriviaFrom(comparison));
     }
 
     /// <summary>Replaces the comparison with <c>x is T</c> (for <c>!=</c>) or <c>x is not T</c> (for <c>==</c>).</summary>

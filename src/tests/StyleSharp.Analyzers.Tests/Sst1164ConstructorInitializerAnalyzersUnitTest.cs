@@ -106,4 +106,75 @@ public class Sst1164ConstructorInitializerAnalyzersUnitTest
 
         await Verifysst0015.VerifyCodeFixAsync(Test, FixedSource);
     }
+
+    /// <summary>Verifies Fix All rewrites every constructor initializer with split arguments in a single document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Test = """
+            public class Bar
+            {
+                public Bar(int a, int b)
+                {
+                }
+            }
+
+            public class Foo : Bar
+            {
+                public Foo()
+                    {|SST1164:: base(
+                        1, 2)|}
+                {
+                }
+
+                public Foo(int x)
+                    {|SST1164:: base(
+                        3, 4)|}
+                {
+                }
+
+                public Foo(int x, int y)
+                    {|SST1164:: base(
+                        5, 6)|}
+                {
+                }
+            }
+            """;
+
+        const string FixedSource = """
+            public class Bar
+            {
+                public Bar(int a, int b)
+                {
+                }
+            }
+
+            public class Foo : Bar
+            {
+                public Foo()
+                    : base(
+                        1,
+                        2)
+                {
+                }
+
+                public Foo(int x)
+                    : base(
+                        3,
+                        4)
+                {
+                }
+
+                public Foo(int x, int y)
+                    : base(
+                        5,
+                        6)
+                {
+                }
+            }
+            """;
+
+        await Verifysst0015.VerifyCodeFixAsync(Test, FixedSource);
+    }
 }

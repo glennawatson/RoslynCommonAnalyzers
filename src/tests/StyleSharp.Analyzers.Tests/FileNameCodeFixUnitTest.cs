@@ -52,4 +52,17 @@ public class FileNameCodeFixUnitTest
         test.FixedState.AnalyzerConfigFiles.Add(("/.globalconfig", MetadataConfig));
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies Fix All renames every misnamed file in the scope.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRenamesEveryFileAsync()
+    {
+        var test = new VerifyRename.Test();
+        test.TestState.Sources.Add(("WrongA.cs", "public class {|SST1649:Apple|} { }"));
+        test.TestState.Sources.Add(("WrongB.cs", "public class {|SST1649:Banana|} { }"));
+        test.FixedState.Sources.Add(("Apple.cs", "public class Apple { }"));
+        test.FixedState.Sources.Add(("Banana.cs", "public class Banana { }"));
+        await test.RunAsync(CancellationToken.None);
+    }
 }

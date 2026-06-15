@@ -57,4 +57,39 @@ public class PreferIsNullPatternAnalyzerUnitTest
                 public Expression<Func<object, bool>> M() => x => x == null;
             }
             """);
+
+    /// <summary>Verifies the document-based Fix All rewrites every occurrence in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public bool M(object a, object b, object c, object d)
+                                  {
+                                      var w = {|SST1149:a == null|};
+                                      var x = {|SST1149:b != null|};
+                                      var y = {|SST1149:null == c|};
+                                      var z = {|SST1149:d == null|};
+                                      return w && x && y && z;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public bool M(object a, object b, object c, object d)
+                                       {
+                                           var w = a is null;
+                                           var x = b is not null;
+                                           var y = c is null;
+                                           var z = d is null;
+                                           return w && x && y && z;
+                                       }
+                                   }
+                                   """;
+
+        await VerifyNull.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

@@ -56,6 +56,7 @@ Some rules expose options. Current options:
 | `stylesharp.summary_single_line_max_length` | [SST1653](rules/SST1653.md) | positive integer | `100` |
 | `stylesharp.max_switch_sections` | [SST1423](rules/SST1423.md) | positive integer | `30` |
 | `stylesharp.allowed_hungarian_prefixes` | [SST1305](rules/SST1305.md) | comma-separated prefixes | built-in list only |
+| `stylesharp.SST1431.additional_per_owner_types` | [SST1431](rules/SST1431.md) | comma-separated fully-qualified type names | built-in list only |
 | `stylesharp.document_exposed_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_internal_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_private_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `false` |
@@ -76,6 +77,19 @@ stylesharp.SST1315.union_member_naming = pascal_case
 
 Values are case-insensitive. An unset or unrecognized value falls back to the
 default in the table above.
+
+### SST1431
+
+`stylesharp.SST1431.additional_per_owner_types` names extra property-system registration
+types (beyond the built-in WPF/WinUI/MAUI/Avalonia list) whose static fields and properties
+[SST1431](rules/SST1431.md) should leave alone. Give comma- or whitespace-separated
+fully-qualified type names; matching is by name (robust to `using` aliases) and includes
+subtypes of the listed types. A general `stylesharp.additional_per_owner_types` key is also honored.
+
+```ini
+[*.cs]
+stylesharp.SST1431.additional_per_owner_types = Custom.Framework.PropertyKey, Other.Lib.RegistryToken
+```
 
 ### Documentation coverage scope
 

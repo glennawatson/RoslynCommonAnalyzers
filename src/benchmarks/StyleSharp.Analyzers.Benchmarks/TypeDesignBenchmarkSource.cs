@@ -18,12 +18,36 @@ internal static class TypeDesignBenchmarkSource
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateType(i, violating))}}
            """;
 
-    /// <summary>Builds one clean or violating type.</summary>
+    /// <summary>Builds one clean or violating block: an SST1428 constructor case and an SST1431 generic-static case.</summary>
     /// <param name="index">The synthetic type index.</param>
-    /// <param name="violating">Whether to emit an abstract type with a public constructor.</param>
+    /// <param name="violating">Whether to emit the violating variant of each case.</param>
     /// <returns>The generated type block.</returns>
+    /// <remarks>
+    /// The generic type exercises SST1431: the clean variant's static members all reference the type
+    /// parameter (signature, <c>typeof(T)</c> initializer, and the closed self-type), so the whole-member
+    /// type-parameter scan runs to completion; the violating variant's static members ignore it, driving
+    /// the report path — including the semantic owner-type check and editorconfig lookup for the fields.
+    /// </remarks>
     private static string GenerateType(int index, bool violating)
         => violating
-            ? $"internal abstract class Bench{index} {{ public Bench{index}() {{ }} }}"
-            : $"internal sealed class Bench{index} {{ public Bench{index}() {{ }} }}";
+            ? $$"""
+              internal abstract class Bench{{index}} { public Bench{{index}}() { } }
+              internal sealed class BenchGeneric{{index}}<T>
+              {
+                  private int _instance;
+                  public static int Counter;
+                  public static int Add(int a, int b) => a + b;
+                  public static readonly System.Collections.Generic.Dictionary<string, string> Map = new();
+              }
+              """
+            : $$"""
+              internal sealed class Bench{{index}} { public Bench{{index}}() { } }
+              internal sealed class BenchGeneric{{index}}<T>
+              {
+                  private int _instance;
+                  public static T Create() => default!;
+                  public static readonly string Name = typeof(T).Name;
+                  public static readonly string Key = typeof(BenchGeneric{{index}}<T>).FullName;
+              }
+              """;
 }

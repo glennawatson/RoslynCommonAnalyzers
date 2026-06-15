@@ -30,33 +30,63 @@ public sealed class Sst1644DocumentationHeaderBlankLineAnalyzer : DiagnosticAnal
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var documentation = (DocumentationCommentTriviaSyntax)context.Node;
-        if (ContainsCodeLikeElement(documentation))
-        {
-            return;
-        }
-
         var text = documentation.SyntaxTree.GetText(context.CancellationToken);
         var startLine = text.Lines.GetLineFromPosition(documentation.FullSpan.Start).LineNumber;
         var endLine = text.Lines.GetLineFromPosition(documentation.FullSpan.End - 1).LineNumber;
         for (var lineNumber = startLine + 1; lineNumber < endLine; lineNumber++)
         {
             var span = text.Lines[lineNumber].Span;
-            if (IsBlankDocumentationLine(text, span))
+            if (!IsBlankDocumentationLine(text, span))
             {
-                context.ReportDiagnostic(
-                    Diagnostic.Create(
-                        DocumentationRules.DocumentationHeaderNoBlankLines,
-                        Location.Create(documentation.SyntaxTree, span)));
+                continue;
             }
+
+            // A blank line inside a <code> or <example> sample (anywhere in the
+            // comment, including nested in <remarks>/<para> or a CDATA block) is
+            // intentional whitespace, so only blank prose lines are reported.
+            if (IsInsideCodeLikeElement(documentation, span.Start))
+            {
+                continue;
+            }
+
+            context.ReportDiagnostic(
+                Diagnostic.Create(
+                    DocumentationRules.DocumentationHeaderNoBlankLines,
+                    Location.Create(documentation.SyntaxTree, span)));
         }
     }
 
-    /// <summary>Returns whether intentional whitespace-bearing elements are present.</summary>
+    /// <summary>Returns whether a position falls inside a code-like element's whitespace-bearing span.</summary>
     /// <param name="documentation">The documentation comment.</param>
-    /// <returns><see langword="true"/> when a code-like element exists.</returns>
-    private static bool ContainsCodeLikeElement(DocumentationCommentTriviaSyntax documentation)
-        => XmlDocumentationHelper.FindElement(documentation, "code") is not null
-            || XmlDocumentationHelper.FindElement(documentation, "example") is not null;
+    /// <param name="position">The absolute source position to test.</param>
+    /// <returns><see langword="true"/> when the position lies within a <c>&lt;code&gt;</c> or <c>&lt;example&gt;</c> element.</returns>
+    private static bool IsInsideCodeLikeElement(DocumentationCommentTriviaSyntax documentation, int position)
+    {
+        var query = new CodeLikeSpanQuery(position);
+        DescendantTraversalHelper.VisitDescendants<XmlElementSyntax, CodeLikeSpanQuery>(documentation, ref query, VisitCodeLikeElement);
+        return query.Found;
+    }
+
+    /// <summary>Records whether the queried position falls inside a code-like element, stopping the walk once found.</summary>
+    /// <param name="element">The visited XML element.</param>
+    /// <param name="query">The position query state.</param>
+    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> to stop.</returns>
+    private static bool VisitCodeLikeElement(XmlElementSyntax element, ref CodeLikeSpanQuery query)
+    {
+        var name = element.StartTag.Name.LocalName.ValueText;
+        if (name is not ("code" or "example"))
+        {
+            return true;
+        }
+
+        if (!element.FullSpan.Contains(query.Position))
+        {
+            return true;
+        }
+
+        query.Found = true;
+        return false;
+    }
 
     /// <summary>Returns whether a line contains whitespace and exactly three slashes.</summary>
     /// <param name="text">The source text.</param>
@@ -81,5 +111,13 @@ public sealed class Sst1644DocumentationHeaderBlankLineAnalyzer : DiagnosticAnal
         }
 
         return slashCount == DocumentationSlashCount;
+    }
+
+    /// <summary>Mutable accumulator for the code-like-span containment query.</summary>
+    /// <param name="Position">The absolute source position being tested.</param>
+    private record struct CodeLikeSpanQuery(int Position)
+    {
+        /// <summary>Gets or sets a value indicating whether the position falls inside a code-like element.</summary>
+        public bool Found { get; set; }
     }
 }

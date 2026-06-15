@@ -49,4 +49,34 @@ public class DocumentationHeaderBlankLineAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies blank lines inside a nested <c>&lt;code&gt;</c> sample are not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NestedCodeSampleBlankLinesAreCleanAsync()
+        => await VerifyDocBlankLine.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                /// <summary>Helps manage lifecycle events.</summary>
+                /// <remarks>
+                /// <para>
+                /// Sample usage is shown below.
+                /// <code>
+                /// <![CDATA[
+                /// public App()
+                /// {
+                ///   Configure();
+                ///
+                ///   Run();
+                /// }
+                /// ]]>
+                /// </code>
+                /// </para>
+                /// </remarks>
+                public void M()
+                {
+                }
+            }
+            """);
 }

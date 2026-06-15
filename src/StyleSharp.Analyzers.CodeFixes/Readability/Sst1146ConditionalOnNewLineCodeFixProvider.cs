@@ -2,18 +2,22 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
+
+using Microsoft.CodeAnalysis.Text;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Moves an SST1146 <c>if</c> statement to a new line.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1146ConditionalOnNewLineCodeFixProvider))]
 [Shared]
-public sealed class Sst1146ConditionalOnNewLineCodeFixProvider : CodeFixProvider
+public sealed class Sst1146ConditionalOnNewLineCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.ConditionalOnNewLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -42,6 +46,18 @@ public sealed class Sst1146ConditionalOnNewLineCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
+        if (!token.IsKind(SyntaxKind.IfKeyword))
+        {
+            return;
+        }
+
+        changes.Add(BuildChange(text, token));
+    }
+
     /// <summary>Replaces the <c>if</c> keyword's separating whitespace with a newline.</summary>
     /// <param name="document">The document to update.</param>
     /// <param name="root">The current syntax root.</param>
@@ -51,6 +67,15 @@ public sealed class Sst1146ConditionalOnNewLineCodeFixProvider : CodeFixProvider
     internal static async Task<Document> MoveAsync(Document document, SyntaxNode root, SyntaxToken token, CancellationToken cancellationToken)
     {
         var text = await root.SyntaxTree.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        return document.WithText(text.WithChanges(BuildChange(text, token)));
+    }
+
+    /// <summary>Builds the change that replaces the <c>if</c> keyword's separating whitespace with a newline plus indentation.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="token">The <c>if</c> keyword.</param>
+    /// <returns>The text change to apply.</returns>
+    private static TextChange BuildChange(SourceText text, SyntaxToken token)
+    {
         var previous = token.GetPreviousToken();
         var line = text.Lines.GetLineFromPosition(previous.SpanStart);
         var lineText = text.ToString(line.Span);
@@ -64,7 +89,7 @@ public sealed class Sst1146ConditionalOnNewLineCodeFixProvider : CodeFixProvider
         var newLine = LayoutFixHelpers.DetectNewLine(text);
         var builder = new System.Text.StringBuilder(indentationLength + 1);
         _ = builder.Append(newLine).Append(lineText, 0, indentationLength);
-        var separatingTrivia = Microsoft.CodeAnalysis.Text.TextSpan.FromBounds(previous.Span.End, token.SpanStart);
-        return document.WithText(text.WithChanges(new Microsoft.CodeAnalysis.Text.TextChange(separatingTrivia, builder.ToString())));
+        var separatingTrivia = TextSpan.FromBounds(previous.Span.End, token.SpanStart);
+        return new TextChange(separatingTrivia, builder.ToString());
     }
 }

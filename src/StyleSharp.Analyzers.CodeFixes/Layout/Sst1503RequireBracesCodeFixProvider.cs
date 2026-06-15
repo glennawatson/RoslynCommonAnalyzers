@@ -12,13 +12,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Wraps the unbraced child statement of a control-flow statement in braces (SST1503).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1503RequireBracesCodeFixProvider))]
 [Shared]
-public sealed class Sst1503RequireBracesCodeFixProvider : CodeFixProvider
+public sealed class Sst1503RequireBracesCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.BracesRequired.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -45,6 +45,19 @@ public sealed class Sst1503RequireBracesCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1503RequireBracesCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not { } control
+            || !LayoutHelpers.TryGetEmbeddedStatement(control, out var child)
+            || child is BlockSyntax)
+        {
+            return;
+        }
+
+        LayoutFixHelpers.AppendBraceWrap(text, child, LayoutFixHelpers.DetectNewLine(text), changes);
     }
 
     /// <summary>Wraps the embedded statement in braces.</summary>

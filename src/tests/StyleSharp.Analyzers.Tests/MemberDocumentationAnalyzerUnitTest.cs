@@ -194,6 +194,35 @@ public class MemberDocumentationAnalyzerUnitTest
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All adds a terminal period to every reported documentation line in one pass (SST1629).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TerminalPeriodFixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              /// {|SST1629:<summary>A widget</summary>|}
+                              public class Widget { }
+
+                              /// {|SST1629:<summary>A gadget</summary>|}
+                              public class Gadget { }
+
+                              /// {|SST1629:<summary>A gizmo</summary>|}
+                              public class Gizmo { }
+                              """;
+        const string FixedSource = """
+                                   /// <summary>A widget.</summary>
+                                   public class Widget { }
+
+                                   /// <summary>A gadget.</summary>
+                                   public class Gadget { }
+
+                                   /// <summary>A gizmo.</summary>
+                                   public class Gizmo { }
+                                   """;
+
+        await Verify.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies an undocumented private field is not required by default (no <c>document_private_fields</c> set).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

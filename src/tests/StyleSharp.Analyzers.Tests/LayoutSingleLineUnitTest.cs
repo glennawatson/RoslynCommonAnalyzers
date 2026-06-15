@@ -46,6 +46,49 @@ public class LayoutSingleLineUnitTest
         await VerifyStatement.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All expands every single-line embedded block (SST1501) in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+            internal class C
+            {
+                private void M(bool b)
+                {
+                    if (b) {|SST1501:{|} b = false; }
+
+                    if (b) {|SST1501:{|} b = true; }
+
+                    if (b) {|SST1501:{|} b = false; }
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M(bool b)
+                {
+                    if (b)
+                    {
+                        b = false;
+                    }
+
+                    if (b)
+                    {
+                        b = true;
+                    }
+
+                    if (b)
+                    {
+                        b = false;
+                    }
+                }
+            }
+            """;
+        await VerifyStatement.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a multi-line embedded block is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -133,6 +176,70 @@ public class LayoutSingleLineUnitTest
                     set
                     {
                         x = value;
+                    }
+                }
+            }
+            """;
+        await VerifyAccessor.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies Fix All makes every inconsistent accessor list in the document consistent in a single pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryAccessorOccurrenceAsync()
+    {
+        const string Source = """
+            internal class C
+            {
+                private int x;
+                private int y;
+
+                public int X
+                {|SST1504:{|}
+                    get { return x; }
+                    set
+                    {
+                        x = value;
+                    }
+                }
+
+                public int Y
+                {|SST1504:{|}
+                    get { return y; }
+                    set
+                    {
+                        y = value;
+                    }
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private int x;
+                private int y;
+
+                public int X
+                {
+                    get
+                    {
+                        return x;
+                    }
+                    set
+                    {
+                        x = value;
+                    }
+                }
+
+                public int Y
+                {
+                    get
+                    {
+                        return y;
+                    }
+                    set
+                    {
+                        y = value;
                     }
                 }
             }

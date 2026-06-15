@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
+
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -9,13 +11,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Inserts a blank line before a member that is not separated from the previous one (SST1516).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1516ElementSpacingCodeFixProvider))]
 [Shared]
-public sealed class Sst1516ElementSpacingCodeFixProvider : CodeFixProvider
+public sealed class Sst1516ElementSpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.ElementsSeparatedByBlankLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -42,6 +44,17 @@ public sealed class Sst1516ElementSpacingCodeFixProvider : CodeFixProvider
         }
     }
 
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
+        {
+            return;
+        }
+
+        changes.Add(BuildChange(text, member));
+    }
+
     /// <summary>Inserts a blank line directly above the member's documentation header or first token.</summary>
     /// <param name="document">The document to fix.</param>
     /// <param name="member">The member to separate.</param>
@@ -50,9 +63,18 @@ public sealed class Sst1516ElementSpacingCodeFixProvider : CodeFixProvider
     internal static async Task<Document> InsertBlankLineAsync(Document document, MemberDeclarationSyntax member, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        return document.WithText(text.WithChanges(BuildChange(text, member)));
+    }
+
+    /// <summary>Builds the blank-line insertion above the member.</summary>
+    /// <param name="text">The document's source text.</param>
+    /// <param name="member">The member to separate.</param>
+    /// <returns>The text change that inserts the blank line.</returns>
+    private static TextChange BuildChange(SourceText text, MemberDeclarationSyntax member)
+    {
         var newLine = LayoutFixHelpers.DetectNewLine(text);
         var contentStartLine = LayoutHelpers.ContentStartLine(text, member);
         var position = text.Lines[contentStartLine].Start;
-        return document.WithText(text.WithChanges(new TextChange(new(position, 0), newLine)));
+        return new TextChange(new(position, 0), newLine);
     }
 }

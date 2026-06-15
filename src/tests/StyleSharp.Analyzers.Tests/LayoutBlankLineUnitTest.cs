@@ -39,6 +39,42 @@ public class LayoutBlankLineUnitTest
         await VerifyBlanks.VerifyCodeFixAsync(Source, VerifyBlanks.Diagnostic("SST1507").WithSpan(5, 1, 6, 1), FixedSource);
     }
 
+    /// <summary>Verifies Fix All collapses every multiple-blank-line run in the document in a single pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryBlankRunOccurrenceAsync()
+    {
+        const string Source = """
+            internal class C
+            {
+                private int a;
+
+
+                private int b;
+
+
+                private int c;
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private int a;
+
+                private int b;
+
+                private int c;
+            }
+            """;
+        await VerifyBlanks.VerifyCodeFixAsync(
+            Source,
+            [
+                VerifyBlanks.Diagnostic("SST1507").WithSpan(5, 1, 6, 1),
+                VerifyBlanks.Diagnostic("SST1507").WithSpan(8, 1, 9, 1),
+            ],
+            FixedSource);
+    }
+
     /// <summary>Verifies a single blank line between members is allowed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -77,6 +113,44 @@ public class LayoutBlankLineUnitTest
                 }
 
                 private void B()
+                {
+                }
+            }
+            """;
+        await VerifySpacing.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies Fix All separates every adjacent member pair in one pass (SST1516).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+            internal class C
+            {
+                private void A()
+                {
+                }
+                {|SST1516:private|} void B()
+                {
+                }
+                {|SST1516:private|} void D()
+                {
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void A()
+                {
+                }
+
+                private void B()
+                {
+                }
+
+                private void D()
                 {
                 }
             }

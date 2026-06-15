@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace StyleSharp.Analyzers;
@@ -9,13 +10,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces a framework type name with its built-in keyword alias (SST1121).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1121BuiltInTypeAliasCodeFixProvider))]
 [Shared]
-public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider
+public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider, IAsyncBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseBuiltInTypeAlias.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => AsyncBatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -43,6 +44,25 @@ public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(Sst1121BuiltInTypeAliasCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    async Task IAsyncBatchableCodeFix.RegisterEditsAsync(DocumentEditor editor, Diagnostic diagnostic, CancellationToken cancellationToken)
+    {
+        var model = await editor.OriginalDocument.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
+        if (model is null)
+        {
+            return;
+        }
+
+        var node = editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan);
+        if (model.GetSymbolInfo(node, cancellationToken).Symbol is not INamedTypeSymbol type
+            || BuiltInTypeAliases.Keyword(type.SpecialType) is not { } keyword)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(node, SyntaxFactory.PredefinedType(SyntaxFactory.Token(BuiltInTypeAliases.TokenKind(keyword))).WithTriviaFrom(node));
     }
 
     /// <summary>Replaces the type node with a predefined-type keyword.</summary>

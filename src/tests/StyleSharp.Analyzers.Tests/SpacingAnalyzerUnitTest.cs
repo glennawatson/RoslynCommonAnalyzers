@@ -34,6 +34,40 @@ public class SpacingAnalyzerUnitTest
         await VerifySpacing.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All inserts the missing space after every <c>//</c> in one pass (SST1005).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  {|SST1005://first|}
+                                  private int x;
+
+                                  {|SST1005://second|}
+                                  private int y;
+
+                                  {|SST1005://third|}
+                                  private int z;
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       // first
+                                       private int x;
+
+                                       // second
+                                       private int y;
+
+                                       // third
+                                       private int z;
+                                   }
+                                   """;
+        await VerifySpacing.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies trailing whitespace is reported (SST1028) and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -9,13 +10,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Collapses a run of consecutive blank lines (SST1507) down to a single blank line.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1507MultipleBlankLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1507MultipleBlankLinesCodeFixProvider : CodeFixProvider
+public sealed class Sst1507MultipleBlankLinesCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.MultipleBlankLines.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -32,6 +33,10 @@ public sealed class Sst1507MultipleBlankLinesCodeFixProvider : CodeFixProvider
 
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+        => changes.Add(new TextChange(diagnostic.Location.SourceSpan, string.Empty));
 
     /// <summary>Deletes the reported run of extra blank lines.</summary>
     /// <param name="document">The document to fix.</param>

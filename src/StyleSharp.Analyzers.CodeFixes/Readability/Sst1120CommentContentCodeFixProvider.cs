@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.Text;
@@ -15,13 +16,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1120CommentContentCodeFixProvider))]
 [Shared]
-public sealed class Sst1120CommentContentCodeFixProvider : CodeFixProvider
+public sealed class Sst1120CommentContentCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.CommentMustContainText.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -38,6 +39,13 @@ public sealed class Sst1120CommentContentCodeFixProvider : CodeFixProvider
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        var removal = ComputeRemoval(text, diagnostic.Location.SourceSpan);
+        changes.Add(new TextChange(removal, string.Empty));
     }
 
     /// <summary>Computes and applies the removal of the empty comment.</summary>

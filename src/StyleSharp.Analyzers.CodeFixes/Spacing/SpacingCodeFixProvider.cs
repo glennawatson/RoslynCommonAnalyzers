@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.Text;
@@ -15,7 +16,7 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(SpacingCodeFixProvider))]
 [Shared]
-public sealed class SpacingCodeFixProvider : CodeFixProvider
+public sealed class SpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <summary>The number of spaces a tab is replaced with (the repository uses four-space indents).</summary>
     private const int TabWidth = 4;
@@ -56,7 +57,7 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider
         SpacingRules.OpeningSquareBracket.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -77,6 +78,13 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        diagnostic.Properties.TryGetValue(SpacingAnalyzer.ActionKey, out var action);
+        changes.Add(BuildChange(diagnostic.Id, diagnostic.Location.SourceSpan, action, text));
+    }
+
     /// <summary>Applies the text change for the reported spacing diagnostic.</summary>
     /// <param name="document">The document to fix.</param>
     /// <param name="id">The diagnostic id.</param>
@@ -87,9 +95,17 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider
     internal static async Task<Document> FixAsync(Document document, string id, TextSpan span, string? action, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var change = action is null ? TriviaChange(id, span, text) : PunctuationChange(action, span, text);
-        return document.WithText(text.WithChanges(change));
+        return document.WithText(text.WithChanges(BuildChange(id, span, action, text)));
     }
+
+    /// <summary>Computes the text change for the reported spacing diagnostic.</summary>
+    /// <param name="id">The diagnostic id.</param>
+    /// <param name="span">The reported span.</param>
+    /// <param name="action">The stashed punctuation fix action, when present.</param>
+    /// <param name="text">The source text.</param>
+    /// <returns>The text change to apply.</returns>
+    private static TextChange BuildChange(string id, TextSpan span, string? action, SourceText text)
+        => action is null ? TriviaChange(id, span, text) : PunctuationChange(action, span, text);
 
     /// <summary>Computes the text change for a trivia spacing diagnostic.</summary>
     /// <param name="id">The diagnostic id.</param>

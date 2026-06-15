@@ -63,6 +63,53 @@ public class LayoutDocHeaderUnitTest
         await VerifyDoc.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All corrects every documentation-header spacing violation (SST1506/SST1514) in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+            internal class C
+            {
+                /// <summary>Does A.</summary>
+
+                {|SST1506:private|} void A()
+                {
+                }
+
+                /// <summary>Does B.</summary>
+
+                {|SST1506:private|} void B()
+                {
+                }
+
+                private int x;
+                /// <summary>Gets X.</summary>
+                {|SST1514:public|} int X => x;
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                /// <summary>Does A.</summary>
+                private void A()
+                {
+                }
+
+                /// <summary>Does B.</summary>
+                private void B()
+                {
+                }
+
+                private int x;
+
+                /// <summary>Gets X.</summary>
+                public int X => x;
+            }
+            """;
+        await VerifyDoc.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a correctly spaced documentation header is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -80,6 +80,49 @@ public class LayoutBracePlacementUnitTest
         await VerifyBrace.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites every shared-line brace (SST1500) in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+            internal class C
+            {
+                private void M() {|SST1500:{|}
+                    return;
+                }
+
+                private void N() {|SST1500:{|}
+                    return;
+                }
+
+                private void O() {|SST1500:{|}
+                    return;
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void M()
+                {
+                    return;
+                }
+
+                private void N()
+                {
+                    return;
+                }
+
+                private void O()
+                {
+                    return;
+                }
+            }
+            """;
+        await VerifyBrace.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a blank line before an opening brace is reported (SST1509) and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -153,6 +196,55 @@ public class LayoutBracePlacementUnitTest
             internal class C
             {
                 private void M()
+                {
+                    return;
+                }
+            }
+            """;
+        await VerifyBlank.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies Fix All removes every reported brace-adjacent blank line in one pass (SST1505).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRemovesEveryBlankLineOccurrenceAsync()
+    {
+        const string Source = """
+            internal class C
+            {
+                private void A()
+                {|SST1505:{|}
+
+                    return;
+                }
+
+                private void B()
+                {|SST1505:{|}
+
+                    return;
+                }
+
+                private void D()
+                {|SST1505:{|}
+
+                    return;
+                }
+            }
+            """;
+        const string FixedSource = """
+            internal class C
+            {
+                private void A()
+                {
+                    return;
+                }
+
+                private void B()
+                {
+                    return;
+                }
+
+                private void D()
                 {
                     return;
                 }

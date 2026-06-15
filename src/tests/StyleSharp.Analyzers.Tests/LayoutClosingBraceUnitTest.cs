@@ -44,6 +44,48 @@ public class LayoutClosingBraceUnitTest
         await VerifyClose.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All separates every flagged closing brace in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  private void M(bool x)
+                                  {
+                                      if (x)
+                                      {
+                                      {|SST1513:}|}
+                                      System.Console.WriteLine();
+                                      if (x)
+                                      {
+                                      {|SST1513:}|}
+                                      System.Console.WriteLine();
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private void M(bool x)
+                                       {
+                                           if (x)
+                                           {
+                                           }
+
+                                           System.Console.WriteLine();
+                                           if (x)
+                                           {
+                                           }
+
+                                           System.Console.WriteLine();
+                                       }
+                                   }
+                                   """;
+        await VerifyClose.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a closing brace followed by another closing brace is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

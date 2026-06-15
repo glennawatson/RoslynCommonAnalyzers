@@ -63,6 +63,41 @@ public class SingleLineSummaryAnalyzerUnitTest
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All collapses every short multi-line summary in a document in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              /// {|SST1653:<summary>
+                              /// First.
+                              /// </summary>|}
+                              public class A { }
+
+                              /// {|SST1653:<summary>
+                              /// Second.
+                              /// </summary>|}
+                              public class B { }
+
+                              /// {|SST1653:<summary>
+                              /// Third.
+                              /// </summary>|}
+                              public class D { }
+                              """;
+        const string FixedSource = """
+                                   /// <summary>First.</summary>
+                                   public class A { }
+
+                                   /// <summary>Second.</summary>
+                                   public class B { }
+
+                                   /// <summary>Third.</summary>
+                                   public class D { }
+                                   """;
+
+        await Verify.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies lowering the limit via editorconfig stops a short summary from being reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

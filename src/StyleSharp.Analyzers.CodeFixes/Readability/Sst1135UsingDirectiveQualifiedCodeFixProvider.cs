@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace StyleSharp.Analyzers;
@@ -9,13 +10,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites a using directive's name in fully qualified form (SST1135).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1135UsingDirectiveQualifiedCodeFixProvider))]
 [Shared]
-public sealed class Sst1135UsingDirectiveQualifiedCodeFixProvider : CodeFixProvider
+public sealed class Sst1135UsingDirectiveQualifiedCodeFixProvider : CodeFixProvider, IAsyncBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UsingDirectiveQualified.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => AsyncBatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -47,6 +48,30 @@ public sealed class Sst1135UsingDirectiveQualifiedCodeFixProvider : CodeFixProvi
                     equivalenceKey: nameof(Sst1135UsingDirectiveQualifiedCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    async Task IAsyncBatchableCodeFix.RegisterEditsAsync(DocumentEditor editor, Diagnostic diagnostic, CancellationToken cancellationToken)
+    {
+        var model = await editor.OriginalDocument.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
+        if (model is null)
+        {
+            return;
+        }
+
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not NameSyntax name)
+        {
+            return;
+        }
+
+        var symbol = model.GetSymbolInfo(name, cancellationToken).Symbol;
+        if (symbol is not (INamespaceSymbol or INamedTypeSymbol))
+        {
+            return;
+        }
+
+        var qualified = SyntaxFactory.ParseName(Sst1135UsingDirectiveQualifiedAnalyzer.QualifiedName(symbol)).WithTriviaFrom(name);
+        editor.ReplaceNode(name, qualified);
     }
 
     /// <summary>Replaces the name with its fully qualified form.</summary>

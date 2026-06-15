@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -14,7 +15,7 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(SingleLineBlockReflowCodeFixProvider))]
 [Shared]
-public sealed class SingleLineBlockReflowCodeFixProvider : CodeFixProvider
+public sealed class SingleLineBlockReflowCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -22,7 +23,7 @@ public sealed class SingleLineBlockReflowCodeFixProvider : CodeFixProvider
         LayoutRules.ElementOnOwnLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -47,6 +48,18 @@ public sealed class SingleLineBlockReflowCodeFixProvider : CodeFixProvider
                     equivalenceKey: nameof(SingleLineBlockReflowCodeFixProvider)),
                 diagnostic);
         }
+    }
+
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    {
+        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not BlockSyntax { Statements.Count: > 0 } block)
+        {
+            return;
+        }
+
+        var newLine = LayoutFixHelpers.DetectNewLine(text);
+        LayoutFixHelpers.TryAppendBlockExpansion(text, block, newLine, changes);
     }
 
     /// <summary>Builds the line breaks that spread the block's statements and closing brace across lines.</summary>

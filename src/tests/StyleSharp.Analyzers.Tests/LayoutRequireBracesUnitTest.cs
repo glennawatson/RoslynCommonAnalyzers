@@ -42,6 +42,42 @@ public class LayoutRequireBracesUnitTest
         await VerifyRequireBraces.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All wraps every unbraced child in the document in a single pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  private int M(bool x)
+                                  {
+                                      {|SST1503:if|} (x) return 1;
+                                      {|SST1503:if|} (!x) return 2;
+                                      return 0;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       private int M(bool x)
+                                       {
+                                           if (x)
+                                           {
+                                               return 1;
+                                           }
+                                           if (!x)
+                                           {
+                                               return 2;
+                                           }
+                                           return 0;
+                                       }
+                                   }
+                                   """;
+        await VerifyRequireBraces.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a braced child is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

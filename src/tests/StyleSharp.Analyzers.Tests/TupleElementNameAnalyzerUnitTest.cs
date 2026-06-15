@@ -42,6 +42,47 @@ public class TupleElementNameAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies Fix All renames every positional tuple access in one pass (SST1142).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEveryOccurrenceAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public int M()
+                                  {
+                                      (int Count, int Total) data = (1, 2);
+                                      return data.{|SST1142:Item1|} + data.{|SST1142:Item2|};
+                                  }
+
+                                  public int N()
+                                  {
+                                      (int First, int Second) pair = (3, 4);
+                                      return pair.{|SST1142:Item1|};
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public int M()
+                                       {
+                                           (int Count, int Total) data = (1, 2);
+                                           return data.Count + data.Total;
+                                       }
+
+                                       public int N()
+                                       {
+                                           (int First, int Second) pair = (3, 4);
+                                           return pair.First;
+                                       }
+                                   }
+                                   """;
+        var test = new VerifyTupleName.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies ItemN access on an unnamed tuple is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

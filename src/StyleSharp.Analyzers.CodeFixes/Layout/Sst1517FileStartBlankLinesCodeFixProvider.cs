@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
+
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -9,13 +11,13 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes the blank lines at the start of the file (SST1517).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1517FileStartBlankLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1517FileStartBlankLinesCodeFixProvider : CodeFixProvider
+public sealed class Sst1517FileStartBlankLinesCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.NoBlankLinesAtStartOfFile.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -32,6 +34,10 @@ public sealed class Sst1517FileStartBlankLinesCodeFixProvider : CodeFixProvider
 
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc/>
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+        => changes.Add(new TextChange(diagnostic.Location.SourceSpan, string.Empty));
 
     /// <summary>Deletes the reported leading blank-line span.</summary>
     /// <param name="document">The document to fix.</param>

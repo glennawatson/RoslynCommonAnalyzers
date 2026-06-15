@@ -19,6 +19,32 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The rule-specific editorconfig key naming extra property-system owner types.</summary>
+    private const string AdditionalOwnerTypesSpecificKey = "stylesharp.SST1431.additional_per_owner_types";
+
+    /// <summary>The general editorconfig key naming extra property-system owner types.</summary>
+    private const string AdditionalOwnerTypesGeneralKey = "stylesharp.additional_per_owner_types";
+
+    /// <summary>
+    /// Fully-qualified names of property-system registration types. A static member typed as one
+    /// of these (or a subtype) is a per-closed-generic registration that must be a static field, so
+    /// it is exempt from SST1431 even when its declaration never names a type parameter.
+    /// </summary>
+    private static readonly ImmutableHashSet<string> PropertySystemOwnerTypes = ImmutableHashSet.Create(
+        StringComparer.Ordinal,
+        "Microsoft.Maui.Controls.BindableProperty",
+        "System.Windows.DependencyProperty",
+        "Windows.UI.Xaml.DependencyProperty",
+        "Microsoft.UI.Xaml.DependencyProperty",
+        "Avalonia.AvaloniaProperty",
+        "Avalonia.StyledProperty",
+        "Avalonia.DirectProperty",
+        "Avalonia.AttachedProperty");
+
+    /// <summary>Renders a type's fully-qualified name without type arguments, for owner-type matching.</summary>
+    private static readonly SymbolDisplayFormat FullyQualifiedWithoutGenerics = new(
+        typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
         MaintainabilityRules.NoPublicConstructorOnAbstractType,
@@ -109,18 +135,28 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
         var member = (MemberDeclarationSyntax)context.Node;
         if (!ModifierListHelper.Contains(member.Modifiers, SyntaxKind.StaticKeyword)
             || !IsExternallyVisible(member.Modifiers)
-            || member.Parent is not TypeDeclarationSyntax { TypeParameterList: { } typeParameters })
+            || member.Parent is not TypeDeclarationSyntax { TypeParameterList: { } })
         {
             return;
         }
 
-        if (SignatureMentionsAnyTypeParameter(member, typeParameters))
+        // The member is exempt when it uses a type parameter anywhere — signature, attributes,
+        // initializer, accessor, or body — including inside the closed self-type (typeof(G<T>)),
+        // because then the per-closed-generic instantiation is intentional.
+        if (MemberMentionsAnyTypeParameter(member))
         {
             return;
         }
 
         var identifier = GetMemberIdentifier(member);
         if (identifier is null)
+        {
+            return;
+        }
+
+        // A registration field/property (BindableProperty, DependencyProperty, …) must be static
+        // and is per-closed-generic by design, so it is exempt even without an explicit type-parameter use.
+        if (IsPropertySystemOwnerMember(context, member))
         {
             return;
         }
@@ -144,77 +180,90 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether a member's signature types reference any of the type's type parameters.</summary>
+    /// <summary>
+    /// Returns whether a member references any enclosing type parameter anywhere in its declaration —
+    /// signature, attributes, initializer, accessors, or body — including a type parameter buried in
+    /// a closed generic argument such as <c>typeof(Owner&lt;T&gt;)</c>.
+    /// </summary>
     /// <param name="member">The static member.</param>
-    /// <param name="typeParameters">The enclosing type's type parameters.</param>
-    /// <returns><see langword="true"/> when at least one type parameter appears in the signature.</returns>
-    private static bool SignatureMentionsAnyTypeParameter(MemberDeclarationSyntax member, TypeParameterListSyntax typeParameters) => member switch
+    /// <returns><see langword="true"/> when at least one type parameter is referenced.</returns>
+    /// <remarks>
+    /// Runs only on the rare candidate path (an externally visible static member of a generic type),
+    /// so the single descendant scan is acceptable. Type parameters always surface as an
+    /// <see cref="IdentifierNameSyntax"/>; matching by name errs toward exempting (no false positive)
+    /// if a local ever shadows a type parameter name.
+    /// </remarks>
+    private static bool MemberMentionsAnyTypeParameter(MemberDeclarationSyntax member)
     {
-        MethodDeclarationSyntax method => MethodSignatureMentionsAnyParameter(method, typeParameters),
-        PropertyDeclarationSyntax property => TypeMentionsAnyParameter(property.Type, typeParameters),
-        FieldDeclarationSyntax field => TypeMentionsAnyParameter(field.Declaration.Type, typeParameters),
-        EventFieldDeclarationSyntax eventField => TypeMentionsAnyParameter(eventField.Declaration.Type, typeParameters),
-        _ => true
-    };
+        var state = new TypeParameterScan(member);
+        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, TypeParameterScan>(member, ref state, MatchTypeParameterName);
+        return state.Found;
+    }
 
-    /// <summary>Returns whether a method's return type or parameter types reference any type parameter.</summary>
-    /// <param name="method">The static method.</param>
-    /// <param name="typeParameters">The enclosing type's type parameters.</param>
-    /// <returns><see langword="true"/> when the method signature uses a type parameter.</returns>
-    private static bool MethodSignatureMentionsAnyParameter(MethodDeclarationSyntax method, TypeParameterListSyntax typeParameters)
+    /// <summary>Records whether an identifier names one of the member's enclosing type parameters.</summary>
+    /// <param name="node">The visited identifier name.</param>
+    /// <param name="state">The scan state.</param>
+    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> to stop.</returns>
+    private static bool MatchTypeParameterName(IdentifierNameSyntax node, ref TypeParameterScan state)
     {
-        if (TypeMentionsAnyParameter(method.ReturnType, typeParameters))
+        if (!NamesEnclosingTypeParameter(node.Identifier.ValueText, state.Member))
         {
             return true;
         }
 
-        var parameters = method.ParameterList.Parameters;
-        for (var i = 0; i < parameters.Count; i++)
-        {
-            if (parameters[i].Type is { } parameterType && TypeMentionsAnyParameter(parameterType, typeParameters))
-            {
-                return true;
-            }
-        }
-
+        state.Found = true;
         return false;
     }
 
-    /// <summary>Returns whether a type syntax names any of the given type parameters.</summary>
-    /// <param name="type">The type syntax to scan.</param>
-    /// <param name="typeParameters">The type parameters to look for.</param>
-    /// <returns><see langword="true"/> when an identifier in the type matches a type parameter name.</returns>
-    /// <remarks>
-    /// A structural recursion over the known type-syntax shapes, rather than an iterator-based
-    /// <c>DescendantTokens()</c> walk, so the scan allocates nothing. Unrecognized shapes return
-    /// <see langword="true"/> (assume a reference) so the rule never reports a false positive.
-    /// </remarks>
-    [SuppressMessage("Critical Code Smell", "S1541:Methods and properties should not be too complex", Justification = "A flat type-shape dispatch switch is a zero-allocation jump table.")]
-    private static bool TypeMentionsAnyParameter(TypeSyntax type, TypeParameterListSyntax typeParameters) => type switch
-    {
-        PredefinedTypeSyntax => false,
-        IdentifierNameSyntax identifier => MatchesParameter(identifier.Identifier.ValueText, typeParameters),
-        GenericNameSyntax generic => TypeArgumentsMentionAnyParameter(generic.TypeArgumentList.Arguments, typeParameters),
-        QualifiedNameSyntax qualified => TypeMentionsAnyParameter(qualified.Left, typeParameters) || TypeMentionsAnyParameter(qualified.Right, typeParameters),
-        AliasQualifiedNameSyntax alias => TypeMentionsAnyParameter(alias.Name, typeParameters),
-        ArrayTypeSyntax array => TypeMentionsAnyParameter(array.ElementType, typeParameters),
-        NullableTypeSyntax nullable => TypeMentionsAnyParameter(nullable.ElementType, typeParameters),
-        PointerTypeSyntax pointer => TypeMentionsAnyParameter(pointer.ElementType, typeParameters),
-        RefTypeSyntax refType => TypeMentionsAnyParameter(refType.Type, typeParameters),
-        TupleTypeSyntax tuple => TupleMentionsAnyParameter(tuple.Elements, typeParameters),
-        _ => true
-    };
-
-    /// <summary>Returns whether a name matches one of the type parameters.</summary>
+    /// <summary>Returns whether a name matches a type parameter of the member's type or any outer generic type.</summary>
     /// <param name="name">The identifier text.</param>
-    /// <param name="typeParameters">The type parameters to look for.</param>
-    /// <returns><see langword="true"/> when the name is a type parameter name.</returns>
-    private static bool MatchesParameter(string name, TypeParameterListSyntax typeParameters)
+    /// <param name="member">The static member.</param>
+    /// <returns><see langword="true"/> when the name is an enclosing type parameter name.</returns>
+    private static bool NamesEnclosingTypeParameter(string name, MemberDeclarationSyntax member)
     {
-        var parameters = typeParameters.Parameters;
-        for (var i = 0; i < parameters.Count; i++)
+        for (var node = member.Parent; node is TypeDeclarationSyntax type; node = type.Parent)
         {
-            if (string.Equals(parameters[i].Identifier.ValueText, name, StringComparison.Ordinal))
+            if (type.TypeParameterList is not { } typeParameters)
+            {
+                continue;
+            }
+
+            var parameters = typeParameters.Parameters;
+            for (var i = 0; i < parameters.Count; i++)
+            {
+                if (string.Equals(parameters[i].Identifier.ValueText, name, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a static field or property is typed as a property-system registration type.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="member">The static member.</param>
+    /// <returns><see langword="true"/> when the member's type is a built-in or configured owner type.</returns>
+    private static bool IsPropertySystemOwnerMember(SyntaxNodeAnalysisContext context, MemberDeclarationSyntax member)
+    {
+        var declaredType = member switch
+        {
+            FieldDeclarationSyntax field => field.Declaration.Type,
+            PropertyDeclarationSyntax property => property.Type,
+            _ => null
+        };
+
+        if (declaredType is null
+            || context.SemanticModel.GetTypeInfo(declaredType, context.CancellationToken).Type is not INamedTypeSymbol type)
+        {
+            return false;
+        }
+
+        for (var current = type; current is not null; current = current.BaseType)
+        {
+            var name = current.OriginalDefinition.ToDisplayString(FullyQualifiedWithoutGenerics);
+            if (PropertySystemOwnerTypes.Contains(name) || IsConfiguredOwnerType(context, member, name))
             {
                 return true;
             }
@@ -223,38 +272,16 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether any generic type argument references a type parameter.</summary>
-    /// <param name="arguments">The type argument list.</param>
-    /// <param name="typeParameters">The type parameters to look for.</param>
-    /// <returns><see langword="true"/> when an argument mentions a type parameter.</returns>
-    private static bool TypeArgumentsMentionAnyParameter(SeparatedSyntaxList<TypeSyntax> arguments, TypeParameterListSyntax typeParameters)
+    /// <summary>Returns whether a fully-qualified type name appears in the editorconfig owner-type allow-list.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="member">The static member (its tree supplies the options scope).</param>
+    /// <param name="name">The candidate fully-qualified type name.</param>
+    /// <returns><see langword="true"/> when the name is configured as an additional owner type.</returns>
+    private static bool IsConfiguredOwnerType(SyntaxNodeAnalysisContext context, MemberDeclarationSyntax member, string name)
     {
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            if (TypeMentionsAnyParameter(arguments[i], typeParameters))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether any tuple element type references a type parameter.</summary>
-    /// <param name="elements">The tuple element list.</param>
-    /// <param name="typeParameters">The type parameters to look for.</param>
-    /// <returns><see langword="true"/> when an element mentions a type parameter.</returns>
-    private static bool TupleMentionsAnyParameter(SeparatedSyntaxList<TupleElementSyntax> elements, TypeParameterListSyntax typeParameters)
-    {
-        for (var i = 0; i < elements.Count; i++)
-        {
-            if (TypeMentionsAnyParameter(elements[i].Type, typeParameters))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(member.SyntaxTree);
+        return EditorConfigList.ContainsToken(options, AdditionalOwnerTypesSpecificKey, name, StringComparison.Ordinal)
+            || EditorConfigList.ContainsToken(options, AdditionalOwnerTypesGeneralKey, name, StringComparison.Ordinal);
     }
 
     /// <summary>Returns the name token a static member should be reported on, or <see langword="null"/>.</summary>
@@ -268,4 +295,12 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
         EventFieldDeclarationSyntax { Declaration.Variables: [var single] } => single.Identifier,
         _ => null
     };
+
+    /// <summary>Mutable accumulator for the type-parameter usage scan over a member.</summary>
+    /// <param name="Member">The member whose enclosing type parameters are matched against.</param>
+    private record struct TypeParameterScan(MemberDeclarationSyntax Member)
+    {
+        /// <summary>Gets or sets a value indicating whether an enclosing type parameter was referenced.</summary>
+        public bool Found { get; set; }
+    }
 }

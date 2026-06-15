@@ -104,6 +104,26 @@ public class LayoutBraceRequirementUnitTest
             }
             """);
 
+    /// <summary>Verifies stacked <c>using</c> statements sharing one braced body are not flagged.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task StackedUsingStatementsAreCleanAsync()
+        => await VerifyMultiLine.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private void M(System.IDisposable a, System.IDisposable b)
+                {
+                    using (a)
+                    using (b)
+                    {
+                        System.Console.WriteLine();
+                        System.Console.WriteLine();
+                    }
+                }
+            }
+            """);
+
     /// <summary>Verifies an if/else chain with mixed braces is reported (SST1520) and made consistent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

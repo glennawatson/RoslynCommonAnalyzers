@@ -46,6 +46,16 @@ public sealed class Sst1648InheritDocAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // An explicit interface specifier in the syntax (e.g. `object IFoo.Bar`) is a
+        // definitive interface implementation regardless of whether the interface type
+        // currently binds. Checking it here avoids a false positive when the interface
+        // lives in another assembly that is momentarily unresolved (incomplete semantics),
+        // where the semantic ExplicitInterfaceImplementations set comes back empty.
+        if (HasExplicitInterfaceSpecifier(context.Node))
+        {
+            return;
+        }
+
         var symbol = context.SemanticModel.GetDeclaredSymbol(context.Node, context.CancellationToken);
         if (symbol is null || Inherits(symbol))
         {
@@ -63,16 +73,17 @@ public sealed class Sst1648InheritDocAnalyzer : DiagnosticAnalyzer
         symbol is INamedTypeSymbol type
             ? type.Interfaces.Length > 0
               || (type.TypeKind == TypeKind.Class && type.BaseType is { SpecialType: not SpecialType.System_Object })
-            : symbol.IsOverride || HasExplicitInterfaceImplementation(symbol) || ImplementsInterfaceMember(symbol);
+            : symbol.IsOverride || ImplementsInterfaceMember(symbol);
 
-    /// <summary>Returns whether the member explicitly implements an interface member.</summary>
-    /// <param name="symbol">The member symbol.</param>
-    /// <returns><see langword="true"/> when the member is an explicit interface implementation.</returns>
-    private static bool HasExplicitInterfaceImplementation(ISymbol symbol) => symbol switch
+    /// <summary>Returns whether the member declares an explicit interface specifier in its syntax.</summary>
+    /// <param name="node">The member declaration syntax.</param>
+    /// <returns><see langword="true"/> when the member explicitly implements an interface member.</returns>
+    private static bool HasExplicitInterfaceSpecifier(SyntaxNode node) => node switch
     {
-        IMethodSymbol method => !method.ExplicitInterfaceImplementations.IsEmpty,
-        IPropertySymbol property => !property.ExplicitInterfaceImplementations.IsEmpty,
-        IEventSymbol @event => !@event.ExplicitInterfaceImplementations.IsEmpty,
+        MethodDeclarationSyntax method => method.ExplicitInterfaceSpecifier is not null,
+        PropertyDeclarationSyntax property => property.ExplicitInterfaceSpecifier is not null,
+        IndexerDeclarationSyntax indexer => indexer.ExplicitInterfaceSpecifier is not null,
+        EventDeclarationSyntax @event => @event.ExplicitInterfaceSpecifier is not null,
         _ => false
     };
 

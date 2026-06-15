@@ -40,7 +40,7 @@ public sealed class Sst1149PreferIsNullPatternCodeFixProvider : CodeFixProvider
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.PreferIsNullPattern.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider() => PreferIsNullFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -102,4 +102,44 @@ public sealed class Sst1149PreferIsNullPatternCodeFixProvider : CodeFixProvider
     /// <returns>The original operand or a parenthesized wrapper.</returns>
     private static ExpressionSyntax ParenthesizeIfNeeded(ExpressionSyntax operand)
         => PatternSafeKinds.Contains(operand.Kind()) ? operand : SyntaxFactory.ParenthesizedExpression(operand);
+
+    /// <summary>
+    /// Rewrites every reported null comparison in a document in a single deterministic pass.
+    /// This document-based provider is cheaper than <see cref="WellKnownFixAllProviders.BatchFixer"/>,
+    /// which clones and re-parses the document once per diagnostic and then merges the edits; here all
+    /// matches are replaced against one root in a single <c>ReplaceNodes</c> call.
+    /// </summary>
+    private sealed class PreferIsNullFixAllProvider : DocumentBasedFixAllProvider
+    {
+        /// <summary>The shared provider instance.</summary>
+        public static readonly PreferIsNullFixAllProvider Instance = new();
+
+        /// <inheritdoc/>
+        protected override async Task<Document?> FixAllAsync(FixAllContext fixAllContext, Document document, ImmutableArray<Diagnostic> diagnostics)
+        {
+            if (diagnostics.IsEmpty)
+            {
+                return document;
+            }
+
+            var root = await document.GetSyntaxRootAsync(fixAllContext.CancellationToken).ConfigureAwait(false);
+            if (root is null)
+            {
+                return document;
+            }
+
+            var rewrites = new Dictionary<SyntaxNode, SyntaxNode>();
+            foreach (var diagnostic in diagnostics)
+            {
+                if (root.FindNode(diagnostic.Location.SourceSpan) is BinaryExpressionSyntax binary && !rewrites.ContainsKey(binary))
+                {
+                    rewrites.Add(binary, Rewrite(binary).WithTriviaFrom(binary));
+                }
+            }
+
+            return rewrites.Count == 0
+                ? document
+                : document.WithSyntaxRoot(root.ReplaceNodes(rewrites.Keys, (original, _) => rewrites[original]));
+        }
+    }
 }

@@ -140,4 +140,41 @@ public class MoveTypeToFileCodeFixUnitTest
         test.FixedState.AnalyzerConfigFiles.Add(("/.globalconfig", MetadataConfig));
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies Fix All extracts every flagged type from a file in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllMovesEveryExtraTypeAsync()
+    {
+        var test = new VerifyMove.Test();
+        test.TestState.Sources.Add(("First.cs", """
+            public class First
+            {
+            }
+
+            public class {|SST1402:Second|}
+            {
+            }
+
+            public class {|SST1402:Third|}
+            {
+            }
+            """));
+        test.FixedState.Sources.Add(("First.cs", """
+            public class First
+            {
+            }
+            """));
+        test.FixedState.Sources.Add(("Second.cs", """
+            public class Second
+            {
+            }
+            """));
+        test.FixedState.Sources.Add(("Third.cs", """
+            public class Third
+            {
+            }
+            """));
+        await test.RunAsync(CancellationToken.None);
+    }
 }

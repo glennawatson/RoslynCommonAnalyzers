@@ -23,9 +23,11 @@ public sealed class Sst1649FileNameCodeFixProvider : CodeFixProvider
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DocumentationRules.FileNameMatchesType.Id);
 
     /// <inheritdoc/>
-    /// <remarks>FixAll is disabled: this fix renames a document (remove + add), which the batch fixer
-    /// (text-edit merging only) cannot carry, so each occurrence is fixed individually.</remarks>
-    public override FixAllProvider? GetFixAllProvider() => null;
+    /// <remarks>
+    /// A document renames at the solution level (remove + add), which <see cref="WellKnownFixAllProviders.BatchFixer"/>
+    /// (text-edit merging only) cannot carry, so a custom solution-scoped provider renames each file in turn.
+    /// </remarks>
+    public override FixAllProvider GetFixAllProvider() => FileNameFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -94,5 +96,37 @@ public sealed class Sst1649FileNameCodeFixProvider : CodeFixProvider
         }
 
         return solution;
+    }
+
+    /// <summary>Renames every file flagged by SST1649 in the Fix All scope to match its first type.</summary>
+    private sealed class FileNameFixAllProvider : DocumentDiagnosticFixAllProvider
+    {
+        /// <summary>The shared provider instance.</summary>
+        public static readonly FileNameFixAllProvider Instance = new();
+
+        /// <inheritdoc/>
+        protected override string Title => "Rename files to match their type";
+
+        /// <inheritdoc/>
+        protected override async Task<Solution> FixDocumentAsync(Solution solution, Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellationToken)
+        {
+            var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+            var tree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+            if (root is null || tree is null)
+            {
+                return solution;
+            }
+
+            var options = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(tree);
+            var useMetadata = TypeFileNaming.UseMetadataConvention(options, DocumentationRules.FileNameMatchesType.Id);
+
+            // SST1649 fires once per file (on its first declared type), so the first diagnostic names the file.
+            if (root.FindNode(diagnostics[0].Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
+            {
+                return solution;
+            }
+
+            return await RenameAsync(document, TypeFileNaming.Stem(member, useMetadata) + ".cs", cancellationToken).ConfigureAwait(false);
+        }
     }
 }

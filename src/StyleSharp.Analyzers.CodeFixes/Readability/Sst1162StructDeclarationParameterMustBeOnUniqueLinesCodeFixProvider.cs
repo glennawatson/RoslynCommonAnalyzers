@@ -53,14 +53,17 @@ public sealed class Sst1162StructDeclarationParameterMustBeOnUniqueLinesCodeFixP
             return;
         }
 
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-                          node => node.ParameterList?.Parameters,
-                          (node, parameters) => node.WithParameterList(
-                              SyntaxFactory.ParameterList(parameters)
-                                  .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                      ?? node;
-        editor.ReplaceNode(node, newNode);
+        editor.ReplaceNode(node, (current, _) =>
+        {
+            var structDeclaration = (StructDeclarationSyntax)current;
+            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(structDeclaration, elastic: true);
+            return structDeclaration.ConvertNodeIfAble(
+                       node => node.ParameterList?.Parameters,
+                       (node, parameters) => node.WithParameterList(
+                           SyntaxFactory.ParameterList(parameters)
+                               .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                   ?? structDeclaration;
+        });
     }
 
     /// <summary>Rewrites the declaration so each parameter is placed on its own line.</summary>

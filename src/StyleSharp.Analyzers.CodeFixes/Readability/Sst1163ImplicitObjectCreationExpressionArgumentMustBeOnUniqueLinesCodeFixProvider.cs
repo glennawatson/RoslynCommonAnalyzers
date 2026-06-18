@@ -53,14 +53,17 @@ public sealed class Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqu
             return;
         }
 
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-                          node => node.ArgumentList?.Arguments,
-                          (node, parameters) => node.WithArgumentList(
-                              SyntaxFactory.ArgumentList(parameters)
-                                  .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                      ?? node;
-        editor.ReplaceNode(node, newNode);
+        editor.ReplaceNode(node, (current, _) =>
+        {
+            var creation = (ImplicitObjectCreationExpressionSyntax)current;
+            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(creation, elastic: true);
+            return creation.ConvertNodeIfAble(
+                       node => node.ArgumentList?.Arguments,
+                       (node, parameters) => node.WithArgumentList(
+                           SyntaxFactory.ArgumentList(parameters)
+                               .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                   ?? creation;
+        });
     }
 
     /// <summary>Rewrites the argument expression so each argument is placed on its own line.</summary>

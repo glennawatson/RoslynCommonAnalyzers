@@ -90,4 +90,24 @@ public class OrderingModifierUnitTest
                 public static int M() => 0;
             }
             """);
+
+    /// <summary>Verifies Fix All reorders a type and a member nested inside it in one pass (parent-then-child edits must compose).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllReordersTypeAndNestedMemberAsync()
+    {
+        const string Source = """
+                              static {|SST1206:internal|} class C
+                              {
+                                  static {|SST1206:public|} int M() => 0;
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal static class C
+                                   {
+                                       public static int M() => 0;
+                                   }
+                                   """;
+        await VerifyModifier.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

@@ -48,7 +48,7 @@ public sealed class MakeClassStaticCodeFixProvider : CodeFixProvider, IBatchFixa
             return;
         }
 
-        editor.ReplaceNode(declaration, MakeStatic(declaration));
+        editor.ReplaceNode(declaration, (current, _) => MakeStatic((ClassDeclarationSyntax)current));
     }
 
     /// <summary>Inserts <c>static</c> after the access modifiers, moving leading trivia when the list is empty.</summary>

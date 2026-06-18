@@ -51,7 +51,7 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider, IBatchFixableCo
             return;
         }
 
-        editor.ReplaceNode(expression, SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia()).WithTriviaFrom(expression));
+        editor.ReplaceNode(expression, (current, _) => SyntaxFactory.ParenthesizedExpression(((ExpressionSyntax)current).WithoutTrivia()).WithTriviaFrom(current));
     }
 
     /// <summary>Replaces the expression with a parenthesized copy that keeps its surrounding trivia.</summary>

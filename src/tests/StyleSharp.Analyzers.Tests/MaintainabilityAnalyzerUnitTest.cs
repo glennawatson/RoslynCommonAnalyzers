@@ -268,6 +268,30 @@ public class MaintainabilityAnalyzerUnitTest
         await VerifyAccess.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites a type and the members nested inside it in one pass (parent-then-child edits must compose).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AccessModifierFixAllRewritesTypeAndNestedMembersAsync()
+    {
+        const string Source = """
+                              class {|SST1400:Outer|}
+                              {
+                                  int {|SST1400:_x|};
+
+                                  void {|SST1400:M|}() { }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class Outer
+                                   {
+                                       private int _x;
+
+                                       private void M() { }
+                                   }
+                                   """;
+        await VerifyAccess.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies Fix All removes every empty attribute argument list (SST1411) in one pass.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

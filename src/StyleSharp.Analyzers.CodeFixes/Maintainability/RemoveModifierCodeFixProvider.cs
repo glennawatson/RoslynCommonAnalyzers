@@ -53,12 +53,24 @@ public sealed class RemoveModifierCodeFixProvider : CodeFixProvider, IBatchFixab
             return;
         }
 
+        // Remove by index, computed lazily against the current (tracked) node so a parent edit applied
+        // first keeps the descendant's annotations — see BatchEditFixAllProvider. The token's absolute
+        // span shifts under earlier edits, so we cannot match it directly at apply time.
+        var modifierIndex = declaration.Modifiers.IndexOf(token);
+        if (modifierIndex < 0)
+        {
+            return;
+        }
+
         // Removing the first modifier would otherwise drop the declaration's leading indentation, so
         // carry it over. For a non-leading modifier this is a no-op.
-        var updated = declaration
-            .WithModifiers(declaration.Modifiers.Remove(token))
-            .WithLeadingTrivia(declaration.GetLeadingTrivia());
-        editor.ReplaceNode(declaration, updated);
+        editor.ReplaceNode(declaration, (current, _) =>
+        {
+            var member = (MemberDeclarationSyntax)current;
+            return member
+                .WithModifiers(member.Modifiers.RemoveAt(modifierIndex))
+                .WithLeadingTrivia(member.GetLeadingTrivia());
+        });
     }
 
     /// <summary>Removes the reported modifier token from the declaration.</summary>

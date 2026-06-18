@@ -64,7 +64,7 @@ public sealed class Sst1143BooleanLiteralComparisonCodeFixProvider : CodeFixProv
             return;
         }
 
-        editor.ReplaceNode(binary, Simplify(binary).WithTriviaFrom(binary));
+        editor.ReplaceNode(binary, (current, _) => Simplify((BinaryExpressionSyntax)current).WithTriviaFrom(current));
     }
 
     /// <summary>Replaces the comparison with its simplified operand form.</summary>

@@ -72,4 +72,24 @@ public class RedundantCastAnalyzerUnitTest
                 public object Boxed(int x) => (object)x;
             }
             """);
+
+    /// <summary>Verifies Fix All removes nested identity casts (an outer cast wrapping an inner cast) in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRemovesNestedCastsAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public int M(int x) => ({|SST1175:int|})({|SST1175:int|})x;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public int M(int x) => x;
+                                   }
+                                   """;
+        await VerifyRedundantCast.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

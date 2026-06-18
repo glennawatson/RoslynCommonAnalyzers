@@ -53,14 +53,17 @@ public sealed class Sst1170TypeArgumentListMustBeOnUniqueLinesCodeFixProvider : 
             return;
         }
 
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: false);
-        var newList = UniqueLineCodeFixerHelper.SplitEntriesOntoOwnLines(node, node.Arguments);
-        var newNode = newList is null
-            ? node
-            : SyntaxFactory.TypeArgumentList(newList.Value)
-                .WithLessThanToken(node.LessThanToken.WithTrailingTrivia(endOfLine))
-                .WithGreaterThanToken(node.GreaterThanToken);
-        editor.ReplaceNode(node, newNode);
+        editor.ReplaceNode(node, (current, _) =>
+        {
+            var list = (TypeArgumentListSyntax)current;
+            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(list, elastic: false);
+            var newList = UniqueLineCodeFixerHelper.SplitEntriesOntoOwnLines(list, list.Arguments);
+            return newList is null
+                ? list
+                : SyntaxFactory.TypeArgumentList(newList.Value)
+                    .WithLessThanToken(list.LessThanToken.WithTrailingTrivia(endOfLine))
+                    .WithGreaterThanToken(list.GreaterThanToken);
+        });
     }
 
     /// <summary>Rewrites the list so each type argument is placed on its own line.</summary>

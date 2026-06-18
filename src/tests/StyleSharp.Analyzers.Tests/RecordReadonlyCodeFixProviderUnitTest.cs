@@ -62,4 +62,26 @@ public class RecordReadonlyCodeFixProviderUnitTest
             public readonly record struct Point(int X, int Y);
             public sealed record Person(string Name);{{IsExternalInit}}
             """);
+
+    /// <summary>Verifies Fix All adds readonly to a record struct and one nested inside it in one pass (parent-then-child edits must compose).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesNestedRecordStructsAsync()
+    {
+        const string Source = """
+                              public record struct {|SST1803:Outer|}(int X)
+                              {
+                                  public record struct {|SST1803:Inner|}(int Y);
+                              }
+                              namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+                              """;
+        const string FixedSource = """
+                                   public readonly record struct Outer(int X)
+                                   {
+                                       public readonly record struct Inner(int Y);
+                                   }
+                                   namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+                                   """;
+        await VerifyReadonly.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

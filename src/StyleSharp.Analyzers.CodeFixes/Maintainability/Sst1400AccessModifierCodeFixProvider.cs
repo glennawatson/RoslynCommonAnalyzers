@@ -64,7 +64,7 @@ public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider, IBat
         }
 
         var accessibility = string.Equals(modifier, "internal", StringComparison.Ordinal) ? Accessibility.Internal : Accessibility.Private;
-        editor.ReplaceNode(member, editor.Generator.WithAccessibility(member, accessibility));
+        editor.ReplaceNode(member, (current, generator) => generator.WithAccessibility(current, accessibility));
     }
 
     /// <summary>Applies the implicit accessibility to the member.</summary>

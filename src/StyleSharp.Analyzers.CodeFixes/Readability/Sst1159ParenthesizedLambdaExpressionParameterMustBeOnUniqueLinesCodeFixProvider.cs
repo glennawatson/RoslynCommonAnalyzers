@@ -53,14 +53,17 @@ public sealed class Sst1159ParenthesizedLambdaExpressionParameterMustBeOnUniqueL
             return;
         }
 
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-                          node => node.ParameterList?.Parameters,
-                          (node, parameters) => node.WithParameterList(
-                              SyntaxFactory.ParameterList(parameters)
-                                  .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                      ?? node;
-        editor.ReplaceNode(node, newNode);
+        editor.ReplaceNode(node, (current, _) =>
+        {
+            var lambda = (ParenthesizedLambdaExpressionSyntax)current;
+            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(lambda, elastic: true);
+            return lambda.ConvertNodeIfAble(
+                       node => node.ParameterList?.Parameters,
+                       (node, parameters) => node.WithParameterList(
+                           SyntaxFactory.ParameterList(parameters)
+                               .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                   ?? lambda;
+        });
     }
 
     /// <summary>Rewrites the parenthesized lambda expression so each parameter is placed on its own line.</summary>

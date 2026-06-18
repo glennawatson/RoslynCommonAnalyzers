@@ -53,18 +53,17 @@ public sealed class Sst1166LocalFunctionStatementParameterMustBeOnUniqueLinesCod
             return;
         }
 
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-            param => param.ParameterList?.Parameters,
-            (syntax, parameters) => syntax.WithParameterList(
-                SyntaxFactory.ParameterList(parameters)
-                    .WithOpenParenToken(syntax.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))));
-        if (newNode is null)
+        editor.ReplaceNode(node, (current, _) =>
         {
-            return;
-        }
-
-        editor.ReplaceNode(node, newNode);
+            var localFunction = (LocalFunctionStatementSyntax)current;
+            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(localFunction, elastic: true);
+            return localFunction.ConvertNodeIfAble(
+                param => param.ParameterList?.Parameters,
+                (syntax, parameters) => syntax.WithParameterList(
+                    SyntaxFactory.ParameterList(parameters)
+                        .WithOpenParenToken(syntax.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                ?? localFunction;
+        });
     }
 
     /// <summary>Rewrites the declaration so each parameter is placed on its own line.</summary>

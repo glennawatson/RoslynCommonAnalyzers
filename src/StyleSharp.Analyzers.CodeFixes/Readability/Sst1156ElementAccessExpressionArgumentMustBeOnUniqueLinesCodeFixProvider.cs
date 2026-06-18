@@ -53,14 +53,17 @@ public sealed class Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesCod
             return;
         }
 
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-                          node => node.ArgumentList?.Arguments,
-                          (node, parameters) => node.WithArgumentList(
-                              SyntaxFactory.BracketedArgumentList(parameters)
-                                  .WithOpenBracketToken(node.ArgumentList!.OpenBracketToken.WithTrailingTrivia(endOfLine))))
-                      ?? node;
-        editor.ReplaceNode(node, newNode);
+        editor.ReplaceNode(node, (current, _) =>
+        {
+            var element = (ElementAccessExpressionSyntax)current;
+            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(element, elastic: true);
+            return element.ConvertNodeIfAble(
+                       node => node.ArgumentList?.Arguments,
+                       (node, parameters) => node.WithArgumentList(
+                           SyntaxFactory.BracketedArgumentList(parameters)
+                               .WithOpenBracketToken(node.ArgumentList!.OpenBracketToken.WithTrailingTrivia(endOfLine))))
+                   ?? element;
+        });
     }
 
     /// <summary>Rewrites the element access expression so each parameter is placed on its own line.</summary>

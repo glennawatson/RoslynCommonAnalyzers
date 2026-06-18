@@ -111,4 +111,28 @@ public class RedundantModifierAnalyzerUnitTest
                                    """;
         await VerifyModifier.VerifyCodeFixAsync(Source, FixedSource);
     }
+
+    /// <summary>Verifies Fix All removes a redundant modifier from a type and one nested inside it in one pass (parent-then-child edits must compose).</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task FixAllRemovesRedundantModifierFromTypeAndNestedTypeAsync()
+    {
+        const string Source = """
+                              public {|SST1419:partial|} class Outer
+                              {
+                                  private {|SST1419:partial|} class Inner
+                                  {
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class Outer
+                                   {
+                                       private class Inner
+                                       {
+                                       }
+                                   }
+                                   """;
+        await VerifyModifier.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

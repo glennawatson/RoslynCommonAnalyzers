@@ -54,24 +54,29 @@ public sealed class ModifierOrderCodeFixProvider : CodeFixProvider, IBatchFixabl
             return;
         }
 
-        var modifiers = ModifierOrdering.Modifiers(node);
-        var sorted = new SyntaxToken[modifiers.Count];
-        for (var i = 0; i < modifiers.Count; i++)
+        // Compute the reordering lazily against the current (tracked) node so a sibling/descendant edit
+        // applied first keeps its annotations — see BatchEditFixAllProvider.
+        editor.ReplaceNode(node, (current, _) =>
         {
-            sorted[i] = modifiers[i];
-        }
+            var modifiers = ModifierOrdering.Modifiers(current);
+            var sorted = new SyntaxToken[modifiers.Count];
+            for (var i = 0; i < modifiers.Count; i++)
+            {
+                sorted[i] = modifiers[i];
+            }
 
-        Array.Sort(sorted, CompareModifiers);
+            Array.Sort(sorted, CompareModifiers);
 
-        var replacements = new Dictionary<int, SyntaxToken>(modifiers.Count);
-        for (var index = 0; index < modifiers.Count; index++)
-        {
-            replacements[modifiers[index].SpanStart] = sorted[index]
-                .WithLeadingTrivia(modifiers[index].LeadingTrivia)
-                .WithTrailingTrivia(modifiers[index].TrailingTrivia);
-        }
+            var replacements = new Dictionary<int, SyntaxToken>(modifiers.Count);
+            for (var index = 0; index < modifiers.Count; index++)
+            {
+                replacements[modifiers[index].SpanStart] = sorted[index]
+                    .WithLeadingTrivia(modifiers[index].LeadingTrivia)
+                    .WithTrailingTrivia(modifiers[index].TrailingTrivia);
+            }
 
-        editor.ReplaceNode(node, node.ReplaceTokens(modifiers, (original, _) => replacements[original.SpanStart]));
+            return current.ReplaceTokens(modifiers, (original, _) => replacements[original.SpanStart]);
+        });
     }
 
     /// <summary>Reorders the node's modifiers canonically, keeping each slot's trivia.</summary>

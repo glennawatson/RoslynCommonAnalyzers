@@ -53,18 +53,17 @@ public sealed class Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesCodeFi
             return;
         }
 
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-            inner => inner.ArgumentList?.Arguments,
-            (inner, parameters) => inner.WithArgumentList(
-                SyntaxFactory.ArgumentList(parameters)
-                    .WithOpenParenToken(inner.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))));
-        if (newNode is null)
+        editor.ReplaceNode(node, (current, _) =>
         {
-            return;
-        }
-
-        editor.ReplaceNode(node, newNode);
+            var invocation = (InvocationExpressionSyntax)current;
+            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(invocation, elastic: true);
+            return invocation.ConvertNodeIfAble(
+                inner => inner.ArgumentList?.Arguments,
+                (inner, parameters) => inner.WithArgumentList(
+                    SyntaxFactory.ArgumentList(parameters)
+                        .WithOpenParenToken(inner.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                ?? invocation;
+        });
     }
 
     /// <summary>Rewrites the invocation expression so each parameter is placed on its own line.</summary>

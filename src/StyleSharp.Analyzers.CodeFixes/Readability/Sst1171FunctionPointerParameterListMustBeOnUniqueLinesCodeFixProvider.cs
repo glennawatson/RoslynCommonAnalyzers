@@ -53,17 +53,17 @@ public sealed class Sst1171FunctionPointerParameterListMustBeOnUniqueLinesCodeFi
             return;
         }
 
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: false);
-        var newList = UniqueLineCodeFixerHelper.SplitEntriesOntoOwnLines(node, node.Parameters);
-        if (newList is null)
+        editor.ReplaceNode(node, (current, _) =>
         {
-            return;
-        }
-
-        var newNode = SyntaxFactory.FunctionPointerParameterList(newList.Value)
-            .WithLessThanToken(node.LessThanToken.WithTrailingTrivia(endOfLine))
-            .WithGreaterThanToken(node.GreaterThanToken);
-        editor.ReplaceNode(node, newNode);
+            var list = (FunctionPointerParameterListSyntax)current;
+            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(list, elastic: false);
+            var newList = UniqueLineCodeFixerHelper.SplitEntriesOntoOwnLines(list, list.Parameters);
+            return newList is null
+                ? list
+                : SyntaxFactory.FunctionPointerParameterList(newList.Value)
+                    .WithLessThanToken(list.LessThanToken.WithTrailingTrivia(endOfLine))
+                    .WithGreaterThanToken(list.GreaterThanToken);
+        });
     }
 
     /// <summary>Rewrites the list so each function pointer parameter is placed on its own line.</summary>

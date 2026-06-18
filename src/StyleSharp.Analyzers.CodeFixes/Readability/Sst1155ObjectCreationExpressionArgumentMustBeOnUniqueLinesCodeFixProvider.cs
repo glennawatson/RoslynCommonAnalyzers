@@ -53,7 +53,7 @@ public sealed class Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLinesCo
             return;
         }
 
-        editor.ReplaceNode(node, BuildNode(node));
+        editor.ReplaceNode(node, (current, _) => BuildNode((ObjectCreationExpressionSyntax)current));
     }
 
     /// <summary>Rewrites the object creation expression so each parameter is placed on its own line.</summary>

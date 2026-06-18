@@ -53,7 +53,7 @@ public sealed class Sst1160RecordDeclarationParameterMustBeOnUniqueLinesCodeFixP
             return;
         }
 
-        editor.ReplaceNode(node, BuildNode(node));
+        editor.ReplaceNode(node, (current, _) => BuildNode((RecordDeclarationSyntax)current));
     }
 
     /// <summary>Rewrites the declaration so each parameter is placed on its own line.</summary>

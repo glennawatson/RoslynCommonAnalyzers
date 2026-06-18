@@ -48,7 +48,7 @@ public sealed class RedundantCastCodeFixProvider : CodeFixProvider, IBatchFixabl
             return;
         }
 
-        editor.ReplaceNode(cast, cast.Expression.WithTriviaFrom(cast));
+        editor.ReplaceNode(cast, (current, _) => ((CastExpressionSyntax)current).Expression.WithTriviaFrom(current));
     }
 
     /// <summary>Replaces the cast expression with its operand.</summary>

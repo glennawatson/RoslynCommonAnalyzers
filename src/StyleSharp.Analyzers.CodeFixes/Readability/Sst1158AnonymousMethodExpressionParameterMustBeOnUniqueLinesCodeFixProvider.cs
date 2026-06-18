@@ -53,18 +53,17 @@ public sealed class Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLines
             return;
         }
 
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-            inner => inner.ParameterList?.Parameters,
-            (inner, parameters) => inner.WithParameterList(
-                SyntaxFactory.ParameterList(parameters)
-                    .WithOpenParenToken(inner.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))));
-        if (newNode is null)
+        editor.ReplaceNode(node, (current, _) =>
         {
-            return;
-        }
-
-        editor.ReplaceNode(node, newNode);
+            var anonymousMethod = (AnonymousMethodExpressionSyntax)current;
+            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(anonymousMethod, elastic: true);
+            return anonymousMethod.ConvertNodeIfAble(
+                inner => inner.ParameterList?.Parameters,
+                (inner, parameters) => inner.WithParameterList(
+                    SyntaxFactory.ParameterList(parameters)
+                        .WithOpenParenToken(inner.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                ?? anonymousMethod;
+        });
     }
 
     /// <summary>Rewrites the anonymous method expression so each parameter is placed on its own line.</summary>

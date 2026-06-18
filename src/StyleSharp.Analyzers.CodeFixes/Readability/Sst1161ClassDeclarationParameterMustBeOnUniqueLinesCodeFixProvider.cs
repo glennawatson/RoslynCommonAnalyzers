@@ -53,14 +53,17 @@ public sealed class Sst1161ClassDeclarationParameterMustBeOnUniqueLinesCodeFixPr
             return;
         }
 
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-                          node => node.ParameterList?.Parameters,
-                          (node, parameters) => node.WithParameterList(
-                              SyntaxFactory.ParameterList(parameters)
-                                  .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                      ?? node;
-        editor.ReplaceNode(node, newNode);
+        editor.ReplaceNode(node, (current, _) =>
+        {
+            var classDeclaration = (ClassDeclarationSyntax)current;
+            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(classDeclaration, elastic: true);
+            return classDeclaration.ConvertNodeIfAble(
+                       node => node.ParameterList?.Parameters,
+                       (node, parameters) => node.WithParameterList(
+                           SyntaxFactory.ParameterList(parameters)
+                               .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                   ?? classDeclaration;
+        });
     }
 
     /// <summary>Rewrites the declaration so each parameter is placed on its own line.</summary>

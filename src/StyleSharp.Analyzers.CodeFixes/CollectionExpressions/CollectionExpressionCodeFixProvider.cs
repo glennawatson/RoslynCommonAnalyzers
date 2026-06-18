@@ -51,7 +51,7 @@ public sealed class CollectionExpressionCodeFixProvider : CodeFixProvider, IBatc
             return;
         }
 
-        editor.ReplaceNode(expression, BuildReplacement(expression, diagnostic.Id));
+        editor.ReplaceNode(expression, (current, _) => BuildReplacement((ExpressionSyntax)current, diagnostic.Id));
     }
 
     /// <summary>Builds and applies the collection expression.</summary>

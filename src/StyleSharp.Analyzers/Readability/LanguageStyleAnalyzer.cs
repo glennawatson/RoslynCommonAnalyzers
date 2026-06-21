@@ -401,7 +401,7 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the if and following statement both return values.</returns>
     private static bool IsConditionalReturnCandidate(IfStatementSyntax ifStatement)
     {
-        if (GetEmbeddedReturn(ifStatement.Statement) is null
+        if (GetEmbeddedReturn(ifStatement.Statement) is not { } whenTrue
             || ifStatement.Else?.Statement is not null
             || ifStatement.Parent is not BlockSyntax block
             || NextStatement(block, ifStatement) is not { } next)
@@ -409,7 +409,39 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        return GetEmbeddedReturn(next) is not null;
+        return GetEmbeddedReturn(next) is { } whenFalse
+            && !WouldNestConditionalExpression(ifStatement.Condition, whenTrue, whenFalse);
+    }
+
+    /// <summary>Returns whether a conditional rewrite would create nested conditional expressions.</summary>
+    /// <param name="condition">The condition expression.</param>
+    /// <param name="whenTrue">The expression used for the true branch.</param>
+    /// <param name="whenFalse">The expression used for the false branch.</param>
+    /// <returns><see langword="true"/> when the replacement would nest a conditional expression.</returns>
+    private static bool WouldNestConditionalExpression(ExpressionSyntax condition, ExpressionSyntax whenTrue, ExpressionSyntax whenFalse)
+        => ContainsConditionalExpression(condition)
+            || ContainsConditionalExpression(whenTrue)
+            || ContainsConditionalExpression(whenFalse);
+
+    /// <summary>Returns whether an expression contains a conditional expression.</summary>
+    /// <param name="expression">The expression to inspect.</param>
+    /// <returns><see langword="true"/> when a conditional expression is present.</returns>
+    private static bool ContainsConditionalExpression(ExpressionSyntax expression)
+    {
+        if (expression is ConditionalExpressionSyntax)
+        {
+            return true;
+        }
+
+        foreach (var node in expression.DescendantNodes(static node => node is not ConditionalExpressionSyntax))
+        {
+            if (node is ConditionalExpressionSyntax)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether an if statement can become a conditional assignment.</summary>

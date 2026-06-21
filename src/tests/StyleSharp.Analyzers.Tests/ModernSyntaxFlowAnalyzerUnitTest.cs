@@ -145,4 +145,61 @@ public class ModernSyntaxFlowAnalyzerUnitTest
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies an out local is not inlined into a nested block when later code still needs the outer scope.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NestedOutVariableUsedAfterNextStatementIsCleanAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  private readonly object gate = new();
+
+                                  private void RunDue()
+                                  {
+                                      while (true)
+                                      {
+                                          TimedWorkItem next;
+                                          lock (gate)
+                                          {
+                                              if (!TryDequeueDueNoLock(out next))
+                                              {
+                                                  ArmTimerNoLock();
+                                                  return;
+                                              }
+                                          }
+
+                                          ExecuteQueued(next.Item);
+                                      }
+                                  }
+
+                                  private static void ArmTimerNoLock()
+                                  {
+                                  }
+
+                                  private static void ExecuteQueued(object item)
+                                  {
+                                  }
+
+                                  private static bool TryDequeueDueNoLock(out TimedWorkItem item)
+                                  {
+                                      item = new TimedWorkItem();
+                                      return true;
+                                  }
+
+                                  private readonly struct TimedWorkItem
+                                  {
+                                      public object Item => new();
+                                  }
+                              }
+                              """;
+        var test = new VerifyModernSyntaxFlow.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
 }

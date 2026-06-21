@@ -242,7 +242,7 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     private static ExpressionStatementSyntax? CreateIgnoredValueFix(SyntaxNode root, TextSpan span, out SyntaxNode? oldNode)
     {
         var statement = FindAncestor<ExpressionStatementSyntax>(root, span);
-        if (statement is null)
+        if (statement is null || IsDiscardAssignment(statement.Expression))
         {
             oldNode = null;
             return null;
@@ -255,6 +255,16 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
                 statement.Expression.WithoutTrivia()))
             .WithTriviaFrom(statement);
     }
+
+    /// <summary>Returns whether an expression already assigns an ignored value to the discard.</summary>
+    /// <param name="expression">The expression to inspect.</param>
+    /// <returns><see langword="true"/> when the expression is an explicit discard assignment.</returns>
+    private static bool IsDiscardAssignment(ExpressionSyntax expression)
+        => expression is AssignmentExpressionSyntax
+        {
+            RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+            Left: IdentifierNameSyntax { Identifier.ValueText: "_" }
+        };
 
     /// <summary>Creates a remove/rewrite edit for an overwritten local value.</summary>
     /// <param name="root">The syntax root.</param>

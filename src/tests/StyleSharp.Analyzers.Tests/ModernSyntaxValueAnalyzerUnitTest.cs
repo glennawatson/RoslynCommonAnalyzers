@@ -138,6 +138,35 @@ public class ModernSyntaxValueAnalyzerUnitTest
         await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo("public sealed class C { }");
     }
 
+    /// <summary>Verifies a stale ignored-value diagnostic inside an explicit discard assignment has no fixer.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task IgnoredExpressionValueInsideDiscardAssignmentIsNotFixedAgainAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public void M(System.Threading.Tasks.TaskCompletionSource<bool> received)
+                                  {
+                                      _ = received.TrySetResult(true);
+                                  }
+                              }
+                              """;
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.CurrentSolution.AddProject("TestProject", "TestProject", LanguageNames.CSharp);
+        var document = project.AddDocument("Test0.cs", SourceText.From(Source));
+        var root = await document.GetSyntaxRootAsync(CancellationToken.None);
+        var invocation = root!.DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var diagnostic = Diagnostic.Create(
+            ModernSyntaxRules.MakeIgnoredExpressionValueExplicit,
+            Location.Create("Test0.cs", invocation.Span, default));
+
+        var updated = ModernSyntaxValueCodeFixProvider.Apply(document, root, diagnostic);
+        var updatedRoot = await updated.GetSyntaxRootAsync(CancellationToken.None);
+
+        await Assert.That(updatedRoot!.ToFullString()).IsEqualTo(Source);
+    }
+
     /// <summary>Verifies adjacent overwritten local values are removed without touching the later write.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

@@ -121,6 +121,78 @@ public class ModernSyntaxValueAnalyzerUnitTest
         await VerifyModernSyntaxValue.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies an initializer is preserved when the following assignment captures the local.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task OverwrittenLocalValueCapturedByFollowingAssignmentIsCleanAsync()
+    {
+        const string Source = """
+                              #nullable enable
+
+                              using System;
+
+                              public sealed class C
+                              {
+                                  private readonly object _gate = new();
+                                  private readonly IScheduler _scheduler;
+
+                                  public C(IScheduler scheduler)
+                                  {
+                                      _scheduler = scheduler;
+                                  }
+
+                                  private void Reschedule()
+                                  {
+                                      var isAdded = false;
+                                      var isDone = false;
+                                      IDisposable? disposable = null;
+                                      disposable = _scheduler.Schedule(() =>
+                                      {
+                                          lock (_gate)
+                                          {
+                                              if (isAdded)
+                                              {
+                                                  _ = Remove(disposable!);
+                                              }
+                                              else
+                                              {
+                                                  isDone = true;
+                                              }
+                                          }
+
+                                          RunRecursiveAction();
+                                      });
+
+                                      lock (_gate)
+                                      {
+                                          if (!isDone)
+                                          {
+                                              Add(disposable);
+                                              isAdded = true;
+                                          }
+                                      }
+                                  }
+
+                                  private void Add(IDisposable? disposable)
+                                  {
+                                  }
+
+                                  private bool Remove(IDisposable disposable) => true;
+
+                                  private void RunRecursiveAction()
+                                  {
+                                  }
+                              }
+
+                              public interface IScheduler
+                              {
+                                  IDisposable Schedule(Action action);
+                              }
+                              """;
+
+        await VerifyModernSyntaxValue.VerifyAnalyzerAsync(Source);
+    }
+
     /// <summary>Verifies a null fallback assignment is rewritten with coalescing assignment.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

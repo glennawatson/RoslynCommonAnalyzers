@@ -27,7 +27,7 @@ internal sealed class AsyncBatchEditFixAllProvider : DocumentBasedFixAllProvider
         }
 
         var editor = await DocumentEditor.CreateAsync(document, fixAllContext.CancellationToken).ConfigureAwait(false);
-        foreach (var diagnostic in diagnostics)
+        foreach (var diagnostic in BatchEditFixAllProvider.UniqueDiagnostics(diagnostics))
         {
             await fix.RegisterEditsAsync(editor, diagnostic, fixAllContext.CancellationToken).ConfigureAwait(false);
         }

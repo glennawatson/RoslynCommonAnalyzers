@@ -186,6 +186,120 @@ public class LanguageStyleAnalyzerUnitTest
         await VerifyLanguageStyle.VerifyAnalyzerAsync(Source);
     }
 
+    /// <summary>Verifies adjacent returns in extension blocks are not collapsed when a StartWith-style fallback already uses a conditional expression.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalReturnWithFollowingStartWithConditionalExpressionIsCleanAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public static partial class LinqExtensions
+                              {
+                                  extension<T>(IObservable<T> source)
+                                  {
+                                      public IObservable<T> StartWith(params T[] values)
+                                      {
+                                          ArgumentExceptionHelper.ThrowIfNull(source);
+                                          ArgumentExceptionHelper.ThrowIfNull(values);
+
+                                          if (values.Length == 0)
+                                          {
+                                              return source;
+                                          }
+
+                                          return values.Length == 1 ? new PrependSignal<T>(source, values[0]) : new StartWithEnumerableSignal<T>(source, values);
+                                      }
+                                  }
+                              }
+
+                              internal static class ArgumentExceptionHelper
+                              {
+                                  public static void ThrowIfNull(object value)
+                                  {
+                                  }
+                              }
+
+                              internal sealed class PrependSignal<T> : IObservable<T>
+                              {
+                                  public PrependSignal(IObservable<T> source, T value)
+                                  {
+                                  }
+
+                                  public IDisposable Subscribe(IObserver<T> observer) => throw new NotImplementedException();
+                              }
+
+                              internal sealed class StartWithEnumerableSignal<T> : IObservable<T>
+                              {
+                                  public StartWithEnumerableSignal(IObservable<T> source, T[] values)
+                                  {
+                                  }
+
+                                  public IDisposable Subscribe(IObserver<T> observer) => throw new NotImplementedException();
+                              }
+                              """;
+        await VerifyLanguageStyle.VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies adjacent returns are not collapsed when the branch return already uses a conditional expression.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalReturnWithBranchConditionalExpressionIsCleanAsync()
+    {
+        const string Source = """
+                              #nullable enable
+
+                              using System.Collections.Generic;
+                              using System.Threading.Tasks;
+
+                              public sealed class C<T>
+                              {
+                                  private readonly Queue<IObservableAsync<T>> _buffer = new();
+                                  private bool _outerCompleted;
+
+                                  public ValueTask AcceptInnerCompletionAsync(Result result)
+                                  {
+                                      if (result.IsFailure)
+                                      {
+                                          return FinishAsync(result);
+                                      }
+
+                                      IObservableAsync<T>? nextInner;
+                                      bool outerCompleted;
+                                      lock (_buffer)
+                                      {
+                                          _ = _buffer.TryDequeue(out _);
+                                          _ = _buffer.TryPeek(out nextInner);
+                                          outerCompleted = _outerCompleted;
+                                      }
+
+                                      if (nextInner is null)
+                                      {
+                                          return outerCompleted ? FinishAsync(Result.Success) : default;
+                                      }
+
+                                      return SubscribeCurrentInnerAsync(nextInner);
+                                  }
+
+                                  private ValueTask FinishAsync(Result result) => default;
+
+                                  private ValueTask SubscribeCurrentInnerAsync(IObservableAsync<T> nextInner) => default;
+                              }
+
+                              public readonly struct Result
+                              {
+                                  public bool IsFailure => false;
+
+                                  public static Result Success => default;
+                              }
+
+                              public interface IObservableAsync<T>
+                              {
+                              }
+                              """;
+        await VerifyLanguageStyle.VerifyAnalyzerAsync(Source);
+    }
+
     /// <summary>Verifies matching if/else assignments are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

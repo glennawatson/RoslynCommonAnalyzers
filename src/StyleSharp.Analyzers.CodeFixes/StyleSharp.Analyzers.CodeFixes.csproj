@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="StyleSharp.Analyzers.Benchmarks" />
+    <InternalsVisibleTo Include="StyleSharp.Analyzers.Tests" />
   </ItemGroup>
 
   <ItemGroup>

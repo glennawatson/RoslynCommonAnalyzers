@@ -28,14 +28,13 @@ public sealed class NameSimplificationCodeFixProvider : CodeFixProvider, IBatchF
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            var title = diagnostic.Id == ReadabilityRules.SimplifyName.Id
-                ? "Shorten equivalent name"
-                : "Omit this qualifier";
-
-            if (CreateReplacement(root, diagnostic, out _, out _) is null)
+            var replacement = CreateReplacement(root, diagnostic, out var oldNode, out _);
+            if (oldNode is null || replacement is null)
             {
                 continue;
             }
+
+            var title = CreateTitle(diagnostic, oldNode);
 
             context.RegisterCodeFix(
                 CodeAction.Create(
@@ -77,7 +76,7 @@ public sealed class NameSimplificationCodeFixProvider : CodeFixProvider, IBatchF
     /// <param name="oldNode">The node being replaced.</param>
     /// <param name="diagnosticId">The diagnostic id.</param>
     /// <returns>The replacement node, or <see langword="null"/>.</returns>
-    private static SimpleNameSyntax? CreateReplacement(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode, out string diagnosticId)
+    private static ExpressionSyntax? CreateReplacement(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode, out string diagnosticId)
     {
         diagnosticId = diagnostic.Id;
         oldNode = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
@@ -100,9 +99,34 @@ public sealed class NameSimplificationCodeFixProvider : CodeFixProvider, IBatchF
             _ => null
         };
 
+    /// <summary>Creates the code action title for the reported syntax shape.</summary>
+    /// <param name="diagnostic">The diagnostic being fixed.</param>
+    /// <param name="oldNode">The node being replaced.</param>
+    /// <returns>The code action title.</returns>
+    private static string CreateTitle(Diagnostic diagnostic, SyntaxNode oldNode)
+    {
+        if (diagnostic.Id == ReadabilityRules.SimplifyName.Id)
+        {
+            return "Shorten equivalent name";
+        }
+
+        return oldNode is IdentifierNameSyntax
+            ? "Add this qualification"
+            : "Remove this qualification";
+    }
+
     /// <summary>Creates the unqualified member-access replacement.</summary>
     /// <param name="node">The reported member-access node.</param>
-    /// <returns>The unqualified member name, or <see langword="null"/>.</returns>
-    private static SimpleNameSyntax? CreateMemberAccessReplacement(SyntaxNode? node)
-        => node is MemberAccessExpressionSyntax memberAccess ? memberAccess.Name.WithTriviaFrom(memberAccess) : null;
+    /// <returns>The configured member-access replacement, or <see langword="null"/>.</returns>
+    private static ExpressionSyntax? CreateMemberAccessReplacement(SyntaxNode? node)
+        => node switch
+        {
+            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.WithTriviaFrom(memberAccess),
+            IdentifierNameSyntax identifier => SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    SyntaxFactory.ThisExpression(),
+                    identifier.WithoutTrivia())
+                .WithTriviaFrom(identifier),
+            _ => null
+        };
 }

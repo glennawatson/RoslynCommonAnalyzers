@@ -8,10 +8,10 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
-/// <summary>Memory benchmarks for the prefix-local-calls-with-this code-fix path.</summary>
+/// <summary>Memory benchmarks for the require-this member-qualification code-fix path.</summary>
 [MemoryDiagnoser]
 [ShortRunJob]
-public class PrefixLocalCallsWithThisCodeFixBenchmarks : IDisposable
+public class MemberQualificationRequireThisCodeFixBenchmarks : IDisposable
 {
     /// <summary>The divisor used to select the middle benchmark node.</summary>
     private const int MiddleNodeDivisor = 2;
@@ -25,8 +25,8 @@ public class PrefixLocalCallsWithThisCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative bare identifier passed to the code fix.</summary>
-    private IdentifierNameSyntax _identifier = null!;
+    /// <summary>The representative diagnostic passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -35,13 +35,13 @@ public class PrefixLocalCallsWithThisCodeFixBenchmarks : IDisposable
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
     public int Nodes { get; set; }
 
-    /// <summary>Builds the benchmark document and selects one representative bare instance-member call.</summary>
+    /// <summary>Builds the benchmark document and selects one representative bare instance-member access.</summary>
     /// <returns>A task that represents the asynchronous setup operation.</returns>
     [GlobalSetup]
     public async Task SetupAsync()
     {
         _workspace = new AdhocWorkspace();
-        _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ExpressionCodeFixBenchmarkSource.GeneratePrefixLocalCallsWithThis(Nodes));
+        _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ExpressionCodeFixBenchmarkSource.GenerateRequireThisMemberQualification(Nodes));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var method = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<MethodDeclarationSyntax>(
             _root,
@@ -50,7 +50,8 @@ public class PrefixLocalCallsWithThisCodeFixBenchmarks : IDisposable
                 && candidate.Identifier.ValueText[0] == 'M'
                 && char.IsDigit(candidate.Identifier.ValueText[1]));
         var invocation = (InvocationExpressionSyntax)((ExpressionStatementSyntax)method.Body!.Statements[0]).Expression;
-        _identifier = (IdentifierNameSyntax)invocation.Expression;
+        var identifier = (IdentifierNameSyntax)invocation.Expression;
+        _diagnostic = Diagnostic.Create(ReadabilityRules.SimplifyMemberAccess, identifier.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -64,12 +65,12 @@ public class PrefixLocalCallsWithThisCodeFixBenchmarks : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>Benchmarks applying the prefix-local-calls-with-this code fix to one representative node.</summary>
+    /// <summary>Benchmarks applying the require-this member-qualification code fix to one representative node.</summary>
     /// <returns>The updated document text length.</returns>
     [Benchmark]
-    public async Task<int> PrefixLocalCallsWithThis_ApplyFixAsync()
+    public async Task<int> MemberQualificationRequireThis_ApplyFixAsync()
     {
-        var updated = Sst1101PrefixLocalCallsWithThisCodeFixProvider.Apply(_document, _root, _identifier);
+        var updated = NameSimplificationCodeFixProvider.Apply(_document, _root, _diagnostic);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

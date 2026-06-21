@@ -51,6 +51,7 @@ Some rules expose options. Current options:
 | `stylesharp.record_parameter_naming` | [SST1801](rules/SST1801.md) | `pascal_case`, `camel_case` | `pascal_case` |
 | `stylesharp.extension_container_preferred_suffix` | [SST1704](rules/SST1704.md) | `Extensions`, `Mixins` | `Extensions` |
 | `stylesharp.namespace_root` | [SST1417](rules/SST1417.md) | namespace text | MSBuild `RootNamespace` |
+| `stylesharp.instance_member_qualification` | [SST1117](rules/SST1117.md) | `omit_this`, `require_this` | `omit_this` |
 | `stylesharp.conditional_operator_placement` | [SST1145](rules/SST1145.md) | `leading`, `trailing` | `leading` |
 | `stylesharp.collection_expression_spacing` | [SST1010](rules/SST1010.md) / [SST1011](rules/SST1011.md) | `none`, `space` | `none` |
 | `stylesharp.summary_single_line_max_length` | [SST1653](rules/SST1653.md) | positive integer | `100` |
@@ -77,6 +78,25 @@ stylesharp.SST1315.union_member_naming = pascal_case
 
 Values are case-insensitive. An unset or unrecognized value falls back to the
 default in the table above.
+
+### Instance member qualification
+
+`stylesharp.instance_member_qualification` controls [SST1117](rules/SST1117.md).
+The default is `omit_this`, matching the StyleSharp `_field` convention:
+
+```ini
+[*.cs]
+stylesharp.instance_member_qualification = omit_this
+```
+
+Set it to `require_this` when a project wants explicit receiver qualification instead:
+
+```ini
+[*.cs]
+stylesharp.instance_member_qualification = require_this
+```
+
+The setting flips the same rule and code fix rather than enabling a second opposing rule.
 
 ### SST1431
 

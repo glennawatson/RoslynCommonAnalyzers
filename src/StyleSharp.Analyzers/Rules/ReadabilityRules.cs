@@ -114,13 +114,6 @@ internal static class ReadabilityRules
         "Place this enum value on its own line",
         "Each enum member is written on its own line so the members read as a list.");
 
-    /// <summary>SST1101 — an instance member is accessed without a <c>this.</c> prefix (opt-in; conflicts with the no-<c>this</c> style).</summary>
-    public static readonly DiagnosticDescriptor PrefixLocalCallsWithThis = CreateOptIn(
-        "SST1101",
-        "Prefix local calls with this",
-        "Prefix the reference to '{0}' with 'this.'",
-        "An instance member is accessed through 'this.'. Off by default — most .NET style guides, and this repository, omit the 'this.' prefix.");
-
     /// <summary>SST1137 — sibling elements are indented differently from one another.</summary>
     public static readonly DiagnosticDescriptor ElementsConsistentIndentation = Create(
         "SST1137",
@@ -212,12 +205,12 @@ internal static class ReadabilityRules
         "Shorten this qualified name",
         "A qualified type or namespace name is shortened when the shorter name binds to the same symbol.");
 
-    /// <summary>SST1117 — a <c>this.</c> member access can be shortened without changing the symbol it binds to.</summary>
+    /// <summary>SST1117 — an instance-member access does not match the configured <c>this.</c>-qualification style.</summary>
     public static readonly DiagnosticDescriptor SimplifyMemberAccess = Create(
         "SST1117",
-        "Drop redundant this qualification",
-        "Omit the redundant 'this.' qualifier",
-        "A 'this.' qualifier is omitted when the unqualified member access binds to the same member.");
+        "Use the configured instance-member qualification",
+        "Use the configured instance-member qualification",
+        "Instance-member access follows 'stylesharp.instance_member_qualification': StyleSharp omits 'this.' by default, or adds it when the option is set to 'require_this'.");
 
     /// <summary>SST1118 — a parameter or argument spans multiple lines (opt-in; multi-line callbacks are exempt).</summary>
     public static readonly DiagnosticDescriptor ParameterMustNotSpanMultipleLines = CreateOptIn(

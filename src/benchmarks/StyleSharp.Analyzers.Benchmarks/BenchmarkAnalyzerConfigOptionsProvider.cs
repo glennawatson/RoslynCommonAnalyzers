@@ -11,19 +11,35 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// <summary>Simple dictionary-backed analyzer config provider for benchmark scenarios.</summary>
 internal sealed class BenchmarkAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsProvider
 {
-    /// <summary>The empty analyzer-config options returned for tree/file-scoped lookups.</summary>
+    /// <summary>The empty analyzer-config options returned for file-scoped lookups.</summary>
     private static readonly AnalyzerConfigOptions EmptyOptions = new DictionaryAnalyzerConfigOptions(ImmutableDictionary<string, string>.Empty);
+
+    /// <summary>The analyzer-config options returned for syntax-tree lookups.</summary>
+    private readonly AnalyzerConfigOptions _treeOptions;
 
     /// <summary>Initializes a new instance of the <see cref="BenchmarkAnalyzerConfigOptionsProvider"/> class.</summary>
     /// <param name="globalOptions">The global analyzer-config key/value pairs.</param>
     public BenchmarkAnalyzerConfigOptionsProvider(IReadOnlyDictionary<string, string> globalOptions)
-        => GlobalOptions = new DictionaryAnalyzerConfigOptions(globalOptions);
+        : this(globalOptions, ImmutableDictionary<string, string>.Empty)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="BenchmarkAnalyzerConfigOptionsProvider"/> class.</summary>
+    /// <param name="globalOptions">The global analyzer-config key/value pairs.</param>
+    /// <param name="treeOptions">The syntax-tree analyzer-config key/value pairs.</param>
+    public BenchmarkAnalyzerConfigOptionsProvider(
+        IReadOnlyDictionary<string, string> globalOptions,
+        IReadOnlyDictionary<string, string> treeOptions)
+    {
+        GlobalOptions = new DictionaryAnalyzerConfigOptions(globalOptions);
+        _treeOptions = new DictionaryAnalyzerConfigOptions(treeOptions);
+    }
 
     /// <inheritdoc/>
     public override AnalyzerConfigOptions GlobalOptions { get; }
 
     /// <inheritdoc/>
-    public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => EmptyOptions;
+    public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => _treeOptions;
 
     /// <inheritdoc/>
     public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => EmptyOptions;

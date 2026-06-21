@@ -260,7 +260,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
             for (var i = 0; i < candidates.Count; i++)
             {
                 var candidate = candidates[i];
-                if (!SymbolEqualityComparer.Default.Equals(symbol, candidate.Symbol)
+                if (!SymbolMatches(symbol, candidate.Symbol)
                     || IsInsideDeclaration(simpleName, candidate.Declaration))
                 {
                     continue;
@@ -270,6 +270,14 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
             }
         }
     }
+
+    /// <summary>Returns whether a reference symbol matches a candidate declaration symbol.</summary>
+    /// <param name="reference">The symbol resolved at the reference site.</param>
+    /// <param name="candidate">The candidate declaration symbol.</param>
+    /// <returns><see langword="true"/> when the symbols represent the same member.</returns>
+    private static bool SymbolMatches(ISymbol reference, ISymbol candidate)
+        => SymbolEqualityComparer.Default.Equals(reference, candidate)
+            || SymbolEqualityComparer.Default.Equals(reference.OriginalDefinition, candidate.OriginalDefinition);
 
     /// <summary>Updates read/write state for one reference.</summary>
     /// <param name="candidate">The candidate member.</param>

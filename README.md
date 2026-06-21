@@ -115,8 +115,8 @@ MIT — see [LICENSE](LICENSE).
 
 ## Acknowledgements
 
-This project was inspired by [StyleCop.Analyzers](https://github.com/DotNetAnalyzers/StyleCopAnalyzers). The analyzers and code fixes here are written from scratch, and no StyleCop.Analyzers source code was copied. Some diagnostic IDs, titles, and messages do mirror StyleCop's for familiarity, so StyleCop.Analyzers' MIT license is included in [LICENSE](LICENSE).
+The analyzers and code fixes here are written from scratch. No source code was copied from the projects below. License references are included in [LICENSE](LICENSE) where applicable.
 
-Thanks to Sam Harwell and the StyleCop.Analyzers contributors. Their work set the standard this project learned from.
-
-Some analyzers here were also inspired by [Roslynator](https://github.com/dotnet/roslynator). As with StyleCop, the code was developed independently and no Roslynator source code was copied. Roslynator is licensed under the Apache License 2.0, referenced in [LICENSE](LICENSE).
+- [StyleCop.Analyzers](https://github.com/DotNetAnalyzers/StyleCopAnalyzers), licensed under the MIT License, inspired the original shape of the project. Thanks to Sam Harwell and the StyleCop.Analyzers contributors.
+- [Roslynator](https://github.com/dotnet/roslynator), licensed under the Apache License 2.0, inspired some diagnostic design choices. Thanks to Josef Pihrt and the Roslynator contributors.
+- The .NET SDK analyzer guidance and [dotnet/roslyn](https://github.com/dotnet/roslyn), licensed under the MIT License, inspired parts of the style-rule coverage. Thanks to the .NET and Roslyn teams.

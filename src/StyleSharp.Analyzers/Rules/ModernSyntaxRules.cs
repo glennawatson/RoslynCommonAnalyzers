@@ -147,6 +147,104 @@ internal static class ModernSyntaxRules
         "Rewrite this accessor as an expression body",
         "A property accessor whose body contains a single return or assignment is written as an expression-bodied accessor.");
 
+    /// <summary>SST2220 — interpolation can carry a simple <c>ToString</c> call directly.</summary>
+    public static readonly DiagnosticDescriptor SimplifyInterpolation = Create(
+        "SST2220",
+        "Let interpolation format the value",
+        "Move this ToString call into the interpolation",
+        "A string interpolation removes a redundant ToString call and keeps any literal format text in the interpolation hole.");
+
+    /// <summary>SST2221 — an expression statement computes a value that is intentionally ignored.</summary>
+    public static readonly DiagnosticDescriptor MakeIgnoredExpressionValueExplicit = CreateOptIn(
+        "SST2221",
+        "Mark ignored expression values",
+        "Assign this ignored value to the discard",
+        "An expression statement that produces a value assigns it to the discard so the ignored result is explicit. Off by default because fluent APIs often ignore returned receivers intentionally.");
+
+    /// <summary>SST2222 — a local value is overwritten before it is read.</summary>
+    public static readonly DiagnosticDescriptor RemoveOverwrittenValue = Create(
+        "SST2222",
+        "Remove value overwritten before use",
+        "Remove this overwritten value",
+        "A local initializer or assignment is removed when the next write to the same local occurs before any read and the removed value has no side effects.");
+
+    /// <summary>SST2223 — a null check assignment can use <c>??=</c>.</summary>
+    public static readonly DiagnosticDescriptor UseCoalesceAssignment = Create(
+        "SST2223",
+        "Assign fallback values with ??=",
+        "Rewrite this null fallback assignment with '??='",
+        "A null check that only assigns a fallback value is written with the coalescing assignment operator.");
+
+    /// <summary>SST2224 — an anonymous object can be written as a tuple when the type shape is local style only.</summary>
+    public static readonly DiagnosticDescriptor ConvertAnonymousObjectToTuple = CreateOptIn(
+        "SST2224",
+        "Use tuple syntax for local value bundles",
+        "Replace this anonymous object with a tuple literal",
+        "A small anonymous object can be written as a tuple literal when the codebase prefers tuple-shaped local value bundles. Off by default because runtime type and equality semantics change.");
+
+    /// <summary>SST2225 — a <c>foreach</c> loop hides an explicit element conversion.</summary>
+    public static readonly DiagnosticDescriptor AddExplicitForeachCast = Create(
+        "SST2225",
+        "Show foreach element casts at the source",
+        "Cast the source sequence before this foreach loop",
+        "A foreach loop that relies on a runtime element cast makes that cast visible at the sequence expression.");
+
+    /// <summary>SST2226 — a cast hides an inner explicit conversion.</summary>
+    public static readonly DiagnosticDescriptor AddVisibleInnerCast = Create(
+        "SST2226",
+        "Show the inner explicit conversion",
+        "Add the hidden inner cast",
+        "A source cast that causes another explicit conversion to be emitted makes the inner conversion visible in source.");
+
+    /// <summary>SST2227 — a post-assignment null check can be folded into the assigned expression.</summary>
+    public static readonly DiagnosticDescriptor FoldNullCheckIntoAssignment = Create(
+        "SST2227",
+        "Fold null fallback into the assignment",
+        "Move this null fallback into the assigned expression",
+        "A value assigned and then immediately checked for null keeps the fallback or throw expression beside the value being assigned.");
+
+    /// <summary>SST2228 — a delegate local initialized with a lambda can be a local function.</summary>
+    public static readonly DiagnosticDescriptor UseLocalFunction = Create(
+        "SST2228",
+        "Prefer a local function for local call sites",
+        "Replace this delegate local with a local function",
+        "A delegate local that is only invoked in the containing block is written as a local function so the call target has method shape without allocating a delegate.");
+
+    /// <summary>SST2229 — a LINQ terminal call can carry the preceding predicate directly.</summary>
+    public static readonly DiagnosticDescriptor CollapseLinqWhereTerminal = Create(
+        "SST2229",
+        "Carry LINQ predicates at the terminal call",
+        "Move this Where predicate into the terminal LINQ call",
+        "A Where call immediately followed by a terminal LINQ call that accepts a predicate keeps the predicate in the terminal call and removes an iterator layer.");
+
+    /// <summary>SST2230 — a LINQ type filter and cast can use one typed filter call.</summary>
+    public static readonly DiagnosticDescriptor CollapseLinqTypeFilter = Create(
+        "SST2230",
+        "Filter LINQ values by type once",
+        "Replace the type check and cast chain with one typed filter",
+        "A LINQ Where type check followed by Cast is written as a single typed filter call so the sequence performs one pass over each element.");
+
+    /// <summary>SST2231 — a broad object pattern is only a null check.</summary>
+    public static readonly DiagnosticDescriptor UseDirectNullPattern = Create(
+        "SST2231",
+        "State null checks directly",
+        "Replace the broad object pattern with a null pattern",
+        "A pattern that only proves a reference is or is not null uses a direct null pattern rather than a broad object type test.");
+
+    /// <summary>SST2232 — <c>nameof</c> does not need concrete generic type arguments.</summary>
+    public static readonly DiagnosticDescriptor UseUnboundGenericName = Create(
+        "SST2232",
+        "Omit generic arguments inside nameof",
+        "Replace concrete generic arguments with omitted generic arguments",
+        "A nameof expression over a generic type omits concrete type arguments because the generated name does not depend on them.");
+
+    /// <summary>SST2233 — hot-path code should avoid LINQ extension methods (opt-in).</summary>
+    public static readonly DiagnosticDescriptor AvoidLinqOnHotPath = CreateOptIn(
+        "SST2233",
+        "Avoid LINQ calls on hot paths",
+        "Replace this LINQ call with explicit iteration on performance-sensitive paths",
+        "Hot-path code avoids System.Linq.Enumerable calls where iterator allocation, delegate invocation, and abstraction overhead can dominate.");
+
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

@@ -387,6 +387,80 @@ public class MaintainabilityAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a private method used from another partial declaration is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PrivateMethodUsedFromAnotherPartialPartIsAllowedAsync()
+    {
+        var test = new VerifyPrivateUsageAnalyzer.Test();
+        test.TestState.Sources.Add(
+            ("C.Helpers.cs", """
+                             internal static partial class C
+                             {
+                                 private static int Helper() => 1;
+                             }
+                             """));
+        test.TestState.Sources.Add(
+            ("C.cs", """
+                     internal static partial class C
+                     {
+                         public static int M() => Helper();
+                     }
+                     """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a private field used from another partial declaration is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PrivateFieldUsedFromAnotherPartialPartIsAllowedAsync()
+    {
+        var test = new VerifyPrivateUsageAnalyzer.Test();
+        test.TestState.Sources.Add(
+            ("C.State.cs", """
+                           internal static partial class C
+                           {
+                               private static int _value = 1;
+                           }
+                           """));
+        test.TestState.Sources.Add(
+            ("C.cs", """
+                     internal static partial class C
+                     {
+                         public static int M() => _value;
+                     }
+                     """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a private field written in one partial declaration and read in another is not reported as unread.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PrivateFieldWrittenAndReadAcrossPartialPartsIsAllowedAsync()
+    {
+        var test = new VerifyPrivateUsageAnalyzer.Test();
+        test.TestState.Sources.Add(
+            ("C.State.cs", """
+                           internal static partial class C
+                           {
+                               private static int _value;
+
+                               public static void Set() => _value = 1;
+                           }
+                           """));
+        test.TestState.Sources.Add(
+            ("C.cs", """
+                     internal static partial class C
+                     {
+                         public static int M() => _value;
+                     }
+                     """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies private helpers called from extension blocks are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

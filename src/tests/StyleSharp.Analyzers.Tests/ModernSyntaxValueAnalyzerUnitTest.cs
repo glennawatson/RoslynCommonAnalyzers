@@ -5,6 +5,8 @@
 using System.Collections.Immutable;
 
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
@@ -165,6 +167,103 @@ public class ModernSyntaxValueAnalyzerUnitTest
         var updatedRoot = await updated.GetSyntaxRootAsync(CancellationToken.None);
 
         await Assert.That(updatedRoot!.ToFullString()).IsEqualTo(Source);
+    }
+
+    /// <summary>Verifies the ignored-value fixer is not offered when discard syntax would bind to a lambda parameter.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task IgnoredExpressionValueCodeFixIsNotOfferedWhenUnderscoreParameterIsInScopeAsync()
+    {
+        const string Source = """
+                              public delegate void Sink(int value);
+
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      Sink sink = _ =>
+                                      {
+                                          Compute();
+                                      };
+                                  }
+
+                                  private int Compute() => 1;
+                              }
+                              """;
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.CurrentSolution
+            .AddProject("TestProject", "TestProject", LanguageNames.CSharp)
+            .WithMetadataReferences([MetadataReference.CreateFromFile(typeof(object).Assembly.Location)]);
+        var document = project.AddDocument("Test0.cs", SourceText.From(Source));
+        var root = await document.GetSyntaxRootAsync(CancellationToken.None);
+        var model = await document.GetSemanticModelAsync(CancellationToken.None);
+        var statement = root!.DescendantNodes().OfType<ExpressionStatementSyntax>().Single();
+        var diagnostic = Diagnostic.Create(
+            ModernSyntaxRules.MakeIgnoredExpressionValueExplicit,
+            Location.Create("Test0.cs", statement.Expression.Span, default));
+        var actions = new List<CodeAction>();
+        var context = new CodeFixContext(
+            document,
+            diagnostic,
+            (action, _) => actions.Add(action),
+            CancellationToken.None);
+
+        await new ModernSyntaxValueCodeFixProvider().RegisterCodeFixesAsync(context);
+        var updated = ModernSyntaxValueCodeFixProvider.Apply(document, root, model, diagnostic);
+        var updatedRoot = await updated.GetSyntaxRootAsync(CancellationToken.None);
+
+        await Assert.That(actions).IsEmpty();
+        await Assert.That(updatedRoot!.ToFullString()).IsEqualTo(Source);
+    }
+
+    /// <summary>Verifies Fix All skips unsafe discard assignments while fixing safe ignored values.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task IgnoredExpressionValueFixAllSkipsBoundUnderscoreOccurrencesAsync()
+    {
+        const string Source = """
+                              public delegate void Sink(int value);
+
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      {|SST2221:Safe()|};
+                                      Sink sink = _ =>
+                                      {
+                                          {|SST2221:Compute()|};
+                                      };
+                                  }
+
+                                  private int Safe() => 1;
+
+                                  private int Compute() => 1;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public delegate void Sink(int value);
+
+                                   public sealed class C
+                                   {
+                                       public void M()
+                                       {
+                                           _ = Safe();
+                                           Sink sink = _ =>
+                                           {
+                                               Compute();
+                                           };
+                                       }
+
+                                       private int Safe() => 1;
+
+                                       private int Compute() => 1;
+                                   }
+                                   """;
+        var test = CreateNet80Test(Source, FixedSource);
+        Enable(test, "SST2221");
+        test.FixedState.ExpectedDiagnostics.Add(VerifyModernSyntaxValue.Diagnostic("SST2221").WithSpan(10, 13, 10, 22));
+
+        await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies adjacent overwritten local values are removed without touching the later write.</summary>

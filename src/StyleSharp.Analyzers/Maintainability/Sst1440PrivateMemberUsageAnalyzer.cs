@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Concurrent;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Reports private members that are unused or private fields that are written but never read.</summary>
@@ -36,45 +38,76 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterSyntaxNodeAction(
-            AnalyzeType,
-            SyntaxKind.ClassDeclaration,
-            SyntaxKind.StructDeclaration,
-            SyntaxKind.RecordDeclaration,
-            SyntaxKind.RecordStructDeclaration);
+        context.RegisterCompilationStartAction(static context =>
+        {
+            var usages = new ConcurrentDictionary<INamedTypeSymbol, PrivateTypeUsage>(SymbolEqualityComparer.Default);
+            context.RegisterSemanticModelAction(modelContext => AnalyzeSemanticModel(modelContext, usages));
+            context.RegisterCompilationEndAction(context => ReportCandidates(context, usages));
+        });
     }
 
-    /// <summary>Analyzes one type declaration for private member usage.</summary>
-    /// <param name="context">The syntax context.</param>
-    private static void AnalyzeType(SyntaxNodeAnalysisContext context)
+    /// <summary>Analyzes one semantic model for private member declarations and references.</summary>
+    /// <param name="context">The semantic model context.</param>
+    /// <param name="usages">The accumulated type usage state.</param>
+    private static void AnalyzeSemanticModel(
+        SemanticModelAnalysisContext context,
+        ConcurrentDictionary<INamedTypeSymbol, PrivateTypeUsage> usages)
     {
-        if (context.Node is not TypeDeclarationSyntax typeDeclaration)
+        var root = context.SemanticModel.SyntaxTree.GetRoot(context.CancellationToken);
+        foreach (var node in root.DescendantNodes())
         {
-            return;
-        }
+            context.CancellationToken.ThrowIfCancellationRequested();
+            if (node is not TypeDeclarationSyntax typeDeclaration)
+            {
+                continue;
+            }
 
-        var candidates = CollectCandidates(typeDeclaration, context.SemanticModel, context.CancellationToken);
+            if (context.SemanticModel.GetDeclaredSymbol(typeDeclaration, context.CancellationToken) is not INamedTypeSymbol typeSymbol)
+            {
+                continue;
+            }
+
+            if (typeSymbol.DeclaringSyntaxReferences.Length == 1)
+            {
+                AnalyzeSinglePartType(context, typeDeclaration);
+                continue;
+            }
+
+            var usage = usages.GetOrAdd(typeSymbol, static _ => new PrivateTypeUsage());
+            CollectCandidates(typeDeclaration, context.SemanticModel, usage, context.CancellationToken);
+            CollectReferences(typeDeclaration, usage, context.SemanticModel, context.CancellationToken);
+        }
+    }
+
+    /// <summary>Analyzes one type declaration whose full body is available in the current semantic model.</summary>
+    /// <param name="context">The semantic model context.</param>
+    /// <param name="typeDeclaration">The type declaration.</param>
+    private static void AnalyzeSinglePartType(SemanticModelAnalysisContext context, TypeDeclarationSyntax typeDeclaration)
+    {
+        var usage = new PrivateTypeUsage();
+        CollectCandidates(typeDeclaration, context.SemanticModel, usage, context.CancellationToken);
+        CollectReferences(typeDeclaration, usage, context.SemanticModel, context.CancellationToken);
+        var (candidates, references) = usage.Snapshot();
         if (candidates.Count == 0)
         {
             return;
         }
 
-        var byName = BuildNameMap(candidates);
-        MarkReferences(typeDeclaration, byName, context.SemanticModel, context.CancellationToken);
-        ReportCandidates(context, candidates);
+        MarkReferences(candidates, references, context.CancellationToken);
+        ReportCandidates(context.ReportDiagnostic, candidates);
     }
 
     /// <summary>Collects private fields, properties, methods, and events that are safe to analyze locally.</summary>
     /// <param name="typeDeclaration">The type declaration.</param>
     /// <param name="model">The semantic model.</param>
+    /// <param name="usage">The type usage state.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
-    /// <returns>The candidate list.</returns>
-    private static List<PrivateMemberCandidate> CollectCandidates(
+    private static void CollectCandidates(
         TypeDeclarationSyntax typeDeclaration,
         SemanticModel model,
+        PrivateTypeUsage usage,
         CancellationToken cancellationToken)
     {
-        var candidates = new List<PrivateMemberCandidate>();
         var members = typeDeclaration.Members;
         for (var i = 0; i < members.Count; i++)
         {
@@ -82,42 +115,40 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
             {
                 case FieldDeclarationSyntax field:
                     {
-                        CollectFieldCandidates(field, model, candidates, cancellationToken);
+                        CollectFieldCandidates(field, model, usage, cancellationToken);
                         break;
                     }
 
                 case PropertyDeclarationSyntax property:
                     {
-                        AddCandidate(property, property.Identifier, isFieldLike: true, model, candidates, cancellationToken);
+                        AddCandidate(property, property.Identifier, isFieldLike: true, model, usage, cancellationToken);
                         break;
                     }
 
                 case MethodDeclarationSyntax method:
                     {
-                        AddMethodCandidate(method, model, candidates, cancellationToken);
+                        AddMethodCandidate(method, model, usage, cancellationToken);
                         break;
                     }
 
                 case EventFieldDeclarationSyntax eventField:
                     {
-                        CollectEventCandidates(eventField, model, candidates, cancellationToken);
+                        CollectEventCandidates(eventField, model, usage, cancellationToken);
                         break;
                     }
             }
         }
-
-        return candidates;
     }
 
     /// <summary>Collects private field candidates from one field declaration.</summary>
     /// <param name="field">The field declaration.</param>
     /// <param name="model">The semantic model.</param>
-    /// <param name="candidates">The destination list.</param>
+    /// <param name="usage">The type usage state.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     private static void CollectFieldCandidates(
         FieldDeclarationSyntax field,
         SemanticModel model,
-        List<PrivateMemberCandidate> candidates,
+        PrivateTypeUsage usage,
         CancellationToken cancellationToken)
     {
         if (!IsPrivate(field.Modifiers)
@@ -132,7 +163,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         {
             if (model.GetDeclaredSymbol(variables[i], cancellationToken) is IFieldSymbol symbol)
             {
-                candidates.Add(new PrivateMemberCandidate(symbol, field, variables[i].Identifier, isFieldLike: true));
+                usage.AddMemberCandidate(new PrivateMemberCandidate(symbol, field, variables[i].Identifier, isFieldLike: true));
             }
         }
     }
@@ -142,14 +173,14 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="identifier">The property identifier.</param>
     /// <param name="isFieldLike">Whether reads and writes should be tracked separately.</param>
     /// <param name="model">The semantic model.</param>
-    /// <param name="candidates">The destination list.</param>
+    /// <param name="usage">The type usage state.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     private static void AddCandidate(
         PropertyDeclarationSyntax property,
         SyntaxToken identifier,
         bool isFieldLike,
         SemanticModel model,
-        List<PrivateMemberCandidate> candidates,
+        PrivateTypeUsage usage,
         CancellationToken cancellationToken)
     {
         if (!IsPrivate(property.Modifiers)
@@ -159,18 +190,18 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        candidates.Add(new PrivateMemberCandidate(symbol, property, identifier, isFieldLike));
+        usage.AddMemberCandidate(new PrivateMemberCandidate(symbol, property, identifier, isFieldLike));
     }
 
     /// <summary>Adds a private method candidate when it is safe to remove mechanically.</summary>
     /// <param name="method">The method declaration.</param>
     /// <param name="model">The semantic model.</param>
-    /// <param name="candidates">The destination list.</param>
+    /// <param name="usage">The type usage state.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     private static void AddMethodCandidate(
         MethodDeclarationSyntax method,
         SemanticModel model,
-        List<PrivateMemberCandidate> candidates,
+        PrivateTypeUsage usage,
         CancellationToken cancellationToken)
     {
         if (!IsPrivate(method.Modifiers)
@@ -182,18 +213,18 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        candidates.Add(new PrivateMemberCandidate(symbol, method, method.Identifier, isFieldLike: false));
+        usage.AddMemberCandidate(new PrivateMemberCandidate(symbol, method, method.Identifier, isFieldLike: false));
     }
 
     /// <summary>Collects private event candidates from one event-field declaration.</summary>
     /// <param name="eventField">The event-field declaration.</param>
     /// <param name="model">The semantic model.</param>
-    /// <param name="candidates">The destination list.</param>
+    /// <param name="usage">The type usage state.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     private static void CollectEventCandidates(
         EventFieldDeclarationSyntax eventField,
         SemanticModel model,
-        List<PrivateMemberCandidate> candidates,
+        PrivateTypeUsage usage,
         CancellationToken cancellationToken)
     {
         if (!IsPrivate(eventField.Modifiers) || HasAttributes(eventField))
@@ -206,7 +237,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         {
             if (model.GetDeclaredSymbol(variables[i], cancellationToken) is IEventSymbol symbol)
             {
-                candidates.Add(new PrivateMemberCandidate(symbol, eventField, variables[i].Identifier, isFieldLike: false));
+                usage.AddMemberCandidate(new PrivateMemberCandidate(symbol, eventField, variables[i].Identifier, isFieldLike: false));
             }
         }
     }
@@ -232,21 +263,20 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         return byName;
     }
 
-    /// <summary>Marks candidate references found inside the type declaration.</summary>
+    /// <summary>Collects references found inside the type declaration.</summary>
     /// <param name="typeDeclaration">The type declaration.</param>
-    /// <param name="byName">Candidates keyed by name.</param>
+    /// <param name="usage">The type usage state.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
-    private static void MarkReferences(
+    private static void CollectReferences(
         TypeDeclarationSyntax typeDeclaration,
-        Dictionary<string, List<PrivateMemberCandidate>> byName,
+        PrivateTypeUsage usage,
         SemanticModel model,
         CancellationToken cancellationToken)
     {
         foreach (var node in typeDeclaration.DescendantNodes())
         {
-            if (node is not SimpleNameSyntax simpleName
-                || !byName.TryGetValue(simpleName.Identifier.ValueText, out var candidates))
+            if (node is not SimpleNameSyntax simpleName)
             {
                 continue;
             }
@@ -257,17 +287,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            for (var i = 0; i < candidates.Count; i++)
-            {
-                var candidate = candidates[i];
-                if (!SymbolMatches(symbol, candidate.Symbol)
-                    || IsInsideDeclaration(simpleName, candidate.Declaration))
-                {
-                    continue;
-                }
-
-                MarkReference(candidate, simpleName);
-            }
+            usage.AddMemberReference(new PrivateMemberReference(symbol, simpleName));
         }
     }
 
@@ -295,10 +315,39 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         candidate.Written |= (usage & ValueUsages.Write) != 0;
     }
 
+    /// <summary>Reports the unused or unread candidates for every analyzed type.</summary>
+    /// <param name="context">The compilation context.</param>
+    /// <param name="usages">The accumulated type usage state.</param>
+    private static void ReportCandidates(
+        CompilationAnalysisContext context,
+        ConcurrentDictionary<INamedTypeSymbol, PrivateTypeUsage> usages)
+    {
+        foreach (var usage in usages.Values)
+        {
+            context.CancellationToken.ThrowIfCancellationRequested();
+            ReportCandidates(context, usage);
+        }
+    }
+
     /// <summary>Reports the unused or unread candidates.</summary>
-    /// <param name="context">The syntax context.</param>
+    /// <param name="context">The compilation context.</param>
+    /// <param name="usage">The type usage state.</param>
+    private static void ReportCandidates(CompilationAnalysisContext context, PrivateTypeUsage usage)
+    {
+        var (candidates, references) = usage.Snapshot();
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        MarkReferences(candidates, references, context.CancellationToken);
+        ReportCandidates(context.ReportDiagnostic, candidates);
+    }
+
+    /// <summary>Reports the unused or unread candidates.</summary>
+    /// <param name="reportDiagnostic">The diagnostic reporting callback.</param>
     /// <param name="candidates">The candidate list.</param>
-    private static void ReportCandidates(SyntaxNodeAnalysisContext context, List<PrivateMemberCandidate> candidates)
+    private static void ReportCandidates(Action<Diagnostic> reportDiagnostic, List<PrivateMemberCandidate> candidates)
     {
         for (var i = 0; i < candidates.Count; i++)
         {
@@ -307,14 +356,14 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
             {
                 if (!candidate.Read && !candidate.Written)
                 {
-                    context.ReportDiagnostic(Diagnostic.Create(
+                    reportDiagnostic(Diagnostic.Create(
                         MaintainabilityRules.RemoveUnusedPrivateMember,
                         candidate.Identifier.GetLocation(),
                         candidate.Symbol.Name));
                 }
                 else if (!candidate.Read && candidate.Written)
                 {
-                    context.ReportDiagnostic(Diagnostic.Create(
+                    reportDiagnostic(Diagnostic.Create(
                         MaintainabilityRules.RemoveUnreadPrivateField,
                         candidate.Identifier.GetLocation(),
                         candidate.Symbol.Name));
@@ -325,10 +374,43 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
 
             if (!candidate.Read)
             {
-                context.ReportDiagnostic(Diagnostic.Create(
+                reportDiagnostic(Diagnostic.Create(
                     MaintainabilityRules.RemoveUnusedPrivateMember,
                     candidate.Identifier.GetLocation(),
                     candidate.Symbol.Name));
+            }
+        }
+    }
+
+    /// <summary>Marks candidate references found across the type declarations.</summary>
+    /// <param name="candidates">The candidate list.</param>
+    /// <param name="references">The collected references.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    private static void MarkReferences(
+        List<PrivateMemberCandidate> candidates,
+        List<PrivateMemberReference> references,
+        CancellationToken cancellationToken)
+    {
+        var byName = BuildNameMap(candidates);
+        for (var i = 0; i < references.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var reference = references[i];
+            if (!byName.TryGetValue(reference.Name.Identifier.ValueText, out var nameCandidates))
+            {
+                continue;
+            }
+
+            for (var j = 0; j < nameCandidates.Count; j++)
+            {
+                var candidate = nameCandidates[j];
+                if (!SymbolMatches(reference.Symbol, candidate.Symbol)
+                    || IsInsideDeclaration(reference.Name, candidate.Declaration))
+                {
+                    continue;
+                }
+
+                MarkReference(candidate, reference.Name);
             }
         }
     }
@@ -419,6 +501,54 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
             _ => ValueUsages.Read
         };
     }
+
+    /// <summary>Tracks private member candidates and references for one type symbol.</summary>
+    private sealed class PrivateTypeUsage
+    {
+        /// <summary>Synchronizes access to the accumulated state.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The collected private member candidates.</summary>
+        private readonly List<PrivateMemberCandidate> _candidates = [];
+
+        /// <summary>The collected member references.</summary>
+        private readonly List<PrivateMemberReference> _references = [];
+
+        /// <summary>Adds one private member candidate.</summary>
+        /// <param name="candidate">The candidate to add.</param>
+        public void AddMemberCandidate(PrivateMemberCandidate candidate)
+        {
+            lock (_gate)
+            {
+                _candidates.Add(candidate);
+            }
+        }
+
+        /// <summary>Adds one member reference.</summary>
+        /// <param name="reference">The reference to add.</param>
+        public void AddMemberReference(PrivateMemberReference reference)
+        {
+            lock (_gate)
+            {
+                _references.Add(reference);
+            }
+        }
+
+        /// <summary>Creates a stable snapshot of the accumulated candidates and references.</summary>
+        /// <returns>The accumulated candidates and references.</returns>
+        public (List<PrivateMemberCandidate> Candidates, List<PrivateMemberReference> References) Snapshot()
+        {
+            lock (_gate)
+            {
+                return (new List<PrivateMemberCandidate>(_candidates), new List<PrivateMemberReference>(_references));
+            }
+        }
+    }
+
+    /// <summary>Tracks one member reference.</summary>
+    /// <param name="Symbol">The symbol resolved at the reference site.</param>
+    /// <param name="Name">The reference name syntax.</param>
+    private sealed record PrivateMemberReference(ISymbol Symbol, SimpleNameSyntax Name);
 
     /// <summary>Tracks one private member candidate.</summary>
     private sealed class PrivateMemberCandidate

@@ -517,6 +517,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             || nextIdentifier.Identifier.ValueText != identifier.Identifier.ValueText
             || !IsSideEffectFreeValue(assignment.Right, context.SemanticModel, context.CancellationToken)
             || context.SemanticModel.GetSymbolInfo(identifier, context.CancellationToken).Symbol is not { } symbol
+            || symbol.Kind == SymbolKind.Discard
             || ContainsReference(nextValue, symbol, context.SemanticModel, context.CancellationToken))
         {
             return;

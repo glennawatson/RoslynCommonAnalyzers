@@ -169,6 +169,25 @@ public class ModernSyntaxValueAnalyzerUnitTest
         await VerifyModernSyntaxValue.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies repeated discard assignments are not treated as overwritten local values.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RepeatedDiscardAssignmentsAreCleanAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      _ = 0;
+                                      _ = 1;
+                                  }
+                              }
+                              """;
+
+        await VerifyModernSyntaxValue.VerifyAnalyzerAsync(Source);
+    }
+
     /// <summary>Verifies an initializer is preserved when the following assignment captures the local.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

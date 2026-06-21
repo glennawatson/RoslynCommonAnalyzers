@@ -83,31 +83,8 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        ArgumentSyntax? match = null;
-        foreach (var node in nextStatement.DescendantNodes(static node => node is not AnonymousFunctionExpressionSyntax))
-        {
-            if (node is not ArgumentSyntax candidate
-                || !candidate.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
-                || candidate.Expression is not IdentifierNameSyntax identifier)
-            {
-                continue;
-            }
-
-            var symbol = model.GetSymbolInfo(identifier, cancellationToken).Symbol;
-            if (!SymbolEqualityComparer.Default.Equals(local, symbol))
-            {
-                continue;
-            }
-
-            if (match is not null)
-            {
-                return false;
-            }
-
-            match = candidate;
-        }
-
-        if (match is null)
+        if (!TryFindInlineOutArgument(nextStatement, local, model, cancellationToken, out var match)
+            || !CanInlineWithoutLosingScope(declaration, match, local, model, cancellationToken))
         {
             return false;
         }
@@ -136,6 +113,73 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
 
         nextStatement = block.Statements[index + 1];
         return true;
+    }
+
+    /// <summary>Finds the matching out argument in the supplied next statement.</summary>
+    /// <param name="nextStatement">The statement immediately after the declaration.</param>
+    /// <param name="local">The declared local symbol.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <param name="argument">The matched out argument.</param>
+    /// <returns><see langword="true"/> when exactly one matching out argument exists.</returns>
+    private static bool TryFindInlineOutArgument(
+        StatementSyntax nextStatement,
+        ISymbol local,
+        SemanticModel model,
+        CancellationToken cancellationToken,
+        out ArgumentSyntax argument)
+    {
+        ArgumentSyntax? match = null;
+        foreach (var node in nextStatement.DescendantNodes(static node => node is not AnonymousFunctionExpressionSyntax))
+        {
+            if (node is not ArgumentSyntax candidate
+                || !candidate.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
+                || candidate.Expression is not IdentifierNameSyntax identifier)
+            {
+                continue;
+            }
+
+            var symbol = model.GetSymbolInfo(identifier, cancellationToken).Symbol;
+            if (!SymbolEqualityComparer.Default.Equals(local, symbol))
+            {
+                continue;
+            }
+
+            if (match is not null)
+            {
+                argument = null!;
+                return false;
+            }
+
+            match = candidate;
+        }
+
+        argument = match!;
+        return match is not null;
+    }
+
+    /// <summary>Returns whether moving the declaration into the out argument keeps every later reference in scope.</summary>
+    /// <param name="declaration">The original declaration.</param>
+    /// <param name="argument">The matched out argument.</param>
+    /// <param name="local">The declared local symbol.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when the inline declaration would remain visible to all later uses.</returns>
+    private static bool CanInlineWithoutLosingScope(
+        LocalDeclarationStatementSyntax declaration,
+        ArgumentSyntax argument,
+        ISymbol local,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        if (declaration.Parent is not BlockSyntax declarationBlock
+            || !TryGetNearestBlock(argument, out var inlineScope)
+            || inlineScope == declarationBlock)
+        {
+            return true;
+        }
+
+        return !HasLocalReferenceOutsideScope(declarationBlock, declaration, inlineScope, local, model, cancellationToken);
     }
 
     /// <summary>Reports a null guard followed by returning the guarded value.</summary>
@@ -263,6 +307,74 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
             }
         }
 
+        return false;
+    }
+
+    /// <summary>Returns whether the local is referenced after the declaration outside the proposed inline scope.</summary>
+    /// <param name="declarationBlock">The block that contains the original declaration.</param>
+    /// <param name="declaration">The original declaration.</param>
+    /// <param name="inlineScope">The block that would contain the inline declaration.</param>
+    /// <param name="local">The local symbol being moved.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when an inlined declaration would no longer be in scope for a later reference.</returns>
+    private static bool HasLocalReferenceOutsideScope(
+        BlockSyntax declarationBlock,
+        LocalDeclarationStatementSyntax declaration,
+        BlockSyntax inlineScope,
+        ISymbol local,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        var declarationIndex = declarationBlock.Statements.IndexOf(declaration);
+        for (var index = declarationIndex + 1; index < declarationBlock.Statements.Count; index++)
+        {
+            foreach (var node in declarationBlock.Statements[index].DescendantNodesAndSelf())
+            {
+                if (node is not IdentifierNameSyntax identifier)
+                {
+                    continue;
+                }
+
+                if (IsInside(inlineScope, identifier))
+                {
+                    continue;
+                }
+
+                var symbol = model.GetSymbolInfo(identifier, cancellationToken).Symbol;
+                if (SymbolEqualityComparer.Default.Equals(local, symbol))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether the node is inside the supplied scope span.</summary>
+    /// <param name="scope">The containing scope.</param>
+    /// <param name="node">The node to test.</param>
+    /// <returns><see langword="true"/> when the node's span is contained by the scope span.</returns>
+    private static bool IsInside(SyntaxNode scope, SyntaxNode node)
+        => scope.SpanStart <= node.SpanStart && node.Span.End <= scope.Span.End;
+
+    /// <summary>Finds the nearest block that would contain an inline declaration expression.</summary>
+    /// <param name="node">The node inside the target declaration expression.</param>
+    /// <param name="block">The nearest block.</param>
+    /// <returns><see langword="true"/> when a block ancestor exists.</returns>
+    private static bool TryGetNearestBlock(SyntaxNode node, out BlockSyntax block)
+    {
+        foreach (var ancestor in node.Ancestors())
+        {
+            if (ancestor is BlockSyntax ancestorBlock)
+            {
+                block = ancestorBlock;
+                return true;
+            }
+        }
+
+        block = null!;
         return false;
     }
 }

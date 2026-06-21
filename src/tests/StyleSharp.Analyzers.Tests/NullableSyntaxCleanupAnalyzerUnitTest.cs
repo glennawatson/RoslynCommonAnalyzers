@@ -131,4 +131,30 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies null-forgiving syntax stays when null is assigned into a non-nullable array slot.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NullForgivingNullLiteralAssignedToArraySlotIsCleanAsync()
+    {
+        const string Source = """
+                              #nullable enable
+
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      string[] values = new string[1];
+                                      values[0] = null!;
+                                  }
+                              }
+                              """;
+        var test = new VerifyNullableSyntaxCleanup.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
 }

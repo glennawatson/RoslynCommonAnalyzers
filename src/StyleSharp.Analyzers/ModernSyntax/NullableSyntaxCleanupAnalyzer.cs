@@ -29,6 +29,11 @@ public sealed class NullableSyntaxCleanupAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeNullForgiving(SyntaxNodeAnalysisContext context)
     {
         var suppression = (PostfixUnaryExpressionSyntax)context.Node;
+        if (IsNullLikeDefault(suppression.Operand))
+        {
+            return;
+        }
+
         var typeInfo = context.SemanticModel.GetTypeInfo(suppression.Operand, context.CancellationToken);
         if (!IsAlreadyNonNull(typeInfo, suppression.Operand, context.SemanticModel, context.CancellationToken))
         {
@@ -37,6 +42,14 @@ public sealed class NullableSyntaxCleanupAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.RemoveUnneededNullForgiving, suppression.OperatorToken.GetLocation()));
     }
+
+    /// <summary>Returns whether the operand is a null/default value whose suppression can be target-context meaningful.</summary>
+    /// <param name="operand">The suppressed expression.</param>
+    /// <returns><see langword="true"/> when the operand should not be treated as a no-op suppression.</returns>
+    private static bool IsNullLikeDefault(ExpressionSyntax operand)
+        => operand.IsKind(SyntaxKind.NullLiteralExpression)
+            || operand.IsKind(SyntaxKind.DefaultLiteralExpression)
+            || operand.IsKind(SyntaxKind.DefaultExpression);
 
     /// <summary>Reports repeated nullable directives in file order.</summary>
     /// <param name="context">The syntax tree context.</param>

@@ -71,6 +71,45 @@ public class UseTupleSyntaxAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies Fix All composes nested explicit ValueTuple type rewrites in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesNestedValueTupleTypesAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  public {|SST1141:ValueTuple<{|SST1141:ValueTuple<int, string>|}, {|SST1141:ValueTuple<bool, bool>|}>|} M() => default;
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       public ((int, string), (bool, bool)) M() => default;
+                                   }
+                                   """;
+        const string BatchFixedSource = """
+                                        using System;
+
+                                        public class C
+                                        {
+                                            public ((int, string), (bool, bool)) M() => default;
+                                        }
+                                        """;
+        var test = new VerifyTuple.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource,
+            BatchFixedCode = BatchFixedSource
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies tuple syntax and a single-argument ValueTuple are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

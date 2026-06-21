@@ -135,4 +135,28 @@ public class RedundantModifierAnalyzerUnitTest
                                    """;
         await VerifyModifier.VerifyCodeFixAsync(Source, FixedSource);
     }
+
+    /// <summary>Verifies Fix All composes redundant modifiers on a sealed type and one of its members.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task FixAllRemovesRedundantModifiersFromSealedTypeAndMemberAsync()
+    {
+        const string Source = """
+                              public sealed {|SST1419:partial|} class C
+                              {
+                                  {|SST1427:protected|} void M()
+                                  {
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       void M()
+                                       {
+                                       }
+                                   }
+                                   """;
+        await VerifyModifier.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

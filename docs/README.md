@@ -149,6 +149,8 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST1437](rules/SST1437.md) | An interface has no members. Opt-in. |
 | [SST1438](rules/SST1438.md) | A method has an empty body. Opt-in. |
 | [SST1439](rules/SST1439.md) | A loop or guard statement has an empty embedded block. |
+| [SST1440](rules/SST1440.md) | A private member has no local use. |
+| [SST1441](rules/SST1441.md) | A private field is assigned but never read. |
 | [SST1450](rules/SST1450.md) | Files should be stored as UTF-8 without a byte order mark. Opt-in. |
 
 ## Modernization
@@ -199,6 +201,20 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST2217](rules/SST2217.md) | A manual hash-code expression can use `System.HashCode.Combine`. |
 | [SST2218](rules/SST2218.md) | Lambda parameter types can be omitted when the target already supplies them. |
 | [SST2219](rules/SST2219.md) | A single-expression property accessor can use an expression body. |
+| [SST2220](rules/SST2220.md) | An interpolation hole can carry the value and literal format directly. |
+| [SST2221](rules/SST2221.md) | An ignored expression value is assigned to the discard. Opt-in. |
+| [SST2222](rules/SST2222.md) | A local value is overwritten before it is read. |
+| [SST2223](rules/SST2223.md) | A null fallback assignment can use `??=`. |
+| [SST2224](rules/SST2224.md) | An anonymous object can become a tuple literal for local value bundles. Opt-in. |
+| [SST2225](rules/SST2225.md) | A `foreach` loop hides an explicit element cast. |
+| [SST2226](rules/SST2226.md) | A cast hides an inner explicit conversion. |
+| [SST2227](rules/SST2227.md) | A post-assignment null fallback can be folded into the assigned expression. |
+| [SST2228](rules/SST2228.md) | A delegate local used only as a call target can be a local function. |
+| [SST2229](rules/SST2229.md) | A LINQ `Where` predicate can move into the terminal call. |
+| [SST2230](rules/SST2230.md) | A LINQ type check followed by `Cast<T>` can use one typed filter. |
+| [SST2231](rules/SST2231.md) | A broad `object` pattern can use a direct null pattern. |
+| [SST2232](rules/SST2232.md) | `nameof` does not need concrete generic type arguments. |
+| [SST2233](rules/SST2233.md) | Hot-path code should avoid `System.Linq.Enumerable` calls. Opt-in. |
 
 ## Naming
 

@@ -269,6 +269,20 @@ SST2216 | ModernSyntax | Warning | ModernSyntaxReadabilityAnalyzer
 SST2217 | ModernSyntax | Warning | ModernSyntaxReadabilityAnalyzer
 SST2218 | ModernSyntax | Warning | ModernSyntaxPreferenceAnalyzer
 SST2219 | ModernSyntax | Warning | ModernSyntaxPreferenceAnalyzer
+SST2220 | ModernSyntax | Warning | ModernSyntaxValueAnalyzer
+SST2221 | ModernSyntax | Disabled | ModernSyntaxValueAnalyzer
+SST2222 | ModernSyntax | Warning | ModernSyntaxValueAnalyzer
+SST2223 | ModernSyntax | Warning | ModernSyntaxValueAnalyzer
+SST2224 | ModernSyntax | Disabled | ModernSyntaxValueAnalyzer
+SST2225 | ModernSyntax | Warning | ModernSyntaxValueAnalyzer
+SST2226 | ModernSyntax | Warning | ModernSyntaxValueAnalyzer
+SST2227 | ModernSyntax | Warning | ModernSyntaxValueAnalyzer
+SST2228 | ModernSyntax | Warning | ModernSyntaxValueAnalyzer
+SST2229 | ModernSyntax | Warning | ModernSyntaxValueAnalyzer
+SST2230 | ModernSyntax | Warning | ModernSyntaxValueAnalyzer
+SST2231 | ModernSyntax | Warning | ModernSyntaxValueAnalyzer
+SST2232 | ModernSyntax | Warning | ModernSyntaxValueAnalyzer
+SST2233 | ModernSyntax | Disabled | ModernSyntaxValueAnalyzer
 SST1426 | Maintainability | Warning | Sst1426PragmaWarningDisableAnalyzer
 SST1654 | Documentation | Warning | ExtensionBlockDocumentationAnalyzer
 SST1655 | Documentation | Warning | ExtensionBlockDocumentationAnalyzer
@@ -322,3 +336,5 @@ SST1436 | Maintainability | Disabled | EmptyCodeAnalyzer
 SST1437 | Maintainability | Disabled | EmptyCodeAnalyzer
 SST1438 | Maintainability | Disabled | EmptyCodeAnalyzer
 SST1439 | Maintainability | Warning | EmptyCodeAnalyzer
+SST1440 | Maintainability | Warning | Sst1440PrivateMemberUsageAnalyzer
+SST1441 | Maintainability | Warning | Sst1440PrivateMemberUsageAnalyzer

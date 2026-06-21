@@ -16,6 +16,7 @@
 # stylesharp.conditional_operator_placement = leading      # SST1145
 # stylesharp.collection_expression_spacing = none          # SST1010/1011 (set 'space' for padded '[ 1, 2 ]')
 # stylesharp.instance_member_qualification = omit_this     # SST1117 (omit_this | require_this)
+# stylesharp.avoid_linq_on_hot_path = true                 # SST2233 (opt-in hot-path projects)
 # stylesharp.summary_single_line_max_length = 100          # SST1653
 # stylesharp.namespace_root = MyCompany.MyProduct          # SST1417 (also reads MSBuild RootNamespace)
 # stylesharp.max_switch_sections = 30                      # SST1423
@@ -152,6 +153,8 @@ dotnet_diagnostic.SST1435.severity = warning # A namespace declaration has no me
 # dotnet_diagnostic.SST1437.severity = warning # An interface has no members (opt-in)
 # dotnet_diagnostic.SST1438.severity = warning # A method has an empty body (opt-in)
 dotnet_diagnostic.SST1439.severity = warning # A loop or guard statement has an empty embedded block
+dotnet_diagnostic.SST1440.severity = warning # A private member has no local use
+dotnet_diagnostic.SST1441.severity = warning # A private field is assigned but never read
 # dotnet_diagnostic.SST1450.severity = warning # Files should be stored as UTF-8 without a byte order mark (opt-in)
 
 # Modernization
@@ -193,6 +196,20 @@ dotnet_diagnostic.SST2216.severity = warning # A tuple element name repeats the 
 dotnet_diagnostic.SST2217.severity = warning # A manual hash-code expression can use System.HashCode.Combine
 dotnet_diagnostic.SST2218.severity = warning # Lambda parameter types repeat the target delegate signature
 dotnet_diagnostic.SST2219.severity = warning # A simple property accessor can be expression-bodied
+dotnet_diagnostic.SST2220.severity = warning # An interpolation hole can carry the value and literal format directly
+# dotnet_diagnostic.SST2221.severity = warning # An ignored expression value is assigned to the discard (opt-in)
+dotnet_diagnostic.SST2222.severity = warning # A local value is overwritten before it is read
+dotnet_diagnostic.SST2223.severity = warning # A null fallback assignment can use ??=
+# dotnet_diagnostic.SST2224.severity = warning # An anonymous object can become a tuple literal for local value bundles (opt-in)
+dotnet_diagnostic.SST2225.severity = warning # A foreach loop hides an explicit element cast
+dotnet_diagnostic.SST2226.severity = warning # A cast hides an inner explicit conversion
+dotnet_diagnostic.SST2227.severity = warning # A post-assignment null fallback can be folded into the assigned expression
+dotnet_diagnostic.SST2228.severity = warning # A delegate local used only as a call target can be a local function
+dotnet_diagnostic.SST2229.severity = warning # A LINQ Where predicate can move into the terminal call
+dotnet_diagnostic.SST2230.severity = warning # A LINQ type check followed by Cast<T> can use one typed filter
+dotnet_diagnostic.SST2231.severity = warning # A broad object pattern can use a direct null pattern
+dotnet_diagnostic.SST2232.severity = warning # nameof does not need concrete generic type arguments
+# dotnet_diagnostic.SST2233.severity = warning # Hot-path code should avoid System.Linq.Enumerable calls (opt-in)
 
 # Naming
 dotnet_diagnostic.SST1300.severity = warning # Types and members should be PascalCase

@@ -289,6 +289,20 @@ internal static class MaintainabilityRules
         "Fill or remove this empty block; an empty loop or guard body is usually a mistake",
         "An empty block as the body of a loop ('while', 'for', 'foreach', 'do') or guard ('if', 'lock', 'fixed', 'using') usually means missing code or a stray semicolon.");
 
+    /// <summary>SST1440 — a private member has no reads or calls in its declaring type.</summary>
+    public static readonly DiagnosticDescriptor RemoveUnusedPrivateMember = Create(
+        "SST1440",
+        "Remove private members with no local use",
+        "Remove private member '{0}' because it has no local use",
+        "A private member that is never read, called, or otherwise referenced in its declaring type adds dead surface area and can be removed.");
+
+    /// <summary>SST1441 — a private field is assigned but never read.</summary>
+    public static readonly DiagnosticDescriptor RemoveUnreadPrivateField = Create(
+        "SST1441",
+        "Remove private fields that are never read",
+        "Remove private field '{0}' or its dead writes because the value is never read",
+        "A private field that receives values but is never read does not represent observable state. Remove the field or the dead writes that feed it.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

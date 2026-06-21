@@ -17,6 +17,11 @@ using VerifyParens = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
 using VerifyPrecedence = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.PrecedenceAnalyzer,
     StyleSharp.Analyzers.PrecedenceCodeFixProvider>;
+using VerifyPrivateUsage = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
+    StyleSharp.Analyzers.Sst1440PrivateMemberUsageAnalyzer,
+    StyleSharp.Analyzers.Sst1440PrivateMemberUsageCodeFixProvider>;
+using VerifyPrivateUsageAnalyzer = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
+    StyleSharp.Analyzers.Sst1440PrivateMemberUsageAnalyzer>;
 using VerifySuppress = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1404SuppressionJustificationAnalyzer>;
 
@@ -325,4 +330,60 @@ public class MaintainabilityAnalyzerUnitTest
                                    """;
         await VerifyParens.VerifyCodeFixAsync(Source, FixedSource);
     }
+
+    /// <summary>Verifies an unused private method is removed.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UnusedPrivateMethodIsRemovedAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  private void {|SST1440:Unused|}() { }
+
+                                  public void M() { }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+
+                                       public void M() { }
+                                   }
+                                   """;
+
+        await VerifyPrivateUsage.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a private field with only dead writes is reported separately from fully unused members.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UnreadPrivateFieldIsReportedAsync()
+        => await VerifyPrivateUsageAnalyzer.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private int {|SST1441:_value|};
+
+                public void M() => _value = 1;
+            }
+            """);
+
+    /// <summary>Verifies private members with real reads are not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UsedPrivateMembersAreAllowedAsync()
+        => await VerifyPrivateUsageAnalyzer.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private int _value;
+
+                public int M()
+                {
+                    _value = 1;
+                    return _value;
+                }
+            }
+            """);
 }

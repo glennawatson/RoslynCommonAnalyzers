@@ -32,6 +32,7 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
         if (root is null)
         {
             return;
@@ -40,7 +41,7 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         foreach (var diagnostic in context.Diagnostics)
         {
             var title = GetTitle(diagnostic.Id);
-            if (title is null || CreateEdit(root, diagnostic, out _, out _) is null)
+            if (title is null || CreateEdit(root, model, diagnostic, out _, out _, context.CancellationToken) is null)
             {
                 continue;
             }
@@ -48,7 +49,7 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
             context.RegisterCodeFix(
                 CodeAction.Create(
                     title,
-                    _ => Task.FromResult(Apply(context.Document, root, diagnostic)),
+                    _ => Task.FromResult(Apply(context.Document, root, model, diagnostic)),
                     equivalenceKey: diagnostic.Id),
                 diagnostic);
         }
@@ -83,6 +84,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <inheritdoc/>
     bool IBatchEditKeyProvider.TryGetBatchEditSpan(SyntaxNode root, Diagnostic diagnostic, out TextSpan span)
     {
+        if (diagnostic.Id == ModernSyntaxRules.MakeIgnoredExpressionValueExplicit.Id
+            && TryGetIgnoredValueEditSpan(root, diagnostic.Location.SourceSpan, out span))
+        {
+            return true;
+        }
+
         _ = CreateEdit(root, diagnostic, out var oldNode, out _);
         if (oldNode is null)
         {
@@ -100,8 +107,17 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <param name="diagnostic">The diagnostic.</param>
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
+        => Apply(document, root, model: null, diagnostic);
+
+    /// <summary>Applies one value-syntax fix.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The optional semantic model.</param>
+    /// <param name="diagnostic">The diagnostic.</param>
+    /// <returns>The updated document.</returns>
+    internal static Document Apply(Document document, SyntaxNode root, SemanticModel? model, Diagnostic diagnostic)
     {
-        var replacement = CreateEdit(root, diagnostic, out var oldNode, out var removeNode);
+        var replacement = CreateEdit(root, model, diagnostic, out var oldNode, out var removeNode, CancellationToken.None);
         if (oldNode is null)
         {
             return document;
@@ -127,6 +143,24 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         }
 
         return updated is null ? document : document.WithSyntaxRoot(updated);
+    }
+
+    /// <summary>Gets the edited statement span for an ignored-value diagnostic without requiring semantic proof.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnosticSpan">The diagnostic span.</param>
+    /// <param name="editSpan">The resolved statement span.</param>
+    /// <returns><see langword="true"/> when a statement edit target was found.</returns>
+    private static bool TryGetIgnoredValueEditSpan(SyntaxNode root, TextSpan diagnosticSpan, out TextSpan editSpan)
+    {
+        var statement = FindAncestor<ExpressionStatementSyntax>(root, diagnosticSpan);
+        if (statement is null || IsDiscardAssignment(statement.Expression))
+        {
+            editSpan = default;
+            return false;
+        }
+
+        editSpan = statement.Span;
+        return true;
     }
 
     /// <summary>Returns a code action title.</summary>
@@ -173,24 +207,49 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <param name="removeNode">An additional node to remove after replacement.</param>
     /// <returns>The replacement node, <see langword="null"/> for remove-only, or <see langword="null"/> with no old node when no fix is available.</returns>
     private static SyntaxNode? CreateEdit(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode, out SyntaxNode? removeNode)
+        => CreateEdit(root, model: null, diagnostic, out oldNode, out removeNode, CancellationToken.None);
+
+    /// <summary>Creates the syntax edit for one diagnostic.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The optional semantic model.</param>
+    /// <param name="diagnostic">The diagnostic.</param>
+    /// <param name="oldNode">The node to replace or remove.</param>
+    /// <param name="removeNode">An additional node to remove after replacement.</param>
+    /// <param name="cancellationToken">A token that cancels semantic checks.</param>
+    /// <returns>The replacement node, <see langword="null"/> for remove-only, or <see langword="null"/> with no old node when no fix is available.</returns>
+    private static SyntaxNode? CreateEdit(
+        SyntaxNode root,
+        SemanticModel? model,
+        Diagnostic diagnostic,
+        out SyntaxNode? oldNode,
+        out SyntaxNode? removeNode,
+        CancellationToken cancellationToken)
     {
         oldNode = null;
         removeNode = null;
-        return CreateValueEdit(root, diagnostic, ref oldNode, ref removeNode)
+        return CreateValueEdit(root, model, diagnostic, ref oldNode, ref removeNode, cancellationToken)
             ?? CreateLinqAndPatternEdit(root, diagnostic, ref oldNode);
     }
 
     /// <summary>Creates the syntax edit for the first value-syntax batch.</summary>
     /// <param name="root">The syntax root.</param>
+    /// <param name="model">The optional semantic model.</param>
     /// <param name="diagnostic">The diagnostic.</param>
     /// <param name="oldNode">The node to replace or remove.</param>
     /// <param name="removeNode">An additional node to remove after replacement.</param>
+    /// <param name="cancellationToken">A token that cancels semantic checks.</param>
     /// <returns>The replacement node, or <see langword="null"/>.</returns>
-    private static SyntaxNode? CreateValueEdit(SyntaxNode root, Diagnostic diagnostic, ref SyntaxNode? oldNode, ref SyntaxNode? removeNode)
+    private static SyntaxNode? CreateValueEdit(
+        SyntaxNode root,
+        SemanticModel? model,
+        Diagnostic diagnostic,
+        ref SyntaxNode? oldNode,
+        ref SyntaxNode? removeNode,
+        CancellationToken cancellationToken)
         => diagnostic.Id switch
         {
             "SST2220" => CreateInterpolationFix(root, diagnostic.Location.SourceSpan, out oldNode),
-            "SST2221" => CreateIgnoredValueFix(root, diagnostic.Location.SourceSpan, out oldNode),
+            "SST2221" => CreateIgnoredValueFix(root, model, diagnostic.Location.SourceSpan, out oldNode, cancellationToken),
             "SST2222" => CreateOverwrittenValueFix(root, diagnostic.Location.SourceSpan, out oldNode),
             "SST2223" => CreateCoalesceAssignmentFix(root, diagnostic.Location.SourceSpan, out oldNode),
             "SST2224" => CreateTupleLiteralFix(root, diagnostic.Location.SourceSpan, out oldNode),
@@ -236,13 +295,20 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
 
     /// <summary>Creates an explicit discard assignment for an ignored value.</summary>
     /// <param name="root">The syntax root.</param>
+    /// <param name="model">The optional semantic model.</param>
     /// <param name="span">The diagnostic span.</param>
     /// <param name="oldNode">The statement to replace.</param>
+    /// <param name="cancellationToken">A token that cancels semantic checks.</param>
     /// <returns>The replacement statement.</returns>
-    private static ExpressionStatementSyntax? CreateIgnoredValueFix(SyntaxNode root, TextSpan span, out SyntaxNode? oldNode)
+    private static ExpressionStatementSyntax? CreateIgnoredValueFix(
+        SyntaxNode root,
+        SemanticModel? model,
+        TextSpan span,
+        out SyntaxNode? oldNode,
+        CancellationToken cancellationToken)
     {
         var statement = FindAncestor<ExpressionStatementSyntax>(root, span);
-        if (statement is null || IsDiscardAssignment(statement.Expression))
+        if (statement is null || !CanAssignIgnoredValueToDiscard(statement, model, cancellationToken))
         {
             oldNode = null;
             return null;
@@ -254,6 +320,33 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
                 SyntaxFactory.IdentifierName("_"),
                 statement.Expression.WithoutTrivia()))
             .WithTriviaFrom(statement);
+    }
+
+    /// <summary>Returns whether a discard assignment can be emitted without binding to an existing underscore symbol.</summary>
+    /// <param name="statement">The ignored expression statement.</param>
+    /// <param name="model">The optional semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels semantic checks.</param>
+    /// <returns><see langword="true"/> when <c>_</c> is provably a discard at the statement.</returns>
+    private static bool CanAssignIgnoredValueToDiscard(
+        ExpressionStatementSyntax statement,
+        SemanticModel? model,
+        CancellationToken cancellationToken)
+    {
+        if (IsDiscardAssignment(statement.Expression) || model is null)
+        {
+            return false;
+        }
+
+        foreach (var symbol in model.LookupSymbols(statement.SpanStart, name: "_"))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (symbol.Name == "_")
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Returns whether an expression already assigns an ignored value to the discard.</summary>
@@ -837,7 +930,8 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
 
             if (AllDiagnosticsAreIgnoredValue(diagnostics))
             {
-                return FixIgnoredValues(document, root, diagnostics);
+                var model = await document.GetSemanticModelAsync(fixAllContext.CancellationToken).ConfigureAwait(false);
+                return FixIgnoredValues(document, root, model, diagnostics, fixAllContext.CancellationToken);
             }
 
             var editor = await DocumentEditor.CreateAsync(document, fixAllContext.CancellationToken).ConfigureAwait(false);
@@ -868,16 +962,23 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         /// <summary>Applies ignored-value fixes directly against the original syntax root.</summary>
         /// <param name="document">The document to update.</param>
         /// <param name="root">The original syntax root.</param>
+        /// <param name="model">The optional semantic model.</param>
         /// <param name="diagnostics">The diagnostics to fix.</param>
+        /// <param name="cancellationToken">A token that cancels semantic checks.</param>
         /// <returns>The updated document.</returns>
-        private static Document FixIgnoredValues(Document document, SyntaxNode root, ImmutableArray<Diagnostic> diagnostics)
+        private static Document FixIgnoredValues(
+            Document document,
+            SyntaxNode root,
+            SemanticModel? model,
+            ImmutableArray<Diagnostic> diagnostics,
+            CancellationToken cancellationToken)
         {
             var seen = new HashSet<TextSpan>();
             var targets = new List<SyntaxNode>();
             var replacements = new Dictionary<TextSpan, SyntaxNode>();
             foreach (var diagnostic in diagnostics)
             {
-                var replacement = CreateIgnoredValueFix(root, diagnostic.Location.SourceSpan, out var oldNode);
+                var replacement = CreateIgnoredValueFix(root, model, diagnostic.Location.SourceSpan, out var oldNode, cancellationToken);
                 if (replacement is null || oldNode is null || !seen.Add(oldNode.Span))
                 {
                     continue;

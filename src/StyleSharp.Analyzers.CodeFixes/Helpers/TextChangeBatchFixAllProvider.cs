@@ -37,7 +37,7 @@ internal sealed class TextChangeBatchFixAllProvider : DocumentBasedFixAllProvide
         }
 
         var changes = new List<TextChange>();
-        foreach (var diagnostic in diagnostics)
+        foreach (var diagnostic in BatchEditFixAllProvider.UniqueDiagnostics(diagnostics))
         {
             fix.RegisterTextChanges(text, root, diagnostic, changes);
         }

@@ -227,18 +227,42 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (local.Declaration.Type is IdentifierNameSyntax { Identifier.Text: "var" }
-            || local.Declaration.Variables.Count != 1
-            || local.Declaration.Variables[0] is not { Initializer.Value: { } initializer } variable
-            || local.Parent is not BlockSyntax block
-            || !TryGetNextIdentifierAssignment(block, local, out var assigned, out _)
-            || assigned.Identifier.ValueText != variable.Identifier.ValueText
-            || !IsSideEffectFreeValue(initializer, context.SemanticModel, context.CancellationToken))
+        if (!IsOverwrittenLocalInitializerCandidate(local, context.SemanticModel, context.CancellationToken, out var initializer))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.RemoveOverwrittenValue, initializer.GetLocation()));
+    }
+
+    /// <summary>Returns whether a local initializer is overwritten by the next assignment before it is read.</summary>
+    /// <param name="local">The local declaration.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <param name="initializer">The overwritten initializer.</param>
+    /// <returns><see langword="true"/> when the initializer can be removed safely.</returns>
+    private static bool IsOverwrittenLocalInitializerCandidate(
+        LocalDeclarationStatementSyntax local,
+        SemanticModel model,
+        CancellationToken cancellationToken,
+        out ExpressionSyntax initializer)
+    {
+        initializer = null!;
+        if (local.Declaration.Type is IdentifierNameSyntax { Identifier.Text: "var" }
+            || local.Declaration.Variables.Count != 1
+            || local.Declaration.Variables[0] is not { Initializer.Value: { } value } variable
+            || local.Parent is not BlockSyntax block
+            || !TryGetNextIdentifierAssignment(block, local, out var assigned, out var assignedValue)
+            || assigned.Identifier.ValueText != variable.Identifier.ValueText
+            || !IsSideEffectFreeValue(value, model, cancellationToken)
+            || model.GetDeclaredSymbol(variable, cancellationToken) is not { } localSymbol
+            || ContainsReference(assignedValue, localSymbol, model, cancellationToken))
+        {
+            return false;
+        }
+
+        initializer = value;
+        return true;
     }
 
     /// <summary>Reports null fallback if statements and post-assignment null checks.</summary>
@@ -489,9 +513,11 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     {
         if (assignment.Left is not IdentifierNameSyntax identifier
             || statement.Parent is not BlockSyntax block
-            || !TryGetNextIdentifierAssignment(block, statement, out var nextIdentifier, out _)
+            || !TryGetNextIdentifierAssignment(block, statement, out var nextIdentifier, out var nextValue)
             || nextIdentifier.Identifier.ValueText != identifier.Identifier.ValueText
-            || !IsSideEffectFreeValue(assignment.Right, context.SemanticModel, context.CancellationToken))
+            || !IsSideEffectFreeValue(assignment.Right, context.SemanticModel, context.CancellationToken)
+            || context.SemanticModel.GetSymbolInfo(identifier, context.CancellationToken).Symbol is not { } symbol
+            || ContainsReference(nextValue, symbol, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -551,6 +577,27 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         identifier = assigned;
         value = assignedValue;
         return true;
+    }
+
+    /// <summary>Returns whether an expression reads a symbol.</summary>
+    /// <param name="expression">The expression to inspect.</param>
+    /// <param name="symbol">The symbol to find.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when the expression contains a reference to the symbol.</returns>
+    private static bool ContainsReference(ExpressionSyntax expression, ISymbol symbol, SemanticModel model, CancellationToken cancellationToken)
+    {
+        foreach (var node in expression.DescendantNodesAndSelf())
+        {
+            if (node is IdentifierNameSyntax identifier
+                && identifier.Identifier.ValueText == symbol.Name
+                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, symbol))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether a local delegate declaration can be represented as a local function.</summary>

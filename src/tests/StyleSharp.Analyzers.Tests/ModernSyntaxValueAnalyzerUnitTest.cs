@@ -6,6 +6,8 @@ using System.Collections.Immutable;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.CodeAnalysis.Text;
 
@@ -88,6 +90,52 @@ public class ModernSyntaxValueAnalyzerUnitTest
         await Assert.That(unique).Count().IsEqualTo(2);
         await Assert.That(unique[0]).IsSameReferenceAs(first);
         await Assert.That(unique[1]).IsSameReferenceAs(second);
+    }
+
+    /// <summary>Verifies ignored-value diagnostics with different spans are deduplicated by the edited statement.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task IgnoredExpressionValueDiagnosticsWithSameStatementEditAreDeduplicatedAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public void M(System.Threading.Tasks.TaskCompletionSource<bool> received)
+                                  {
+                                      received.TrySetResult();
+                                  }
+                              }
+                              """;
+        var root = await CSharpSyntaxTree.ParseText(Source).GetRootAsync(CancellationToken.None);
+        var statement = root.DescendantNodes().OfType<ExpressionStatementSyntax>().Single();
+        var memberAccess = statement.DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single();
+        var descriptor = ModernSyntaxRules.MakeIgnoredExpressionValueExplicit;
+        var first = Diagnostic.Create(descriptor, Location.Create("Test0.cs", statement.Expression.Span, default));
+        var second = Diagnostic.Create(descriptor, Location.Create("Test0.cs", memberAccess.Name.Span, default));
+
+        var diagnostics = ImmutableArray.Create(first, second);
+        var fix = (IBatchFixableCodeFix)new ModernSyntaxValueCodeFixProvider();
+        var unique = BatchEditFixAllProvider.UniqueDiagnostics(root, fix, diagnostics).ToArray();
+
+        await Assert.That(unique).Count().IsEqualTo(1);
+        await Assert.That(unique[0]).IsSameReferenceAs(first);
+    }
+
+    /// <summary>Verifies Roslyn stale-node failures from duplicate batch edits are ignored.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task DuplicateBatchEditSyntaxEditorFailureIsIgnoredAsync()
+    {
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.CurrentSolution.AddProject("TestProject", "TestProject", LanguageNames.CSharp);
+        var document = project.AddDocument("Test0.cs", SourceText.From("public sealed class C { }"));
+        var editor = await DocumentEditor.CreateAsync(document, CancellationToken.None);
+        var diagnostic = Diagnostic.Create(ModernSyntaxRules.MakeIgnoredExpressionValueExplicit, Location.None);
+        var fix = new ThrowingBatchFix("GetCurrentNode returned null with the following node: received.TrySetResult();");
+
+        BatchEditFixAllProvider.RegisterBatchEdit(editor, fix, diagnostic);
+
+        await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo("public sealed class C { }");
     }
 
     /// <summary>Verifies adjacent overwritten local values are removed without touching the later write.</summary>
@@ -555,5 +603,13 @@ public class ModernSyntaxValueAnalyzerUnitTest
                        """;
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
         test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+    }
+
+    /// <summary>A batch fix that throws a supplied exception message.</summary>
+    /// <param name="message">The exception message.</param>
+    private sealed class ThrowingBatchFix(string message) : IBatchFixableCodeFix
+    {
+        /// <inheritdoc/>
+        void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) => throw new InvalidOperationException(message);
     }
 }

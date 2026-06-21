@@ -2,8 +2,12 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
+
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Text;
 
 using VerifyModernSyntaxValue = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ModernSyntaxValueAnalyzer,
@@ -66,6 +70,24 @@ public class ModernSyntaxValueAnalyzerUnitTest
         Enable(test, "SST2221");
 
         await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies duplicate ignored-value diagnostics register only one batch edit.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task IgnoredExpressionValueDuplicateDiagnosticsAreDeduplicatedAsync()
+    {
+        var descriptor = ModernSyntaxRules.MakeIgnoredExpressionValueExplicit;
+        var first = Diagnostic.Create(descriptor, Location.Create("Test0.cs", new TextSpan(42, 24), default));
+        var duplicate = Diagnostic.Create(descriptor, Location.Create("Test0.cs", new TextSpan(42, 24), default));
+        var second = Diagnostic.Create(descriptor, Location.Create("Test0.cs", new TextSpan(120, 24), default));
+
+        var diagnostics = ImmutableArray.Create(first, duplicate, second);
+        var unique = BatchEditFixAllProvider.UniqueDiagnostics(diagnostics).ToArray();
+
+        await Assert.That(unique).Count().IsEqualTo(2);
+        await Assert.That(unique[0]).IsSameReferenceAs(first);
+        await Assert.That(unique[1]).IsSameReferenceAs(second);
     }
 
     /// <summary>Verifies adjacent overwritten local values are removed without touching the later write.</summary>

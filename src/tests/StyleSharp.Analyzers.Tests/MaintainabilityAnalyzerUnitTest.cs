@@ -429,4 +429,159 @@ public class MaintainabilityAnalyzerUnitTest
             {
             }
             """);
+
+    /// <summary>Verifies private nullable generic helpers called through type inference are not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PrivateNullableGenericHelperCalledThroughTypeInferenceIsAllowedAsync()
+        => await VerifyPrivateUsageAnalyzer.VerifyAnalyzerAsync(
+            """
+            #nullable enable
+
+            using System;
+            using System.Threading;
+
+            #if REACTIVE_SHIM
+            namespace ReactiveUI.Primitives.Reactive.Signals;
+            #else
+            namespace ReactiveUI.Primitives.Signals;
+            #endif
+
+            public static partial class Signal
+            {
+                public static IObservable<int> Sequence(int start, int count)
+                    => count == 0 ? ImmutableEmptySignal<int>.Instance : new RangeSignal(start, count);
+
+                public static IObservable<int> Sequence(int start, int count, ISequencer scheduler)
+                    => scheduler == Sequencer.Immediate || scheduler == Sequencer.CurrentThread ? new RangeSignal(start, count) : new SequenceSignal(start, count, scheduler);
+
+                public static IObservable<long> Every(TimeSpan period, ISequencer scheduler)
+                    => new EverySignal(period, scheduler);
+
+                public static IObservable<long> Pulse(TimeSpan period, ISequencer scheduler)
+                    => new EverySignal(period, scheduler);
+
+                public static IObservable<T> Chain<T>(params System.IObservable<T>[] sources)
+                {
+                    var validated = ValidateSources(sources);
+                    var rangeConcat = TryCreateRangeConcat(validated);
+                    return rangeConcat is null ? new ChainSignal<T>(validated) : (IObservable<T>)(object)rangeConcat;
+                }
+
+                public static IObservable<T> Blend<T>(params System.IObservable<T>[] sources)
+                {
+                    var validated = ValidateSources(sources);
+                    var rangeConcat = TryCreateRangeConcat(validated);
+                    return rangeConcat is null ? new EnumerableBlendSignal<T>(validated) : (IObservable<T>)(object)rangeConcat;
+                }
+
+                public static IObservable<T> Race<T>(params System.IObservable<T>[] sources)
+                {
+                    var validated = ValidateSources(sources);
+                    return validated.Length > 0 && validated[0] is RangeSignal ? validated[0] : new RaceSignal<T>(validated);
+                }
+
+                private static System.IObservable<T>[] ValidateSources<T>(System.IObservable<T>[] sources)
+                {
+                    ArgumentExceptionHelper.ThrowIfNull(sources);
+
+                    for (var i = 0; i < sources.Length; i++)
+                    {
+                        ArgumentExceptionHelper.ThrowIfNull(sources[i]);
+                    }
+
+                    return sources;
+                }
+
+                private static RangeConcatSignal? TryCreateRangeConcat<T>(System.IObservable<T>[] sources)
+                {
+                    if (typeof(T) != typeof(int) || sources.Length == 0)
+                    {
+                        return null;
+                    }
+
+                    var ranges = new RangeSignal[sources.Length];
+                    for (var i = 0; i < sources.Length; i++)
+                    {
+                        if (sources[i] is not RangeSignal range)
+                        {
+                            return null;
+                        }
+
+                        ranges[i] = range;
+                    }
+
+                    return new(ranges);
+                }
+
+                private sealed class SequenceSignal(int start, int count, ISequencer scheduler) : IObservable<int>
+                {
+                    public IDisposable Subscribe(IObserver<int> observer) => throw new NotImplementedException();
+                }
+
+                private sealed class EverySignal(TimeSpan period, ISequencer scheduler) : IObservable<long>
+                {
+                    public IDisposable Subscribe(IObserver<long> observer) => throw new NotImplementedException();
+                }
+
+                private sealed class ChainSignal<T>(System.IObservable<T>[] sources) : IObservable<T>
+                {
+                    public IDisposable Subscribe(IObserver<T> observer) => throw new NotImplementedException();
+                }
+
+                private sealed class EnumerableBlendSignal<T>(System.IObservable<T>[] sources) : IObservable<T>
+                {
+                    public IDisposable Subscribe(IObserver<T> observer) => throw new NotImplementedException();
+                }
+
+                private sealed class RaceSignal<T>(System.IObservable<T>[] sources) : IObservable<T>
+                {
+                    public IDisposable Subscribe(IObserver<T> observer) => throw new NotImplementedException();
+                }
+
+                private sealed class RangeConcatSignal(RangeSignal[] ranges) : IObservable<int>
+                {
+                    public IDisposable Subscribe(IObserver<int> observer) => throw new NotImplementedException();
+                }
+            }
+
+            public interface ISequencer
+            {
+            }
+
+            public static class Sequencer
+            {
+                public static ISequencer Immediate { get; } = new SequencerImpl();
+
+                public static ISequencer CurrentThread { get; } = new SequencerImpl();
+
+                private sealed class SequencerImpl : ISequencer
+                {
+                }
+            }
+
+            public static class ArgumentExceptionHelper
+            {
+                public static void ThrowIfNull<T>(T value)
+                    where T : class
+                {
+                    if (value is null)
+                    {
+                        throw new ArgumentNullException(nameof(value));
+                    }
+                }
+            }
+
+            public sealed class RangeSignal(int start, int count) : IObservable<int>
+            {
+                public IDisposable Subscribe(IObserver<int> observer) => throw new NotImplementedException();
+            }
+
+            public sealed class ImmutableEmptySignal<T> : IObservable<T>
+            {
+                public static ImmutableEmptySignal<T> Instance { get; } = new();
+
+                public IDisposable Subscribe(IObserver<T> observer) => throw new NotImplementedException();
+            }
+            """);
 }

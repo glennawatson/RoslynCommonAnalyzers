@@ -162,6 +162,7 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST2004](rules/SST2004.md) | A range check should use an `ArgumentOutOfRangeException.ThrowIf...` helper. |
 | [SST2005](rules/SST2005.md) | An `as` cast compared to `null` (`x as T != null`) should use the `is` type pattern. |
 | [SST2006](rules/SST2006.md) | A negated type test (`!(x is T)`) should use the `is not` pattern. |
+| [SST2007](rules/SST2007.md) | An `is` check followed by a cast local should use a declaration pattern. |
 
 ## Collection Expressions
 
@@ -169,12 +170,35 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | --- | --- |
 | [SST2100](rules/SST2100.md) | An empty collection creation can use `[]`. |
 | [SST2101](rules/SST2101.md) | An explicit collection creation can use `[...]`. Opt-in. |
+| [SST2102](rules/SST2102.md) | A span-targeted stackalloc initializer can use a collection expression. |
+| [SST2103](rules/SST2103.md) | A collection-builder factory call can keep the elements at the target site. |
+| [SST2104](rules/SST2104.md) | A short builder-local sequence can be returned as a collection expression. |
+| [SST2105](rules/SST2105.md) | A literal array materialized with LINQ can use the target collection expression directly. |
 
 ## Modern Syntax
 
 | Rule | Description |
 | --- | --- |
 | [SST2200](rules/SST2200.md) | A single-use backing field can use the C# 14 `field` keyword. Opt-in. |
+| [SST2201](rules/SST2201.md) | A return-only switch statement can use a switch expression. |
+| [SST2202](rules/SST2202.md) | An object creation repeats an explicit target type. |
+| [SST2203](rules/SST2203.md) | An array or string index can use from-end indexing. |
+| [SST2204](rules/SST2204.md) | A string slice can use range syntax. |
+| [SST2205](rules/SST2205.md) | An enum switch statement omits named enum values. |
+| [SST2206](rules/SST2206.md) | An enum switch expression omits named enum values. |
+| [SST2207](rules/SST2207.md) | A null guard and return can keep the throw in the returned expression. |
+| [SST2208](rules/SST2208.md) | An out variable can be declared at the call site. |
+| [SST2209](rules/SST2209.md) | A null-forgiving operator has no local effect. |
+| [SST2210](rules/SST2210.md) | A nullable directive repeats the current file-local state. |
+| [SST2211](rules/SST2211.md) | A nullable restore directive has no file-local state to restore. |
+| [SST2212](rules/SST2212.md) | Literal UTF-8 byte data can use a `u8` string literal. |
+| [SST2213](rules/SST2213.md) | A typed pattern has an unnecessary discard designation. |
+| [SST2214](rules/SST2214.md) | A tuple temporary only feeds copied element locals. |
+| [SST2215](rules/SST2215.md) | A temporary local swaps two locals. |
+| [SST2216](rules/SST2216.md) | A tuple element name repeats the inferred name. |
+| [SST2217](rules/SST2217.md) | A manual hash-code expression can use `System.HashCode.Combine`. |
+| [SST2218](rules/SST2218.md) | Lambda parameter types can be omitted when the target already supplies them. |
+| [SST2219](rules/SST2219.md) | A single-expression property accessor can use an expression body. |
 
 ## Naming
 
@@ -240,6 +264,8 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST1113](rules/SST1113.md) | A comma does not sit on the previous parameter's line. |
 | [SST1114](rules/SST1114.md) | A blank line separates the declaration from its parameter list. |
 | [SST1115](rules/SST1115.md) | A blank line separates a parameter from the preceding comma. |
+| [SST1116](rules/SST1116.md) | A qualified name has a shorter spelling that binds to the same symbol. |
+| [SST1117](rules/SST1117.md) | A `this.` member access can be shortened without changing the member. |
 | [SST1118](rules/SST1118.md) | A parameter or argument spans multiple lines. Opt-in. |
 | [SST1120](rules/SST1120.md) | A comment contains no text. |
 | [SST1121](rules/SST1121.md) | A framework type name is used instead of its built-in alias. Opt-in. |
@@ -259,6 +285,7 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST1136](rules/SST1136.md) | Several enum members share a line. |
 | [SST1137](rules/SST1137.md) | Sibling elements are indented differently from one another. |
 | [SST1139](rules/SST1139.md) | A numeric literal is cast where a literal suffix would express the type. |
+| [SST1140](rules/SST1140.md) | A wrapped conditional operator does not start an indented continuation line. |
 | [SST1141](rules/SST1141.md) | An explicit `ValueTuple<...>` is used where tuple syntax would do. |
 | [SST1142](rules/SST1142.md) | A tuple element is accessed by `ItemN` where it has a name. |
 | [SST1143](rules/SST1143.md) | A boolean expression is compared to a `true` or `false` literal. |
@@ -316,6 +343,13 @@ The unique-line list family was renumbered to `SST1150`-`SST1171`. The detailed 
 | [SST1190](rules/SST1190.md) | A prefix-negation operator is applied twice (`!!x`, `~~x`). |
 | [SST1191](rules/SST1191.md) | A long base-10 integer literal has no digit separators. Opt-in. |
 | [SST1192](rules/SST1192.md) | A string literal embeds a raw control character. Opt-in. |
+| [SST1193](rules/SST1193.md) | An object is created and then immediately assigned member values. |
+| [SST1194](rules/SST1194.md) | A collection is created and then immediately populated with `Add`. |
+| [SST1195](rules/SST1195.md) | A null fallback conditional expression can use `??`. |
+| [SST1196](rules/SST1196.md) | A null-guarded member access can use `?.`. |
+| [SST1197](rules/SST1197.md) | Adjacent return statements can use a conditional expression. |
+| [SST1198](rules/SST1198.md) | Matching if/else assignments can use a conditional expression. |
+| [SST1199](rules/SST1199.md) | `typeof(T).Name` can use `nameof(T)`. |
 
 ## Records
 

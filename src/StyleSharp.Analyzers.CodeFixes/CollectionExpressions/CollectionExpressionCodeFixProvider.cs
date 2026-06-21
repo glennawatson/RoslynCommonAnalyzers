@@ -12,7 +12,10 @@ public sealed class CollectionExpressionCodeFixProvider : CodeFixProvider, IBatc
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         CollectionExpressionRules.UseEmptyCollectionExpression.Id,
-        CollectionExpressionRules.UseExplicitCollectionExpression.Id);
+        CollectionExpressionRules.UseExplicitCollectionExpression.Id,
+        CollectionExpressionRules.UseCollectionExpressionForStackalloc.Id,
+        CollectionExpressionRules.UseCollectionExpressionForCreate.Id,
+        CollectionExpressionRules.UseCollectionExpressionForFluent.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
@@ -76,8 +79,19 @@ public sealed class CollectionExpressionCodeFixProvider : CodeFixProvider, IBatc
         if (diagnosticId == CollectionExpressionRules.UseExplicitCollectionExpression.Id
             && Sst2101ExplicitCollectionExpressionAnalyzer.TryGetInitializer(expression, out var initializer))
         {
-            var full = initializer!.ToFullString().AsSpan();
-            replacementText = "[" + full[1..^1].ToString() + "]";
+            replacementText = CollectionExpressionAdvancedAnalysis.CollectionExpressionText(initializer!);
+        }
+        else if (diagnosticId == CollectionExpressionRules.UseCollectionExpressionForStackalloc.Id
+            && CollectionExpressionAdvancedAnalysis.TryGetStackallocInitializer(expression, out var stackallocInitializer))
+        {
+            replacementText = CollectionExpressionAdvancedAnalysis.CollectionExpressionText(stackallocInitializer);
+        }
+        else if ((diagnosticId == CollectionExpressionRules.UseCollectionExpressionForCreate.Id
+                || diagnosticId == CollectionExpressionRules.UseCollectionExpressionForFluent.Id)
+            && expression is InvocationExpressionSyntax invocation
+            && CollectionExpressionAdvancedAnalysis.TryBuildInvocationCollectionExpression(invocation, out var invocationText))
+        {
+            replacementText = invocationText;
         }
 
         return SyntaxFactory.ParseExpression(replacementText).WithTriviaFrom(expression);

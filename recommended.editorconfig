@@ -161,13 +161,37 @@ dotnet_diagnostic.SST2003.severity = warning # A disposed check should use Objec
 dotnet_diagnostic.SST2004.severity = warning # A range check should use an ArgumentOutOfRangeException.ThrowIf... helper
 dotnet_diagnostic.SST2005.severity = warning # An 'as' cast compared to null should use the 'is' type pattern
 dotnet_diagnostic.SST2006.severity = warning # A negated type test '!(x is T)' should use the 'is not' pattern
+dotnet_diagnostic.SST2007.severity = warning # An 'is' check followed by a cast local should use a declaration pattern
 
 # Collection expressions
 dotnet_diagnostic.SST2100.severity = warning # An empty collection creation can use []
 # dotnet_diagnostic.SST2101.severity = warning # An explicit collection creation can use [...] (opt-in)
+dotnet_diagnostic.SST2102.severity = warning # A span-targeted stackalloc initializer can use a collection expression
+dotnet_diagnostic.SST2103.severity = warning # A collection-builder factory call can keep elements at the target site
+dotnet_diagnostic.SST2104.severity = warning # A short builder-local sequence can return a collection expression
+dotnet_diagnostic.SST2105.severity = warning # A literal array materialized with LINQ can use the target collection expression directly
 
 # Modern syntax
 # dotnet_diagnostic.SST2200.severity = warning # A single-use backing field can use the C# 14 field keyword (opt-in)
+dotnet_diagnostic.SST2201.severity = warning # A return-only switch statement can use a switch expression
+dotnet_diagnostic.SST2202.severity = warning # An object creation repeats an explicit target type
+dotnet_diagnostic.SST2203.severity = warning # An array or string index can use from-end indexing
+dotnet_diagnostic.SST2204.severity = warning # A string slice can use range syntax
+dotnet_diagnostic.SST2205.severity = warning # An enum switch statement omits named enum values
+dotnet_diagnostic.SST2206.severity = warning # An enum switch expression omits named enum values
+dotnet_diagnostic.SST2207.severity = warning # A null guard and return can keep the throw in the returned expression
+dotnet_diagnostic.SST2208.severity = warning # An out variable can be declared at the call site
+dotnet_diagnostic.SST2209.severity = warning # A null-forgiving operator has no local effect
+dotnet_diagnostic.SST2210.severity = warning # A nullable directive repeats the current file-local state
+dotnet_diagnostic.SST2211.severity = warning # A nullable restore directive has no file-local state to restore
+dotnet_diagnostic.SST2212.severity = warning # Literal UTF-8 byte data can use a u8 string literal
+dotnet_diagnostic.SST2213.severity = warning # A typed pattern has an unnecessary discard designation
+dotnet_diagnostic.SST2214.severity = warning # A tuple temporary only feeds copied element locals
+dotnet_diagnostic.SST2215.severity = warning # A temporary local swaps two locals
+dotnet_diagnostic.SST2216.severity = warning # A tuple element name repeats the inferred name
+dotnet_diagnostic.SST2217.severity = warning # A manual hash-code expression can use System.HashCode.Combine
+dotnet_diagnostic.SST2218.severity = warning # Lambda parameter types repeat the target delegate signature
+dotnet_diagnostic.SST2219.severity = warning # A simple property accessor can be expression-bodied
 
 # Naming
 dotnet_diagnostic.SST1300.severity = warning # Types and members should be PascalCase
@@ -224,6 +248,8 @@ dotnet_diagnostic.SST1112.severity = warning # An empty parameter list's closing
 dotnet_diagnostic.SST1113.severity = warning # A comma does not sit on the previous parameter's line
 dotnet_diagnostic.SST1114.severity = warning # A blank line separates the declaration from its parameter list
 dotnet_diagnostic.SST1115.severity = warning # A blank line separates a parameter from the preceding comma
+dotnet_diagnostic.SST1116.severity = warning # A qualified name has a shorter spelling that binds to the same symbol
+dotnet_diagnostic.SST1117.severity = warning # A this. member access can be shortened without changing the member
 # dotnet_diagnostic.SST1118.severity = warning # A parameter or argument spans multiple lines (opt-in)
 dotnet_diagnostic.SST1120.severity = warning # A comment contains no text
 # dotnet_diagnostic.SST1121.severity = warning # A framework type name is used instead of its built-in alias (opt-in)
@@ -243,6 +269,7 @@ dotnet_diagnostic.SST1135.severity = warning # A using directive names a namespa
 dotnet_diagnostic.SST1136.severity = warning # Several enum members share a line
 dotnet_diagnostic.SST1137.severity = warning # Sibling elements are indented differently from one another
 dotnet_diagnostic.SST1139.severity = warning # A numeric literal is cast where a literal suffix would express the type
+dotnet_diagnostic.SST1140.severity = warning # A wrapped conditional operator should start an indented continuation line
 dotnet_diagnostic.SST1141.severity = warning # An explicit ValueTuple<...> is used where tuple syntax would do
 dotnet_diagnostic.SST1142.severity = warning # A tuple element is accessed by ItemN where it has a name
 dotnet_diagnostic.SST1143.severity = warning # A boolean expression is compared to a true/false literal (StyleSharp original)
@@ -295,6 +322,13 @@ dotnet_diagnostic.SST1189.severity = warning # An assignment copies a value onto
 dotnet_diagnostic.SST1190.severity = warning # A prefix-negation operator is applied twice (!!x, ~~x)
 # dotnet_diagnostic.SST1191.severity = warning # A long base-10 integer literal has no digit separators (opt-in)
 # dotnet_diagnostic.SST1192.severity = warning # A string literal embeds a raw control character (opt-in)
+dotnet_diagnostic.SST1193.severity = warning # An object is created and then immediately assigned member values
+dotnet_diagnostic.SST1194.severity = warning # A collection is created and then immediately populated with Add
+dotnet_diagnostic.SST1195.severity = warning # A null fallback conditional expression can use ??
+dotnet_diagnostic.SST1196.severity = warning # A null-guarded member access can use ?.
+dotnet_diagnostic.SST1197.severity = warning # Adjacent return statements can use a conditional expression
+dotnet_diagnostic.SST1198.severity = warning # Matching if/else assignments can use a conditional expression
+dotnet_diagnostic.SST1199.severity = warning # typeof(T).Name can use nameof(T)
 
 # Records
 # dotnet_diagnostic.SST1800.severity = warning # A record class is neither sealed nor abstract (opt-in)

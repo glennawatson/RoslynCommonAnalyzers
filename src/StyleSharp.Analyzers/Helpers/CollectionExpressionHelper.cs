@@ -50,15 +50,45 @@ internal static class CollectionExpressionHelper
         ExpressionSyntax expression,
         INamedTypeSymbol[] targets)
     {
+        if (!TryGetConvertedTypeWithExplicitTarget(context, expression, out var converted))
+        {
+            return false;
+        }
+
+        return converted is IArrayTypeSymbol { Rank: 1 }
+            || (converted is INamedTypeSymbol named && ContainsTarget(targets, named.OriginalDefinition));
+    }
+
+    /// <summary>Gets the converted type only when the expression has an explicit target context.</summary>
+    /// <param name="context">The syntax analysis context.</param>
+    /// <param name="expression">The candidate expression.</param>
+    /// <param name="converted">The converted target type.</param>
+    /// <returns><see langword="true"/> when a target context exists and a converted type was resolved.</returns>
+    public static bool TryGetConvertedTypeWithExplicitTarget(
+        SyntaxNodeAnalysisContext context,
+        ExpressionSyntax expression,
+        out ITypeSymbol? converted)
+    {
+        converted = null;
         if (!HasExplicitTarget(expression))
         {
             return false;
         }
 
-        var converted = context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).ConvertedType;
-        return converted is IArrayTypeSymbol { Rank: 1 }
-            || (converted is INamedTypeSymbol named && ContainsTarget(targets, named.OriginalDefinition));
+        converted = context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).ConvertedType;
+        return converted is not null;
     }
+
+    /// <summary>Returns whether a type is <c>System.Span&lt;T&gt;</c> or <c>System.ReadOnlySpan&lt;T&gt;</c>.</summary>
+    /// <param name="type">The type.</param>
+    /// <returns><see langword="true"/> for span targets.</returns>
+    public static bool IsSpanTarget(ITypeSymbol? type)
+        => type is INamedTypeSymbol
+        {
+            TypeArguments.Length: 1,
+            ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true },
+            Name: "Span" or "ReadOnlySpan"
+        };
 
     /// <summary>Returns whether an expression appears in a context with an explicit target type.</summary>
     /// <param name="expression">The candidate expression.</param>

@@ -49,6 +49,12 @@ internal static class ModernSyntaxBenchmarkCases
     public static SingleAnalyzerBenchmarkState CreatePreferFieldKeyword(int nodes)
         => SingleAnalyzerBenchmarkCases.Create(new Sst2200PreferFieldKeywordAnalyzer(), ModernSyntaxBenchmarkSource.GeneratePreferFieldKeyword, nodes, ["SST2200"]);
 
+    /// <summary>Creates the prepared benchmark state for prefer-switch-expression analysis.</summary>
+    /// <param name="nodes">The synthetic node count.</param>
+    /// <returns>The prepared benchmark state.</returns>
+    public static SingleAnalyzerBenchmarkState CreatePreferSwitchExpression(int nodes)
+        => SingleAnalyzerBenchmarkCases.Create(new Sst2201PreferSwitchExpressionAnalyzer(), ModernSyntaxBenchmarkSource.GeneratePreferSwitchExpression, nodes);
+
     /// <summary>Creates the prepared benchmark state for prefer-or-pattern analysis.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>

@@ -62,6 +62,13 @@ internal static class ModernizationRules
         "Use 'is not' instead of negating the 'is' check",
         "A type test negated with '!' reads more directly as the 'is not' pattern: '!(x is T)' becomes 'x is not T'.");
 
+    /// <summary>SST2007 — an <c>is</c> check followed by a cast should use a declaration pattern.</summary>
+    public static readonly DiagnosticDescriptor UseDeclarationPatternOverIsCheckAndCast = Create(
+        "SST2007",
+        "Declare the checked type in the pattern",
+        "Declare '{0}' in the 'is' pattern instead of casting after the check",
+        "An 'is' type check followed by a local cast of the same value reads more directly as a declaration pattern: 'x is T t'.");
+
     /// <summary>Creates a Warning-severity Modernization descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

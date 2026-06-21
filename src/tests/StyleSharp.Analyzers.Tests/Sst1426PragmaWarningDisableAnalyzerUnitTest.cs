@@ -76,9 +76,9 @@ public class Sst1426PragmaWarningDisableAnalyzerUnitTest
             """
             internal class C
             {
-                {|SST1426:#pragma warning disable SST1309, SST1101|}
+                {|SST1426:#pragma warning disable SST1309, SST1117|}
                 private int field;
-                #pragma warning restore SST1309, SST1101
+                #pragma warning restore SST1309, SST1117
             }
             """);
 

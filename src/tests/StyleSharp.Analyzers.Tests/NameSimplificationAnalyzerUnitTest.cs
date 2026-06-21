@@ -11,6 +11,14 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for shortest-equivalent-name analysis (SST1116/SST1117).</summary>
 public class NameSimplificationAnalyzerUnitTest
 {
+    /// <summary>The editorconfig body that requires explicit <c>this.</c> on instance members.</summary>
+    private const string RequireThisEditorConfig = """
+                                                   root = true
+
+                                                   [*.cs]
+                                                   stylesharp.instance_member_qualification = require_this
+                                                   """;
+
     /// <summary>Verifies a qualified type name is shortened only when the shorter name binds to the same symbol.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -57,6 +65,83 @@ public class NameSimplificationAnalyzerUnitTest
                                    }
                                    """;
         await VerifyNameSimplification.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies configured <c>this.</c>-qualification keeps explicit instance-member access.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RequireThisStyleKeepsThisMemberAccessAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  private readonly int _value = 1;
+
+                                  public int M() => this._value;
+                              }
+                              """;
+        var test = new VerifyNameSimplification.Test
+        {
+            TestCode = Source
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies configured <c>this.</c>-qualification reports a bare instance member through the same rule.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RequireThisStyleQualifiesBareInstanceMemberAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  private readonly int _value = 1;
+
+                                  public int M() => {|SST1117:_value|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       private readonly int _value = 1;
+
+                                       public int M() => this._value;
+                                   }
+                                   """;
+        var test = CreateRequireThisTest(Source, FixedSource);
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies configured <c>this.</c>-qualification skips static, local, qualified, and initializer names.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RequireThisStyleSkipsNamesThatCannotBeInstanceQualifiedAsync()
+    {
+        const string Source = """
+                              internal sealed class C
+                              {
+                                  private static int shared;
+
+                                  private int _field;
+
+                                  private int M()
+                                  {
+                                      var local = 1;
+                                      return {|SST1117:_field|} + shared + local + this._field;
+                                  }
+
+                                  private C Create() => new C { _field = 1 };
+                              }
+                              """;
+        var test = new VerifyNameSimplification.Test
+        {
+            TestCode = Source
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
+
+        await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies names are not shortened when the shorter spelling would bind elsewhere.</summary>
@@ -171,5 +256,21 @@ public class NameSimplificationAnalyzerUnitTest
         test.TestState.Sources.Add(("NameSimplificationBench.g.cs", Source));
 
         await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Creates a verifier test with instance-member access configured to require <c>this.</c>.</summary>
+    /// <param name="source">The test source.</param>
+    /// <param name="fixedSource">The fixed source.</param>
+    /// <returns>The configured verifier test.</returns>
+    private static VerifyNameSimplification.Test CreateRequireThisTest(string source, string fixedSource)
+    {
+        var test = new VerifyNameSimplification.Test
+        {
+            TestCode = source,
+            FixedCode = fixedSource
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
+        return test;
     }
 }

@@ -5,8 +5,8 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Reports qualified names and <c>this.</c> member accesses that Roslyn can prove bind to the
-/// same symbol after simplification.
+/// Reports qualified names and instance-member accesses that do not match the configured
+/// shortest-name and <c>this.</c>-qualification style.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
@@ -25,6 +25,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeQualifiedName, SyntaxKind.QualifiedName);
         context.RegisterSyntaxNodeAction(AnalyzeAliasQualifiedName, SyntaxKind.AliasQualifiedName);
         context.RegisterSyntaxNodeAction(AnalyzeMemberAccess, SyntaxKind.SimpleMemberAccessExpression);
+        context.RegisterSemanticModelAction(AnalyzeBareMemberAccesses);
     }
 
     /// <summary>Reports qualified type or namespace names that can be shortened.</summary>
@@ -80,6 +81,12 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
+        if (InstanceMemberQualificationOptions.Read(options) == InstanceMemberQualification.RequireThis)
+        {
+            return;
+        }
+
         var replacement = CloneSimpleName(memberAccess.Name);
         if (!BindsToSameExpression(context.SemanticModel, memberAccess, replacement, context.CancellationToken))
         {
@@ -87,6 +94,47 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.SimplifyMemberAccess, memberAccess.GetLocation()));
+    }
+
+    /// <summary>Reports bare instance-member accesses when the configured style requires <c>this.</c>.</summary>
+    /// <param name="context">The semantic model context.</param>
+    private static void AnalyzeBareMemberAccesses(SemanticModelAnalysisContext context)
+    {
+        var tree = context.SemanticModel.SyntaxTree;
+        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree);
+        if (InstanceMemberQualificationOptions.Read(options) != InstanceMemberQualification.RequireThis)
+        {
+            return;
+        }
+
+        var root = tree.GetRoot(context.CancellationToken);
+        foreach (var node in root.DescendantNodes())
+        {
+            context.CancellationToken.ThrowIfCancellationRequested();
+            if (node is IdentifierNameSyntax identifier)
+            {
+                AnalyzeBareMemberAccess(context, identifier);
+            }
+        }
+    }
+
+    /// <summary>Reports one bare instance-member access that should be qualified.</summary>
+    /// <param name="context">The semantic model context.</param>
+    /// <param name="identifier">The identifier candidate.</param>
+    private static void AnalyzeBareMemberAccess(SemanticModelAnalysisContext context, IdentifierNameSyntax identifier)
+    {
+        if (!IsBareReference(identifier))
+        {
+            return;
+        }
+
+        var symbol = context.SemanticModel.GetSymbolInfo(identifier, context.CancellationToken).Symbol;
+        if (!IsInstanceMemberReference(symbol))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.SimplifyMemberAccess, identifier.GetLocation()));
     }
 
     /// <summary>Returns whether the candidate name appears in a context that must remain qualified.</summary>
@@ -110,6 +158,59 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
+
+    /// <summary>Returns whether the identifier is an unqualified expression that can take a <c>this.</c> prefix.</summary>
+    /// <param name="identifier">The identifier name.</param>
+    /// <returns><see langword="true"/> when the identifier is a bare member reference in value position.</returns>
+    private static bool IsBareReference(IdentifierNameSyntax identifier)
+    {
+        switch (identifier.Parent)
+        {
+            case MemberAccessExpressionSyntax access when access.Name == identifier:
+            case MemberBindingExpressionSyntax:
+            case QualifiedNameSyntax:
+            case AliasQualifiedNameSyntax:
+            case AssignmentExpressionSyntax assignment when assignment.Left == identifier && assignment.Parent is InitializerExpressionSyntax:
+            case NameColonSyntax:
+            case NameEqualsSyntax:
+                return false;
+            default:
+                return !IsInNameof(identifier);
+        }
+    }
+
+    /// <summary>Returns whether the identifier sits inside a <c>nameof(...)</c> expression.</summary>
+    /// <param name="node">The identifier node.</param>
+    /// <returns><see langword="true"/> when an enclosing <c>nameof</c> is found before the statement boundary.</returns>
+    private static bool IsInNameof(SyntaxNode node)
+    {
+        for (var current = node.Parent; current is not null; current = current.Parent)
+        {
+            switch (current)
+            {
+                case InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } }:
+                    return true;
+                case StatementSyntax or MemberDeclarationSyntax:
+                    return false;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether the symbol is a non-static field, property, ordinary method, or event.</summary>
+    /// <param name="symbol">The bound symbol.</param>
+    /// <returns><see langword="true"/> when a <c>this.</c> prefix can represent the symbol.</returns>
+    private static bool IsInstanceMemberReference(ISymbol? symbol) =>
+        symbol is { IsStatic: false, ContainingType: not null }
+            && symbol switch
+            {
+                IMethodSymbol method => method.MethodKind is MethodKind.Ordinary,
+                IFieldSymbol => true,
+                IPropertySymbol => true,
+                IEventSymbol => true,
+                _ => false
+            };
 
     /// <summary>Returns whether a shortened name binds to the same type or namespace symbol.</summary>
     /// <param name="model">The semantic model.</param>

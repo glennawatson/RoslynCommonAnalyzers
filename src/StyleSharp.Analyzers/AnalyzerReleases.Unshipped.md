@@ -5,3 +5,9 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
+
+### Removed Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+SST1101 | Readability | Disabled | Condensed into SST1117; instance member qualification is now one configurable rule.

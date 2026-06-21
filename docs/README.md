@@ -251,7 +251,6 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | Rule | Description |
 | --- | --- |
 | [SST1100](rules/SST1100.md) | A `base.` prefix is used where the type does not override the member. |
-| [SST1101](rules/SST1101.md) | An instance member is accessed without a `this.` prefix. Opt-in. |
 | [SST1102](rules/SST1102.md) | A query clause is separated from the previous clause by a blank line. |
 | [SST1103](rules/SST1103.md) | Query clauses mix single-line and multi-line layout. |
 | [SST1104](rules/SST1104.md) | A query clause shares the last line of a multi-line previous clause. |
@@ -265,7 +264,7 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST1114](rules/SST1114.md) | A blank line separates the declaration from its parameter list. |
 | [SST1115](rules/SST1115.md) | A blank line separates a parameter from the preceding comma. |
 | [SST1116](rules/SST1116.md) | A qualified name has a shorter spelling that binds to the same symbol. |
-| [SST1117](rules/SST1117.md) | A `this.` member access can be shortened without changing the member. |
+| [SST1117](rules/SST1117.md) | Instance member access does not match the configured `this.` qualification style. |
 | [SST1118](rules/SST1118.md) | A parameter or argument spans multiple lines. Opt-in. |
 | [SST1120](rules/SST1120.md) | A comment contains no text. |
 | [SST1121](rules/SST1121.md) | A framework type name is used instead of its built-in alias. Opt-in. |

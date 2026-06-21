@@ -10,11 +10,11 @@ internal static class ExpressionCodeFixBenchmarkSource
     /// <summary>Builds source containing only bare instance-member calls that need a <c>this.</c> prefix.</summary>
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GeneratePrefixLocalCallsWithThis(int members)
+    public static string GenerateRequireThisMemberQualification(int members)
         => $$"""
            namespace Bench;
 
-           internal sealed class PrefixLocalCallsWithThisBench
+           internal sealed class RequireThisMemberQualificationBench
            {
                private int _state;
 
@@ -23,7 +23,7 @@ internal static class ExpressionCodeFixBenchmarkSource
                    this._state = value;
                }
 
-           {{BenchmarkSourceText.JoinBlocks(members, GeneratePrefixLocalCallsWithThisMember)}}
+           {{BenchmarkSourceText.JoinBlocks(members, GenerateRequireThisMemberQualificationMember)}}
            }
            """;
 
@@ -43,7 +43,7 @@ internal static class ExpressionCodeFixBenchmarkSource
     /// <summary>Builds one bare instance-member call that needs a <c>this.</c> prefix.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GeneratePrefixLocalCallsWithThisMember(int index)
+    private static string GenerateRequireThisMemberQualificationMember(int index)
         => $$"""
            internal int M{{index}}(int value, int other)
            {

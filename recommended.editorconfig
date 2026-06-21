@@ -15,6 +15,7 @@
 # stylesharp.record_parameter_naming = pascal_case         # SST1801
 # stylesharp.conditional_operator_placement = leading      # SST1145
 # stylesharp.collection_expression_spacing = none          # SST1010/1011 (set 'space' for padded '[ 1, 2 ]')
+# stylesharp.instance_member_qualification = omit_this     # SST1117 (omit_this | require_this)
 # stylesharp.summary_single_line_max_length = 100          # SST1653
 # stylesharp.namespace_root = MyCompany.MyProduct          # SST1417 (also reads MSBuild RootNamespace)
 # stylesharp.max_switch_sections = 30                      # SST1423
@@ -235,7 +236,6 @@ dotnet_diagnostic.SST1217.severity = warning # Using static directives should be
 
 # Readability
 dotnet_diagnostic.SST1100.severity = warning # A base. prefix is used where the type does not override the member
-# dotnet_diagnostic.SST1101.severity = warning # An instance member is accessed without a this. prefix (opt-in)
 dotnet_diagnostic.SST1102.severity = warning # A query clause is separated from the previous clause by a blank line
 dotnet_diagnostic.SST1103.severity = warning # Query clauses mix single-line and multi-line layout
 dotnet_diagnostic.SST1104.severity = warning # A query clause shares the last line of a multi-line previous clause
@@ -249,7 +249,7 @@ dotnet_diagnostic.SST1113.severity = warning # A comma does not sit on the previ
 dotnet_diagnostic.SST1114.severity = warning # A blank line separates the declaration from its parameter list
 dotnet_diagnostic.SST1115.severity = warning # A blank line separates a parameter from the preceding comma
 dotnet_diagnostic.SST1116.severity = warning # A qualified name has a shorter spelling that binds to the same symbol
-dotnet_diagnostic.SST1117.severity = warning # A this. member access can be shortened without changing the member
+dotnet_diagnostic.SST1117.severity = warning # Instance member access follows the configured this. qualification style
 # dotnet_diagnostic.SST1118.severity = warning # A parameter or argument spans multiple lines (opt-in)
 dotnet_diagnostic.SST1120.severity = warning # A comment contains no text
 # dotnet_diagnostic.SST1121.severity = warning # A framework type name is used instead of its built-in alias (opt-in)

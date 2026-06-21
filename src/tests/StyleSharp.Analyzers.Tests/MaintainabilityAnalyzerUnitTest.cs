@@ -386,4 +386,47 @@ public class MaintainabilityAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies private helpers called from extension blocks are not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PrivateHelperCalledFromExtensionBlockIsAllowedAsync()
+        => await VerifyPrivateUsageAnalyzer.VerifyAnalyzerAsync(
+            """
+            using System;
+            using System.Collections.Generic;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            public static partial class SignalAsyncExtensions
+            {
+                extension<T>(IObservableAsync<T> @this)
+                {
+                    public ValueTask<Dictionary<TKey, T>> ToDictionaryAsync<TKey>(
+                        Func<T, TKey> keySelector,
+                        IEqualityComparer<TKey> comparer,
+                        CancellationToken cancellationToken)
+                        where TKey : notnull =>
+                        ToDictionaryCore(@this, keySelector, DictionaryIdentity<T>.Instance, comparer, cancellationToken);
+                }
+
+                private static ValueTask<Dictionary<TKey, TValue>> ToDictionaryCore<TSource, TKey, TValue>(
+                    IObservableAsync<TSource> source,
+                    Func<TSource, TKey> keySelector,
+                    Func<TSource, TValue> elementSelector,
+                    IEqualityComparer<TKey> comparer,
+                    CancellationToken cancellationToken)
+                    where TKey : notnull =>
+                    default;
+
+                private static class DictionaryIdentity<T>
+                {
+                    internal static readonly Func<T, T> Instance = static value => value;
+                }
+            }
+
+            public interface IObservableAsync<T>
+            {
+            }
+            """);
 }

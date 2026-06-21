@@ -6,7 +6,7 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Reports questionable <c>lock</c> targets: a field or property reachable from
-/// outside the declaring type (SST1901), <c>this</c>, a <see cref="System.Type"/>,
+/// outside the declaring type (SST1901), <c>this</c>, a <see cref="Type"/>,
 /// or a string (SST1902, opt-in), and a freshly-created object (SST1903). In each
 /// case the lock either leaks to unrelated code or cannot coordinate with any
 /// other caller, so the fix is to lock on a private, dedicated object instead.

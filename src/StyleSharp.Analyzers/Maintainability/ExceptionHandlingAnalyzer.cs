@@ -11,7 +11,7 @@ namespace StyleSharp.Analyzers;
 /// <remarks>
 /// Reports the following diagnostic ids:
 /// <list type="bullet">
-/// <item><description>SST1429 — a <c>catch</c> of the base <see cref="System.Exception"/> (or a bare <c>catch</c>) has an empty body.</description></item>
+/// <item><description>SST1429 — a <c>catch</c> of the base <see cref="Exception"/> (or a bare <c>catch</c>) has an empty body.</description></item>
 /// <item><description>SST1430 — <c>throw ex;</c> re-throws the caught exception and discards its original stack trace.</description></item>
 /// </list>
 /// </remarks>
@@ -101,7 +101,7 @@ public sealed class ExceptionHandlingAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.PreserveStackTraceOnRethrow, throwStatement.GetLocation(), thrown.Identifier.ValueText));
     }
 
-    /// <summary>Returns whether a type symbol is <see cref="System.Exception"/> itself.</summary>
+    /// <summary>Returns whether a type symbol is <see cref="Exception"/> itself.</summary>
     /// <param name="type">The caught type.</param>
     /// <returns><see langword="true"/> for the exact <c>System.Exception</c> type.</returns>
     private static bool IsSystemException(ITypeSymbol? type)

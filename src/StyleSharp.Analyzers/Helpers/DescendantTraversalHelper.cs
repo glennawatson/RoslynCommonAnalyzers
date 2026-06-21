@@ -29,7 +29,7 @@ internal static class DescendantTraversalHelper
 
     /// <summary>
     /// Visits every token beneath <paramref name="root"/> in document (preorder)
-    /// order, mirroring <see cref="SyntaxNode.DescendantTokens(System.Func{SyntaxNode, bool}, bool)"/>
+    /// order, mirroring <see cref="SyntaxNode.DescendantTokens(Func{SyntaxNode, bool}, bool)"/>
     /// but without allocating an iterator or its internal stack. The visitor may
     /// stop the walk early by returning <see langword="false"/>.
     /// </summary>

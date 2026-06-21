@@ -212,7 +212,7 @@ internal static class MaintainabilityRules
         "Make this constructor 'protected'; only a derived type can call it",
         "An abstract type cannot be instantiated directly, so a 'public' constructor is misleading. A 'protected' (or private) constructor states that only derived types call it.");
 
-    /// <summary>SST1429 — a <c>catch</c> clause swallows the base <see cref="System.Exception"/> with an empty body.</summary>
+    /// <summary>SST1429 — a <c>catch</c> clause swallows the base <see cref="Exception"/> with an empty body.</summary>
     public static readonly DiagnosticDescriptor NoEmptyCatchOfBaseException = Create(
         "SST1429",
         "Empty catch clauses should not swallow the base exception",

@@ -105,6 +105,20 @@ internal static class ModernSyntaxBenchmarkSource
            {{BenchmarkSourceText.JoinBlocks(members, i => GeneratePreferFieldKeywordType(i, violating))}}
            """;
 
+    /// <summary>Builds source for prefer-switch-expression analysis (SST2201).</summary>
+    /// <param name="members">The number of synthetic switch methods to emit.</param>
+    /// <param name="violating">Whether to emit return-only switch statements.</param>
+    /// <returns>The generated source text.</returns>
+    public static string GeneratePreferSwitchExpression(int members, bool violating)
+        => $$"""
+           namespace Bench;
+
+           internal sealed class PreferSwitchExpressionBench
+           {
+           {{BenchmarkSourceText.JoinBlocks(members, i => GeneratePreferSwitchExpressionMember(i, violating))}}
+           }
+           """;
+
     /// <summary>Builds source for prefer-or-pattern analysis (SST1144).</summary>
     /// <param name="members">The number of synthetic switch methods to emit.</param>
     /// <param name="violating">Whether to emit stacked combinable case labels.</param>
@@ -280,6 +294,35 @@ internal static class ModernSyntaxBenchmarkSource
                        set => _value{{index}} = value;
                    }
                }
+               """;
+
+    /// <summary>Builds one clean or violating switch method for switch-expression analysis.</summary>
+    /// <param name="index">The synthetic method index.</param>
+    /// <param name="violating">Whether to emit a return-only switch statement.</param>
+    /// <returns>The generated method block.</returns>
+    private static string GeneratePreferSwitchExpressionMember(int index, bool violating)
+        => violating
+            ? $$"""
+               public int M{{index}}(int value)
+               {
+                   switch (value)
+                   {
+                       case 0:
+                           return {{index}};
+                       case 1:
+                           return {{index + 1}};
+                       default:
+                           return -1;
+                   }
+               }
+               """
+            : $$"""
+               public int M{{index}}(int value) => value switch
+               {
+                   0 => {{index}},
+                   1 => {{index + 1}},
+                   _ => -1,
+               };
                """;
 
     /// <summary>Builds one clean or violating switch method for prefer-or-pattern analysis.</summary>

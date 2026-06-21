@@ -10,16 +10,16 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1145 (place conditional operators consistently).</summary>
 public class ConditionalOperatorPlacementAnalyzerUnitTest
 {
-    /// <summary>Verifies trailing operators are reported under the default (leading) placement.</summary>
+    /// <summary>Verifies trailing operators are reported by the stricter branch-leading layout rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task TrailingOperatorsReportedAsync()
+    public async Task TrailingOperatorsReportedByBranchLeadingLayoutAsync()
         => await VerifyPlacement.VerifyAnalyzerAsync(
             """
             public class C
             {
-                public int M(bool c) => c {|SST1145:?|}
-                    1 {|SST1145::|}
+                public int M(bool c) => c {|SST1140:?|}
+                    1 {|SST1140::|}
                     2;
             }
             """);

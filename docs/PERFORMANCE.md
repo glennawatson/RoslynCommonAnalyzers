@@ -84,14 +84,19 @@ Two complementary lenses:
   the hottest analyzer pipelines (`SpacingAnalyzer`, tuple element access,
   `Sst1415UseNameofAnalyzer`, `ArgumentGuardAnalyzer`, and the shared jagged-list helper).
 - **Single-analyzer hot suites** (`TupleElementNameBenchmarks`,
-  `UseNameofBenchmarks`) — full `CompilationWithAnalyzers` runs for the specific
-  hot analyzer families whose internal fast paths are already covered by
-  `HotPathBenchmarks`.
+  `UseNameofBenchmarks`, `NameSimplificationBenchmarks`,
+  `LanguageStyleBenchmarks`, `ModernSyntaxStyleBenchmarks`, and
+  `PreferSwitchExpressionBenchmarks`) plus the discrete conditional-operator
+  layout suite (`ConditionalOperatorPlacementBenchmarks`) — full
+  `CompilationWithAnalyzers` runs for
+  the specific hot analyzer families whose internal fast paths are already
+  covered by `HotPathBenchmarks` or by dedicated clean/violating corpora.
 - **End-to-end** (`AnalyzerThroughputBenchmarks`) — the analyzers run over a real
   compilation through `CompilationWithAnalyzers`. This is the realistic
   "what the IDE/build pays" figure and the surface for hunting bottlenecks.
-- **EventPipe** (`HotPathProfiledAllocBenchmarks` / `HotPathProfiledCpuBenchmarks`) —
-  opt-in allocation and CPU sampling runs for terminal-driven hotspot hunting.
+- **EventPipe** (`HotPathProfiledAllocBenchmarks` / `HotPathProfiledCpuBenchmarks`,
+  plus analyzer-specific `*ProfiledAllocBenchmarks` / `*ProfiledCpuBenchmarks`
+  suites) — opt-in allocation and CPU sampling runs for terminal-driven hotspot hunting.
   Each hot analyzer family exposes both clean and violating paths so you can
   profile the common path first, then isolate the report path separately.
 

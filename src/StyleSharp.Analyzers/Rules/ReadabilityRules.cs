@@ -205,6 +205,20 @@ internal static class ReadabilityRules
         "Remove the blank line before this parameter",
         "Each parameter begins on the line of the preceding comma or the line directly after it.");
 
+    /// <summary>SST1116 — a qualified name can be shortened without changing the symbol it binds to.</summary>
+    public static readonly DiagnosticDescriptor SimplifyName = Create(
+        "SST1116",
+        "Prefer the shortest symbol-equivalent name",
+        "Shorten this qualified name",
+        "A qualified type or namespace name is shortened when the shorter name binds to the same symbol.");
+
+    /// <summary>SST1117 — a <c>this.</c> member access can be shortened without changing the symbol it binds to.</summary>
+    public static readonly DiagnosticDescriptor SimplifyMemberAccess = Create(
+        "SST1117",
+        "Drop redundant this qualification",
+        "Omit the redundant 'this.' qualifier",
+        "A 'this.' qualifier is omitted when the unqualified member access binds to the same member.");
+
     /// <summary>SST1118 — a parameter or argument spans multiple lines (opt-in; multi-line callbacks are exempt).</summary>
     public static readonly DiagnosticDescriptor ParameterMustNotSpanMultipleLines = CreateOptIn(
         "SST1118",
@@ -239,6 +253,13 @@ internal static class ReadabilityRules
         "Use literal suffix notation instead of casting",
         "Use the literal suffix '{0}' instead of a cast",
         "A typed numeric literal uses a suffix ('1L', '2.0f') rather than a cast applied to an untyped literal.");
+
+    /// <summary>SST1140 — wrapped conditional operators should start an indented continuation line.</summary>
+    public static readonly DiagnosticDescriptor ConditionalOperatorIndentedLine = Create(
+        "SST1140",
+        "Start conditional operators on indented continuation lines",
+        "Place the '{0}' operator at the start of an indented continuation line",
+        "A wrapped conditional expression places '?' and ':' at the start of one-step-indented continuation lines so the two branches line up.");
 
     /// <summary>SST1141 — an explicit <c>ValueTuple&lt;...&gt;</c> is used where tuple syntax would do.</summary>
     public static readonly DiagnosticDescriptor UseTupleSyntax = Create(
@@ -449,6 +470,55 @@ internal static class ReadabilityRules
         "Control characters in string literals should be escaped",
         "Replace the embedded control character with an explicit escape sequence",
         "A literal that embeds a raw tab or other control character is easy to misread or alter by accident; an explicit escape ('\\t') states the intent. Off by default.");
+
+    /// <summary>SST1193 — object setup after construction can use an object initializer.</summary>
+    public static readonly DiagnosticDescriptor UseObjectInitializer = Create(
+        "SST1193",
+        "Keep initial member values with construction",
+        "Move the first assignment for '{0}' into the initializer",
+        "A new object followed immediately by member assignments is written with an object initializer so construction and initialization stay together.");
+
+    /// <summary>SST1194 — collection setup after construction can use a collection initializer.</summary>
+    public static readonly DiagnosticDescriptor UseCollectionInitializer = Create(
+        "SST1194",
+        "Keep initial collection values with construction",
+        "Move the first Add call for '{0}' into the initializer",
+        "A new collection followed immediately by Add calls is written with a collection initializer so its initial contents stay with the construction.");
+
+    /// <summary>SST1195 — a null conditional can use the null-coalescing operator.</summary>
+    public static readonly DiagnosticDescriptor UseNullCoalescingExpression = Create(
+        "SST1195",
+        "Write null fallback with ??",
+        "Write this fallback with '??'",
+        "A conditional expression that returns the same value when it is non-null and a fallback otherwise is written with the null-coalescing operator.");
+
+    /// <summary>SST1196 — a null guard before member access can use null propagation.</summary>
+    public static readonly DiagnosticDescriptor UseNullPropagation = Create(
+        "SST1196",
+        "Write null-guarded access directly",
+        "Write this guarded access with '?.'",
+        "A conditional expression that returns null when the receiver is null and otherwise reads a member is written with the null-propagation operator.");
+
+    /// <summary>SST1197 — adjacent return statements can use a conditional expression.</summary>
+    public static readonly DiagnosticDescriptor UseConditionalExpressionForReturn = Create(
+        "SST1197",
+        "Collapse return-only branch into one return",
+        "Collapse this branch into one conditional return",
+        "An if statement that only chooses between two return values is written as one return with a conditional expression.");
+
+    /// <summary>SST1198 — matching assignments can use a conditional expression.</summary>
+    public static readonly DiagnosticDescriptor UseConditionalExpressionForAssignment = Create(
+        "SST1198",
+        "Collapse assignment-only branch into one assignment",
+        "Collapse this branch into one conditional assignment",
+        "An if/else statement that only assigns one target from two values is written as one assignment with a conditional expression.");
+
+    /// <summary>SST1199 — <c>typeof(T).Name</c> can use <c>nameof(T)</c>.</summary>
+    public static readonly DiagnosticDescriptor UseNameofType = Create(
+        "SST1199",
+        "Prefer compile-time type names",
+        "Replace 'typeof({0}).Name' with 'nameof({0})'",
+        "A type name is written with 'nameof(T)' instead of 'typeof(T).Name' so the code stays compile-time only.");
 
     /// <summary>Creates a Warning-severity Readability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

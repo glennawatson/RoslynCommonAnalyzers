@@ -21,6 +21,34 @@ internal static class CollectionExpressionRules
         "Replace this collection creation with a collection expression",
         "A standard array or generic collection initializer is written as a C# 12 collection expression. Off by default because target-type inference can affect overload resolution.");
 
+    /// <summary>SST2102 — a stackalloc initializer can use <c>[...]</c>.</summary>
+    public static readonly DiagnosticDescriptor UseCollectionExpressionForStackalloc = Create(
+        "SST2102",
+        "Let the span target carry stack allocation",
+        "Replace this stackalloc initializer with a collection expression",
+        "A stackalloc initializer assigned to a span target is written as a C# 12 collection expression when the referenced framework supports the conversion.");
+
+    /// <summary>SST2103 — a collection-builder <c>Create</c> call can use <c>[...]</c>.</summary>
+    public static readonly DiagnosticDescriptor UseCollectionExpressionForCreate = Create(
+        "SST2103",
+        "Use a collection expression for this factory call",
+        "Replace this collection factory call with a collection expression",
+        "A collection-builder Create or CreateRange call is written as a collection expression so the elements are visible at the assignment site.");
+
+    /// <summary>SST2104 — a short builder sequence can use <c>[...]</c>.</summary>
+    public static readonly DiagnosticDescriptor UseCollectionExpressionForBuilder = Create(
+        "SST2104",
+        "Return builder contents directly",
+        "Replace this builder sequence with a collection expression",
+        "A local builder that is only populated with Add calls and immediately converted is replaced by a collection expression.");
+
+    /// <summary>SST2105 — a fluent array conversion can use <c>[...]</c>.</summary>
+    public static readonly DiagnosticDescriptor UseCollectionExpressionForFluent = Create(
+        "SST2105",
+        "Use the target collection expression directly",
+        "Replace this fluent array conversion with a collection expression",
+        "A literal array immediately converted with ToArray or ToList is written as a collection expression at the target site.");
+
     /// <summary>Creates an enabled collection-expression descriptor.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The title.</param>

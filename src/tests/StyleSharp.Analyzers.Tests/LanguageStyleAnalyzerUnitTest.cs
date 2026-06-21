@@ -164,6 +164,28 @@ public class LanguageStyleAnalyzerUnitTest
         await VerifyLanguageStyle.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies adjacent returns are not collapsed when the result would nest conditional expressions.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalReturnWithFollowingConditionalExpressionIsCleanAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(bool first, bool second)
+                                  {
+                                      if (first)
+                                      {
+                                          return 1;
+                                      }
+
+                                      return second ? 2 : 3;
+                                  }
+                              }
+                              """;
+        await VerifyLanguageStyle.VerifyAnalyzerAsync(Source);
+    }
+
     /// <summary>Verifies matching if/else assignments are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

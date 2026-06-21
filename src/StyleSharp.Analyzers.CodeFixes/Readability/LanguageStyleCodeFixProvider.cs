@@ -33,7 +33,8 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (GetTitle(diagnostic.Id) is not { } title)
+            if (GetTitle(diagnostic.Id) is not { } title
+                || CreateReplacement(root, diagnostic, out _, out _) is null)
             {
                 continue;
             }
@@ -228,7 +229,8 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         if (oldNode is not IfStatementSyntax ifStatement
             || !TryGetEmbeddedReturn(ifStatement.Statement, out var whenTrue)
             || ifStatement.Parent is not BlockSyntax block
-            || NextStatement(block, ifStatement) is not ReturnStatementSyntax { Expression: { } whenFalse } followingReturn)
+            || NextStatement(block, ifStatement) is not ReturnStatementSyntax { Expression: { } whenFalse } followingReturn
+            || WouldNestConditionalExpression(ifStatement.Condition, whenTrue, whenFalse))
         {
             oldNode = null;
             return null;
@@ -240,6 +242,37 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
             whenTrue.WithoutTrivia(),
             whenFalse.WithoutTrivia());
         return SyntaxFactory.ReturnStatement(conditional).WithTriviaFrom(ifStatement);
+    }
+
+    /// <summary>Returns whether a conditional rewrite would create nested conditional expressions.</summary>
+    /// <param name="condition">The condition expression.</param>
+    /// <param name="whenTrue">The expression used for the true branch.</param>
+    /// <param name="whenFalse">The expression used for the false branch.</param>
+    /// <returns><see langword="true"/> when the replacement would nest a conditional expression.</returns>
+    private static bool WouldNestConditionalExpression(ExpressionSyntax condition, ExpressionSyntax whenTrue, ExpressionSyntax whenFalse)
+        => ContainsConditionalExpression(condition)
+            || ContainsConditionalExpression(whenTrue)
+            || ContainsConditionalExpression(whenFalse);
+
+    /// <summary>Returns whether an expression contains a conditional expression.</summary>
+    /// <param name="expression">The expression to inspect.</param>
+    /// <returns><see langword="true"/> when a conditional expression is present.</returns>
+    private static bool ContainsConditionalExpression(ExpressionSyntax expression)
+    {
+        if (expression is ConditionalExpressionSyntax)
+        {
+            return true;
+        }
+
+        foreach (var node in expression.DescendantNodes(static node => node is not ConditionalExpressionSyntax))
+        {
+            if (node is ConditionalExpressionSyntax)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Creates a conditional-assignment replacement.</summary>

@@ -7,7 +7,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>Applies mechanical fixes for value, cast, and LINQ modern syntax rules (SST2220-SST2232).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ModernSyntaxValueCodeFixProvider))]
 [Shared]
-public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix, IBatchEditKeyProvider
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -26,7 +26,7 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         ModernSyntaxRules.UseUnboundGenericName.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => ModernSyntaxValueFixAllProvider.Instance;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -78,6 +78,20 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         }
 
         editor.RemoveNode(removeNode, SyntaxRemoveOptions.KeepNoTrivia);
+    }
+
+    /// <inheritdoc/>
+    bool IBatchEditKeyProvider.TryGetBatchEditSpan(SyntaxNode root, Diagnostic diagnostic, out TextSpan span)
+    {
+        _ = CreateEdit(root, diagnostic, out var oldNode, out _);
+        if (oldNode is null)
+        {
+            span = default;
+            return false;
+        }
+
+        span = oldNode.Span;
+        return true;
     }
 
     /// <summary>Applies one value-syntax fix.</summary>
@@ -789,5 +803,89 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
 
         right = value.WithoutTrivia();
         return true;
+    }
+
+    /// <summary>Applies value-syntax fix-all batches, with a direct root rewrite for duplicate-heavy ignored-value fixes.</summary>
+    private sealed class ModernSyntaxValueFixAllProvider : DocumentBasedFixAllProvider
+    {
+        /// <summary>The shared provider instance.</summary>
+        public static readonly ModernSyntaxValueFixAllProvider Instance = new();
+
+        /// <inheritdoc/>
+        protected override async Task<Document?> FixAllAsync(FixAllContext fixAllContext, Document document, ImmutableArray<Diagnostic> diagnostics)
+        {
+            if (diagnostics.IsEmpty || fixAllContext.CodeFixProvider is not IBatchFixableCodeFix fix)
+            {
+                return document;
+            }
+
+            var root = await document.GetSyntaxRootAsync(fixAllContext.CancellationToken).ConfigureAwait(false);
+            if (root is null)
+            {
+                return document;
+            }
+
+            if (AllDiagnosticsAreIgnoredValue(diagnostics))
+            {
+                return FixIgnoredValues(document, root, diagnostics);
+            }
+
+            var editor = await DocumentEditor.CreateAsync(document, fixAllContext.CancellationToken).ConfigureAwait(false);
+            foreach (var diagnostic in BatchEditFixAllProvider.UniqueDiagnostics(editor.OriginalRoot, fix, diagnostics))
+            {
+                BatchEditFixAllProvider.RegisterBatchEdit(editor, fix, diagnostic);
+            }
+
+            return editor.GetChangedDocument();
+        }
+
+        /// <summary>Returns whether every diagnostic is for the ignored expression value rule.</summary>
+        /// <param name="diagnostics">The diagnostics to inspect.</param>
+        /// <returns><see langword="true"/> when every diagnostic has id SST2221.</returns>
+        private static bool AllDiagnosticsAreIgnoredValue(ImmutableArray<Diagnostic> diagnostics)
+        {
+            foreach (var diagnostic in diagnostics)
+            {
+                if (diagnostic.Id != ModernSyntaxRules.MakeIgnoredExpressionValueExplicit.Id)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>Applies ignored-value fixes directly against the original syntax root.</summary>
+        /// <param name="document">The document to update.</param>
+        /// <param name="root">The original syntax root.</param>
+        /// <param name="diagnostics">The diagnostics to fix.</param>
+        /// <returns>The updated document.</returns>
+        private static Document FixIgnoredValues(Document document, SyntaxNode root, ImmutableArray<Diagnostic> diagnostics)
+        {
+            var seen = new HashSet<TextSpan>();
+            var targets = new List<SyntaxNode>();
+            var replacements = new Dictionary<TextSpan, SyntaxNode>();
+            foreach (var diagnostic in diagnostics)
+            {
+                var replacement = CreateIgnoredValueFix(root, diagnostic.Location.SourceSpan, out var oldNode);
+                if (replacement is null || oldNode is null || !seen.Add(oldNode.Span))
+                {
+                    continue;
+                }
+
+                targets.Add(oldNode);
+                replacements.Add(oldNode.Span, replacement);
+            }
+
+            if (targets.Count == 0)
+            {
+                return document;
+            }
+
+            var updatedRoot = root.ReplaceNodes(
+                targets,
+                (original, _) => replacements[original.Span]);
+            return document.WithSyntaxRoot(updatedRoot);
+        }
     }
 }

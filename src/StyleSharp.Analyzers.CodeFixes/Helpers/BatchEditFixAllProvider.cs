@@ -33,6 +33,44 @@ internal sealed class BatchEditFixAllProvider : DocumentBasedFixAllProvider
         }
     }
 
+    /// <summary>Returns diagnostics with duplicate resolved edit targets removed.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="fix">The batch fix.</param>
+    /// <param name="diagnostics">The diagnostics to filter.</param>
+    /// <returns>The diagnostics that should register batch edits.</returns>
+    internal static IEnumerable<Diagnostic> UniqueDiagnostics(SyntaxNode root, IBatchFixableCodeFix fix, ImmutableArray<Diagnostic> diagnostics)
+    {
+        var seen = new HashSet<DiagnosticEditKey>();
+        var keyProvider = fix as IBatchEditKeyProvider;
+        foreach (var diagnostic in diagnostics)
+        {
+            var span = keyProvider is not null && keyProvider.TryGetBatchEditSpan(root, diagnostic, out var editSpan)
+                ? editSpan
+                : diagnostic.Location.SourceSpan;
+            var key = new DiagnosticEditKey(diagnostic.Id, span);
+            if (seen.Add(key))
+            {
+                yield return diagnostic;
+            }
+        }
+    }
+
+    /// <summary>Registers one batch edit, ignoring Roslyn's stale-node error for duplicate edit targets.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="fix">The batch fix.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdit(DocumentEditor editor, IBatchFixableCodeFix fix, Diagnostic diagnostic)
+    {
+        try
+        {
+            fix.RegisterBatchEdits(editor, diagnostic);
+        }
+        catch (InvalidOperationException exception) when (IsDuplicateEditTarget(exception))
+        {
+            // The first edit for this syntax node already won; later linked-document duplicates can be skipped.
+        }
+    }
+
     /// <inheritdoc/>
     protected override async Task<Document?> FixAllAsync(FixAllContext fixAllContext, Document document, ImmutableArray<Diagnostic> diagnostics)
     {
@@ -42,13 +80,19 @@ internal sealed class BatchEditFixAllProvider : DocumentBasedFixAllProvider
         }
 
         var editor = await DocumentEditor.CreateAsync(document, fixAllContext.CancellationToken).ConfigureAwait(false);
-        foreach (var diagnostic in UniqueDiagnostics(diagnostics))
+        foreach (var diagnostic in UniqueDiagnostics(editor.OriginalRoot, fix, diagnostics))
         {
-            fix.RegisterBatchEdits(editor, diagnostic);
+            RegisterBatchEdit(editor, fix, diagnostic);
         }
 
         return editor.GetChangedDocument();
     }
+
+    /// <summary>Returns whether an exception represents a duplicate syntax edit target already consumed by <see cref="SyntaxEditor"/>.</summary>
+    /// <param name="exception">The exception thrown while registering a batch edit.</param>
+    /// <returns><see langword="true"/> when the edit can be skipped because the target was already replaced or removed.</returns>
+    private static bool IsDuplicateEditTarget(InvalidOperationException exception)
+        => exception.Message.StartsWith("GetCurrentNode returned null", StringComparison.Ordinal);
 
     /// <summary>A unique document edit target for diagnostics already grouped by document.</summary>
     /// <param name="Id">The diagnostic id.</param>

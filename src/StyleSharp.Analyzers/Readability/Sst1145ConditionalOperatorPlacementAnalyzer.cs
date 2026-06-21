@@ -56,7 +56,7 @@ public sealed class Sst1145ConditionalOperatorPlacementAnalyzer : DiagnosticAnal
         }
 
         var tree = conditional.SyntaxTree;
-        var expectedIndent = GetOwnerIndentColumn(tree, conditional) + IndentStepWidth;
+        var expectedIndent = GetConditionLineIndentColumn(tree, conditional, context.CancellationToken) + IndentStepWidth;
         var questionIndentViolation = CheckIndentedOperator(context, tree, conditional.QuestionToken, lineBreaks.QuestionBefore, expectedIndent);
         var colonIndentViolation = CheckIndentedOperator(context, tree, conditional.ColonToken, lineBreaks.ColonBefore, expectedIndent);
 
@@ -156,21 +156,30 @@ public sealed class Sst1145ConditionalOperatorPlacementAnalyzer : DiagnosticAnal
         return true;
     }
 
-    /// <summary>Returns the column of the statement or member that owns the conditional expression.</summary>
+    /// <summary>Returns the indentation column of the line where the conditional expression starts.</summary>
     /// <param name="tree">The syntax tree.</param>
     /// <param name="conditional">The conditional expression.</param>
-    /// <returns>The owner indentation column.</returns>
-    private static int GetOwnerIndentColumn(SyntaxTree tree, ConditionalExpressionSyntax conditional)
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns>The conditional line indentation column.</returns>
+    private static int GetConditionLineIndentColumn(
+        SyntaxTree tree,
+        ConditionalExpressionSyntax conditional,
+        CancellationToken cancellationToken)
     {
-        for (var node = conditional.Parent; node is not null; node = node.Parent)
+        var text = tree.GetText(cancellationToken);
+        var line = text.Lines.GetLineFromPosition(conditional.GetFirstToken().SpanStart);
+        var column = 0;
+        for (var position = line.Start; position < line.End; position++)
         {
-            if (node is StatementSyntax or MemberDeclarationSyntax or AccessorDeclarationSyntax or AnonymousFunctionExpressionSyntax)
+            if (!char.IsWhiteSpace(text[position]))
             {
-                return tree.GetLineSpan(node.GetFirstToken().Span).StartLinePosition.Character;
+                break;
             }
+
+            column++;
         }
 
-        return tree.GetLineSpan(conditional.GetFirstToken().Span).StartLinePosition.Character;
+        return column;
     }
 
     /// <summary>Reads whether operators should lead their line, preferring the rule-specific key.</summary>

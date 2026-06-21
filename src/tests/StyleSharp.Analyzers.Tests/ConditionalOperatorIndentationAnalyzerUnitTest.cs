@@ -81,6 +81,24 @@ public class ConditionalOperatorIndentationAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies leading operators are clean when the condition starts after a wrapped signature.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task WrappedExpressionBodiedMemberSignatureIsCleanAsync()
+        => await VerifyConditionalOperatorIndentation.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int M(
+                    bool c,
+                    int whenTrue,
+                    int whenFalse) =>
+                    c
+                        ? whenTrue
+                        : whenFalse;
+            }
+            """);
+
     /// <summary>Verifies single-line conditionals are not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

@@ -48,7 +48,6 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
         {
             var capabilities = ModernSyntaxReadabilityCapabilities.Create(start.Compilation);
             start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
-            start.RegisterSyntaxNodeAction(AnalyzeArrayCreation, SyntaxKind.ArrayCreationExpression, SyntaxKind.ImplicitArrayCreationExpression);
             start.RegisterSyntaxNodeAction(AnalyzeDeclarationPattern, SyntaxKind.DeclarationPattern);
             start.RegisterSyntaxNodeAction(AnalyzeLocalDeclaration, SyntaxKind.LocalDeclarationStatement);
             start.RegisterSyntaxNodeAction(AnalyzeTupleArgument, SyntaxKind.Argument);
@@ -78,22 +77,6 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
         }
 
         ReportUtf8(context, invocation, target);
-    }
-
-    /// <summary>Reports literal byte array creations that can be written as UTF-8 string literals.</summary>
-    /// <param name="context">The syntax node context.</param>
-    private static void AnalyzeArrayCreation(SyntaxNodeAnalysisContext context)
-    {
-        if (context.Node is not ExpressionSyntax expression
-            || !IsLanguageVersionAtLeast(expression, CSharp11)
-            || !ModernSyntaxReadabilityAnalysis.TryDecodeUtf8Initializer(expression, out _)
-            || !ModernSyntaxReadabilityAnalysis.IsByteArrayExpression(expression, context.SemanticModel, context.CancellationToken)
-            || !ModernSyntaxReadabilityAnalysis.TryGetUtf8Target(expression, context.SemanticModel, context.CancellationToken, out var target))
-        {
-            return;
-        }
-
-        ReportUtf8(context, expression, target);
     }
 
     /// <summary>Reports discard designations in declaration patterns where the type pattern is enough.</summary>

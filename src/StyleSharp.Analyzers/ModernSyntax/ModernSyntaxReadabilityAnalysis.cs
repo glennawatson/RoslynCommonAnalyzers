@@ -34,9 +34,6 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <summary>The number of tuple element locals currently rewritten by the code fix.</summary>
     private const int SupportedDeconstructionElementCount = 2;
 
-    /// <summary>UTF-8 decoder that throws on invalid byte sequences.</summary>
-    private static readonly System.Text.UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
-
     /// <summary>Returns whether an expression can be replaced with a UTF-8 literal.</summary>
     /// <param name="expression">The candidate expression.</param>
     /// <param name="target">The UTF-8 target kind from the diagnostic.</param>
@@ -45,14 +42,17 @@ internal static class ModernSyntaxReadabilityAnalysis
     public static bool TryCreateUtf8Replacement(ExpressionSyntax expression, string target, out ExpressionSyntax replacement)
     {
         replacement = null!;
-        if (!TryGetUtf8Text(expression, out var text))
+        if (expression is not InvocationExpressionSyntax { ArgumentList.Arguments: [ArgumentSyntax { Expression: LiteralExpressionSyntax literal }] }
+            || !literal.IsKind(SyntaxKind.StringLiteralExpression))
         {
+            replacement = null!;
             return false;
         }
 
-        var literal = SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(text));
+        var text = literal.Token.ValueText;
+        var literalExpression = SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(text));
         var suffix = target == Utf8ArrayTarget ? "u8.ToArray()" : "u8";
-        replacement = SyntaxFactory.ParseExpression(literal.Token.Text + suffix).WithTriviaFrom(expression);
+        replacement = SyntaxFactory.ParseExpression(literalExpression.Token.Text + suffix).WithTriviaFrom(expression);
         return true;
     }
 
@@ -205,45 +205,6 @@ internal static class ModernSyntaxReadabilityAnalysis
         return target.Length > 0;
     }
 
-    /// <summary>Returns whether the expression is a byte array creation.</summary>
-    /// <param name="expression">The candidate expression.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels analysis.</param>
-    /// <returns><see langword="true"/> when the expression's natural type is <c>byte[]</c>.</returns>
-    public static bool IsByteArrayExpression(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken)
-        => model.GetTypeInfo(expression, cancellationToken).Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Byte };
-
-    /// <summary>Decodes a byte-array initializer as UTF-8.</summary>
-    /// <param name="expression">The array creation expression.</param>
-    /// <param name="text">The decoded text.</param>
-    /// <returns><see langword="true"/> when every element is a byte literal and the sequence is valid UTF-8.</returns>
-    public static bool TryDecodeUtf8Initializer(ExpressionSyntax expression, out string text)
-    {
-        text = string.Empty;
-        var initializer = expression switch
-        {
-            ArrayCreationExpressionSyntax array => array.Initializer,
-            ImplicitArrayCreationExpressionSyntax array => array.Initializer,
-            _ => null
-        };
-
-        if (initializer is null || initializer.Expressions.Count == 0)
-        {
-            return false;
-        }
-
-        var bytes = new byte[initializer.Expressions.Count];
-        for (var i = 0; i < initializer.Expressions.Count; i++)
-        {
-            if (!TryGetByteLiteral(initializer.Expressions[i], out bytes[i]))
-            {
-                return false;
-            }
-        }
-
-        return TryDecodeStrictUtf8(bytes, out text);
-    }
-
     /// <summary>Returns whether an expression sits inside the current type's <c>GetHashCode</c> member.</summary>
     /// <param name="expression">The candidate expression.</param>
     /// <param name="model">The semantic model.</param>
@@ -256,23 +217,6 @@ internal static class ModernSyntaxReadabilityAnalysis
             Parameters.Length: 0,
             ReturnType.SpecialType: SpecialType.System_Int32
         };
-
-    /// <summary>Returns the text represented by a UTF-8 replacement candidate.</summary>
-    /// <param name="expression">The candidate expression.</param>
-    /// <param name="text">The decoded text.</param>
-    /// <returns><see langword="true"/> when the expression carries literal UTF-8 text.</returns>
-    private static bool TryGetUtf8Text(ExpressionSyntax expression, out string text)
-    {
-        text = string.Empty;
-        if (expression is InvocationExpressionSyntax { ArgumentList.Arguments: [ArgumentSyntax { Expression: LiteralExpressionSyntax literal }] }
-            && literal.IsKind(SyntaxKind.StringLiteralExpression))
-        {
-            text = literal.Token.ValueText;
-            return true;
-        }
-
-        return TryDecodeUtf8Initializer(expression, out text);
-    }
 
     /// <summary>Returns whether a symbol is the <c>Encoding.UTF8</c> property.</summary>
     /// <param name="symbol">The candidate symbol.</param>
@@ -307,115 +251,6 @@ internal static class ModernSyntaxReadabilityAnalysis
             TypeArguments: [{ SpecialType: SpecialType.System_Byte }],
             ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
         };
-
-    /// <summary>Returns a literal byte value from an initializer expression.</summary>
-    /// <param name="expression">The initializer expression.</param>
-    /// <param name="value">The byte value.</param>
-    /// <returns><see langword="true"/> when the expression is a byte-sized numeric literal.</returns>
-    private static bool TryGetByteLiteral(ExpressionSyntax expression, out byte value)
-    {
-        value = 0;
-        expression = ExpressionSimplificationAnalyzer.Unwrap(expression);
-        if (expression is CastExpressionSyntax { Type: PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ByteKeyword }, Expression: { } castOperand })
-        {
-            expression = ExpressionSimplificationAnalyzer.Unwrap(castOperand);
-        }
-
-        if (!TryGetIntegralLiteralValue(expression, out var numeric) || numeric is < byte.MinValue or > byte.MaxValue)
-        {
-            return false;
-        }
-
-        value = (byte)numeric;
-        return true;
-    }
-
-    /// <summary>Reads a numeric literal as a signed 64-bit value when it can fit.</summary>
-    /// <param name="expression">The candidate expression.</param>
-    /// <param name="value">The numeric value.</param>
-    /// <returns><see langword="true"/> when the expression is an integral literal.</returns>
-    private static bool TryGetIntegralLiteralValue(ExpressionSyntax expression, out long value)
-    {
-        value = -1;
-        if (expression is not LiteralExpressionSyntax literal)
-        {
-            return false;
-        }
-
-        switch (literal.Token.Value)
-        {
-            case byte byteValue:
-                {
-                    value = byteValue;
-                    return true;
-                }
-
-            case sbyte signedByte:
-                {
-                    value = signedByte;
-                    return true;
-                }
-
-            case short shortValue:
-                {
-                    value = shortValue;
-                    return true;
-                }
-
-            case ushort unsignedShort:
-                {
-                    value = unsignedShort;
-                    return true;
-                }
-
-            case int intValue:
-                {
-                    value = intValue;
-                    return true;
-                }
-
-            case uint unsignedInt:
-                {
-                    value = unsignedInt;
-                    return true;
-                }
-
-            case long longValue:
-                {
-                    value = longValue;
-                    return true;
-                }
-
-            case ulong unsignedLong when unsignedLong <= byte.MaxValue:
-                {
-                    value = (long)unsignedLong;
-                    return true;
-                }
-
-            default:
-                {
-                    return false;
-                }
-        }
-    }
-
-    /// <summary>Decodes UTF-8 with invalid byte checking.</summary>
-    /// <param name="bytes">The bytes to decode.</param>
-    /// <param name="text">The decoded text.</param>
-    /// <returns><see langword="true"/> when the byte sequence is valid UTF-8.</returns>
-    private static bool TryDecodeStrictUtf8(byte[] bytes, out string text)
-    {
-        try
-        {
-            text = StrictUtf8.GetString(bytes, 0, bytes.Length);
-            return true;
-        }
-        catch (System.Text.DecoderFallbackException)
-        {
-            text = string.Empty;
-            return false;
-        }
-    }
 
     /// <summary>Reads the tuple temporary shape at the start of a deconstruction candidate.</summary>
     /// <param name="local">The tuple local.</param>

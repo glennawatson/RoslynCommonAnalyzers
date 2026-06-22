@@ -999,6 +999,11 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
+        if (method.ContainingType?.SpecialType == SpecialType.System_String)
+        {
+            return false;
+        }
+
         var original = method.ReducedFrom ?? method;
         return IsSystemLinqEnumerable(original.ContainingType);
     }

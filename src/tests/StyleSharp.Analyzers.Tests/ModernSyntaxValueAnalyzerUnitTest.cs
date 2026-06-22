@@ -703,6 +703,30 @@ public class ModernSyntaxValueAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies string instance methods with LINQ operator names are not reported as hot-path LINQ calls.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task StringContainsIsNotHotPathLinqAsync()
+    {
+        const string Source = """
+                              using System.Linq;
+
+                              public sealed class C
+                              {
+                                  public bool M()
+                                  {
+                                      string name = "abc";
+                                      var doesContain = name.Contains("ab");
+                                      return doesContain;
+                                  }
+                              }
+                              """;
+        var test = CreateNet80Test(Source);
+        Enable(test, "SST2233");
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Creates a .NET 8 verifier test.</summary>
     /// <param name="source">The source.</param>
     /// <param name="fixedSource">The optional fixed source.</param>

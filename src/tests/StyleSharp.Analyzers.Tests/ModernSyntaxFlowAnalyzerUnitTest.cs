@@ -202,4 +202,35 @@ public class ModernSyntaxFlowAnalyzerUnitTest
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies an out local is not inlined into a loop condition when later code still needs the outer scope.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task LoopConditionOutVariableUsedAfterLoopIsCleanAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+
+                              public sealed class C
+                              {
+                                  public void M(Dictionary<string, int> counts, string keyName)
+                                  {
+                                      int value;
+                                      while (counts.TryGetValue(keyName, out value))
+                                      {
+                                          keyName = $"{keyName}{++value}";
+                                      }
+
+                                      counts[keyName] = value;
+                                  }
+                              }
+                              """;
+        var test = new VerifyModernSyntaxFlow.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
 }

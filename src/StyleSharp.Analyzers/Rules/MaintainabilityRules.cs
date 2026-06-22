@@ -303,6 +303,27 @@ internal static class MaintainabilityRules
         "Remove private field '{0}' or its dead writes because the value is never read",
         "A private field that receives values but is never read does not represent observable state. Remove the field or the dead writes that feed it.");
 
+    /// <summary>SST1442 - a function's branching complexity exceeds the configured maximum.</summary>
+    public static readonly DiagnosticDescriptor CyclomaticComplexity = Create(
+        "SST1442",
+        "Functions should keep branching complexity low",
+        "Reduce the branching complexity of this {2} from {1} to at most {0}",
+        "Functions keep their direct decision count below the configured threshold. Wide switch dispatch counts once so table-like code is not penalized.");
+
+    /// <summary>SST1443 - a function's nested-flow complexity exceeds the configured maximum.</summary>
+    public static readonly DiagnosticDescriptor CognitiveComplexity = Create(
+        "SST1443",
+        "Functions should keep nested flow easy to follow",
+        "Reduce the nested-flow complexity of this {0} from {1} to at most {2}",
+        "Functions keep nesting-heavy control flow below the configured threshold. Flat dispatch is cheaper than nested branching.");
+
+    /// <summary>SST1444 - a loop always exits or continues before a second iteration can run.</summary>
+    public static readonly DiagnosticDescriptor SingleIterationLoop = Create(
+        "SST1444",
+        "Loops should do more than one iteration",
+        "Replace this loop jump or restructure the loop so another iteration can run",
+        "A loop whose body unconditionally jumps before another iteration can run is usually clearer as straight-line code or a conditional.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

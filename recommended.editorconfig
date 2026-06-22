@@ -20,6 +20,9 @@
 # stylesharp.summary_single_line_max_length = 100          # SST1653
 # stylesharp.namespace_root = MyCompany.MyProduct          # SST1417 (also reads MSBuild RootNamespace)
 # stylesharp.max_switch_sections = 30                      # SST1423
+# stylesharp.max_cyclomatic_complexity = 10                 # SST1442
+# stylesharp.max_cognitive_complexity = 15                  # SST1443
+# stylesharp.max_property_cognitive_complexity = 3          # SST1443
 # stylesharp.document_exposed_elements = true              # SST1600/1601/1602/1654 coverage scope
 # stylesharp.document_internal_elements = true             # SST1600/1601/1602/1654 (set false to require only the public API surface)
 # stylesharp.document_private_elements = false             # SST1600/1601/1602/1654 (non-field private members)
@@ -155,6 +158,9 @@ dotnet_diagnostic.SST1435.severity = warning # A namespace declaration has no me
 dotnet_diagnostic.SST1439.severity = warning # A loop or guard statement has an empty embedded block
 dotnet_diagnostic.SST1440.severity = warning # A private member has no local use
 dotnet_diagnostic.SST1441.severity = warning # A private field is assigned but never read
+dotnet_diagnostic.SST1442.severity = warning # A function has too many direct branch points
+dotnet_diagnostic.SST1443.severity = warning # A function has too much nested control flow
+dotnet_diagnostic.SST1444.severity = warning # A loop cannot naturally reach a second iteration
 # dotnet_diagnostic.SST1450.severity = warning # Files should be stored as UTF-8 without a byte order mark (opt-in)
 
 # Modernization

@@ -5,6 +5,9 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
+SST1442 | Maintainability | Warning | FunctionComplexityAnalyzer
+SST1443 | Maintainability | Warning | FunctionComplexityAnalyzer
+SST1444 | Maintainability | Warning | SingleIterationLoopAnalyzer
 
 ### Removed Rules
 

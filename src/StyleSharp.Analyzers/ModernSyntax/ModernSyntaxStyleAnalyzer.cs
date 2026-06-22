@@ -107,7 +107,8 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
             return targetType is not null;
         }
 
-        if (objectCreation.Parent is not AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression, Left: { } left })
+        if (objectCreation.Parent is not AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression, Left: { } left }
+            || IsDiscardAssignmentTarget(left))
         {
             return false;
         }
@@ -115,6 +116,12 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
         targetType = model.GetTypeInfo(left, cancellationToken).Type;
         return targetType is not null;
     }
+
+    /// <summary>Returns whether an assignment target is a discard.</summary>
+    /// <param name="target">The assignment target.</param>
+    /// <returns><see langword="true"/> when the target is the discard identifier.</returns>
+    private static bool IsDiscardAssignmentTarget(ExpressionSyntax target)
+        => target is IdentifierNameSyntax { Identifier.ValueText: "_" };
 
     /// <summary>Extracts the expression after <c>Length -</c> from an index-from-end candidate.</summary>
     /// <param name="elementAccess">The element access expression.</param>

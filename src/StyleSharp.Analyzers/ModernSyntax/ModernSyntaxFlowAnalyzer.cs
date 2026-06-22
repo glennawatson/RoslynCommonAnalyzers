@@ -173,7 +173,7 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken)
     {
         if (declaration.Parent is not BlockSyntax declarationBlock
-            || !TryGetNearestBlock(argument, out var inlineScope)
+            || !TryGetInlineScope(argument, out var inlineScope)
             || inlineScope == declarationBlock)
         {
             return true;
@@ -321,7 +321,7 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
     private static bool HasLocalReferenceOutsideScope(
         BlockSyntax declarationBlock,
         LocalDeclarationStatementSyntax declaration,
-        BlockSyntax inlineScope,
+        SyntaxNode inlineScope,
         ISymbol local,
         SemanticModel model,
         CancellationToken cancellationToken)
@@ -359,22 +359,43 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
     private static bool IsInside(SyntaxNode scope, SyntaxNode node)
         => scope.SpanStart <= node.SpanStart && node.Span.End <= scope.Span.End;
 
-    /// <summary>Finds the nearest block that would contain an inline declaration expression.</summary>
+    /// <summary>Finds the syntax scope that would contain an inline declaration expression.</summary>
     /// <param name="node">The node inside the target declaration expression.</param>
-    /// <param name="block">The nearest block.</param>
-    /// <returns><see langword="true"/> when a block ancestor exists.</returns>
-    private static bool TryGetNearestBlock(SyntaxNode node, out BlockSyntax block)
+    /// <param name="scope">The syntax node that bounds the inline declaration scope.</param>
+    /// <returns><see langword="true"/> when a scope ancestor exists.</returns>
+    private static bool TryGetInlineScope(SyntaxNode node, out SyntaxNode scope)
     {
         foreach (var ancestor in node.Ancestors())
         {
+            if (IsRestrictedDeclarationExpressionScope(ancestor, node))
+            {
+                scope = ancestor;
+                return true;
+            }
+
             if (ancestor is BlockSyntax ancestorBlock)
             {
-                block = ancestorBlock;
+                scope = ancestorBlock;
                 return true;
             }
         }
 
-        block = null!;
+        scope = null!;
         return false;
     }
+
+    /// <summary>Returns whether an ancestor limits the scope of a declaration expression in a condition-like expression.</summary>
+    /// <param name="ancestor">The ancestor to inspect.</param>
+    /// <param name="node">The declaration expression node.</param>
+    /// <returns><see langword="true"/> when the inline declaration would not escape the ancestor statement.</returns>
+    private static bool IsRestrictedDeclarationExpressionScope(SyntaxNode ancestor, SyntaxNode node)
+        => ancestor switch
+        {
+            IfStatementSyntax statement => IsInside(statement.Condition, node),
+            WhileStatementSyntax statement => IsInside(statement.Condition, node),
+            DoStatementSyntax statement => IsInside(statement.Condition, node),
+            ForStatementSyntax { Condition: { } condition } => IsInside(condition, node),
+            SwitchStatementSyntax statement => IsInside(statement.Expression, node),
+            _ => false
+        };
 }

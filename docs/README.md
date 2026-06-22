@@ -151,6 +151,9 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST1439](rules/SST1439.md) | A loop or guard statement has an empty embedded block. |
 | [SST1440](rules/SST1440.md) | A private member has no local use. |
 | [SST1441](rules/SST1441.md) | A private field is assigned but never read. |
+| [SST1442](rules/SST1442.md) | A function has too many direct branch points. |
+| [SST1443](rules/SST1443.md) | A function has too much nested control flow. |
+| [SST1444](rules/SST1444.md) | A loop cannot naturally reach a second iteration. |
 | [SST1450](rules/SST1450.md) | Files should be stored as UTF-8 without a byte order mark. Opt-in. |
 
 ## Modernization

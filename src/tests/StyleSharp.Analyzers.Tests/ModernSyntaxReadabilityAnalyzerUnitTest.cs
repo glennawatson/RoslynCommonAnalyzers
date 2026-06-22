@@ -44,6 +44,38 @@ public class ModernSyntaxReadabilityAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies byte array literals are not treated as explicit UTF-8 text.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ByteArrayTextIsNotUtf8LiteralCandidateAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public byte[] Header() => new byte[] { 71, 69, 84 };
+                              }
+                              """;
+        var test = CreateNet80Test(Source);
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies arbitrary control-byte arrays are not treated as readable UTF-8 text.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ControlByteArrayIsNotUtf8TextAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public byte[] Data() => new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+                              }
+                              """;
+        var test = CreateNet80Test(Source);
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a discard designation on a type pattern is removed.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]

@@ -148,6 +148,53 @@ public class ModernSyntaxStyleAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies object creations assigned to a discard inside assertion delegates stay explicit.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task DiscardAssignmentAssertionDelegatesAreCleanAsync()
+    {
+        const string Source = """
+                              using System;
+                              using System.Threading.Tasks;
+
+                              public static class Assert
+                              {
+                                  public static Assertion That(Action action) => null!;
+                              }
+
+                              public sealed class Assertion
+                              {
+                                  public Task ThrowsExactly<TException>()
+                                      where TException : Exception
+                                      => Task.CompletedTask;
+                              }
+
+                              public sealed class ByteArrayPart
+                              {
+                                  public ByteArrayPart(byte[] data, string fileName, string contentType)
+                                  {
+                                  }
+                              }
+
+                              public sealed class C
+                              {
+                                  public async Task M()
+                                  {
+                                      await Assert
+                                          .That(() => _ = new ByteArrayPart([], null!, "application/pdf"))
+                                          .ThrowsExactly<ArgumentNullException>();
+                                  }
+                              }
+                              """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies generated files are not analyzed even when diagnostic reporting is optimized.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

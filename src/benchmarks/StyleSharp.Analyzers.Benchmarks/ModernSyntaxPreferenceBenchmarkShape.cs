@@ -10,6 +10,9 @@ public enum ModernSyntaxPreferenceBenchmarkShape
     /// <summary>Lambda with explicit parameter types.</summary>
     Lambda,
 
+    /// <summary>Invocation argument lambda with explicit parameter types.</summary>
+    InvocationLambda,
+
     /// <summary>Property accessors with block bodies.</summary>
     Accessor
 }

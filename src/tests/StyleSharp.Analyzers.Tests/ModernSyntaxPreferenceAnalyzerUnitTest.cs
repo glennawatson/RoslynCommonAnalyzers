@@ -39,6 +39,90 @@ public class ModernSyntaxPreferenceAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies explicit lambda parameter types are removed for single non-generic invocation targets.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ExplicitLambdaParameterTypeForSingleInvocationTargetIsFixedAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public int M() => Select({|SST2218:(int value)|} => value + 1, 1);
+
+                                  private static int Select(Func<int, int> selector, int value) => selector(value);
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public sealed class C
+                                   {
+                                       public int M() => Select((value) => value + 1, 1);
+
+                                       private static int Select(Func<int, int> selector, int value) => selector(value);
+                                   }
+                                   """;
+        var test = CreateNet80Test(Source, FixedSource);
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies explicit lambda parameter types are kept when they select an overload.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ExplicitLambdaParameterTypeNeededForOverloadResolutionIsCleanAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      Invoke((int _) => { });
+                                  }
+
+                                  private static void Invoke(Action<int> action)
+                                  {
+                                  }
+
+                                  private static void Invoke(Action<string> action)
+                                  {
+                                  }
+                              }
+                              """;
+        var test = CreateNet80Test(Source, Source);
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies explicit lambda parameter types are kept when they infer generic arguments.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ExplicitLambdaParameterTypeNeededForGenericInferenceIsCleanAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      Create((string input) => input.ToUpperInvariant());
+                                  }
+
+                                  private static void Create<T>(Func<T, string> action)
+                                  {
+                                  }
+                              }
+                              """;
+        var test = CreateNet80Test(Source, Source);
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies simple get and set accessor bodies are expression-bodied.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

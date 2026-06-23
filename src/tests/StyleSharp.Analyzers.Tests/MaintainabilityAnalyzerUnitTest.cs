@@ -411,6 +411,46 @@ public class MaintainabilityAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies private handlers used from generated Razor partial declarations are not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PrivateHandlersUsedFromGeneratedRazorPartialPartAreAllowedAsync()
+    {
+        var test = new VerifyPrivateUsageAnalyzer.Test();
+        test.TestState.Sources.Add(
+            ("Views/ChatRoomView.razor.cs", """
+                                            namespace Microsoft.AspNetCore.Components.Web
+                                            {
+                                                public sealed class MouseEventArgs
+                                                {
+                                                }
+                                            }
+
+                                            internal sealed partial class ChatRoomView
+                                            {
+                                                private System.Threading.Tasks.Task OnSendClicked(Microsoft.AspNetCore.Components.Web.MouseEventArgs args)
+                                                    => System.Threading.Tasks.Task.CompletedTask;
+
+                                                private void OnNavigateBack()
+                                                {
+                                                }
+                                            }
+                                            """));
+        test.TestState.Sources.Add(
+            ("Views/ChatRoomView.razor.g.cs", """
+                                              internal sealed partial class ChatRoomView
+                                              {
+                                                  public void BuildRenderTree()
+                                                  {
+                                                      _ = OnSendClicked(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
+                                                      OnNavigateBack();
+                                                  }
+                                              }
+                                              """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a private field used from another partial declaration is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

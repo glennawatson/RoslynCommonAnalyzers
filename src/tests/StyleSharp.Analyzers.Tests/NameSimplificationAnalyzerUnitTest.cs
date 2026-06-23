@@ -67,6 +67,70 @@ public class NameSimplificationAnalyzerUnitTest
         await VerifyNameSimplification.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a this-qualified extension-method invocation is not reported, since dropping the receiver breaks compilation.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ThisExtensionMethodInvocationIsNotReportedAsync()
+    {
+        const string Source = """
+                              using Splat;
+
+                              namespace Splat
+                              {
+                                  public interface IEnableLogger
+                                  {
+                                  }
+
+                                  public sealed class Logger
+                                  {
+                                      public void Debug(string message)
+                                      {
+                                      }
+                                  }
+
+                                  public static class LoggingExtensions
+                                  {
+                                      public static Logger Log(this IEnableLogger source) => new Logger();
+                                  }
+                              }
+
+                              public sealed class C : IEnableLogger
+                              {
+                                  public void M() => this.Log().Debug("x");
+                              }
+                              """;
+        var test = new VerifyNameSimplification.Test
+        {
+            TestCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a redundant this-qualified instance-method call is shortened.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ThisInstanceMethodCallIsFixedAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  private int Helper() => 1;
+
+                                  public int M() => {|SST1117:this.Helper|}();
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       private int Helper() => 1;
+
+                                       public int M() => Helper();
+                                   }
+                                   """;
+        await VerifyNameSimplification.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies configured <c>this.</c>-qualification keeps explicit instance-member access.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

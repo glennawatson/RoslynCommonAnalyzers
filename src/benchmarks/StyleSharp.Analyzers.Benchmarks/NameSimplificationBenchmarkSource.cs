@@ -7,6 +7,21 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// <summary>Builds synthetic source for shortest-equivalent-name analysis.</summary>
 internal static class NameSimplificationBenchmarkSource
 {
+    /// <summary>The number of member shapes cycled through by the benchmark source.</summary>
+    private const int MemberShapeCount = 4;
+
+    /// <summary>The shape that emits a qualified type name.</summary>
+    private const int QualifiedShape = 0;
+
+    /// <summary>The shape that emits a reduced extension-method invocation.</summary>
+    private const int ExtensionShape = 1;
+
+    /// <summary>The second shape that emits a qualified type name.</summary>
+    private const int AlternateQualifiedShape = 2;
+
+    /// <summary>The second shape that emits a this-qualified instance member.</summary>
+    private const int AlternateMemberShape = 3;
+
     /// <summary>Builds clean or violating name-simplification members.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable qualified names and <c>this.</c> accesses.</param>
@@ -16,6 +31,16 @@ internal static class NameSimplificationBenchmarkSource
            using System.Text;
 
            namespace Bench;
+
+           internal sealed class BenchmarkLogger
+           {
+               public int Debug(string message) => message.Length;
+           }
+
+           internal static class NameSimplificationBenchExtensions
+           {
+               public static BenchmarkLogger Log(this NameSimplificationBench source) => new();
+           }
 
            internal sealed class NameSimplificationBench
            {
@@ -88,25 +113,53 @@ internal static class NameSimplificationBenchmarkSource
     /// <param name="violating">Whether to emit a reportable shape.</param>
     /// <returns>The generated member block.</returns>
     private static string GenerateMember(int index, bool violating)
-        => (index & 1, violating) switch
+    {
+        var shape = index % MemberShapeCount;
+        return violating ? GenerateViolatingMember(index, shape) : GenerateCleanMember(index, shape);
+    }
+
+    /// <summary>Builds one synthetic violating member.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="shape">The member shape to emit.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateViolatingMember(int index, int shape)
+    {
+        return shape switch
         {
-            (0, true) => $$"""
-                           public int Qualified{{index}}(System.Text.StringBuilder builder) => builder.Length;
-                           """,
-            (1, true) => $$"""
-                           public int Member{{index}}() => this._value + {{index}};
-                           """,
-            (0, false) => $$"""
-                            public int Qualified{{index}}(StringBuilder builder) => builder.Length;
-                            """,
-            _ => $$"""
-                   public int Member{{index}}()
-                   {
-                       var _value = {{index}};
-                       return this._value + _value;
-                   }
-                   """
+            QualifiedShape or AlternateQualifiedShape => $$"""
+                                                           public int Qualified{{index}}(System.Text.StringBuilder builder) => builder.Length;
+                                                           """,
+            ExtensionShape or AlternateMemberShape => $$"""
+                                                        public int Member{{index}}() => this._value + {{index}};
+                                                        """,
+            _ => throw new InvalidOperationException("Unexpected name-simplification benchmark shape.")
         };
+    }
+
+    /// <summary>Builds one synthetic clean member.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="shape">The member shape to emit.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateCleanMember(int index, int shape)
+    {
+        return shape switch
+        {
+            QualifiedShape => $$"""
+                                public int Qualified{{index}}(StringBuilder builder) => builder.Length;
+                                """,
+            ExtensionShape => $$"""
+                                public int Extension{{index}}() => this.Log().Debug("x");
+                                """,
+            AlternateQualifiedShape or AlternateMemberShape => $$"""
+                                                                 public int Member{{index}}()
+                                                                 {
+                                                                     var _value = {{index}};
+                                                                     return this._value + _value;
+                                                                 }
+                                                                 """,
+            _ => throw new InvalidOperationException("Unexpected name-simplification benchmark shape.")
+        };
+    }
 
     /// <summary>Builds one unshadowed lookup member.</summary>
     /// <param name="index">The synthetic member index.</param>

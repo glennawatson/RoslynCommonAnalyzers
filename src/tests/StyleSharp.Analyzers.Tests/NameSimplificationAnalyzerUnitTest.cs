@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using VerifyNameSimplification = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.NameSimplificationAnalyzer,
     StyleSharp.Analyzers.NameSimplificationCodeFixProvider>;
@@ -103,6 +105,36 @@ public class NameSimplificationAnalyzerUnitTest
         {
             TestCode = Source
         };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a this-qualified extension-block member invocation is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ThisExtensionBlockMemberInvocationIsNotReportedAsync()
+    {
+        const string Source = """
+                              public interface IThing;
+
+                              public static class ThingExtensions
+                              {
+                                  extension(IThing item)
+                                  {
+                                      public int Compute() => 42;
+                                  }
+                              }
+
+                              public sealed class MyThing : IThing
+                              {
+                                  public int M() => this.Compute();
+                              }
+                              """;
+        var test = new VerifyNameSimplification.Test
+        {
+            TestCode = Source
+        };
+        ApplyPreviewParseOptions(test.SolutionTransforms);
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -336,5 +368,16 @@ public class NameSimplificationAnalyzerUnitTest
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
         test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
         return test;
+    }
+
+    /// <summary>Applies preview parse options so extension blocks parse.</summary>
+    /// <param name="solutionTransforms">The solution-transform collection to update.</param>
+    private static void ApplyPreviewParseOptions(List<Func<Solution, ProjectId, Solution>> solutionTransforms)
+    {
+        solutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Preview));
+        });
     }
 }

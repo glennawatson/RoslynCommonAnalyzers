@@ -274,16 +274,16 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
         }
 
         if (original is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } memberAccess
-            && replacement is SimpleNameSyntax simpleName)
+            && replacement is SimpleNameSyntax simpleName
+            && (HasLocalNameInScope(memberAccess, simpleName.Identifier.ValueText)
+                || IsReceiverRequiredExtensionMember(originalSymbol)))
         {
-            // An extension method invoked in reduced form (this.Foo()) cannot drop its receiver:
-            // the bare name would have no first argument and fail to bind (CS0103).
-            if (originalSymbol is IMethodSymbol { MethodKind: MethodKind.ReducedExtension })
-            {
-                return false;
-            }
+            return false;
+        }
 
-            return !HasLocalNameInScope(memberAccess, simpleName.Identifier.ValueText);
+        if (original is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax })
+        {
+            return true;
         }
 
         if (replacement is SimpleNameSyntax lookupName
@@ -442,6 +442,27 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Returns whether an extension member invocation requires its receiver to stay present.</summary>
+    /// <param name="symbol">The member symbol resolved from the receiver-qualified access.</param>
+    /// <returns><see langword="true"/> when removing the receiver would break binding.</returns>
+    private static bool IsReceiverRequiredExtensionMember(ISymbol symbol)
+        => symbol is IMethodSymbol { MethodKind: MethodKind.ReducedExtension }
+        || IsExtensionBlockContainer(symbol.ContainingType);
+
+    /// <summary>Returns whether a type symbol represents a C# extension-block container.</summary>
+    /// <param name="containingType">The symbol's containing type.</param>
+    /// <returns><see langword="true"/> when the containing type is an extension marker.</returns>
+    private static bool IsExtensionBlockContainer(INamedTypeSymbol? containingType)
+    {
+#if ROSLYN_5_OR_GREATER
+        return containingType is { IsExtension: true };
+#else
+        return containingType is { Name.Length: 0 }
+            && (containingType.MetadataName.StartsWith("<>E__", StringComparison.Ordinal)
+                || containingType.MetadataName.StartsWith("<M>$", StringComparison.Ordinal));
+#endif
     }
 
     /// <summary>Uses symbol lookup for the common non-generic type or namespace simplification path.</summary>

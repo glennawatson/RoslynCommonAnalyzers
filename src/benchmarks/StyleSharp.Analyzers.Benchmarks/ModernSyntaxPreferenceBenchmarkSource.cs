@@ -8,7 +8,7 @@ namespace StyleSharp.Analyzers.Benchmarks;
 internal static class ModernSyntaxPreferenceBenchmarkSource
 {
     /// <summary>The number of shapes cycled by the analyzer benchmark corpus.</summary>
-    private const int ShapeCount = 2;
+    private const int ShapeCount = 3;
 
     /// <summary>Builds clean or violating source for the modern-syntax preference analyzer.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
@@ -16,6 +16,14 @@ internal static class ModernSyntaxPreferenceBenchmarkSource
     /// <returns>The generated source text.</returns>
     public static string Generate(int members, bool violating)
         => GenerateCore(members, violating, shape: null);
+
+    /// <summary>Builds clean or violating source for one modern-syntax preference shape.</summary>
+    /// <param name="members">The number of synthetic members to emit.</param>
+    /// <param name="violating">Whether to emit reportable shapes.</param>
+    /// <param name="shape">The repeated shape.</param>
+    /// <returns>The generated source text.</returns>
+    public static string Generate(int members, bool violating, ModernSyntaxPreferenceBenchmarkShape shape)
+        => GenerateCore(members, violating, shape);
 
     /// <summary>Builds source containing one repeated shape for code-fix benchmarks.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
@@ -37,6 +45,8 @@ internal static class ModernSyntaxPreferenceBenchmarkSource
 
            internal sealed class ModernSyntaxPreferenceBench
            {
+               private static int Select(Func<int, int> selector, int value) => selector(value);
+
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateMember(i, violating, shape ?? (ModernSyntaxPreferenceBenchmarkShape)(i % ShapeCount)))}}
            }
            """;
@@ -55,6 +65,12 @@ internal static class ModernSyntaxPreferenceBenchmarkSource
             (ModernSyntaxPreferenceBenchmarkShape.Lambda, false) => $$"""
                                                                       private readonly Func<int, int, int> _sum{{index}} = (left, right) => left + right + {{index}};
                                                                       """,
+            (ModernSyntaxPreferenceBenchmarkShape.InvocationLambda, true) => $$"""
+                                                                               public int Invoke{{index}}() => Select((int value) => value + {{index}}, {{index}});
+                                                                               """,
+            (ModernSyntaxPreferenceBenchmarkShape.InvocationLambda, false) => $$"""
+                                                                                public int Invoke{{index}}() => Select(value => value + {{index}}, {{index}});
+                                                                                """,
             (ModernSyntaxPreferenceBenchmarkShape.Accessor, true) => $$"""
                                                                        private int _value{{index}};
 

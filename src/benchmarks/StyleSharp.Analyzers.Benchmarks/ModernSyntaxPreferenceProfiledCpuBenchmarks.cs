@@ -19,9 +19,16 @@ public class ModernSyntaxPreferenceProfiledCpuBenchmarks
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
     public int Nodes { get; set; }
 
+    /// <summary>Gets or sets the modern-syntax preference shape under test.</summary>
+    [Params(
+        ModernSyntaxPreferenceBenchmarkShape.Lambda,
+        ModernSyntaxPreferenceBenchmarkShape.InvocationLambda,
+        ModernSyntaxPreferenceBenchmarkShape.Accessor)]
+    public ModernSyntaxPreferenceBenchmarkShape CurrentShape { get; set; }
+
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = ModernSyntaxPreferenceBenchmarkCases.Create(Nodes);
+    public void Setup() => _state = ModernSyntaxPreferenceBenchmarkCases.Create(Nodes, CurrentShape);
 
     /// <summary>Benchmarks the clean modern-syntax preference path.</summary>
     /// <returns>The number of diagnostics produced.</returns>

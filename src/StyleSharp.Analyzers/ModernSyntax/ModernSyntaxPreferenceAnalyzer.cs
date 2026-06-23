@@ -8,6 +8,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The number of same-name methods that requires overload-safe speculative binding.</summary>
+    private const int OverloadRiskThreshold = 2;
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
         ModernSyntaxRules.UseImplicitLambdaParameterTypes,
@@ -92,7 +95,8 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
         var lambda = (ParenthesizedLambdaExpressionSyntax)context.Node;
         if (!CanUseImplicitParameterTypes(lambda)
             || (!HasExplicitLambdaTarget(lambda)
-                && context.SemanticModel.GetTypeInfo(lambda, context.CancellationToken).ConvertedType is null))
+                && context.SemanticModel.GetTypeInfo(lambda, context.CancellationToken).ConvertedType is null)
+            || !OmittingParameterTypesPreservesCallBinding(lambda, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -127,4 +131,156 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
                 }
             }
         };
+
+    /// <summary>Returns whether removing lambda parameter types keeps an overloadable call bound to the same symbol.</summary>
+    /// <param name="lambda">The lambda to simplify.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns><see langword="true"/> when no overloadable call changes binding.</returns>
+    private static bool OmittingParameterTypesPreservesCallBinding(
+        ParenthesizedLambdaExpressionSyntax lambda,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        if (lambda.Parent is not ArgumentSyntax { Parent: BaseArgumentListSyntax { Parent: ExpressionSyntax call } }
+            || call is not InvocationExpressionSyntax and not ObjectCreationExpressionSyntax)
+        {
+            return true;
+        }
+
+        var originalSymbol = GetSingleSymbol(model.GetSymbolInfo(call, cancellationToken));
+        if (originalSymbol is not IMethodSymbol originalMethod)
+        {
+            return false;
+        }
+
+        if (!RequiresSpeculativeCallBinding(call, originalMethod))
+        {
+            return true;
+        }
+
+        var replacement = RemoveLambdaParameterTypes(lambda);
+        var rewrittenCall = call.ReplaceNode(lambda, replacement);
+        var rewrittenSymbol = GetSingleSymbol(model.GetSpeculativeSymbolInfo(
+            call.SpanStart,
+            rewrittenCall,
+            SpeculativeBindingOption.BindAsExpression));
+
+        return SymbolEqualityComparer.Default.Equals(originalSymbol, rewrittenSymbol);
+    }
+
+    /// <summary>Returns whether a lambda simplification needs a speculative call rebind.</summary>
+    /// <param name="call">The call containing the lambda argument.</param>
+    /// <param name="originalMethod">The method selected by the original call.</param>
+    /// <returns><see langword="true"/> when overload resolution or type inference may change.</returns>
+    private static bool RequiresSpeculativeCallBinding(
+        ExpressionSyntax call,
+        IMethodSymbol originalMethod)
+    {
+        if (originalMethod.IsGenericMethod && !HasExplicitTypeArguments(call))
+        {
+            return true;
+        }
+
+        return call is not InvocationExpressionSyntax
+            || !HasNoContainingTypeOverloads(originalMethod);
+    }
+
+    /// <summary>Returns whether the call has explicit generic method type arguments.</summary>
+    /// <param name="call">The call expression.</param>
+    /// <returns><see langword="true"/> when the method type arguments are written in source.</returns>
+    private static bool HasExplicitTypeArguments(ExpressionSyntax call)
+        => call is InvocationExpressionSyntax
+        {
+            Expression: GenericNameSyntax or MemberAccessExpressionSyntax { Name: GenericNameSyntax }
+        };
+
+    /// <summary>Returns whether the selected method has no same-name overloads on its containing type hierarchy.</summary>
+    /// <param name="originalMethod">The method selected by the original call.</param>
+    /// <returns><see langword="true"/> when no overload can be selected by the lambda parameter types.</returns>
+    private static bool HasNoContainingTypeOverloads(IMethodSymbol originalMethod)
+    {
+        if (originalMethod.IsExtensionMethod || originalMethod.ReducedFrom is not null)
+        {
+            return false;
+        }
+
+        var containingType = originalMethod.ContainingType;
+        if (containingType is null)
+        {
+            return false;
+        }
+
+        var methodCount = 0;
+        for (var current = containingType; current is not null; current = current.BaseType)
+        {
+            methodCount += CountMatchingMethods(current.GetMembers(originalMethod.Name), originalMethod, OverloadRiskThreshold - methodCount);
+            if (methodCount > 1)
+            {
+                return false;
+            }
+        }
+
+        var interfaces = containingType.AllInterfaces;
+        for (var i = 0; i < interfaces.Length; i++)
+        {
+            methodCount += CountMatchingMethods(interfaces[i].GetMembers(originalMethod.Name), originalMethod, OverloadRiskThreshold - methodCount);
+            if (methodCount > 1)
+            {
+                return false;
+            }
+        }
+
+        return methodCount == 1;
+    }
+
+    /// <summary>Counts same-kind methods up to the requested maximum.</summary>
+    /// <param name="members">The members to inspect.</param>
+    /// <param name="originalMethod">The method selected by the original call.</param>
+    /// <param name="maximum">The maximum useful count.</param>
+    /// <returns>The number of matching methods found, capped at <paramref name="maximum"/>.</returns>
+    private static int CountMatchingMethods(ImmutableArray<ISymbol> members, IMethodSymbol originalMethod, int maximum)
+    {
+        var count = 0;
+        for (var i = 0; i < members.Length; i++)
+        {
+            if (members[i] is not IMethodSymbol method
+                || method.MethodKind != originalMethod.MethodKind)
+            {
+                continue;
+            }
+
+            count++;
+            if (count >= maximum)
+            {
+                return count;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>Removes explicit parameter types from a lambda.</summary>
+    /// <param name="lambda">The lambda.</param>
+    /// <returns>The updated lambda.</returns>
+    private static ParenthesizedLambdaExpressionSyntax RemoveLambdaParameterTypes(ParenthesizedLambdaExpressionSyntax lambda)
+    {
+        var parameters = lambda.ParameterList.Parameters;
+        var parametersWithSeparators = parameters.GetWithSeparators();
+        var rewritten = new SyntaxNodeOrToken[parametersWithSeparators.Count];
+        for (var i = 0; i < parametersWithSeparators.Count; i++)
+        {
+            rewritten[i] = parametersWithSeparators[i].AsNode() is ParameterSyntax parameter
+                ? parameter.WithType(null)
+                : parametersWithSeparators[i];
+        }
+
+        return lambda.WithParameterList(lambda.ParameterList.WithParameters(SyntaxFactory.SeparatedList<ParameterSyntax>(rewritten)));
+    }
+
+    /// <summary>Returns the resolved symbol when semantic binding produced exactly one symbol.</summary>
+    /// <param name="symbolInfo">The symbol information.</param>
+    /// <returns>The resolved symbol, or <see langword="null"/> when binding is missing or ambiguous.</returns>
+    private static ISymbol? GetSingleSymbol(SymbolInfo symbolInfo)
+        => symbolInfo.Symbol ?? (symbolInfo.CandidateSymbols.Length == 1 ? symbolInfo.CandidateSymbols[0] : null);
 }

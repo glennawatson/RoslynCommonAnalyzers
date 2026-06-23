@@ -37,7 +37,10 @@ public class ModernSyntaxPreferenceCodeFixBenchmarks : IDisposable
     public int Nodes { get; set; }
 
     /// <summary>Gets or sets the modern-syntax preference shape under test.</summary>
-    [Params(ModernSyntaxPreferenceBenchmarkShape.Lambda, ModernSyntaxPreferenceBenchmarkShape.Accessor)]
+    [Params(
+        ModernSyntaxPreferenceBenchmarkShape.Lambda,
+        ModernSyntaxPreferenceBenchmarkShape.InvocationLambda,
+        ModernSyntaxPreferenceBenchmarkShape.Accessor)]
     public ModernSyntaxPreferenceBenchmarkShape CurrentShape { get; set; }
 
     /// <summary>Builds the benchmark document and representative diagnostic.</summary>
@@ -90,7 +93,7 @@ public class ModernSyntaxPreferenceCodeFixBenchmarks : IDisposable
     /// <returns>The diagnostic.</returns>
     private Diagnostic CreateDiagnostic()
     {
-        if (CurrentShape == ModernSyntaxPreferenceBenchmarkShape.Lambda)
+        if (CurrentShape is ModernSyntaxPreferenceBenchmarkShape.Lambda or ModernSyntaxPreferenceBenchmarkShape.InvocationLambda)
         {
             var lambda = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<ParenthesizedLambdaExpressionSyntax>(
                 _root,

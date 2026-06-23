@@ -276,6 +276,13 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
         if (original is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } memberAccess
             && replacement is SimpleNameSyntax simpleName)
         {
+            // An extension method invoked in reduced form (this.Foo()) cannot drop its receiver:
+            // the bare name would have no first argument and fail to bind (CS0103).
+            if (originalSymbol is IMethodSymbol { MethodKind: MethodKind.ReducedExtension })
+            {
+                return false;
+            }
+
             return !HasLocalNameInScope(memberAccess, simpleName.Identifier.ValueText);
         }
 

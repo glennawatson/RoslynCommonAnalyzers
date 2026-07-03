@@ -42,12 +42,12 @@ jobs:
 
             -   name: Restore
                 working-directory: src
-                run: dotnet restore StyleSharp.Analyzers.slnx
+                run: dotnet restore RoslynCommonAnalyzers.slnx
 
             -   name: Build
                 working-directory: src
-                run: dotnet build StyleSharp.Analyzers.slnx --no-restore --configuration Release
+                run: dotnet build RoslynCommonAnalyzers.slnx --no-restore --configuration Release
 
             -   name: Test
                 working-directory: src
-                run: dotnet test --solution StyleSharp.Analyzers.slnx --no-build --configuration Release
+                run: dotnet test --solution RoslynCommonAnalyzers.slnx --no-build --configuration Release

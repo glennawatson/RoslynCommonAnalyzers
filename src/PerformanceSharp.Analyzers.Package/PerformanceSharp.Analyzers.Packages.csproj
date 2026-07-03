@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <!-- One of the two packable projects in the repo (see Directory.Build.props);
+         everything else is non-packable so a `dotnet pack` of the solution produces
+         exactly one .nupkg per published package. -->
+    <IsPackable>true</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>PerformanceSharp.Analyzers</PackageId>
+    <Description>Roslyn analyzers and code fixes focused on runtime performance: allocations, collection and LINQ usage, string handling, async, and faster API selection.</Description>
+    <PackageTags>analyzers;roslyn;codefix;performancesharp;performance;allocations;linq;strings;async</PackageTags>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <!-- Analyzer-only package: no lib/ folder, so the empty dependency group is expected. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+
+    <!-- Roslyn slots shipped under analyzers/dotnet/<slot>/cs. The SDK (>= 6.0.100)
+         loads the highest slot <= the host compiler's Roslyn version. Keep in sync
+         with the slot definitions in Directory.Build.props. -->
+    <RoslynSlots>roslyn4.8;roslyn4.14;roslyn5.3</RoslynSlots>
+
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_AddAnalyzersToOutput</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <!-- ProjectReference gives sln build ordering and builds the default (floor) slot;
+       _BuildRoslynSlots builds the remaining slots. -->
+  <ItemGroup>
+    <ProjectReference Include="..\PerformanceSharp.Analyzers.CodeFixes\PerformanceSharp.Analyzers.CodeFixes.csproj" />
+    <ProjectReference Include="..\PerformanceSharp.Analyzers\PerformanceSharp.Analyzers.csproj" />
+  </ItemGroup>
+
+  <!-- Build the analyzer + code-fix assemblies once per Roslyn slot so a single
+       pack emits every analyzers/dotnet/<slot>/cs folder. -->
+  <Target Name="_BuildRoslynSlots">
+    <ItemGroup>
+      <_RoslynSlot Include="$(RoslynSlots)" />
+    </ItemGroup>
+    <!-- Build each slot as its own `dotnet build` process so it restores and
+         builds cleanly into its segregated obj/bin (BaseIntermediateOutputPath /
+         BaseOutputPath key off RoslynVersion). Building the code-fix project also
+         builds the analyzer via its ProjectReference. -->
+    <Exec Command="dotnet build &quot;$(MSBuildThisFileDirectory)../PerformanceSharp.Analyzers.CodeFixes/PerformanceSharp.Analyzers.CodeFixes.csproj&quot; --configuration $(Configuration) -p:RoslynVersion=%(_RoslynSlot.Identity)" />
+  </Target>
+
+  <Target Name="_AddAnalyzersToOutput" DependsOnTargets="_BuildRoslynSlots">
+    <ItemGroup>
+      <_RoslynSlot Include="$(RoslynSlots)" />
+      <TfmSpecificPackageFile Include="..\PerformanceSharp.Analyzers\bin\%(_RoslynSlot.Identity)\$(Configuration)\netstandard2.0\PerformanceSharp.Analyzers.dll"
+                              PackagePath="analyzers/dotnet/%(_RoslynSlot.Identity)/cs" />
+      <TfmSpecificPackageFile Include="..\PerformanceSharp.Analyzers.CodeFixes\bin\%(_RoslynSlot.Identity)\$(Configuration)\netstandard2.0\PerformanceSharp.Analyzers.CodeFixes.dll"
+                              PackagePath="analyzers/dotnet/%(_RoslynSlot.Identity)/cs" />
+    </ItemGroup>
+  </Target>
+
+</Project>

@@ -2,13 +2,15 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <!-- This is the only project that produces a NuGet package; everything else
-         is non-packable by default (see Directory.Build.props). -->
+    <!-- One of the two packable projects in the repo (see Directory.Build.props);
+         everything else is non-packable so a `dotnet pack` of the solution produces
+         exactly one .nupkg per published package. -->
     <IsPackable>true</IsPackable>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>StyleSharp.Analyzers</PackageId>
+    <PackageTags>analyzers;roslyn;codefix;stylesharp;style;readability;formatting;layout;naming;documentation</PackageTags>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <DevelopmentDependency>true</DevelopmentDependency>
     <NoPackageAnalysis>true</NoPackageAnalysis>

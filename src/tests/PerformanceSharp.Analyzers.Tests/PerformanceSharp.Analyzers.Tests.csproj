@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>PerformanceSharp.Analyzers.Tests</RootNamespace>
+
+    <!-- Run the analyzer tests against the newest Roslyn we target (5.3) so the test
+         compiler can parse the latest C# syntax. The analyzer source is
+         version-agnostic (netstandard2.0), so this exercises the same logic. -->
+    <MicrosoftCodeAnalysisVersion>5.3.0</MicrosoftCodeAnalysisVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeRefactoring.Testing" />
+    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Analyzer.Testing" />
+    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.CodeFix.Testing" />
+    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.CodeRefactoring.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\PerformanceSharp.Analyzers.CodeFixes\PerformanceSharp.Analyzers.CodeFixes.csproj" />
+    <ProjectReference Include="..\..\PerformanceSharp.Analyzers\PerformanceSharp.Analyzers.csproj" />
+  </ItemGroup>
+
+</Project>

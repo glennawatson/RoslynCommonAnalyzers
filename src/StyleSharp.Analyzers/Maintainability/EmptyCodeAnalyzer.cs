@@ -6,13 +6,13 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Grouped maintainability analyzer for empty or redundant code constructs — empty constructors,
-/// finalizers, namespaces, types, methods, and loop/guard bodies — in a single tree walk.
+/// namespaces, types, methods, and loop/guard bodies — in a single tree walk. The empty-finalizer
+/// rule moved to PerformanceSharp.Analyzers as PSH1002.
 /// </summary>
 /// <remarks>
 /// Reports the following diagnostic ids:
 /// <list type="bullet">
 /// <item><description>SST1433 — a type's only constructor is a public, parameterless, empty constructor.</description></item>
-/// <item><description>SST1434 — a finalizer has an empty body.</description></item>
 /// <item><description>SST1435 — a namespace declaration has no members.</description></item>
 /// <item><description>SST1436 — a class, struct, or record has no members (opt-in).</description></item>
 /// <item><description>SST1437 — an interface has no members (opt-in).</description></item>
@@ -26,7 +26,6 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
         MaintainabilityRules.NoRedundantConstructor,
-        MaintainabilityRules.NoEmptyFinalizer,
         MaintainabilityRules.NoEmptyNamespace,
         MaintainabilityRules.NoEmptyType,
         MaintainabilityRules.NoEmptyInterface,
@@ -40,7 +39,6 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
         context.RegisterSyntaxNodeAction(AnalyzeConstructor, SyntaxKind.ConstructorDeclaration);
-        context.RegisterSyntaxNodeAction(AnalyzeFinalizer, SyntaxKind.DestructorDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzeNamespace, SyntaxKind.NamespaceDeclaration, SyntaxKind.FileScopedNamespaceDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzeType, SyntaxKind.ClassDeclaration, SyntaxKind.StructDeclaration, SyntaxKind.RecordDeclaration, SyntaxKind.RecordStructDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzeInterface, SyntaxKind.InterfaceDeclaration);
@@ -96,19 +94,6 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
         }
 
         context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.NoRedundantConstructor, constructor.Identifier.GetLocation()));
-    }
-
-    /// <summary>Reports SST1434 for a finalizer with an empty body.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeFinalizer(SyntaxNodeAnalysisContext context)
-    {
-        var finalizer = (DestructorDeclarationSyntax)context.Node;
-        if (!IsEmptyBlock(finalizer.Body))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.NoEmptyFinalizer, finalizer.Identifier.GetLocation()));
     }
 
     /// <summary>Reports SST1435 for a namespace declaration with no members.</summary>

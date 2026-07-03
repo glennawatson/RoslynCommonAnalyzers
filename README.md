@@ -6,6 +6,8 @@
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=glennawatson_RoslynCommonAnalyzers&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=glennawatson_RoslynCommonAnalyzers)
 [![NuGet](https://img.shields.io/nuget/v/StyleSharp.Analyzers.svg?logo=nuget&label=StyleSharp.Analyzers)](https://www.nuget.org/packages/StyleSharp.Analyzers/)
 [![Downloads](https://img.shields.io/nuget/dt/StyleSharp.Analyzers.svg?logo=nuget&label=downloads)](https://www.nuget.org/packages/StyleSharp.Analyzers/)
+[![NuGet](https://img.shields.io/nuget/v/PerformanceSharp.Analyzers.svg?logo=nuget&label=PerformanceSharp.Analyzers)](https://www.nuget.org/packages/PerformanceSharp.Analyzers/)
+[![Downloads](https://img.shields.io/nuget/dt/PerformanceSharp.Analyzers.svg?logo=nuget&label=downloads)](https://www.nuget.org/packages/PerformanceSharp.Analyzers/)
 [![GitHub stars](https://img.shields.io/github/stars/glennawatson/RoslynCommonAnalyzers?style=social)](https://github.com/glennawatson/RoslynCommonAnalyzers/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -15,30 +17,36 @@
 </a>
 <br>
 
-# StyleSharp.Analyzers
+# RoslynCommonAnalyzers
 
-`StyleSharp.Analyzers` is a performance-focused Roslyn analyzer and code-fix package for .NET codebases. What started as the unique-line list family has grown into a broader ruleset covering spacing, readability, ordering, layout, naming, maintainability, documentation, extension blocks, records, concurrency, modernization, collection expressions, and modern C# syntax.
+Two fast Roslyn analyzer and code-fix packages for .NET codebases, built from one repository:
 
-The package is analyzer-only, targets `netstandard2.0`, ships as a `DevelopmentDependency`, and packs analyzer/code-fix assemblies for multiple Roslyn slots under one NuGet package.
+- **`StyleSharp.Analyzers`** (`SST####`) — style and consistency: spacing, readability, ordering, layout, naming, maintainability, documentation, extension blocks, records, lock-target safety, modernization, collection expressions, and modern C# syntax.
+- **`PerformanceSharp.Analyzers`** (`PSH####`) — runtime performance of *your* code: avoidable allocations, collection and LINQ enumeration costs, string handling, concurrency and async patterns, and cheaper API selection.
+
+Both packages are analyzer-only, target `netstandard2.0`, ship as a `DevelopmentDependency`, and pack analyzer/code-fix assemblies for multiple Roslyn slots under one NuGet package each. The analyzers themselves are engineered for build-time speed: allocation-free no-diagnostic paths, syntax-first candidate filtering, and per-rule benchmarks.
 
 ## Installation
 
 ```bash
 dotnet add package StyleSharp.Analyzers
+dotnet add package PerformanceSharp.Analyzers
 ```
 
-The package adds no runtime assemblies to your output and is not transitive to consumers of your library.
+Each package adds no runtime assemblies to your output and is not transitive to consumers of your library. They are independent — install either or both.
 
 ## Documentation
 
-- Full rule catalog: [`docs/README.md`](docs/README.md)
+- Full rule catalog (both packages): [`docs/README.md`](docs/README.md)
 - Configuration: [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
 - Performance guidance: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md)
-- Ready-to-use preset: [`recommended.editorconfig`](recommended.editorconfig)
+- Ready-to-use presets: [`recommended.editorconfig`](recommended.editorconfig) (StyleSharp) and [`recommended-performancesharp.editorconfig`](recommended-performancesharp.editorconfig) (PerformanceSharp)
 
 The rule catalog is intentionally split out of this README so the GitHub landing page stays readable while the detailed rule index can grow with the project.
 
 ## Rule Categories
+
+### StyleSharp (`SST####`)
 
 - `Spacing` for token and whitespace conventions
 - `Readability` for query layout, unique-line lists, tuple/null/style conventions, expression simplification, redundant-code removal, and similar readability rules
@@ -49,22 +57,32 @@ The rule catalog is intentionally split out of this README so the GitHub landing
 - `Documentation` for XML docs, file headers, and documentation quality rules
 - `Extensions` for C# 14 extension-block conventions
 - `Records` for record and record-struct conventions
-- `Concurrency` for lock usage rules
+- `Concurrency` for lock-target safety rules
 - `Modernization` for runtime throw-helper adoption and pattern-matching forms
 - `CollectionExpressions` for collection-expression usage
 - `ModernSyntax` for new language features such as the C# 14 `field` keyword
 
-Unless a rule is marked opt-in, it is enabled by default at `Warning` severity.
+### PerformanceSharp (`PSH####`)
+
+- `Allocations` (`PSH10xx`) for closure/delegate allocations, throwaway empty arrays, and empty finalizers
+- `Collections` (`PSH11xx`) for LINQ on hot paths, redundant iterator layers, O(1) count/indexer alternatives, and repeated dictionary/set lookups
+- `Strings` (`PSH12xx`) for case-conversion comparison allocations, char overloads, and `StringBuilder` patterns
+- `Concurrency` (`PSH13xx`) for `System.Threading.Lock` adoption and async/concurrency perf patterns
+- `ApiSelection` (`PSH14xx`) for cheaper framework APIs such as one-shot `HashData`
+
+Rules whose primary motivation is runtime performance live in PerformanceSharp; rules about style and consistency live in StyleSharp. Unless a rule is marked opt-in, it is enabled by default at `Warning` severity.
 
 ## Configuration
 
-StyleSharp is configured entirely through `.editorconfig`. Severity uses the standard `dotnet_diagnostic.<RuleId>.severity` keys, and rule options use the compiler-provided analyzer config system.
+Both packages are configured entirely through `.editorconfig`. Severity uses the standard `dotnet_diagnostic.<RuleId>.severity` keys, and rule options use the compiler-provided analyzer config system with a per-package prefix (`stylesharp.` / `performancesharp.`).
 
 ```ini
 [*.cs]
 dotnet_diagnostic.SST1309.severity = warning
 stylesharp.tuple_element_naming = pascal_case
-stylesharp.union_member_naming = pascal_case
+
+dotnet_diagnostic.PSH1100.severity = warning
+performancesharp.avoid_linq_on_hot_path = true
 ```
 
 See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for the full option list and the recommended configuration approach.
@@ -73,39 +91,41 @@ See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for the full option list an
 
 | Project | Purpose |
 | --- | --- |
-| `src/StyleSharp.Analyzers` | analyzer implementations |
-| `src/StyleSharp.Analyzers.CodeFixes` | code-fix implementations |
-| `src/StyleSharp.Analyzers.Package` | NuGet packaging |
-| `src/tests/StyleSharp.Analyzers.Tests` | TUnit + `Microsoft.CodeAnalysis.Testing` test suite |
-| `src/benchmarks/StyleSharp.Analyzers.Benchmarks` | BenchmarkDotNet perf harness |
+| `src/StyleSharp.Analyzers` / `src/PerformanceSharp.Analyzers` | analyzer implementations |
+| `src/StyleSharp.Analyzers.CodeFixes` / `src/PerformanceSharp.Analyzers.CodeFixes` | code-fix implementations |
+| `src/StyleSharp.Analyzers.Package` / `src/PerformanceSharp.Analyzers.Package` | NuGet packaging |
+| `src/tests/*` | TUnit + `Microsoft.CodeAnalysis.Testing` test suites |
+| `src/benchmarks/*` | BenchmarkDotNet perf harnesses |
 
 ## Building And Testing
 
 Run these commands from `src/`:
 
 ```bash
-dotnet build StyleSharp.Analyzers.slnx -c Release
+dotnet build RoslynCommonAnalyzers.slnx -c Release
 dotnet test --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release
+dotnet test --project tests/PerformanceSharp.Analyzers.Tests/PerformanceSharp.Analyzers.Tests.csproj -c Release
 ```
 
-To pack every Roslyn slot into the published NuGet package:
+To pack every Roslyn slot into the published NuGet packages:
 
 ```bash
 dotnet pack StyleSharp.Analyzers.Package/StyleSharp.Analyzers.Packages.csproj -c Release
+dotnet pack PerformanceSharp.Analyzers.Package/PerformanceSharp.Analyzers.Packages.csproj -c Release
 ```
 
 ## Contributing
 
 Issues and pull requests are welcome.
 
-When adding a rule, update all of the following:
+When adding a rule, update all of the following (in whichever package the rule belongs to):
 
 - analyzer implementation
 - code-fix implementation if the rule is fixable
 - tests
-- `docs/rules/SST####.md`
-- `src/StyleSharp.Analyzers/AnalyzerReleases.Unshipped.md`
-- `recommended.editorconfig` if the rule should appear in the preset
+- `docs/rules/SST####.md` or `docs/rules/PSH####.md`
+- that package's `AnalyzerReleases.Unshipped.md`
+- the matching preset (`recommended.editorconfig` / `recommended-performancesharp.editorconfig`) if the rule should appear there
 
 Performance is a first-class requirement. Read [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) before changing analyzer hot paths, and benchmark changes rather than guessing.
 

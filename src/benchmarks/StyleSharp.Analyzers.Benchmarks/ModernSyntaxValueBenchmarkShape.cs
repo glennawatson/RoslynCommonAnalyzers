@@ -34,18 +34,9 @@ public enum ModernSyntaxValueBenchmarkShape
     /// <summary>Delegate local that can be a local function.</summary>
     LocalFunction,
 
-    /// <summary>LINQ Where followed by a predicate terminal.</summary>
-    WhereTerminal,
-
-    /// <summary>LINQ type check followed by Cast.</summary>
-    TypeFilter,
-
     /// <summary>Broad object pattern used as a null check.</summary>
     NullPattern,
 
     /// <summary>Concrete generic arguments inside nameof.</summary>
-    UnboundGenericName,
-
-    /// <summary>LINQ call in hot-path code.</summary>
-    HotPathLinq
+    UnboundGenericName
 }

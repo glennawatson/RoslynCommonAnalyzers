@@ -210,20 +210,6 @@ internal static class ModernSyntaxRules
         "Replace this delegate local with a local function",
         "A delegate local that is only invoked in the containing block is written as a local function so the call target has method shape without allocating a delegate.");
 
-    /// <summary>SST2229 — a LINQ terminal call can carry the preceding predicate directly.</summary>
-    public static readonly DiagnosticDescriptor CollapseLinqWhereTerminal = Create(
-        "SST2229",
-        "Carry LINQ predicates at the terminal call",
-        "Move this Where predicate into the terminal LINQ call",
-        "A Where call immediately followed by a terminal LINQ call that accepts a predicate keeps the predicate in the terminal call and removes an iterator layer.");
-
-    /// <summary>SST2230 — a LINQ type filter and cast can use one typed filter call.</summary>
-    public static readonly DiagnosticDescriptor CollapseLinqTypeFilter = Create(
-        "SST2230",
-        "Filter LINQ values by type once",
-        "Replace the type check and cast chain with one typed filter",
-        "A LINQ Where type check followed by Cast is written as a single typed filter call so the sequence performs one pass over each element.");
-
     /// <summary>SST2231 — a broad object pattern is only a null check.</summary>
     public static readonly DiagnosticDescriptor UseDirectNullPattern = Create(
         "SST2231",
@@ -237,13 +223,6 @@ internal static class ModernSyntaxRules
         "Omit generic arguments inside nameof",
         "Replace concrete generic arguments with omitted generic arguments",
         "A nameof expression over a generic type omits concrete type arguments because the generated name does not depend on them.");
-
-    /// <summary>SST2233 — hot-path code should avoid LINQ extension methods (opt-in).</summary>
-    public static readonly DiagnosticDescriptor AvoidLinqOnHotPath = CreateOptIn(
-        "SST2233",
-        "Avoid LINQ calls on hot paths",
-        "Replace this LINQ call with explicit iteration on performance-sensitive paths",
-        "Hot-path code avoids System.Linq.Enumerable calls where iterator allocation, delegate invocation, and abstraction overhead can dominate.");
 
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

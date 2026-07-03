@@ -15,7 +15,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReleaseNotes>https://github.com/glennawatson/RoslynCommonAnalyzers/releases</PackageReleaseNotes>
-    <PackageTags>analyzers;roslyn;codefix;stylesharp;readability;formatting;stylecop</PackageTags>
+    <!-- PackageTags are per-package: each *.Package project sets its own. -->
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <RepositoryUrl>https://github.com/glennawatson/RoslynCommonAnalyzers</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -64,7 +64,7 @@
     behind ROSLYN_5_OR_GREATER. Keep these assemblies netstandard2.0 (RS1041).
   -->
   <PropertyGroup>
-    <IsRoslynComponentProject Condition="'$(MSBuildProjectName)' == 'StyleSharp.Analyzers' Or '$(MSBuildProjectName)' == 'StyleSharp.Analyzers.CodeFixes'">true</IsRoslynComponentProject>
+    <IsRoslynComponentProject Condition="'$(MSBuildProjectName)' == 'StyleSharp.Analyzers' Or '$(MSBuildProjectName)' == 'StyleSharp.Analyzers.CodeFixes' Or '$(MSBuildProjectName)' == 'PerformanceSharp.Analyzers' Or '$(MSBuildProjectName)' == 'PerformanceSharp.Analyzers.CodeFixes'">true</IsRoslynComponentProject>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(IsRoslynComponentProject)' == 'true'">

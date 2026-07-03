@@ -1,16 +1,17 @@
 # Performance guide
 
-This is the performance doctrine for every analyzer and code fix in
-StyleSharp.Analyzers. Analyzers run on **every keystroke** in the IDE and on
-**every build**; a wasteful pattern multiplied across dozens of rules and
-millions of syntax nodes is the difference between a snappy and a sluggish
-editing experience. Beating the sluggishness common to style analyzers is exactly
-what this project sets out to do, so performance is a first-class requirement here,
-not an afterthought.
+This is the performance doctrine for every analyzer and code fix in this
+repository — both StyleSharp.Analyzers and PerformanceSharp.Analyzers. Analyzers
+run on **every keystroke** in the IDE and on **every build**; a wasteful pattern
+multiplied across dozens of rules and millions of syntax nodes is the difference
+between a snappy and a sluggish editing experience. Beating the sluggishness
+common to third-party analyzers is exactly what this project sets out to do, so
+performance is a first-class requirement here, not an afterthought.
 
 This document describes *approaches*. Concrete measurements are not pinned here
-(they go stale); produce them on demand with the benchmark harness under
-`StyleSharp.Analyzers.Benchmarks` (see [Measure first](#measure-first)).
+(they go stale); produce them on demand with the benchmark harnesses under
+`StyleSharp.Analyzers.Benchmarks` and `PerformanceSharp.Analyzers.Benchmarks`
+(see [Measure first](#measure-first)).
 
 ## Guiding principles
 
@@ -24,8 +25,9 @@ This document describes *approaches*. Concrete measurements are not pinned here
 4. **Syntax before semantics.** A syntactic check is far cheaper than a semantic
    one. Decide with syntax alone whenever possible; reach for the semantic model
    only when syntax genuinely cannot answer the question.
-5. **No LINQ in production code.** Treat LINQ as banned in
-   `src/StyleSharp.Analyzers/` and `src/StyleSharp.Analyzers.CodeFixes/`.
+5. **No LINQ in production code.** Treat LINQ as banned in the analyzer and
+   code-fix projects of both packages (`src/StyleSharp.Analyzers*`,
+   `src/PerformanceSharp.Analyzers*`).
    Iterator state machines, delegate captures, and convenience materialization
    are too easy to hide in code review and too expensive to pay on hot paths.
 6. **Measure, don't guess.** Every performance claim is backed by a benchmark.

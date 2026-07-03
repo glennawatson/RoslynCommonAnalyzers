@@ -8,7 +8,7 @@ namespace StyleSharp.Analyzers.Benchmarks;
 internal static class ModernSyntaxValueBenchmarkSource
 {
     /// <summary>The number of shapes cycled by the analyzer benchmark corpus.</summary>
-    private const int ShapeCount = 14;
+    private const int ShapeCount = 11;
 
     /// <summary>Builds clean or violating source for the modern-syntax value analyzer.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
@@ -32,7 +32,6 @@ internal static class ModernSyntaxValueBenchmarkSource
     private static string GenerateCore(int members, bool violating, ModernSyntaxValueBenchmarkShape? shape)
         => $$"""
            using System;
-           using System.Linq;
 
            namespace Bench;
 
@@ -93,11 +92,8 @@ internal static class ModernSyntaxValueBenchmarkSource
         => shape switch
         {
             ModernSyntaxValueBenchmarkShape.LocalFunction => GenerateLocalFunction(index, violating),
-            ModernSyntaxValueBenchmarkShape.WhereTerminal => GenerateWhereTerminal(index, violating),
-            ModernSyntaxValueBenchmarkShape.TypeFilter => GenerateTypeFilter(index, violating),
             ModernSyntaxValueBenchmarkShape.NullPattern => GenerateNullPattern(index, violating),
-            ModernSyntaxValueBenchmarkShape.UnboundGenericName => GenerateUnboundGenericName(index, violating),
-            _ => GenerateHotPathLinq(index, violating)
+            _ => GenerateUnboundGenericName(index, violating)
         };
 
     /// <summary>Builds one interpolation shape.</summary>
@@ -278,32 +274,6 @@ internal static class ModernSyntaxValueBenchmarkSource
                 }
                 """;
 
-    /// <summary>Builds one LINQ Where-terminal shape.</summary>
-    /// <param name="index">The synthetic member index.</param>
-    /// <param name="violating">Whether to emit the reportable form.</param>
-    /// <returns>The generated member block.</returns>
-    private static string GenerateWhereTerminal(int index, bool violating)
-        => violating
-            ? $$"""
-                private bool WhereTerminal{{index}}(int[] values) => values.Where(value => value > {{index}}).Any();
-                """
-            : $$"""
-                private bool WhereTerminal{{index}}(int[] values) => values.Any(value => value > {{index}});
-                """;
-
-    /// <summary>Builds one LINQ type-filter shape.</summary>
-    /// <param name="index">The synthetic member index.</param>
-    /// <param name="violating">Whether to emit the reportable form.</param>
-    /// <returns>The generated member block.</returns>
-    private static string GenerateTypeFilter(int index, bool violating)
-        => violating
-            ? $$"""
-                private object TypeFilter{{index}}(object[] values) => values.Where(value => value is string).Cast<string>();
-                """
-            : $$"""
-                private object TypeFilter{{index}}(object[] values) => values.OfType<string>();
-                """;
-
     /// <summary>Builds one direct null-pattern shape.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
@@ -328,27 +298,5 @@ internal static class ModernSyntaxValueBenchmarkSource
                 """
             : $$"""
                 private string UnboundGenericName{{index}}() => nameof(System.Collections.Generic.Dictionary<,>);
-                """;
-
-    /// <summary>Builds one hot-path LINQ shape.</summary>
-    /// <param name="index">The synthetic member index.</param>
-    /// <param name="violating">Whether to emit the reportable form.</param>
-    /// <returns>The generated member block.</returns>
-    private static string GenerateHotPathLinq(int index, bool violating)
-        => violating
-            ? $$"""
-                private object HotPathLinq{{index}}(int[] values) => values.Select(value => value + {{index}});
-                """
-            : $$"""
-                private int HotPathLinq{{index}}(int[] values)
-                {
-                    var sum = 0;
-                    for (var i = 0; i < values.Length; i++)
-                    {
-                        sum += values[i] + {{index}};
-                    }
-
-                    return sum;
-                }
                 """;
 }

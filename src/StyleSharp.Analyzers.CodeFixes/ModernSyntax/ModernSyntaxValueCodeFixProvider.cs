@@ -20,8 +20,6 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         ModernSyntaxRules.AddVisibleInnerCast.Id,
         ModernSyntaxRules.FoldNullCheckIntoAssignment.Id,
         ModernSyntaxRules.UseLocalFunction.Id,
-        ModernSyntaxRules.CollapseLinqWhereTerminal.Id,
-        ModernSyntaxRules.CollapseLinqTypeFilter.Id,
         ModernSyntaxRules.UseDirectNullPattern.Id,
         ModernSyntaxRules.UseUnboundGenericName.Id);
 
@@ -193,8 +191,6 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         => diagnosticId switch
         {
             "SST2228" => "Use a local function",
-            "SST2229" => "Move predicate to terminal call",
-            "SST2230" => "Use one typed filter",
             "SST2231" => "Use a direct null pattern",
             "SST2232" => "Omit generic arguments in nameof",
             _ => null
@@ -268,8 +264,6 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         => diagnostic.Id switch
         {
             "SST2228" => CreateLocalFunctionFix(root, diagnostic.Location.SourceSpan, out oldNode),
-            "SST2229" => CreateWhereTerminalFix(root, diagnostic.Location.SourceSpan, out oldNode),
-            "SST2230" => CreateTypeFilterFix(root, diagnostic.Location.SourceSpan, out oldNode),
             "SST2231" => CreateNullPatternFix(root, diagnostic.Location.SourceSpan, out oldNode),
             "SST2232" => CreateUnboundGenericNameFix(root, diagnostic.Location.SourceSpan, out oldNode),
             _ => null
@@ -570,68 +564,6 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
                 expressionBody: lambda.ExpressionBody is null ? null : SyntaxFactory.ArrowExpressionClause(lambda.ExpressionBody.WithoutTrivia()),
                 semicolonToken: lambda.ExpressionBody is null ? default : SyntaxFactory.Token(SyntaxKind.SemicolonToken))
             .WithTriviaFrom(local);
-    }
-
-    /// <summary>Creates a collapsed <c>Where(predicate).Terminal()</c> invocation.</summary>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="span">The diagnostic span.</param>
-    /// <param name="oldNode">The terminal invocation to replace.</param>
-    /// <returns>The collapsed invocation.</returns>
-    private static InvocationExpressionSyntax? CreateWhereTerminalFix(SyntaxNode root, TextSpan span, out SyntaxNode? oldNode)
-    {
-        oldNode = null;
-        var invocation = FindAncestor<InvocationExpressionSyntax>(root, span);
-        if (invocation is not { ArgumentList.Arguments.Count: 0, Expression: MemberAccessExpressionSyntax outerAccess }
-            || outerAccess.Expression is not InvocationExpressionSyntax whereInvocation
-            || whereInvocation is not
-            {
-                ArgumentList.Arguments.Count: 1,
-                Expression: MemberAccessExpressionSyntax { Expression: { } receiver }
-            })
-        {
-            return null;
-        }
-
-        oldNode = invocation;
-        var memberAccess = SyntaxFactory.MemberAccessExpression(
-            SyntaxKind.SimpleMemberAccessExpression,
-            receiver.WithoutTrivia(),
-            outerAccess.Name.WithoutTrivia());
-        return invocation
-            .WithExpression(memberAccess)
-            .WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(whereInvocation.ArgumentList.Arguments[0].WithoutTrivia())))
-            .WithTriviaFrom(invocation);
-    }
-
-    /// <summary>Creates a collapsed <c>OfType&lt;T&gt;</c> invocation.</summary>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="span">The diagnostic span.</param>
-    /// <param name="oldNode">The cast invocation to replace.</param>
-    /// <returns>The collapsed invocation.</returns>
-    private static InvocationExpressionSyntax? CreateTypeFilterFix(SyntaxNode root, TextSpan span, out SyntaxNode? oldNode)
-    {
-        oldNode = null;
-        var invocation = FindAncestor<InvocationExpressionSyntax>(root, span);
-        if (invocation is not
-            {
-                ArgumentList.Arguments.Count: 0,
-                Expression: MemberAccessExpressionSyntax
-                {
-                    Name: GenericNameSyntax { TypeArgumentList: { } typeArguments },
-                    Expression: InvocationExpressionSyntax
-                    {
-                        Expression: MemberAccessExpressionSyntax { Expression: { } receiver }
-                    }
-                }
-            })
-        {
-            return null;
-        }
-
-        oldNode = invocation;
-        var ofTypeName = SyntaxFactory.GenericName(SyntaxFactory.Identifier("OfType")).WithTypeArgumentList(typeArguments.WithoutTrivia());
-        var memberAccess = SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, receiver.WithoutTrivia(), ofTypeName);
-        return invocation.WithExpression(memberAccess).WithTriviaFrom(invocation);
     }
 
     /// <summary>Creates a direct null-pattern replacement for a broad object pattern.</summary>

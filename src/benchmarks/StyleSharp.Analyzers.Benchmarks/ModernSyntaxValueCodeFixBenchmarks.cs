@@ -49,8 +49,6 @@ public class ModernSyntaxValueCodeFixBenchmarks : IDisposable
         ModernSyntaxValueBenchmarkShape.HiddenCast,
         ModernSyntaxValueBenchmarkShape.FoldNullCheck,
         ModernSyntaxValueBenchmarkShape.LocalFunction,
-        ModernSyntaxValueBenchmarkShape.WhereTerminal,
-        ModernSyntaxValueBenchmarkShape.TypeFilter,
         ModernSyntaxValueBenchmarkShape.NullPattern,
         ModernSyntaxValueBenchmarkShape.UnboundGenericName)]
     public ModernSyntaxValueBenchmarkShape CurrentShape { get; set; }
@@ -128,8 +126,6 @@ public class ModernSyntaxValueCodeFixBenchmarks : IDisposable
         => CurrentShape switch
         {
             ModernSyntaxValueBenchmarkShape.LocalFunction => CreateLocalFunctionDiagnostic(),
-            ModernSyntaxValueBenchmarkShape.WhereTerminal => CreateWhereTerminalDiagnostic(),
-            ModernSyntaxValueBenchmarkShape.TypeFilter => CreateTypeFilterDiagnostic(),
             ModernSyntaxValueBenchmarkShape.NullPattern => CreateNullPatternDiagnostic(),
             _ => CreateUnboundGenericNameDiagnostic()
         };
@@ -234,28 +230,6 @@ public class ModernSyntaxValueCodeFixBenchmarks : IDisposable
             Nodes / MiddleNodeDivisor,
             static node => node.Initializer?.Value is LambdaExpressionSyntax);
         return Diagnostic.Create(ModernSyntaxRules.UseLocalFunction, variable.Identifier.GetLocation());
-    }
-
-    /// <summary>Creates a LINQ Where-terminal diagnostic.</summary>
-    /// <returns>The diagnostic.</returns>
-    private Diagnostic CreateWhereTerminalDiagnostic()
-    {
-        var invocation = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<InvocationExpressionSyntax>(
-            _root,
-            Nodes / MiddleNodeDivisor,
-            static node => node.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Any" });
-        return Diagnostic.Create(ModernSyntaxRules.CollapseLinqWhereTerminal, ((MemberAccessExpressionSyntax)invocation.Expression).Name.GetLocation());
-    }
-
-    /// <summary>Creates a LINQ type-filter diagnostic.</summary>
-    /// <returns>The diagnostic.</returns>
-    private Diagnostic CreateTypeFilterDiagnostic()
-    {
-        var invocation = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<InvocationExpressionSyntax>(
-            _root,
-            Nodes / MiddleNodeDivisor,
-            static node => node.Expression is MemberAccessExpressionSyntax { Name: GenericNameSyntax { Identifier.ValueText: "Cast" } });
-        return Diagnostic.Create(ModernSyntaxRules.CollapseLinqTypeFilter, ((MemberAccessExpressionSyntax)invocation.Expression).Name.GetLocation());
     }
 
     /// <summary>Creates a direct-null-pattern diagnostic.</summary>

@@ -14,3 +14,8 @@ SST1444 | Maintainability | Warning | SingleIterationLoopAnalyzer
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 SST1101 | Readability | Disabled | Condensed into SST1117; instance member qualification is now one configurable rule.
+SST1434 | Maintainability | Warning | Moved to PerformanceSharp.Analyzers as PSH1002; the rule is performance-motivated.
+SST1900 | Concurrency | Warning | Moved to PerformanceSharp.Analyzers as PSH1300; the rule is performance-motivated.
+SST2229 | ModernSyntax | Warning | Moved to PerformanceSharp.Analyzers as PSH1101; the rule is performance-motivated.
+SST2230 | ModernSyntax | Warning | Moved to PerformanceSharp.Analyzers as PSH1102; the rule is performance-motivated.
+SST2233 | ModernSyntax | Disabled | Moved to PerformanceSharp.Analyzers as PSH1100; the rule is performance-motivated.

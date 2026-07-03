@@ -64,7 +64,7 @@ jobs:
 
             -   name: Restore
                 working-directory: src
-                run: dotnet restore StyleSharp.Analyzers.slnx
+                run: dotnet restore RoslynCommonAnalyzers.slnx
 
             -   name: Begin Sonar analysis
                 working-directory: src
@@ -85,11 +85,11 @@ jobs:
 
             -   name: Build
                 working-directory: src
-                run: dotnet build StyleSharp.Analyzers.slnx --no-restore --configuration Release
+                run: dotnet build RoslynCommonAnalyzers.slnx --no-restore --configuration Release
 
             -   name: Test with MTP coverage
                 working-directory: src
-                run: dotnet test --solution StyleSharp.Analyzers.slnx --configuration Release --no-restore -- --coverage --coverage-output-format xml --coverage-output sonar-coverage.xml
+                run: dotnet test --solution RoslynCommonAnalyzers.slnx --configuration Release --no-restore -- --coverage --coverage-output-format xml --coverage-output sonar-coverage.xml
 
             -   name: End Sonar analysis
                 working-directory: src

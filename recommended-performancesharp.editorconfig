@@ -1,0 +1,65 @@
+# PerformanceSharp.Analyzers — recommended .editorconfig preset
+#
+# Drop this in (or merge it into) the .editorconfig at your repository root to adopt
+# the PerformanceSharp rule set with sensible defaults. Every rule below is already
+# enabled by default at Warning severity — listing them explicitly just gives you a
+# single place to tune severities (warning / suggestion / error / none) per rule.
+#
+# Lines that are commented out are the OPT-IN rules: off by default because they are
+# situational. Uncomment one to turn it on. See docs/CONFIGURATION.md and
+# docs/rules/PSHxxxx.md for what each rule does.
+#
+# Configurable options (uncomment and adjust):
+# performancesharp.avoid_linq_on_hot_path = true            # PSH1100 (opt-in hot-path projects)
+# performancesharp.prefer_collection_expressions = true     # PSH1001 (default; set false to always fix to Array.Empty<T>())
+# performancesharp.in_parameter_minimum_size = 32           # PSH1007 (estimated struct bytes before 'in' is suggested)
+# performancesharp.in_parameter_excluded_types = My.Type    # PSH1007 (comma-separated; added to the built-in span/memory/CancellationToken exclusions)
+
+[*.cs]
+
+# Allocations
+dotnet_diagnostic.PSH1000.severity = warning # Anonymous functions without captures should be static
+dotnet_diagnostic.PSH1001.severity = warning # Avoid allocating zero-length arrays (fix prefers [] on C# 12+, else Array.Empty<T>())
+dotnet_diagnostic.PSH1002.severity = warning # Empty finalizers should be removed
+dotnet_diagnostic.PSH1003.severity = warning # 'in' parameters should use readonly structs
+dotnet_diagnostic.PSH1004.severity = warning # Constant arrays passed as arguments should be hoisted
+dotnet_diagnostic.PSH1005.severity = warning # Structs should define equality members to avoid boxing comparisons
+dotnet_diagnostic.PSH1006.severity = warning # ConcurrentDictionary factories should use the lambda argument
+dotnet_diagnostic.PSH1007.severity = warning # Pass large readonly structs by 'in' reference (size threshold + exclusions configurable)
+
+# Collections
+# dotnet_diagnostic.PSH1100.severity = warning # Avoid LINQ calls on hot paths (opt-in; also set performancesharp.avoid_linq_on_hot_path = true)
+dotnet_diagnostic.PSH1101.severity = warning # Carry LINQ predicates at the terminal call
+dotnet_diagnostic.PSH1102.severity = warning # Filter LINQ values by type once
+dotnet_diagnostic.PSH1103.severity = warning # Prefer the collection's own count over enumerating
+dotnet_diagnostic.PSH1104.severity = warning # Use TryGetValue instead of ContainsKey followed by an indexer read
+dotnet_diagnostic.PSH1105.severity = warning # Avoid double lookups on dictionaries and sets
+dotnet_diagnostic.PSH1106.severity = warning # Index collections directly instead of using LINQ element access
+dotnet_diagnostic.PSH1107.severity = warning # Filter sequences before sorting them
+dotnet_diagnostic.PSH1108.severity = warning # Chain secondary sorts with ThenBy
+dotnet_diagnostic.PSH1109.severity = warning # Merge consecutive Where calls
+dotnet_diagnostic.PSH1110.severity = warning # Use the collection's own predicate methods over LINQ
+dotnet_diagnostic.PSH1111.severity = warning # Use Contains for membership tests
+
+# Strings
+dotnet_diagnostic.PSH1200.severity = warning # Compare strings without allocating case-converted copies
+dotnet_diagnostic.PSH1201.severity = warning # Use the char overload for single-character strings
+dotnet_diagnostic.PSH1202.severity = warning # Append characters as char, not single-character strings
+dotnet_diagnostic.PSH1203.severity = warning # Let StringBuilder do the formatting work
+dotnet_diagnostic.PSH1204.severity = warning # Test for empty strings by length
+dotnet_diagnostic.PSH1205.severity = warning # Remove interpolation that does no work
+dotnet_diagnostic.PSH1206.severity = warning # Do not build strings by concatenation in loops
+
+# Concurrency
+dotnet_diagnostic.PSH1300.severity = warning # Use System.Threading.Lock for a dedicated lock object
+dotnet_diagnostic.PSH1301.severity = warning # Do not wrap a single task in WhenAll or WaitAll
+
+# ApiSelection
+dotnet_diagnostic.PSH1400.severity = warning # Use the static HashData method for one-shot hashing
+dotnet_diagnostic.PSH1401.severity = warning # Attribute types should be sealed
+dotnet_diagnostic.PSH1402.severity = warning # Use const for compile-time constants
+dotnet_diagnostic.PSH1403.severity = warning # Do not initialize fields to their default value
+dotnet_diagnostic.PSH1404.severity = warning # Get the assembly from typeof instead of a stack walk
+dotnet_diagnostic.PSH1405.severity = warning # Use the direct Environment APIs
+dotnet_diagnostic.PSH1406.severity = warning # Ask Regex for the answer directly
+dotnet_diagnostic.PSH1407.severity = warning # Query the dictionary, not its Keys view

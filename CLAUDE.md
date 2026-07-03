@@ -1,8 +1,12 @@
 # CLAUDE.md
 
-Guidance for working in this repository (StyleSharp.Analyzers — Roslyn analyzers
-and code fixes). The published NuGet package is `StyleSharp.Analyzers`; the GitHub
-repo is `RoslynCommonAnalyzers`.
+Guidance for working in this repository (Roslyn analyzers and code fixes). Two
+NuGet packages are published from here: `StyleSharp.Analyzers` (style, layout,
+naming, documentation, readability) and `PerformanceSharp.Analyzers` (runtime
+performance: allocations, collections/LINQ usage, strings, concurrency/async,
+faster API selection). The GitHub repo is `RoslynCommonAnalyzers`. Each package
+has its own analyzer/code-fix/package/test/benchmark project family; the same
+conventions apply to both.
 
 ## Build & test
 
@@ -10,8 +14,9 @@ repo is `RoslynCommonAnalyzers`.
 # Run from src/
 
 # Build / test the floor (Roslyn 4.8) — the default slot
-dotnet build StyleSharp.Analyzers.slnx -c Release
+dotnet build RoslynCommonAnalyzers.slnx -c Release
 dotnet test  --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release
+dotnet test  --project tests/PerformanceSharp.Analyzers.Tests/PerformanceSharp.Analyzers.Tests.csproj -c Release
 
 # TUnit / Microsoft.Testing.Platform notes
 # - `dotnet test` must still be run from src/ in this repo so the relative project paths resolve.
@@ -24,18 +29,21 @@ dotnet test  --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tes
 # - Tree-node filter pattern: `/Assembly/Namespace/Class/Method[Property=Value]`
 # - Wildcards are supported with `*`, and OR within a segment uses `(A)|(B)`.
 
-# Build a specific Roslyn slot
+# Build a specific Roslyn slot (same -p:RoslynVersion switch for the PerformanceSharp projects)
 dotnet build StyleSharp.Analyzers.CodeFixes/StyleSharp.Analyzers.CodeFixes.csproj -c Release -p:RoslynVersion=roslyn5.3
 
-# Pack (builds every slot, emits one nupkg with all analyzers/dotnet/<slot>/cs folders)
+# Pack (builds every slot, emits one nupkg per package with all analyzers/dotnet/<slot>/cs folders)
 dotnet pack StyleSharp.Analyzers.Package/StyleSharp.Analyzers.Packages.csproj -c Release
+dotnet pack PerformanceSharp.Analyzers.Package/PerformanceSharp.Analyzers.Packages.csproj -c Release
 
 # Benchmarks
 dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*"
+dotnet run -c Release --project benchmarks/PerformanceSharp.Analyzers.Benchmarks -- --filter "*"
 ```
 
 Tests use **TUnit** (Microsoft Testing Platform) and the
-`Microsoft.CodeAnalysis.Testing` verifiers with `{|SSTxxxx:name|}` markup.
+`Microsoft.CodeAnalysis.Testing` verifiers with `{|SSTxxxx:name|}` /
+`{|PSHxxxx:name|}` markup.
 
 ## Conventions (follow these)
 
@@ -57,7 +65,8 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   a violation is found. See **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)**.
 
 - **No LINQ in production code.** Do not use LINQ anywhere under
-  `src/StyleSharp.Analyzers/` or `src/StyleSharp.Analyzers.CodeFixes/`.
+  `src/StyleSharp.Analyzers/`, `src/StyleSharp.Analyzers.CodeFixes/`,
+  `src/PerformanceSharp.Analyzers/`, or `src/PerformanceSharp.Analyzers.CodeFixes/`.
   Even seemingly small query expressions add iterator, closure, and collection
   overhead that is too expensive on analyzer hot paths. Use explicit `for` /
   `foreach` loops and a few locals instead.
@@ -98,26 +107,24 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   `NamingConventions`). No abstract analyzer base classes.
 
 - **File naming and folders.** Source files are grouped into category subfolders
-  mirroring the `*Rules.cs` descriptor classes (`Spacing/`, `Readability/`,
-  `Ordering/`, `Naming/`, `Maintainability/`, `Layout/`, `Documentation/`,
-  `Extensions/`, `Records/`, `Concurrency/`, `Modernization/`,
-  `CollectionExpressions/`, `ModernSyntax/`), with shared logic in `Helpers/` and
-  descriptors in `Rules/`. Folders are organizational only — the namespace stays
-  flat (`StyleSharp.Analyzers` / `StyleSharp.Analyzers.CodeFixes`); `the rule` is
-  intentionally off. An analyzer (or code fix) that reports **exactly one** id is
-  named `Sst<id><Concept>Analyzer` (e.g. `Sst1400AccessModifierAnalyzer`), and its
-  code fix mirrors it (`Sst1400AccessModifierCodeFixProvider`) in the same folder —
-  so the file name stays in sync with the type, and grepping the bare id
-  lands on both. An analyzer that reports **multiple** ids keeps a descriptive name
-  (`SpacingAnalyzer`, `MemberDocumentationAnalyzer`) for perf — bundling ids into
-  one tree walk matters more than a 1:1 file map — and **must** enumerate every id
-  it reports in its XML-doc summary/`<remarks>` so the id stays greppable. Shared
-  code fixes that span ids (`NamingRenameCodeFixProvider`) also stay descriptive.
-
-- **One shared code fix per family.** Naming rules all use
-  `NamingRenameCodeFixProvider`; analyzers stash the suggested name in the
-  diagnostic's `Properties[NamingDiagnostic.NewNameKey]`. Add new fixable naming
-  ids to `NamingRules.AllFixableIds`.
+  mirroring the `*Rules.cs` descriptor classes (StyleSharp: `Spacing/`,
+  `Readability/`, `Ordering/`, `Naming/`, `Maintainability/`, `Layout/`,
+  `Documentation/`, `Extensions/`, `Records/`, `Concurrency/`, `Modernization/`,
+  `CollectionExpressions/`, `ModernSyntax/`; PerformanceSharp: `Allocations/`,
+  `Collections/`, `Strings/`, `Concurrency/`, `ApiSelection/`), with shared logic
+  in `Helpers/` and descriptors in `Rules/`. Folders are organizational only — the
+  namespace stays flat (`StyleSharp.Analyzers` / `PerformanceSharp.Analyzers` and
+  their `.CodeFixes` twins); `the rule` is intentionally off. An analyzer (or code
+  fix) that reports **exactly one** id is named `Sst<id><Concept>Analyzer` /
+  `Psh<id><Concept>Analyzer` (e.g. `Sst1400AccessModifierAnalyzer`,
+  `Psh1300PreferLockTypeAnalyzer`), and its code fix mirrors it
+  (`Sst1400AccessModifierCodeFixProvider`) in the same folder — so the file name
+  stays in sync with the type, and grepping the bare id lands on both. An analyzer
+  that reports **multiple** ids keeps a descriptive name (`SpacingAnalyzer`,
+  `MemberDocumentationAnalyzer`) for perf — bundling ids into one tree walk
+  matters more than a 1:1 file map — and **must** enumerate every id it reports in
+  its XML-doc summary/`<remarks>` so the id stays greppable. Shared code fixes
+  that span ids (`NamingRenameCodeFixProvider`) also stay descriptive.
 
 - **One shared code fix per family.** Naming rules all use
   `NamingRenameCodeFixProvider`; analyzers stash the suggested name in the
@@ -126,9 +133,10 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
 
 - **Configuration is `.editorconfig` only — never a JSON file.** Options are read
   from the compiler's `AnalyzerConfigOptionsProvider` (no direct file I/O), using
-  the CA-analyzer key convention: `stylesharp.<option>` (general) and
-  `stylesharp.<RuleId>.<option>` (rule-specific override). See
-  **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**.
+  the CA-analyzer key convention: `stylesharp.<option>` /
+  `performancesharp.<option>` (general, per package) and
+  `stylesharp.<RuleId>.<option>` / `performancesharp.<RuleId>.<option>`
+  (rule-specific override). See **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**.
 
 - **Records on netstandard2.0** are enabled via `Polyfills/IsExternalInit.cs`
   (`#if !NET`), so value types are `readonly record struct` instead of
@@ -159,15 +167,48 @@ well-known type/interface/attribute by name (e.g. the `IUnion` marker in
 rule on the marker being present so it costs nothing otherwise. Use real 5.x APIs
 behind `#if ROSLYN_5_OR_GREATER` only when structural probing won't do.
 
-## Diagnostic id scheme
+## Diagnostic id schemes
 
-- `SST11xx` — readability rules. The "parameters/arguments must be on unique lines"
-  family (one analyzer per syntax kind) lives at the **end** of the range,
-  `SST1150`–`SST1171`; it covers per-kind split-list layout that the broader
-  readability rules do not.
-- `SST13xx` — naming rules, **adapted to .NET runtime conventions** (e.g. SST1309
-  requires private fields to be `_camelCase`).
+Both packages use four-digit ids grouped by the hundreds digit; each group maps
+1:1 to a `Rules/<Group>Rules.cs` descriptor class and a category subfolder.
 
-Adding a rule: descriptor in `NamingRules` (or inline), an analyzer, tests, a
-`docs/rules/SST####.md` page, and a row in `AnalyzerReleases.Unshipped.md`
-(RS2000). Configurable options go in `.editorconfig` and `docs/CONFIGURATION.md`.
+### StyleSharp (`SST####`)
+
+| Range | Group |
+| --- | --- |
+| `SST10xx` | Spacing |
+| `SST11xx` | Readability — the "parameters/arguments must be on unique lines" family (one analyzer per syntax kind) lives at the **end** of the range, `SST1150`–`SST1171` |
+| `SST12xx` | Ordering |
+| `SST13xx` | Naming, **adapted to .NET runtime conventions** (e.g. SST1309 requires private fields to be `_camelCase`) |
+| `SST14xx` | Maintainability |
+| `SST15xx` | Layout |
+| `SST16xx` | Documentation |
+| `SST17xx` | Extensions (extension blocks/methods) |
+| `SST18xx` | Records |
+| `SST19xx` | Concurrency conventions (lock-target safety) |
+| `SST20xx` | Modernization (throw helpers, patterns) |
+| `SST21xx` | Collection expressions |
+| `SST22xx` | Modern syntax |
+
+### PerformanceSharp (`PSH####`)
+
+Rules whose primary motivation is the **runtime performance of the user's code**
+live here, never in StyleSharp. A style rule that merely mentions perf stays in
+StyleSharp; a perf rule that also reads nicely still belongs in PerformanceSharp.
+
+| Range | Group | Examples of what belongs |
+| --- | --- | --- |
+| `PSH10xx` | Allocations & GC | closure/delegate allocations, `Array.Empty`, empty finalizers, boxing, struct copies |
+| `PSH11xx` | Collections & enumeration | LINQ on hot paths, `Count()` vs `Count`, `TryGetValue`, double lookups, indexer over `First()`/`Last()` |
+| `PSH12xx` | Strings & text | `StringComparison` without case-conversion allocations, char overloads, `StringBuilder` patterns, spans |
+| `PSH13xx` | Concurrency & async | `System.Threading.Lock`, async overloads in async contexts, task combinators |
+| `PSH14xx` | API selection | one-shot `HashData`, cached options/`SearchValues`, cheaper runtime-service APIs |
+
+When a rule moves between packages it gets a **new id** in the destination and a
+"Removed Rules" row (with a pointer) in the source package's
+`AnalyzerReleases.Unshipped.md` — ids are never reused or shared across packages.
+
+Adding a rule: descriptor in the group's `Rules` class (or inline), an analyzer,
+tests, a `docs/rules/<ID>.md` page, and a row in that package's
+`AnalyzerReleases.Unshipped.md` (RS2000). Configurable options go in
+`.editorconfig` and `docs/CONFIGURATION.md`.

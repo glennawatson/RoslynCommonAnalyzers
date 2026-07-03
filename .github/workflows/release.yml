@@ -72,15 +72,15 @@ jobs:
 
       - name: Restore
         working-directory: src
-        run: dotnet restore StyleSharp.Analyzers.slnx
+        run: dotnet restore RoslynCommonAnalyzers.slnx
 
       - name: Build
         working-directory: src
-        run: dotnet build StyleSharp.Analyzers.slnx --no-restore --configuration Release
+        run: dotnet build RoslynCommonAnalyzers.slnx --no-restore --configuration Release
 
       - name: Pack
         working-directory: src
-        run: dotnet pack StyleSharp.Analyzers.slnx --no-build --configuration Release -o packages
+        run: dotnet pack RoslynCommonAnalyzers.slnx --no-build --configuration Release -o packages
 
       - name: Install GitReleaseNoteGenerator
         run: dotnet tool install -g GitReleaseNoteGenerator

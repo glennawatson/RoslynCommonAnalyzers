@@ -247,13 +247,6 @@ internal static class MaintainabilityRules
         "Remove this redundant constructor; the compiler supplies an equivalent default constructor",
         "A type's only constructor being a public, parameterless, empty constructor restates the default constructor the compiler would emit anyway, so it can be removed.");
 
-    /// <summary>SST1434 — a finalizer has an empty body and only slows down garbage collection.</summary>
-    public static readonly DiagnosticDescriptor NoEmptyFinalizer = Create(
-        "SST1434",
-        "Empty finalizers should be removed",
-        "Remove this empty finalizer; it only burdens the garbage collector",
-        "An empty finalizer does no cleanup yet forces the runtime to track the object on the finalization queue, so it should be removed.");
-
     /// <summary>SST1435 — a namespace declaration contains no members.</summary>
     public static readonly DiagnosticDescriptor NoEmptyNamespace = Create(
         "SST1435",

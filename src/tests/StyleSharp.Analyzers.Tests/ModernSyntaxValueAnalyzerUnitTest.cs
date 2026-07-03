@@ -19,7 +19,7 @@ using VerifyModernSyntaxValue = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier
 
 namespace StyleSharp.Analyzers.Tests;
 
-/// <summary>Unit tests for value-oriented modern syntax rules (SST2220-SST2233).</summary>
+/// <summary>Unit tests for value-oriented modern syntax rules (SST2220–SST2228, SST2231, SST2232).</summary>
 public class ModernSyntaxValueAnalyzerUnitTest
 {
     /// <summary>Verifies a redundant ToString call is folded into the interpolation hole.</summary>
@@ -588,58 +588,6 @@ public class ModernSyntaxValueAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
-    /// <summary>Verifies a Where predicate is carried by the terminal LINQ call.</summary>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    [Test]
-    public async Task WhereAnyChainIsCollapsedAsync()
-    {
-        const string Source = """
-                              using System.Linq;
-
-                              public sealed class C
-                              {
-                                  public bool M(int[] values) => values.Where(value => value > 0).{|SST2229:Any|}();
-                              }
-                              """;
-        const string FixedSource = """
-                                   using System.Linq;
-
-                                   public sealed class C
-                                   {
-                                       public bool M(int[] values) => values.Any(value => value > 0);
-                                   }
-                                   """;
-        var test = CreateNet80Test(Source, FixedSource);
-
-        await test.RunAsync(CancellationToken.None);
-    }
-
-    /// <summary>Verifies a LINQ type check followed by Cast is represented as one typed filter.</summary>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    [Test]
-    public async Task WhereTypeCheckCastChainUsesOneTypedFilterAsync()
-    {
-        const string Source = """
-                              using System.Linq;
-
-                              public sealed class C
-                              {
-                                  public object M(object[] values) => values.Where(value => value is string).{|SST2230:Cast<string>|}();
-                              }
-                              """;
-        const string FixedSource = """
-                                   using System.Linq;
-
-                                   public sealed class C
-                                   {
-                                       public object M(object[] values) => values.OfType<string>();
-                                   }
-                                   """;
-        var test = CreateNet80Test(Source, FixedSource);
-
-        await test.RunAsync(CancellationToken.None);
-    }
-
     /// <summary>Verifies broad object patterns become direct null patterns.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -684,49 +632,6 @@ public class ModernSyntaxValueAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
-    /// <summary>Verifies hot-path projects can opt into LINQ method diagnostics.</summary>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    [Test]
-    public async Task HotPathLinqCallIsReportedWhenEnabledAsync()
-    {
-        const string Source = """
-                              using System.Linq;
-
-                              public sealed class C
-                              {
-                                  public object M(int[] values) => values.{|SST2233:Select|}(value => value + 1);
-                              }
-                              """;
-        var test = CreateNet80Test(Source);
-        Enable(test, "SST2233");
-
-        await test.RunAsync(CancellationToken.None);
-    }
-
-    /// <summary>Verifies string instance methods with LINQ operator names are not reported as hot-path LINQ calls.</summary>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    [Test]
-    public async Task StringContainsIsNotHotPathLinqAsync()
-    {
-        const string Source = """
-                              using System.Linq;
-
-                              public sealed class C
-                              {
-                                  public bool M()
-                                  {
-                                      string name = "abc";
-                                      var doesContain = name.Contains("ab");
-                                      return doesContain;
-                                  }
-                              }
-                              """;
-        var test = CreateNet80Test(Source);
-        Enable(test, "SST2233");
-
-        await test.RunAsync(CancellationToken.None);
-    }
-
     /// <summary>Creates a .NET 8 verifier test.</summary>
     /// <param name="source">The source.</param>
     /// <param name="fixedSource">The optional fixed source.</param>
@@ -762,15 +667,11 @@ public class ModernSyntaxValueAnalyzerUnitTest
     /// <param name="diagnosticId">The diagnostic id.</param>
     private static void Enable(VerifyModernSyntaxValue.Test test, string diagnosticId)
     {
-        var extraOptions = diagnosticId == "SST2233"
-            ? "stylesharp.avoid_linq_on_hot_path = true"
-            : string.Empty;
         var config = $$"""
                        root = true
 
                        [*.cs]
                        dotnet_diagnostic.{{diagnosticId}}.severity = warning
-                       {{extraOptions}}
                        """;
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
         test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));

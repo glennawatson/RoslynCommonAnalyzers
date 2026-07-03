@@ -7,20 +7,16 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// <summary>Builds shared benchmark state for modern-syntax value analysis.</summary>
 internal static class ModernSyntaxValueBenchmarkCases
 {
-    /// <summary>Analyzer-config options that turn on the hot-path LINQ rule for this batch.</summary>
+    /// <summary>Analyzer-config options for this batch (no extra keys required).</summary>
     private static readonly BenchmarkAnalyzerConfigOptionsProvider OptionsProvider = new(
         new Dictionary<string, string>(),
-        new Dictionary<string, string>
-        {
-            ["stylesharp.avoid_linq_on_hot_path"] = "true"
-        });
+        new Dictionary<string, string>());
 
     /// <summary>The opt-in diagnostics measured by this analyzer batch.</summary>
     private static readonly string[] EnabledRuleIds =
     [
         ModernSyntaxRules.MakeIgnoredExpressionValueExplicit.Id,
-        ModernSyntaxRules.ConvertAnonymousObjectToTuple.Id,
-        ModernSyntaxRules.AvoidLinqOnHotPath.Id
+        ModernSyntaxRules.ConvertAnonymousObjectToTuple.Id
     ];
 
     /// <summary>Creates the prepared benchmark state for the requested node count.</summary>

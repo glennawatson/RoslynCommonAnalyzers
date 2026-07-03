@@ -1,19 +1,96 @@
-# StyleSharp Rule Index
+# Rule Index
 
-This page is the full categorized rule catalog for `StyleSharp.Analyzers`.
+This page is the full categorized rule catalog for both packages published from
+this repository: [`StyleSharp.Analyzers`](#stylesharp-rule-index) (`SST####`) and
+[`PerformanceSharp.Analyzers`](#performancesharp-rule-index) (`PSH####`).
 
 - Repository overview and installation: [`../README.md`](../README.md)
 - Configuration reference: [`CONFIGURATION.md`](CONFIGURATION.md)
 - Performance guidance: [`PERFORMANCE.md`](PERFORMANCE.md)
-- Recommended preset: [`../recommended.editorconfig`](../recommended.editorconfig)
+- Recommended presets: [`../recommended.editorconfig`](../recommended.editorconfig) (StyleSharp), [`../recommended-performancesharp.editorconfig`](../recommended-performancesharp.editorconfig) (PerformanceSharp)
 
-Unless noted otherwise, rules are enabled by default at `Warning` severity. Rules marked `opt-in` are disabled by default and are commented out in `recommended.editorconfig`.
+Unless noted otherwise, rules are enabled by default at `Warning` severity. Rules marked `opt-in` are disabled by default and are commented out in the presets.
+
+# PerformanceSharp Rule Index
+
+Rules whose primary motivation is the runtime performance of the analyzed code.
+Ids are grouped by the hundreds digit: `PSH10xx` allocations & GC, `PSH11xx`
+collections & enumeration, `PSH12xx` strings & text, `PSH13xx` concurrency &
+async, `PSH14xx` API selection.
+
+## Allocations
+
+| Rule | Description |
+| --- | --- |
+| [PSH1000](rules/PSH1000.md) | Anonymous functions without captures should be static. |
+| [PSH1001](rules/PSH1001.md) | Avoid allocating zero-length arrays (`[]` on C# 12+, else `Array.Empty<T>()`). |
+| [PSH1002](rules/PSH1002.md) | Empty finalizers should be removed. |
+| [PSH1003](rules/PSH1003.md) | `in` parameters should use readonly structs. |
+| [PSH1004](rules/PSH1004.md) | Constant arrays passed as arguments should be hoisted. |
+| [PSH1005](rules/PSH1005.md) | Structs should define equality members to avoid boxing comparisons. |
+| [PSH1006](rules/PSH1006.md) | `ConcurrentDictionary` factories should use the lambda argument. |
+| [PSH1007](rules/PSH1007.md) | Pass large readonly structs by `in` reference. Configurable size threshold and exclusions. |
+
+## Collections
+
+| Rule | Description |
+| --- | --- |
+| [PSH1100](rules/PSH1100.md) | Hot-path code should avoid `System.Linq.Enumerable` calls. Opt-in. |
+| [PSH1101](rules/PSH1101.md) | A LINQ `Where` predicate can move into the terminal call. |
+| [PSH1102](rules/PSH1102.md) | A LINQ type check followed by `Cast<T>` can use one typed filter. |
+| [PSH1103](rules/PSH1103.md) | Prefer the collection's own count over enumerating. |
+| [PSH1104](rules/PSH1104.md) | Use `TryGetValue` instead of `ContainsKey` followed by an indexer read. |
+| [PSH1105](rules/PSH1105.md) | Avoid double lookups on dictionaries and sets. |
+| [PSH1106](rules/PSH1106.md) | Index collections directly instead of using LINQ element access. |
+| [PSH1107](rules/PSH1107.md) | Filter sequences before sorting them. |
+| [PSH1108](rules/PSH1108.md) | Chain secondary sorts with `ThenBy`. |
+| [PSH1109](rules/PSH1109.md) | Merge consecutive `Where` calls. |
+| [PSH1110](rules/PSH1110.md) | Use the collection's own predicate methods over LINQ. |
+| [PSH1111](rules/PSH1111.md) | Use `Contains` for membership tests. |
+
+## Strings
+
+| Rule | Description |
+| --- | --- |
+| [PSH1200](rules/PSH1200.md) | Compare strings without allocating case-converted copies. |
+| [PSH1201](rules/PSH1201.md) | Use the char overload for single-character strings. |
+| [PSH1202](rules/PSH1202.md) | Append characters as char, not single-character strings. |
+| [PSH1203](rules/PSH1203.md) | Let `StringBuilder` do the formatting work. |
+| [PSH1204](rules/PSH1204.md) | Test for empty strings by length. |
+| [PSH1205](rules/PSH1205.md) | Remove interpolation that does no work. |
+| [PSH1206](rules/PSH1206.md) | Do not build strings by concatenation in loops. |
+| [PSH1207](rules/PSH1207.md) | Specify `StringComparison` for culture-sensitive string operations. |
+
+## Concurrency (PerformanceSharp)
+
+| Rule | Description |
+| --- | --- |
+| [PSH1300](rules/PSH1300.md) | A dedicated object lock field should be a `System.Threading.Lock`. |
+| [PSH1301](rules/PSH1301.md) | Do not wrap a single task in `WhenAll` or `WaitAll`. |
+
+## ApiSelection
+
+| Rule | Description |
+| --- | --- |
+| [PSH1400](rules/PSH1400.md) | Use the static `HashData` method for one-shot hashing. |
+| [PSH1401](rules/PSH1401.md) | Attribute types should be sealed. |
+| [PSH1402](rules/PSH1402.md) | Use `const` for compile-time constants. |
+| [PSH1403](rules/PSH1403.md) | Do not initialize fields to their default value. |
+| [PSH1404](rules/PSH1404.md) | Get the assembly from `typeof` instead of a stack walk. |
+| [PSH1405](rules/PSH1405.md) | Use the direct `Environment` APIs. |
+| [PSH1406](rules/PSH1406.md) | Ask `Regex` for the answer directly. |
+| [PSH1407](rules/PSH1407.md) | Query the dictionary, not its `Keys` view. |
+
+# StyleSharp Rule Index
+
+Style, layout, naming, documentation, and readability rules. Perf-motivated rules
+that previously lived here (SST1434, SST1900, SST2229, SST2230, SST2233) moved to
+PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 
 ## Concurrency
 
 | Rule | Description |
 | --- | --- |
-| [SST1900](rules/SST1900.md) | A dedicated object lock field should be a `System.Threading.Lock`. |
 | [SST1901](rules/SST1901.md) | A lock targets a field or property reachable from outside the declaring type. |
 | [SST1902](rules/SST1902.md) | A lock targets `this`, a `Type`, or a string. Opt-in. |
 | [SST1903](rules/SST1903.md) | A lock targets a newly created object. |
@@ -143,7 +220,6 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST1431](rules/SST1431.md) | A static member of a generic type ignores the type's type parameters. |
 | [SST1432](rules/SST1432.md) | A class declares only static members and could be marked `static`. Opt-in. |
 | [SST1433](rules/SST1433.md) | A type's only constructor is a public, parameterless, empty default. |
-| [SST1434](rules/SST1434.md) | A finalizer has an empty body. |
 | [SST1435](rules/SST1435.md) | A namespace declaration has no members. |
 | [SST1436](rules/SST1436.md) | A class, struct, or record has no members. Opt-in. |
 | [SST1437](rules/SST1437.md) | An interface has no members. Opt-in. |
@@ -213,11 +289,8 @@ Unless noted otherwise, rules are enabled by default at `Warning` severity. Rule
 | [SST2226](rules/SST2226.md) | A cast hides an inner explicit conversion. |
 | [SST2227](rules/SST2227.md) | A post-assignment null fallback can be folded into the assigned expression. |
 | [SST2228](rules/SST2228.md) | A delegate local used only as a call target can be a local function. |
-| [SST2229](rules/SST2229.md) | A LINQ `Where` predicate can move into the terminal call. |
-| [SST2230](rules/SST2230.md) | A LINQ type check followed by `Cast<T>` can use one typed filter. |
 | [SST2231](rules/SST2231.md) | A broad `object` pattern can use a direct null pattern. |
 | [SST2232](rules/SST2232.md) | `nameof` does not need concrete generic type arguments. |
-| [SST2233](rules/SST2233.md) | Hot-path code should avoid `System.Linq.Enumerable` calls. Opt-in. |
 
 ## Naming
 

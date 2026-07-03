@@ -6,19 +6,11 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Diagnostic descriptors for the concurrency rules (SST19xx). These cover locking
-/// conventions, including the .NET 9 <c>System.Threading.Lock</c> type, and are
-/// gated on the relevant runtime type existing so they light up only where the
-/// replacement compiles.
+/// conventions around what a <c>lock</c> statement may safely target. The
+/// perf-motivated lock-type rule moved to PerformanceSharp.Analyzers as PSH1300.
 /// </summary>
 internal static class ConcurrencyRules
 {
-    /// <summary>SST1900 — a dedicated <c>object</c> lock field should be a <c>System.Threading.Lock</c>.</summary>
-    public static readonly DiagnosticDescriptor PreferLockType = Create(
-        "SST1900",
-        "Use System.Threading.Lock for a dedicated lock object",
-        "Change the type of '{0}' to System.Threading.Lock",
-        "A private readonly object used only as a lock target is declared as System.Threading.Lock (.NET 9+), which the compiler locks through a typed scope rather than Monitor.");
-
     /// <summary>SST1901 — a <c>lock</c> targets a field or property reachable from outside the declaring type.</summary>
     public static readonly DiagnosticDescriptor DoNotLockOnAccessibleMember = Create(
         "SST1901",

@@ -1,27 +1,30 @@
-# Configuring StyleSharp
+# Configuring StyleSharp and PerformanceSharp
 
-StyleSharp is configured entirely through **`.editorconfig`** — the same file you
-already use for `dotnet_diagnostic.*` severities and .NET code style. There is no
-separate JSON configuration file.
+Both packages are configured entirely through **`.editorconfig`** — the same file
+you already use for `dotnet_diagnostic.*` severities and .NET code style. There is
+no separate JSON configuration file.
 
 ## Why `.editorconfig` and not a separate config file
 
-StyleSharp deliberately does **not** use a separate JSON configuration file.
-Instead it follows the approach the .NET SDK's own **CA analyzers** use:
+These analyzers deliberately do **not** use a separate JSON configuration file.
+Instead they follow the approach the .NET SDK's own **CA analyzers** use:
 
 - Options are read from the compiler-provided `AnalyzerConfigOptionsProvider` —
-  StyleSharp never reads the `.editorconfig` from disk itself. The compiler parses
-  it and hands the analyzer a key/value view, which keeps analyzers
+  the analyzers never read the `.editorconfig` from disk themselves. The compiler
+  parses it and hands the analyzer a key/value view, which keeps analyzers
   file-system-independent and correct under per-directory `.editorconfig`
   cascading.
-- Keys follow CA's rule-specific-over-general layering, under a `stylesharp.`
-  prefix that mirrors CA's `dotnet_code_quality.` prefix:
-  - `stylesharp.<option>` — applies to every rule that reads that option.
-  - `stylesharp.<RuleId>.<option>` — overrides the general value for one rule.
+- Keys follow CA's rule-specific-over-general layering, under a per-package
+  prefix (`stylesharp.` for `SST####` rules, `performancesharp.` for `PSH####`
+  rules) that mirrors CA's `dotnet_code_quality.` prefix:
+  - `stylesharp.<option>` / `performancesharp.<option>` — applies to every rule
+    that reads that option.
+  - `stylesharp.<RuleId>.<option>` / `performancesharp.<RuleId>.<option>` —
+    overrides the general value for one rule.
 
-This means a single, familiar file controls **severity, code style, and
-StyleSharp options** together, and configuration cascades per directory exactly
-like everything else in `.editorconfig`.
+This means a single, familiar file controls **severity, code style, and analyzer
+options** together, and configuration cascades per directory exactly like
+everything else in `.editorconfig`.
 
 ## Severity
 
@@ -32,13 +35,17 @@ Every rule's severity is set the standard way:
 dotnet_diagnostic.SST1309.severity = warning   # error | warning | suggestion | silent | none
 ```
 
-## Recommended preset
+## Recommended presets
 
-[`recommended.editorconfig`](../recommended.editorconfig) at the repository root is
-a ready-to-use preset listing every rule grouped by category, with the opt-in
-(disabled-by-default) rules commented out so you can switch them on individually.
-Copy it in — or merge its `[*.cs]` block into your existing `.editorconfig` — as a
-starting point, then tune severities to taste.
+Two ready-to-use presets live at the repository root, one per package, each
+listing every rule grouped by category with the opt-in (disabled-by-default)
+rules commented out so you can switch them on individually:
+
+- [`recommended.editorconfig`](../recommended.editorconfig) — StyleSharp (`SST####`)
+- [`recommended-performancesharp.editorconfig`](../recommended-performancesharp.editorconfig) — PerformanceSharp (`PSH####`)
+
+Copy one in — or merge its `[*.cs]` block into your existing `.editorconfig` — as
+a starting point, then tune severities to taste.
 
 ## Rule options
 
@@ -46,6 +53,10 @@ Some rules expose options. Current options:
 
 | Option key | Rule | Values | Default |
 | --- | --- | --- | --- |
+| `performancesharp.avoid_linq_on_hot_path` | [PSH1100](rules/PSH1100.md) | `true`, `false` | `false` |
+| `performancesharp.prefer_collection_expressions` | [PSH1001](rules/PSH1001.md) | `true`, `false` | `true` |
+| `performancesharp.in_parameter_minimum_size` | [PSH1007](rules/PSH1007.md) | positive integer (estimated bytes) | `32` |
+| `performancesharp.in_parameter_excluded_types` | [PSH1007](rules/PSH1007.md) | comma-separated type names | built-ins only (spans, memory, `CancellationToken`) |
 | `stylesharp.tuple_element_naming` | [SST1316](rules/SST1316.md) | `pascal_case`, `camel_case` | `pascal_case` |
 | `stylesharp.union_member_naming` | [SST1315](rules/SST1315.md) | `pascal_case`, `camel_case` | `pascal_case` |
 | `stylesharp.record_parameter_naming` | [SST1801](rules/SST1801.md) | `pascal_case`, `camel_case` | `pascal_case` |

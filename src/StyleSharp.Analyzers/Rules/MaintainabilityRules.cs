@@ -317,6 +317,55 @@ internal static class MaintainabilityRules
         "Replace this loop jump or restructure the loop so another iteration can run",
         "A loop whose body unconditionally jumps before another iteration can run is usually clearer as straight-line code or a conditional.");
 
+    /// <summary>SST1445 - a using directive imports a namespace, type, or alias the file never uses.</summary>
+    public static readonly DiagnosticDescriptor UnnecessaryUsingDirective = Create(
+        "SST1445",
+        "Remove unnecessary using directives",
+        "The using directive for '{0}' is unnecessary",
+        "A using directive nothing in the file resolves through is dead weight: it slows reading, invites name collisions, and hides which dependencies the file really has.");
+
+    /// <summary>SST1446 - a class sits deeper in an inheritance chain than the configured maximum.</summary>
+    public static readonly DiagnosticDescriptor InheritanceDepth = Create(
+        "SST1446",
+        "Inheritance chains should stay shallow",
+        "'{0}' is {1} levels deep in its inheritance chain, which exceeds the maximum of {2}",
+        "Every inheritance level adds state and behavior a reader must load to understand the leaf type; deep chains are rigid and hard to change. Prefer composition or flatter hierarchies.");
+
+    /// <summary>SST1447 - an Equals or GetHashCode override delegates to object's reference-based implementation.</summary>
+    public static readonly DiagnosticDescriptor BaseObjectEqualityDelegation = Create(
+        "SST1447",
+        "Equality overrides should not delegate to object",
+        "'{0}' calls the object implementation of '{1}', which compares by reference identity instead of the value semantics this override implies",
+        "Calling base.Equals or base.GetHashCode when the base class is object silently reintroduces reference semantics inside an override whose purpose is value semantics.");
+
+    /// <summary>SST1448 - an argument is passed explicitly to a caller-info parameter.</summary>
+    public static readonly DiagnosticDescriptor CallerInfoArgument = Create(
+        "SST1448",
+        "Let the compiler supply caller-info arguments",
+        "Remove this argument so the compiler supplies the caller's {0}",
+        "Caller-info parameters exist so the compiler injects the calling member, file, or line; passing a value explicitly defeats that and usually reports the wrong call site.");
+
+    /// <summary>SST1449 - code writes directly to the console.</summary>
+    public static readonly DiagnosticDescriptor NoConsoleOutput = Create(
+        "SST1449",
+        "Avoid writing directly to the console",
+        "Replace this '{0}' call with the application's logging abstraction",
+        "Direct console writes bypass log levels, sinks, and redirection, and turn into noise or lost output when no console is attached. Route diagnostics through a logger.");
+
+    /// <summary>SST1451 - a DateTime is created without specifying its kind.</summary>
+    public static readonly DiagnosticDescriptor DateTimeKindRequired = Create(
+        "SST1451",
+        "Specify a DateTimeKind when creating a DateTime",
+        "Specify a DateTimeKind so consumers know whether this DateTime is UTC or local",
+        "A DateTime constructed without a kind is DateTimeKind.Unspecified and conversions silently guess; stating the kind (or using DateTimeOffset) makes the timeline explicit.");
+
+    /// <summary>SST1452 - a declared generic type parameter is never used.</summary>
+    public static readonly DiagnosticDescriptor UnusedTypeParameter = Create(
+        "SST1452",
+        "Remove unused type parameters",
+        "The type parameter '{0}' is never used; remove it",
+        "A type parameter nothing references forces every caller to supply a meaningless type argument and usually marks a refactoring leftover.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

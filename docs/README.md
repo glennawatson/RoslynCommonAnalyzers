@@ -30,6 +30,7 @@ async, `PSH14xx` API selection.
 | [PSH1005](rules/PSH1005.md) | Structs should define equality members to avoid boxing comparisons. |
 | [PSH1006](rules/PSH1006.md) | `ConcurrentDictionary` factories should use the lambda argument. |
 | [PSH1007](rules/PSH1007.md) | Pass large readonly structs by `in` reference. Configurable size threshold and exclusions. |
+| [PSH1008](rules/PSH1008.md) | GC.SuppressFinalize does nothing for sealed finalizer-free types. Code fix removes it. |
 
 ## Collections
 
@@ -230,7 +231,14 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST1442](rules/SST1442.md) | A function has too many direct branch points. |
 | [SST1443](rules/SST1443.md) | A function has too much nested control flow. |
 | [SST1444](rules/SST1444.md) | A loop cannot naturally reach a second iteration. |
+| [SST1445](rules/SST1445.md) | A using directive is unnecessary. Code fix removes it. |
+| [SST1446](rules/SST1446.md) | An inheritance chain is deeper than the configured maximum. Configurable depth and external counting. |
+| [SST1447](rules/SST1447.md) | An equality override delegates to object's reference semantics. |
+| [SST1448](rules/SST1448.md) | An argument is passed explicitly to a caller-info parameter. Code fix removes it. |
+| [SST1449](rules/SST1449.md) | Code writes directly to the console. |
 | [SST1450](rules/SST1450.md) | Files should be stored as UTF-8 without a byte order mark. Opt-in. |
+| [SST1451](rules/SST1451.md) | A DateTime is created without a DateTimeKind. |
+| [SST1452](rules/SST1452.md) | A generic type parameter is never used. |
 
 ## Modernization
 
@@ -291,6 +299,7 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST2228](rules/SST2228.md) | A delegate local used only as a call target can be a local function. |
 | [SST2231](rules/SST2231.md) | A broad `object` pattern can use a direct null pattern. |
 | [SST2232](rules/SST2232.md) | `nameof` does not need concrete generic type arguments. |
+| [SST2234](rules/SST2234.md) | `Nullable<T>` should use the `T?` shorthand. Code fix rewrites it. |
 
 ## Naming
 

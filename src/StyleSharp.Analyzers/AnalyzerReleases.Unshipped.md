@@ -8,6 +8,14 @@ Rule ID | Category | Severity | Notes
 SST1442 | Maintainability | Warning | FunctionComplexityAnalyzer
 SST1443 | Maintainability | Warning | FunctionComplexityAnalyzer
 SST1444 | Maintainability | Warning | SingleIterationLoopAnalyzer
+SST1445 | Maintainability | Warning | Sst1445UnnecessaryUsingDirectiveAnalyzer
+SST1446 | Maintainability | Warning | Sst1446InheritanceDepthAnalyzer
+SST1447 | Maintainability | Warning | Sst1447BaseObjectEqualityDelegationAnalyzer
+SST1448 | Maintainability | Warning | Sst1448CallerInfoArgumentAnalyzer
+SST1449 | Maintainability | Warning | Sst1449NoConsoleOutputAnalyzer
+SST1451 | Maintainability | Warning | Sst1451DateTimeKindAnalyzer
+SST1452 | Maintainability | Warning | Sst1452UnusedTypeParameterAnalyzer
+SST2234 | ModernSyntax | Warning | Sst2234NullableShorthandAnalyzer
 
 ### Removed Rules
 

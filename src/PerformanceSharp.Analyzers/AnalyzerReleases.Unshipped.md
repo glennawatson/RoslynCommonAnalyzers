@@ -13,6 +13,7 @@ PSH1004 | Allocations | Warning | Psh1004HoistConstantArrayArgumentsAnalyzer
 PSH1005 | Allocations | Warning | Psh1005ValueTypeEqualityBoxesAnalyzer
 PSH1006 | Allocations | Warning | Psh1006ConcurrentDictionaryClosureCaptureAnalyzer
 PSH1007 | Allocations | Warning | Psh1007PassLargeReadonlyStructByInAnalyzer
+PSH1008 | Allocations | Warning | Psh1008UselessSuppressFinalizeAnalyzer
 PSH1100 | Collections | Disabled | LinqUsageAnalyzer (moved from StyleSharp.Analyzers SST2233)
 PSH1101 | Collections | Warning | LinqUsageAnalyzer (moved from StyleSharp.Analyzers SST2229)
 PSH1102 | Collections | Warning | LinqUsageAnalyzer (moved from StyleSharp.Analyzers SST2230)

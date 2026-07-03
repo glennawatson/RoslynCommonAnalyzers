@@ -224,6 +224,13 @@ internal static class ModernSyntaxRules
         "Replace concrete generic arguments with omitted generic arguments",
         "A nameof expression over a generic type omits concrete type arguments because the generated name does not depend on them.");
 
+    /// <summary>SST2234 — <c>Nullable&lt;T&gt;</c> is written with the question-mark shorthand.</summary>
+    public static readonly DiagnosticDescriptor UseNullableShorthand = Create(
+        "SST2234",
+        "Use the T? shorthand for nullable value types",
+        "Replace 'Nullable<{0}>' with '{0}?'",
+        "The question-mark shorthand and the explicit Nullable<T> spelling are the same type; the shorthand is shorter and matches how nullable annotations read everywhere else.");
+
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

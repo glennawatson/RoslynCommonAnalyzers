@@ -158,7 +158,14 @@ dotnet_diagnostic.SST1441.severity = warning # A private field is assigned but n
 dotnet_diagnostic.SST1442.severity = warning # A function has too many direct branch points
 dotnet_diagnostic.SST1443.severity = warning # A function has too much nested control flow
 dotnet_diagnostic.SST1444.severity = warning # A loop cannot naturally reach a second iteration
+dotnet_diagnostic.SST1445.severity = warning # A using directive is unnecessary
+dotnet_diagnostic.SST1446.severity = warning # An inheritance chain is deeper than the configured maximum
+dotnet_diagnostic.SST1447.severity = warning # An equality override delegates to object's reference semantics
+dotnet_diagnostic.SST1448.severity = warning # An argument is passed explicitly to a caller-info parameter
+dotnet_diagnostic.SST1449.severity = warning # Code writes directly to the console
 # dotnet_diagnostic.SST1450.severity = warning # Files should be stored as UTF-8 without a byte order mark (opt-in)
+dotnet_diagnostic.SST1451.severity = warning # A DateTime is created without a DateTimeKind
+dotnet_diagnostic.SST1452.severity = warning # A generic type parameter is never used
 
 # Modernization
 dotnet_diagnostic.SST2000.severity = warning # A null check + throw should use ArgumentNullException.ThrowIfNull
@@ -210,6 +217,7 @@ dotnet_diagnostic.SST2227.severity = warning # A post-assignment null fallback c
 dotnet_diagnostic.SST2228.severity = warning # A delegate local used only as a call target can be a local function
 dotnet_diagnostic.SST2231.severity = warning # A broad object pattern can use a direct null pattern
 dotnet_diagnostic.SST2232.severity = warning # nameof does not need concrete generic type arguments
+dotnet_diagnostic.SST2234.severity = warning # Nullable<T> should use the T? shorthand
 
 # Naming
 dotnet_diagnostic.SST1300.severity = warning # Types and members should be PascalCase

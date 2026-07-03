@@ -69,6 +69,8 @@ Some rules expose options. Current options:
 | `stylesharp.max_switch_sections` | [SST1423](rules/SST1423.md) | positive integer | `30` |
 | `stylesharp.max_cyclomatic_complexity` | [SST1442](rules/SST1442.md) | positive integer | `10` |
 | `stylesharp.max_cognitive_complexity` | [SST1443](rules/SST1443.md) | positive integer | `15` |
+| `stylesharp.max_inheritance_depth` | [SST1446](rules/SST1446.md) | positive integer | `5` |
+| `stylesharp.count_external_types` | [SST1446](rules/SST1446.md) | `true`, `false` | `false` |
 | `stylesharp.max_property_cognitive_complexity` | [SST1443](rules/SST1443.md) | positive integer | `3` |
 | `stylesharp.allowed_hungarian_prefixes` | [SST1305](rules/SST1305.md) | comma-separated prefixes | built-in list only |
 | `stylesharp.SST1431.additional_per_owner_types` | [SST1431](rules/SST1431.md) | comma-separated fully-qualified type names | built-in list only |

@@ -67,6 +67,13 @@ internal static class AllocationRules
         "Pass '{0}' by 'in' reference; copying '{1}' (~{2} bytes) per call costs more than the indirection",
         "Passing a large readonly struct by value copies it on every call; 'in' passes a reference. Only structs over a configurable size are reported; well-known cheap types never are.");
 
+    /// <summary>PSH1008 — <c>GC.SuppressFinalize</c> is called for a type that can never have a finalizer.</summary>
+    public static readonly DiagnosticDescriptor UselessSuppressFinalize = Create(
+        "PSH1008",
+        "Remove SuppressFinalize calls for finalizer-free types",
+        "'{0}' is sealed and has no finalizer, so this GC.SuppressFinalize call does nothing",
+        "GC.SuppressFinalize only matters for objects the GC registered for finalization; on a sealed type with no finalizer the call is pure per-dispose overhead.");
+
     /// <summary>Creates a Warning-severity Allocations descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

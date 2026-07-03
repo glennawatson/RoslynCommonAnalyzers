@@ -26,6 +26,7 @@ dotnet_diagnostic.PSH1004.severity = warning # Constant arrays passed as argumen
 dotnet_diagnostic.PSH1005.severity = warning # Structs should define equality members to avoid boxing comparisons
 dotnet_diagnostic.PSH1006.severity = warning # ConcurrentDictionary factories should use the lambda argument
 dotnet_diagnostic.PSH1007.severity = warning # Pass large readonly structs by 'in' reference (size threshold + exclusions configurable)
+dotnet_diagnostic.PSH1008.severity = warning # GC.SuppressFinalize does nothing for sealed finalizer-free types
 
 # Collections
 # dotnet_diagnostic.PSH1100.severity = warning # Avoid LINQ calls on hot paths (opt-in; also set performancesharp.avoid_linq_on_hot_path = true)

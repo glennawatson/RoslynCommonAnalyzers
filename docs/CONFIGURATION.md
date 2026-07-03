@@ -54,7 +54,7 @@ Some rules expose options. Current options:
 | Option key | Rule | Values | Default |
 | --- | --- | --- | --- |
 | `performancesharp.avoid_linq_on_hot_path` | [PSH1100](rules/PSH1100.md) | `true`, `false` | `false` |
-| `performancesharp.prefer_collection_expressions` | [PSH1001](rules/PSH1001.md) | `true`, `false` | `true` |
+| `performancesharp.prefer_collection_expressions` | [PSH1001](rules/PSH1001.md), [PSH1112](rules/PSH1112.md) | `true`, `false` | `true` |
 | `performancesharp.in_parameter_minimum_size` | [PSH1007](rules/PSH1007.md) | positive integer (estimated bytes) | `32` |
 | `performancesharp.in_parameter_excluded_types` | [PSH1007](rules/PSH1007.md) | comma-separated type names | built-ins only (spans, memory, `CancellationToken`) |
 | `stylesharp.tuple_element_naming` | [SST1316](rules/SST1316.md) | `pascal_case`, `camel_case` | `pascal_case` |

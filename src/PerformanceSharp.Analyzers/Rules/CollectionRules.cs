@@ -96,6 +96,43 @@ internal static class CollectionRules
         "Use Contains instead of this equality predicate",
         "Any with an equality-only predicate allocates an enumerator and calls a delegate per element; Contains scans directly and is O(1) on hash sets.");
 
+    /// <summary>PSH1112 — a collection filled right after creation should be seeded through its constructor.</summary>
+    public static readonly DiagnosticDescriptor SeedCollectionFromSource = Create(
+        "PSH1112",
+        "Seed the collection through its constructor",
+        "Pass the source to the '{0}' constructor instead of calling '{1}' on an empty instance",
+        SeedCollectionFromSourceDescription);
+
+    /// <summary>PSH1113 — an identity key selector asks for the natural sort.</summary>
+    public static readonly DiagnosticDescriptor UseNaturalOrder = Create(
+        "PSH1113",
+        "Sort naturally instead of ordering by the element itself",
+        "Use '{0}' instead of '{1}' with an identity selector",
+        UseNaturalOrderDescription);
+
+    /// <summary>PSH1114 — a read-only static lookup table can be frozen. Opt-in.</summary>
+    public static readonly DiagnosticDescriptor FreezeStaticLookups = CreateOptIn(
+        "PSH1114",
+        "Freeze static lookup collections that are never mutated",
+        "Use a Frozen{0} for '{1}'; it is built once and only read",
+        FreezeStaticLookupsDescription);
+
+    /// <summary>The PSH1112 rule description.</summary>
+    private const string SeedCollectionFromSourceDescription =
+        "Creating an empty collection and immediately bulk-adding a source grows the backing store through the default resize schedule; "
+        + "the seeding constructor sizes the store once from the source's count and copies in a single pass.";
+
+    /// <summary>The PSH1113 rule description.</summary>
+    private const string UseNaturalOrderDescription =
+        "OrderBy(x => x) routes every comparison through a key-selector delegate to return the element unchanged; Order and OrderDescending "
+        + "(.NET 7+) compare elements directly. Suggested only where the API exists.";
+
+    /// <summary>The PSH1114 rule description.</summary>
+    private const string FreezeStaticLookupsDescription =
+        "A private static readonly dictionary or set that is initialized once and never mutated can become a FrozenDictionary or FrozenSet "
+        + "(.NET 8+), trading construction cost for faster lookups. Freezing is not free — construction is markedly slower and only "
+        + "read-heavy tables win — so the rule is opt-in. Suggested only where the API exists.";
+
     /// <summary>Creates a Warning-severity Collections descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

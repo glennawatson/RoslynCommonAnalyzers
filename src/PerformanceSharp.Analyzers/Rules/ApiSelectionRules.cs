@@ -67,6 +67,18 @@ internal static class ApiSelectionRules
         "Use ContainsKey instead of Keys.Contains",
         "dictionary.Keys.Contains(key) may allocate the keys view and enumerate it; ContainsKey is a single hash probe.");
 
+    /// <summary>PSH1408 — measure elapsed time with timestamps instead of allocating a stopwatch.</summary>
+    public static readonly DiagnosticDescriptor UseStopwatchTimestamps = Create(
+        "PSH1408",
+        "Measure elapsed time with Stopwatch timestamps",
+        "Use Stopwatch.GetTimestamp and GetElapsedTime instead of allocating a Stopwatch to read '{0}'",
+        UseStopwatchTimestampsDescription);
+
+    /// <summary>The PSH1408 rule description.</summary>
+    private const string UseStopwatchTimestampsDescription =
+        "A Stopwatch allocated only to read elapsed time can be replaced by capturing Stopwatch.GetTimestamp into a long and asking "
+        + "Stopwatch.GetElapsedTime for the difference (.NET 7+) — same precision, no allocation. Suggested only where the API exists.";
+
     /// <summary>Creates a Warning-severity ApiSelection descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

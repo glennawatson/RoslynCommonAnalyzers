@@ -11,7 +11,7 @@
 #
 # Configurable options (uncomment and adjust):
 # performancesharp.avoid_linq_on_hot_path = true            # PSH1100 (opt-in hot-path projects)
-# performancesharp.prefer_collection_expressions = true     # PSH1001 (default; set false to always fix to Array.Empty<T>())
+# performancesharp.prefer_collection_expressions = true     # PSH1001/PSH1112 (default; set false for Array.Empty<T>() / seeded constructors)
 # performancesharp.in_parameter_minimum_size = 32           # PSH1007 (estimated struct bytes before 'in' is suggested)
 # performancesharp.in_parameter_excluded_types = My.Type    # PSH1007 (comma-separated; added to the built-in span/memory/CancellationToken exclusions)
 
@@ -27,6 +27,8 @@ dotnet_diagnostic.PSH1005.severity = warning # Structs should define equality me
 dotnet_diagnostic.PSH1006.severity = warning # ConcurrentDictionary factories should use the lambda argument
 dotnet_diagnostic.PSH1007.severity = warning # Pass large readonly structs by 'in' reference (size threshold + exclusions configurable)
 dotnet_diagnostic.PSH1008.severity = warning # GC.SuppressFinalize does nothing for sealed finalizer-free types
+dotnet_diagnostic.PSH1009.severity = warning # Bound variable-length stackalloc with a constant guard
+dotnet_diagnostic.PSH1010.severity = warning # Clear reference-typed arrays when returning them to the pool
 
 # Collections
 # dotnet_diagnostic.PSH1100.severity = warning # Avoid LINQ calls on hot paths (opt-in; also set performancesharp.avoid_linq_on_hot_path = true)
@@ -41,6 +43,9 @@ dotnet_diagnostic.PSH1108.severity = warning # Chain secondary sorts with ThenBy
 dotnet_diagnostic.PSH1109.severity = warning # Merge consecutive Where calls
 dotnet_diagnostic.PSH1110.severity = warning # Use the collection's own predicate methods over LINQ
 dotnet_diagnostic.PSH1111.severity = warning # Use Contains for membership tests
+dotnet_diagnostic.PSH1112.severity = warning # Seed the collection through its constructor (fix honors performancesharp.prefer_collection_expressions)
+dotnet_diagnostic.PSH1113.severity = warning # Sort naturally instead of ordering by the element itself
+# dotnet_diagnostic.PSH1114.severity = warning # Freeze static lookup collections (opt-in; freezing trades slower construction for faster reads)
 
 # Strings
 dotnet_diagnostic.PSH1200.severity = warning # Compare strings without allocating case-converted copies
@@ -50,10 +55,15 @@ dotnet_diagnostic.PSH1203.severity = warning # Let StringBuilder do the formatti
 dotnet_diagnostic.PSH1204.severity = warning # Test for empty strings by length
 dotnet_diagnostic.PSH1205.severity = warning # Remove interpolation that does no work
 dotnet_diagnostic.PSH1206.severity = warning # Do not build strings by concatenation in loops
+dotnet_diagnostic.PSH1207.severity = warning # Specify StringComparison for culture-sensitive string operations
 
 # Concurrency
 dotnet_diagnostic.PSH1300.severity = warning # Use System.Threading.Lock for a dedicated lock object
 dotnet_diagnostic.PSH1301.severity = warning # Do not wrap a single task in WhenAll or WaitAll
+dotnet_diagnostic.PSH1302.severity = warning # TaskCompletionSource should run continuations asynchronously
+dotnet_diagnostic.PSH1303.severity = warning # Do not block an async method with Thread.Sleep
+dotnet_diagnostic.PSH1304.severity = warning # Use PeriodicTimer instead of pacing a loop with Task.Delay
+dotnet_diagnostic.PSH1305.severity = warning # Enumerate a ConcurrentDictionary directly, not its Keys/Values snapshots
 
 # ApiSelection
 dotnet_diagnostic.PSH1400.severity = warning # Use the static HashData method for one-shot hashing
@@ -64,3 +74,4 @@ dotnet_diagnostic.PSH1404.severity = warning # Get the assembly from typeof inst
 dotnet_diagnostic.PSH1405.severity = warning # Use the direct Environment APIs
 dotnet_diagnostic.PSH1406.severity = warning # Ask Regex for the answer directly
 dotnet_diagnostic.PSH1407.severity = warning # Query the dictionary, not its Keys view
+dotnet_diagnostic.PSH1408.severity = warning # Measure elapsed time with Stopwatch timestamps

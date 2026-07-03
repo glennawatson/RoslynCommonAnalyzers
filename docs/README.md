@@ -31,6 +31,8 @@ async, `PSH14xx` API selection.
 | [PSH1006](rules/PSH1006.md) | `ConcurrentDictionary` factories should use the lambda argument. |
 | [PSH1007](rules/PSH1007.md) | Pass large readonly structs by `in` reference. Configurable size threshold and exclusions. |
 | [PSH1008](rules/PSH1008.md) | GC.SuppressFinalize does nothing for sealed finalizer-free types. Code fix removes it. |
+| [PSH1009](rules/PSH1009.md) | Bound variable-length `stackalloc` with a constant guard. |
+| [PSH1010](rules/PSH1010.md) | Clear reference-typed arrays when returning them to the pool. Code fix adds `clearArray: true`. |
 
 ## Collections
 
@@ -48,6 +50,9 @@ async, `PSH14xx` API selection.
 | [PSH1109](rules/PSH1109.md) | Merge consecutive `Where` calls. |
 | [PSH1110](rules/PSH1110.md) | Use the collection's own predicate methods over LINQ. |
 | [PSH1111](rules/PSH1111.md) | Use `Contains` for membership tests. |
+| [PSH1112](rules/PSH1112.md) | Seed the collection through its constructor. Code fix emits `[.. source]` or a seeded constructor. |
+| [PSH1113](rules/PSH1113.md) | Sort naturally with `Order()`/`OrderDescending()` instead of an identity selector. |
+| [PSH1114](rules/PSH1114.md) | Freeze static lookup collections that are never mutated. Opt-in. |
 
 ## Strings
 
@@ -68,6 +73,10 @@ async, `PSH14xx` API selection.
 | --- | --- |
 | [PSH1300](rules/PSH1300.md) | A dedicated object lock field should be a `System.Threading.Lock`. |
 | [PSH1301](rules/PSH1301.md) | Do not wrap a single task in `WhenAll` or `WaitAll`. |
+| [PSH1302](rules/PSH1302.md) | TaskCompletionSource should run continuations asynchronously. Code fix supplies the flag. |
+| [PSH1303](rules/PSH1303.md) | Do not block an async method with `Thread.Sleep`. Code fix awaits `Task.Delay`. |
+| [PSH1304](rules/PSH1304.md) | Use `PeriodicTimer` instead of pacing a loop with `Task.Delay`. |
+| [PSH1305](rules/PSH1305.md) | Enumerate a `ConcurrentDictionary` directly instead of a Keys/Values snapshot. Code fix deconstructs the pair. |
 
 ## ApiSelection
 
@@ -81,6 +90,7 @@ async, `PSH14xx` API selection.
 | [PSH1405](rules/PSH1405.md) | Use the direct `Environment` APIs. |
 | [PSH1406](rules/PSH1406.md) | Ask `Regex` for the answer directly. |
 | [PSH1407](rules/PSH1407.md) | Query the dictionary, not its `Keys` view. |
+| [PSH1408](rules/PSH1408.md) | Measure elapsed time with `Stopwatch.GetTimestamp`/`GetElapsedTime` instead of allocating a Stopwatch. |
 
 # StyleSharp Rule Index
 

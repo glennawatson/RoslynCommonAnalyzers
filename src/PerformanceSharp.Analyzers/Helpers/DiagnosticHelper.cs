@@ -92,4 +92,21 @@ internal static class DiagnosticHelper
         ImmutableDictionary<string, string?> properties,
         string messageArg)
         => Diagnostic.Create(descriptor, Location.Create(tree, span), properties, messageArg);
+
+    /// <summary>Creates a diagnostic from a syntax-tree span with cached custom properties and two message arguments.</summary>
+    /// <param name="descriptor">The rule descriptor.</param>
+    /// <param name="tree">The owning syntax tree.</param>
+    /// <param name="span">The source span to report.</param>
+    /// <param name="properties">The custom diagnostic properties.</param>
+    /// <param name="firstMessageArg">The first message argument.</param>
+    /// <param name="secondMessageArg">The second message argument.</param>
+    /// <returns>The created diagnostic.</returns>
+    public static Diagnostic Create(
+        DiagnosticDescriptor descriptor,
+        SyntaxTree tree,
+        TextSpan span,
+        ImmutableDictionary<string, string?> properties,
+        string firstMessageArg,
+        string secondMessageArg)
+        => Diagnostic.Create(descriptor, Location.Create(tree, span), properties, firstMessageArg, secondMessageArg);
 }

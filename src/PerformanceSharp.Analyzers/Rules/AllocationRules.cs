@@ -74,6 +74,30 @@ internal static class AllocationRules
         "'{0}' is sealed and has no finalizer, so this GC.SuppressFinalize call does nothing",
         "GC.SuppressFinalize only matters for objects the GC registered for finalization; on a sealed type with no finalizer the call is pure per-dispose overhead.");
 
+    /// <summary>PSH1009 — a variable-length <c>stackalloc</c> should be bounded by a constant guard.</summary>
+    public static readonly DiagnosticDescriptor UnboundedStackalloc = Create(
+        "PSH1009",
+        "Bound variable-length stackalloc with a constant guard",
+        "Guard this stackalloc with a constant length check, falling back to the heap or a pool above it",
+        UnboundedStackallocDescription);
+
+    /// <summary>PSH1010 — returning a reference-typed array to the pool should clear it.</summary>
+    public static readonly DiagnosticDescriptor ClearPooledReferenceArrays = Create(
+        "PSH1010",
+        "Clear reference-typed arrays when returning them to the pool",
+        "Pass 'clearArray: true' so the pooled array does not keep these '{0}' references alive",
+        ClearPooledReferenceArraysDescription);
+
+    /// <summary>The PSH1009 rule description.</summary>
+    private const string UnboundedStackallocDescription =
+        "A stackalloc whose length comes from data can blow the stack on adversarial or unexpected input; the resilient shape tests the "
+        + "length against a constant first and takes a heap or pooled buffer above it, keeping the stack fast path for small sizes.";
+
+    /// <summary>The PSH1010 rule description.</summary>
+    private const string ClearPooledReferenceArraysDescription =
+        "ArrayPool keeps returned arrays indefinitely; when the elements are reference types (or structs holding references), a non-cleared "
+        + "return pins every referenced object graph in memory until the array is rented and overwritten again.";
+
     /// <summary>Creates a Warning-severity Allocations descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

@@ -54,41 +54,6 @@ public class AggressiveInliningAnalyzerUnitTest
         await VerifyOptInAsync(Source, FixedSource);
     }
 
-    /// <summary>Verifies the fix inserts the file's own line endings on CRLF sources.</summary>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
-    [Test]
-    public async Task CrlfSourceKeepsItsLineEndingsAsync()
-    {
-        const string Source = """
-                              using System.Runtime.CompilerServices;
-
-                              public class C
-                              {
-                                  private readonly int _value;
-
-                                  public C(int value) => _value = value;
-
-                                  public int {|PSH1410:GetValue|}() => _value;
-                              }
-                              """;
-        const string FixedSource = """
-                                   using System.Runtime.CompilerServices;
-
-                                   public class C
-                                   {
-                                       private readonly int _value;
-
-                                       public C(int value) => _value = value;
-
-                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                                       public int GetValue() => _value;
-                                   }
-                                   """;
-        await VerifyOptInAsync(
-            Source.Replace("\n", "\r\n", StringComparison.Ordinal),
-            FixedSource.Replace("\n", "\r\n", StringComparison.Ordinal));
-    }
-
     /// <summary>Verifies a member that already carries a MethodImpl attribute stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

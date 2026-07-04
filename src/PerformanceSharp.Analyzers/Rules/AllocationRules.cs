@@ -88,6 +88,41 @@ internal static class AllocationRules
         "Pass 'clearArray: true' so the pooled array does not keep these '{0}' references alive",
         ClearPooledReferenceArraysDescription);
 
+    /// <summary>PSH1011 — a capturing lambda passed to an API with a state-taking overload should use it.</summary>
+    public static readonly DiagnosticDescriptor UseStateOverload = Create(
+        "PSH1011",
+        "Pass state to callbacks through the state-taking overload",
+        "Use the '{0}' overload with a state argument so this lambda does not capture",
+        UseStateOverloadDescription);
+
+    /// <summary>PSH1012 — equality through an unconstrained type parameter boxes value types.</summary>
+    public static readonly DiagnosticDescriptor UseEqualityComparerDefault = Create(
+        "PSH1012",
+        "Compare type parameter values with EqualityComparer<T>.Default",
+        "Use EqualityComparer<{0}>.Default.Equals for this comparison; Equals through object boxes value types",
+        UseEqualityComparerDefaultDescription);
+
+    /// <summary>PSH1013 — constant UTF-8 bytes should be a span property, not a byte array field.</summary>
+    public static readonly DiagnosticDescriptor UseUtf8SpanProperty = Create(
+        "PSH1013",
+        "Expose constant UTF-8 data as a ReadOnlySpan<byte> property",
+        "Change '{0}' to a static ReadOnlySpan<byte> property so its bytes stay in the assembly's data section",
+        UseUtf8SpanPropertyDescription);
+
+    /// <summary>PSH1014 — a struct whose instance state is immutable should be declared readonly.</summary>
+    public static readonly DiagnosticDescriptor MakeStructReadonly = Create(
+        "PSH1014",
+        "Declare immutable structs as readonly",
+        "Add 'readonly' to '{0}'; all of its instance state is already immutable",
+        MakeStructReadonlyDescription);
+
+    /// <summary>PSH1015 — a value type cast through object boxes just to unbox.</summary>
+    public static readonly DiagnosticDescriptor BoxingRoundTripCast = Create(
+        "PSH1015",
+        "Avoid casting value types through object",
+        "Casting this '{0}' value through object boxes it; cast directly",
+        BoxingRoundTripCastDescription);
+
     /// <summary>The PSH1009 rule description.</summary>
     private const string UnboundedStackallocDescription =
         "A stackalloc whose length comes from data can blow the stack on adversarial or unexpected input; the resilient shape tests the "
@@ -97,6 +132,35 @@ internal static class AllocationRules
     private const string ClearPooledReferenceArraysDescription =
         "ArrayPool keeps returned arrays indefinitely; when the elements are reference types (or structs holding references), a non-cleared "
         + "return pins every referenced object graph in memory until the array is rented and overwritten again.";
+
+    /// <summary>The PSH1011 rule description.</summary>
+    private const string UseStateOverloadDescription =
+        "A lambda that captures locals or 'this' allocates a closure object and a fresh delegate on every call; APIs that accept a "
+        + "callback-and-state pair exist so a static lambda can receive the data through the state argument and the delegate can be "
+        + "cached. Reported only when the invoked member has a sibling overload that adds a state parameter.";
+
+    /// <summary>The PSH1012 rule description.</summary>
+    private const string UseEqualityComparerDefaultDescription =
+        "When a type parameter carries no IEquatable constraint, Equals binds to Object.Equals and boxes the argument (and both operands "
+        + "for the static overload) on every value-type instantiation; EqualityComparer<T>.Default.Equals compares without boxing and "
+        + "the JIT devirtualizes it.";
+
+    /// <summary>The PSH1013 rule description.</summary>
+    private const string UseUtf8SpanPropertyDescription =
+        "A static readonly byte array built from a UTF-8 literal is a mutable heap object with a startup cost and a field indirection on "
+        + "every read; a static ReadOnlySpan<byte> property returning the literal compiles to a direct pointer into the assembly's data "
+        + "section. Reported only when every use already reads the field like a span.";
+
+    /// <summary>The PSH1014 rule description.</summary>
+    private const string MakeStructReadonlyDescription =
+        "When a struct is not declared readonly the compiler defensively copies it before calling its members through 'in' parameters, "
+        + "ref readonly locals, and readonly fields, even if every field is already readonly; the readonly modifier proves immutability "
+        + "and removes those hidden copies.";
+
+    /// <summary>The PSH1015 rule description.</summary>
+    private const string BoxingRoundTripCastDescription =
+        "A cast to object followed by an immediate cast back to a value type allocates a box that is thrown away as soon as it is "
+        + "unboxed; when a direct conversion between the two value types exists, casting directly converts with no allocation.";
 
     /// <summary>Creates a Warning-severity Allocations descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

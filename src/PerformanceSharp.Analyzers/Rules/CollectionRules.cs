@@ -117,6 +117,20 @@ internal static class CollectionRules
         "Use a Frozen{0} for '{1}'; it is built once and only read",
         FreezeStaticLookupsDescription);
 
+    /// <summary>PSH1115 — insert-if-absent written as a guard plus a write probes the dictionary twice.</summary>
+    public static readonly DiagnosticDescriptor SingleProbeInsert = Create(
+        "PSH1115",
+        "Insert-if-absent should probe the dictionary once",
+        "Use '{0}' so the key is hashed once instead of twice",
+        SingleProbeInsertDescription);
+
+    /// <summary>PSH1116 — a string materialized only to probe a lookup should be a span probe.</summary>
+    public static readonly DiagnosticDescriptor UseAlternateLookup = Create(
+        "PSH1116",
+        "Probe string-keyed collections with a span through GetAlternateLookup",
+        "Use GetAlternateLookup<ReadOnlySpan<char>> instead of materializing the key with '{0}'",
+        UseAlternateLookupDescription);
+
     /// <summary>The PSH1112 rule description.</summary>
     private const string SeedCollectionFromSourceDescription =
         "Creating an empty collection and immediately bulk-adding a source grows the backing store through the default resize schedule; "
@@ -132,6 +146,18 @@ internal static class CollectionRules
         "A private static readonly dictionary or set that is initialized once and never mutated can become a FrozenDictionary or FrozenSet "
         + "(.NET 8+), trading construction cost for faster lookups. Freezing is not free — construction is markedly slower and only "
         + "read-heavy tables win — so the rule is opt-in. Suggested only where the API exists.";
+
+    /// <summary>The PSH1115 rule description.</summary>
+    private const string SingleProbeInsertDescription =
+        "Guarding an indexer write with ContainsKey, or storing after a failed TryGetValue, hashes and probes the key twice; TryAdd "
+        + "inserts and answers in one probe, and CollectionsMarshal.GetValueRefOrAddDefault exposes the value slot so a missing entry "
+        + "can be created and stored with a single lookup. Each API is suggested only where it exists.";
+
+    /// <summary>The PSH1116 rule description.</summary>
+    private const string UseAlternateLookupDescription =
+        "Allocating a string just to look it up throws the copy away after hashing; GetAlternateLookup (.NET 9+) probes string-keyed "
+        + "dictionaries and sets with a ReadOnlySpan<char> key and allocates nothing. The collection's comparer must support alternate "
+        + "lookups — the ordinal defaults do. Suggested only where the API exists.";
 
     /// <summary>Creates a Warning-severity Collections descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

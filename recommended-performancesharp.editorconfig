@@ -29,6 +29,11 @@ dotnet_diagnostic.PSH1007.severity = warning # Pass large readonly structs by 'i
 dotnet_diagnostic.PSH1008.severity = warning # GC.SuppressFinalize does nothing for sealed finalizer-free types
 dotnet_diagnostic.PSH1009.severity = warning # Bound variable-length stackalloc with a constant guard
 dotnet_diagnostic.PSH1010.severity = warning # Clear reference-typed arrays when returning them to the pool
+dotnet_diagnostic.PSH1011.severity = warning # Pass state to callbacks through the state-taking overload
+dotnet_diagnostic.PSH1012.severity = warning # Compare type parameter values with EqualityComparer<T>.Default
+dotnet_diagnostic.PSH1013.severity = warning # Expose constant UTF-8 data as a ReadOnlySpan<byte> property
+dotnet_diagnostic.PSH1014.severity = warning # Declare immutable structs as readonly
+dotnet_diagnostic.PSH1015.severity = warning # Avoid casting value types through object
 
 # Collections
 # dotnet_diagnostic.PSH1100.severity = warning # Avoid LINQ calls on hot paths (opt-in; also set performancesharp.avoid_linq_on_hot_path = true)
@@ -46,6 +51,8 @@ dotnet_diagnostic.PSH1111.severity = warning # Use Contains for membership tests
 dotnet_diagnostic.PSH1112.severity = warning # Seed the collection through its constructor (fix honors performancesharp.prefer_collection_expressions)
 dotnet_diagnostic.PSH1113.severity = warning # Sort naturally instead of ordering by the element itself
 # dotnet_diagnostic.PSH1114.severity = warning # Freeze static lookup collections (opt-in; freezing trades slower construction for faster reads)
+dotnet_diagnostic.PSH1115.severity = warning # Insert-if-absent should probe the dictionary once
+dotnet_diagnostic.PSH1116.severity = warning # Probe string-keyed collections with a span through GetAlternateLookup
 
 # Strings
 dotnet_diagnostic.PSH1200.severity = warning # Compare strings without allocating case-converted copies
@@ -56,6 +63,10 @@ dotnet_diagnostic.PSH1204.severity = warning # Test for empty strings by length
 dotnet_diagnostic.PSH1205.severity = warning # Remove interpolation that does no work
 dotnet_diagnostic.PSH1206.severity = warning # Do not build strings by concatenation in loops
 dotnet_diagnostic.PSH1207.severity = warning # Specify StringComparison for culture-sensitive string operations
+dotnet_diagnostic.PSH1208.severity = warning # Encode constant strings with u8 literals
+dotnet_diagnostic.PSH1209.severity = warning # Build transformed strings with string.Create
+dotnet_diagnostic.PSH1210.severity = warning # Compare UTF-8 bytes without decoding them
+dotnet_diagnostic.PSH1211.severity = warning # Pass values directly instead of ToString results
 
 # Concurrency
 dotnet_diagnostic.PSH1300.severity = warning # Use System.Threading.Lock for a dedicated lock object
@@ -64,6 +75,10 @@ dotnet_diagnostic.PSH1302.severity = warning # TaskCompletionSource should run c
 dotnet_diagnostic.PSH1303.severity = warning # Do not block an async method with Thread.Sleep
 dotnet_diagnostic.PSH1304.severity = warning # Use PeriodicTimer instead of pacing a loop with Task.Delay
 dotnet_diagnostic.PSH1305.severity = warning # Enumerate a ConcurrentDictionary directly, not its Keys/Values snapshots
+# dotnet_diagnostic.PSH1306.severity = warning # Guard one-time execution with an interlocked latch (opt-in; thread-safety needs are contextual)
+dotnet_diagnostic.PSH1307.severity = warning # Access interlocked fields with Volatile
+dotnet_diagnostic.PSH1308.severity = warning # Return the completed task instead of Task.FromResult
+# dotnet_diagnostic.PSH1309.severity = warning # Register cancellation callbacks without flowing the execution context (opt-in; changes AsyncLocal visibility)
 
 # ApiSelection
 dotnet_diagnostic.PSH1400.severity = warning # Use the static HashData method for one-shot hashing
@@ -75,3 +90,5 @@ dotnet_diagnostic.PSH1405.severity = warning # Use the direct Environment APIs
 dotnet_diagnostic.PSH1406.severity = warning # Ask Regex for the answer directly
 dotnet_diagnostic.PSH1407.severity = warning # Query the dictionary, not its Keys view
 dotnet_diagnostic.PSH1408.severity = warning # Measure elapsed time with Stopwatch timestamps
+dotnet_diagnostic.PSH1409.severity = warning # Use the built-in throw helpers for argument guards
+# dotnet_diagnostic.PSH1410.severity = warning # Mark trivial forwarders for aggressive inlining (opt-in; opinionated convention)

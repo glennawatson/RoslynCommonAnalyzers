@@ -1,0 +1,79 @@
+// Copyright (c) 2026 Glenn Watson and Contributors. All rights reserved.
+// Glenn Watson and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
+namespace PerformanceSharp.Analyzers;
+
+/// <summary>
+/// Removes the intermediate object cast from a reported round-trip cast (PSH1015), turning
+/// <c>(int)(object)value</c> into <c>(int)value</c>. The analyzer already proved a direct,
+/// non-user-defined conversion exists, so the rewrite compiles and keeps the same result. The
+/// inner cast's operand carries over unchanged — a parenthesized operand keeps its
+/// parentheses, so precedence cannot shift.
+/// </summary>
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1015BoxingRoundTripCastCodeFixProvider))]
+[Shared]
+public sealed class Psh1015BoxingRoundTripCastCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+{
+    /// <inheritdoc/>
+    public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(AllocationRules.BoxingRoundTripCast.Id);
+
+    /// <inheritdoc/>
+    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+
+    /// <inheritdoc/>
+    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    {
+        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root is null)
+        {
+            return;
+        }
+
+        foreach (var diagnostic in context.Diagnostics)
+        {
+            if (TryGetRoundTripCast(root, diagnostic) is not { } cast)
+            {
+                continue;
+            }
+
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    "Cast directly without boxing",
+                    cancellationToken => Task.FromResult(
+                        context.Document.WithSyntaxRoot(root.ReplaceNode(cast, Rewrite(cast)))),
+                    equivalenceKey: nameof(Psh1015BoxingRoundTripCastCodeFixProvider)),
+                diagnostic);
+        }
+    }
+
+    /// <inheritdoc/>
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    {
+        if (TryGetRoundTripCast(editor.OriginalRoot, diagnostic) is not { } cast)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(cast, Rewrite(cast));
+    }
+
+    /// <summary>Returns the reported outer cast when its round-trip shape still matches.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The outer cast, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static CastExpressionSyntax? TryGetRoundTripCast(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan) is CastExpressionSyntax cast
+            && Psh1015BoxingRoundTripCastAnalyzer.TryGetObjectCast(cast) is not null
+            ? cast
+            : null;
+
+    /// <summary>Builds the direct cast, dropping the intermediate object cast.</summary>
+    /// <param name="cast">The outer cast to rewrite.</param>
+    /// <returns>The outer cast applied straight to the inner operand.</returns>
+    private static CastExpressionSyntax Rewrite(CastExpressionSyntax cast)
+    {
+        var objectCast = Psh1015BoxingRoundTripCastAnalyzer.TryGetObjectCast(cast)!;
+        return cast.WithExpression(objectCast.Expression.WithoutTrivia()).WithTriviaFrom(cast);
+    }
+}

@@ -66,6 +66,56 @@ internal static class StringRules
         "Specify a StringComparison for '{0}' to avoid the culture-sensitive default",
         "StartsWith, EndsWith, IndexOf, LastIndexOf, and string.Compare with only string arguments compare using the current culture; a StringComparison argument selects the cheaper Ordinal.");
 
+    /// <summary>PSH1208 — a constant string encoded at run time should be a u8 literal.</summary>
+    public static readonly DiagnosticDescriptor UseUtf8Literal = Create(
+        "PSH1208",
+        "Encode constant strings with u8 literals",
+        "Use a u8 string literal instead of encoding this constant at run time",
+        UseUtf8LiteralDescription);
+
+    /// <summary>PSH1209 — a copied-and-mutated char array should be a string.Create call.</summary>
+    public static readonly DiagnosticDescriptor UseStringCreate = Create(
+        "PSH1209",
+        "Build transformed strings with string.Create",
+        "Use string.Create instead of mutating a copied char array into a new string",
+        UseStringCreateDescription);
+
+    /// <summary>PSH1210 — UTF-8 bytes compared against a constant should not be decoded first.</summary>
+    public static readonly DiagnosticDescriptor UseUtf8SequenceEqual = Create(
+        "PSH1210",
+        "Compare UTF-8 bytes without decoding them",
+        "Compare the bytes with SequenceEqual against a u8 literal instead of decoding with '{0}'",
+        UseUtf8SequenceEqualDescription);
+
+    /// <summary>PSH1211 — a ToString result fed to an API that can take the value is a throwaway string.</summary>
+    public static readonly DiagnosticDescriptor RemoveIntermediateToString = Create(
+        "PSH1211",
+        "Pass values directly instead of ToString results",
+        "Pass the value directly instead of calling ToString",
+        RemoveIntermediateToStringDescription);
+
+    /// <summary>The PSH1208 rule description.</summary>
+    private const string UseUtf8LiteralDescription =
+        "Encoding.UTF8.GetBytes on a constant string re-encodes and heap-allocates the same bytes on every call; a u8 literal (C# 11+) "
+        + "is encoded once at compile time and read straight from the assembly's data section.";
+
+    /// <summary>The PSH1209 rule description.</summary>
+    private const string UseStringCreateDescription =
+        "The ToCharArray copy, the in-place mutation, and the new string constructor allocate two throwaway buffers to produce one "
+        + "result; string.Create allocates the final string once and exposes its buffer as a writable span. Suggested only where the "
+        + "API exists.";
+
+    /// <summary>The PSH1210 rule description.</summary>
+    private const string UseUtf8SequenceEqualDescription =
+        "Decoding bytes with Encoding.GetString allocates a string only to compare it against a constant and throw it away; "
+        + "SequenceEqual against a u8 literal (C# 11+) compares the raw bytes and allocates nothing.";
+
+    /// <summary>The PSH1211 rule description.</summary>
+    private const string RemoveIntermediateToStringDescription =
+        "Calling ToString to feed an API that can take the value directly allocates an intermediate string; overloads that accept the "
+        + "value, and interpolated string holes, format without the throwaway copy — value types with span formatting write straight "
+        + "into the destination buffer.";
+
     /// <summary>Creates a Warning-severity Strings descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

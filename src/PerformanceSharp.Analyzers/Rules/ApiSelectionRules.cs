@@ -74,10 +74,36 @@ internal static class ApiSelectionRules
         "Use Stopwatch.GetTimestamp and GetElapsedTime instead of allocating a Stopwatch to read '{0}'",
         UseStopwatchTimestampsDescription);
 
+    /// <summary>PSH1409 — hand-written argument guards should use the framework throw helpers.</summary>
+    public static readonly DiagnosticDescriptor UseThrowHelpers = Create(
+        "PSH1409",
+        "Use the built-in throw helpers for argument guards",
+        "Use '{0}' instead of this guard clause",
+        UseThrowHelpersDescription);
+
+    /// <summary>PSH1410 — trivial forwarders should ask for aggressive inlining. Opt-in.</summary>
+    public static readonly DiagnosticDescriptor InlineTrivialForwarders = CreateOptIn(
+        "PSH1410",
+        "Mark trivial forwarders for aggressive inlining",
+        "Add MethodImplOptions.AggressiveInlining to '{0}'",
+        InlineTrivialForwardersDescription);
+
     /// <summary>The PSH1408 rule description.</summary>
     private const string UseStopwatchTimestampsDescription =
         "A Stopwatch allocated only to read elapsed time can be replaced by capturing Stopwatch.GetTimestamp into a long and asking "
         + "Stopwatch.GetElapsedTime for the difference (.NET 7+) — same precision, no allocation. Suggested only where the API exists.";
+
+    /// <summary>The PSH1409 rule description.</summary>
+    private const string UseThrowHelpersDescription =
+        "A hand-written check-and-throw inlines exception construction into every caller and enlarges methods past JIT inlining budgets; "
+        + "the framework throw helpers keep the guard to a single call and move the throw out of line. Each helper is suggested only "
+        + "where it exists, and its standard message replaces any hand-written one.";
+
+    /// <summary>The PSH1410 rule description.</summary>
+    private const string InlineTrivialForwardersDescription =
+        "An expression-bodied method that only forwards to another member can still be skipped by the JIT's IL-size inlining heuristics, "
+        + "leaving a call frame around a one-line body; MethodImplOptions.AggressiveInlining makes the intent explicit. Blanket inlining "
+        + "attributes are an opinionated convention, so the rule is opt-in.";
 
     /// <summary>Creates a Warning-severity ApiSelection descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
@@ -93,6 +119,23 @@ internal static class ApiSelectionRules
             "ApiSelection",
             DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
+            description: description,
+            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+
+    /// <summary>Creates an ApiSelection descriptor that is disabled by default (opt-in via .editorconfig).</summary>
+    /// <param name="id">The diagnostic id.</param>
+    /// <param name="title">The rule title.</param>
+    /// <param name="messageFormat">The message format.</param>
+    /// <param name="description">The rule description.</param>
+    /// <returns>The descriptor.</returns>
+    private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
+        new(
+            id,
+            title,
+            messageFormat,
+            "ApiSelection",
+            DiagnosticSeverity.Warning,
+            isEnabledByDefault: false,
             description: description,
             helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
 }

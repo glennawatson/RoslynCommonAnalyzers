@@ -33,6 +33,11 @@ async, `PSH14xx` API selection.
 | [PSH1008](rules/PSH1008.md) | GC.SuppressFinalize does nothing for sealed finalizer-free types. Code fix removes it. |
 | [PSH1009](rules/PSH1009.md) | Bound variable-length `stackalloc` with a constant guard. |
 | [PSH1010](rules/PSH1010.md) | Clear reference-typed arrays when returning them to the pool. Code fix adds `clearArray: true`. |
+| [PSH1011](rules/PSH1011.md) | Pass state to callbacks through the state-taking overload. |
+| [PSH1012](rules/PSH1012.md) | Compare type parameter values with `EqualityComparer<T>.Default`. Code fix rewrites the call. |
+| [PSH1013](rules/PSH1013.md) | Expose constant UTF-8 data as a `ReadOnlySpan<byte>` property. Code fix converts the field. |
+| [PSH1014](rules/PSH1014.md) | Declare immutable structs as `readonly`. Code fix adds the modifier. |
+| [PSH1015](rules/PSH1015.md) | Avoid casting value types through `object`. Code fix casts directly. |
 
 ## Collections
 
@@ -53,6 +58,8 @@ async, `PSH14xx` API selection.
 | [PSH1112](rules/PSH1112.md) | Seed the collection through its constructor. Code fix emits `[.. source]` or a seeded constructor. |
 | [PSH1113](rules/PSH1113.md) | Sort naturally with `Order()`/`OrderDescending()` instead of an identity selector. |
 | [PSH1114](rules/PSH1114.md) | Freeze static lookup collections that are never mutated. Opt-in. |
+| [PSH1115](rules/PSH1115.md) | Insert-if-absent should probe the dictionary once. Code fix uses `TryAdd`. |
+| [PSH1116](rules/PSH1116.md) | Probe string-keyed collections with a span through `GetAlternateLookup`. |
 
 ## Strings
 
@@ -66,6 +73,10 @@ async, `PSH14xx` API selection.
 | [PSH1205](rules/PSH1205.md) | Remove interpolation that does no work. |
 | [PSH1206](rules/PSH1206.md) | Do not build strings by concatenation in loops. |
 | [PSH1207](rules/PSH1207.md) | Specify `StringComparison` for culture-sensitive string operations. |
+| [PSH1208](rules/PSH1208.md) | Encode constant strings with u8 literals. Code fix rewrites the call. |
+| [PSH1209](rules/PSH1209.md) | Build transformed strings with `string.Create`. |
+| [PSH1210](rules/PSH1210.md) | Compare UTF-8 bytes without decoding them. Code fix uses `SequenceEqual`. |
+| [PSH1211](rules/PSH1211.md) | Pass values directly instead of `ToString` results. Code fix drops the call. |
 
 ## Concurrency (PerformanceSharp)
 
@@ -77,6 +88,10 @@ async, `PSH14xx` API selection.
 | [PSH1303](rules/PSH1303.md) | Do not block an async method with `Thread.Sleep`. Code fix awaits `Task.Delay`. |
 | [PSH1304](rules/PSH1304.md) | Use `PeriodicTimer` instead of pacing a loop with `Task.Delay`. |
 | [PSH1305](rules/PSH1305.md) | Enumerate a `ConcurrentDictionary` directly instead of a Keys/Values snapshot. Code fix deconstructs the pair. |
+| [PSH1306](rules/PSH1306.md) | Guard one-time execution with an interlocked latch. Opt-in. |
+| [PSH1307](rules/PSH1307.md) | Access interlocked fields with `Volatile`. Code fix wraps the access. |
+| [PSH1308](rules/PSH1308.md) | Return the completed task instead of `Task.FromResult`. Code fix rewrites the call. |
+| [PSH1309](rules/PSH1309.md) | Register cancellation callbacks without flowing the execution context. Opt-in. |
 
 ## ApiSelection
 
@@ -91,6 +106,8 @@ async, `PSH14xx` API selection.
 | [PSH1406](rules/PSH1406.md) | Ask `Regex` for the answer directly. |
 | [PSH1407](rules/PSH1407.md) | Query the dictionary, not its `Keys` view. |
 | [PSH1408](rules/PSH1408.md) | Measure elapsed time with `Stopwatch.GetTimestamp`/`GetElapsedTime` instead of allocating a Stopwatch. |
+| [PSH1409](rules/PSH1409.md) | Use the built-in throw helpers for argument guards. Code fix rewrites the guard, honoring helper aliases. |
+| [PSH1410](rules/PSH1410.md) | Mark trivial forwarders for aggressive inlining. Opt-in. |
 
 # StyleSharp Rule Index
 

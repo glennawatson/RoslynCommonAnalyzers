@@ -54,6 +54,34 @@ internal static class ConcurrencyRules
         "Enumerate the dictionary's key/value pairs instead of the '{0}' snapshot",
         NoConcurrentSnapshotEnumerationDescription);
 
+    /// <summary>PSH1306 — a bool once-guard read-then-set races; an interlocked latch does not. Opt-in.</summary>
+    public static readonly DiagnosticDescriptor InterlockedOnceGuard = CreateOptIn(
+        "PSH1306",
+        "Guard one-time execution with an interlocked latch",
+        "This check-then-set on '{0}' can let two threads through; use Interlocked.Exchange on an int latch",
+        InterlockedOnceGuardDescription);
+
+    /// <summary>PSH1307 — a field that is an Interlocked target elsewhere should not be accessed plainly.</summary>
+    public static readonly DiagnosticDescriptor VolatileInterlockedField = Create(
+        "PSH1307",
+        "Access interlocked fields with Volatile",
+        "'{0}' is an Interlocked target elsewhere in this type; use '{1}' for this access",
+        VolatileInterlockedFieldDescription);
+
+    /// <summary>PSH1308 — a Task.FromResult whose value is never observed should be Task.CompletedTask.</summary>
+    public static readonly DiagnosticDescriptor UseCompletedTask = Create(
+        "PSH1308",
+        "Return the completed task instead of Task.FromResult",
+        "Use Task.CompletedTask; this result is only ever observed as a plain Task",
+        UseCompletedTaskDescription);
+
+    /// <summary>PSH1309 — cancellation callbacks should skip the execution-context capture. Opt-in.</summary>
+    public static readonly DiagnosticDescriptor UseUnsafeRegister = CreateOptIn(
+        "PSH1309",
+        "Register cancellation callbacks without flowing the execution context",
+        "Use UnsafeRegister instead of Register for this cancellation callback",
+        UseUnsafeRegisterDescription);
+
     /// <summary>The PSH1302 rule description.</summary>
     private const string RunContinuationsAsynchronouslyDescription =
         "Completing a TaskCompletionSource without TaskCreationOptions.RunContinuationsAsynchronously runs every waiter's continuation inline "
@@ -75,6 +103,29 @@ internal static class ConcurrencyRules
         "ConcurrentDictionary's Keys and Values properties lock every bucket and copy the whole collection into a new list on each access; "
         + "enumerating the dictionary itself is lock-free and allocates only an enumerator.";
 
+    /// <summary>The PSH1306 rule description.</summary>
+    private const string InterlockedOnceGuardDescription =
+        "A bool once-guard written as a read, an early return, and a later assignment lets every thread that passes the check before the "
+        + "first write run the protected code; Interlocked.Exchange on an int field admits exactly one caller for one atomic instruction. "
+        + "Whether a guard must be thread-safe is contextual, so the rule is opt-in.";
+
+    /// <summary>The PSH1307 rule description.</summary>
+    private const string VolatileInterlockedFieldDescription =
+        "A field updated through Interlocked participates in lock-free synchronization, but the compiler and CPU may reorder or cache its "
+        + "plain reads and writes, hiding updates from other threads; Volatile.Read and Volatile.Write pair correctly with interlocked "
+        + "updates. Construction-time accesses are not reported.";
+
+    /// <summary>The PSH1308 rule description.</summary>
+    private const string UseCompletedTaskDescription =
+        "Task.FromResult allocates a Task<TResult> to carry a value, and a caller that only sees the non-generic Task can never read it; "
+        + "Task.CompletedTask returns the shared cached instance. Suggested only where the API exists.";
+
+    /// <summary>The PSH1309 rule description.</summary>
+    private const string UseUnsafeRegisterDescription =
+        "CancellationToken.Register captures the current ExecutionContext and restores it inside the callback on every registration; "
+        + "UnsafeRegister skips the capture. Callbacks that read AsyncLocal state would observe different values, so the rule is opt-in. "
+        + "Suggested only where the API exists.";
+
     /// <summary>Creates a Warning-severity Concurrency descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>
@@ -89,6 +140,23 @@ internal static class ConcurrencyRules
             "Concurrency",
             DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
+            description: description,
+            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+
+    /// <summary>Creates a Concurrency descriptor that is disabled by default (opt-in via .editorconfig).</summary>
+    /// <param name="id">The diagnostic id.</param>
+    /// <param name="title">The rule title.</param>
+    /// <param name="messageFormat">The message format.</param>
+    /// <param name="description">The rule description.</param>
+    /// <returns>The descriptor.</returns>
+    private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
+        new(
+            id,
+            title,
+            messageFormat,
+            "Concurrency",
+            DiagnosticSeverity.Warning,
+            isEnabledByDefault: false,
             description: description,
             helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
 }

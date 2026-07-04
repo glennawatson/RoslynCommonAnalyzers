@@ -65,6 +65,16 @@ internal static class DiagnosticHelper
     public static Diagnostic Create(DiagnosticDescriptor descriptor, SyntaxTree tree, TextSpan span, string messageArg)
         => Diagnostic.Create(descriptor, Location.Create(tree, span), messageArg);
 
+    /// <summary>Creates a diagnostic from a syntax-tree span with two message arguments.</summary>
+    /// <param name="descriptor">The rule descriptor.</param>
+    /// <param name="tree">The owning syntax tree.</param>
+    /// <param name="span">The source span to report.</param>
+    /// <param name="firstMessageArg">The first message argument.</param>
+    /// <param name="secondMessageArg">The second message argument.</param>
+    /// <returns>The created diagnostic.</returns>
+    public static Diagnostic Create(DiagnosticDescriptor descriptor, SyntaxTree tree, TextSpan span, string firstMessageArg, string secondMessageArg)
+        => Diagnostic.Create(descriptor, Location.Create(tree, span), firstMessageArg, secondMessageArg);
+
     /// <summary>Creates a diagnostic from a syntax-tree span with cached custom properties.</summary>
     /// <param name="descriptor">The rule descriptor.</param>
     /// <param name="tree">The owning syntax tree.</param>

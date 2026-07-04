@@ -29,10 +29,16 @@
     <Using Include="Microsoft.CodeAnalysis.CSharp" />
     <Using Include="Microsoft.CodeAnalysis.CSharp.Syntax" />
     <Using Include="Microsoft.CodeAnalysis.Diagnostics" />
+    <Using Include="RoslynCommon.Analyzers" />
+    <Using Include="RoslynCommon.Analyzers.CodeFixes" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PerformanceSharp.Analyzers\PerformanceSharp.Analyzers.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\CodeFixes\*.cs" Link="Helpers\Shared\%(Filename).cs" />
   </ItemGroup>
 
 </Project>

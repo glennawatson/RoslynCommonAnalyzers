@@ -24,43 +24,12 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { Expression: MemberAccessExpressionSyntax } invocation
-                || !CanApply(invocation))
-            {
-                continue;
-            }
-
-            var countPropertyName = GetCountSourceName(diagnostic);
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use the indexer",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, invocation, countPropertyName)),
-                    equivalenceKey: nameof(Psh1106UseIndexerForElementAccessCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use the indexer", nameof(Psh1106UseIndexerForElementAccessCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { Expression: MemberAccessExpressionSyntax } invocation
-            || !CanApply(invocation))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(invocation, CreateReplacement(invocation, GetCountSourceName(diagnostic)));
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported Enumerable call with the receiver's indexer form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -70,6 +39,16 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation, string countPropertyName)
         => document.WithSyntaxRoot(root.ReplaceNode(invocation, CreateReplacement(invocation, countPropertyName)));
+
+    /// <summary>Resolves the reported Enumerable call and builds its indexer replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>() is { Expression: MemberAccessExpressionSyntax } invocation
+            && CanApply(invocation)
+            ? new NodeReplacement(invocation, CreateReplacement(invocation, GetCountSourceName(diagnostic)))
+            : null;
 
     /// <summary>Returns whether the fix can rewrite the invocation without duplicating a side effect.</summary>
     /// <param name="invocation">The reported invocation.</param>

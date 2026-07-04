@@ -20,50 +20,21 @@ public sealed class Psh1211RemoveIntermediateToStringCodeFixProvider : CodeFixPr
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetToStringCall(root, diagnostic) is not { } invocation)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Pass the value directly",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)))),
-                    equivalenceKey: nameof(Psh1211RemoveIntermediateToStringCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Pass the value directly", nameof(Psh1211RemoveIntermediateToStringCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetToStringCall(editor.OriginalRoot, diagnostic) is not { } invocation)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(invocation, Rewrite(invocation));
-    }
-
-    /// <summary>Returns the reported ToString invocation when its shape still matches.</summary>
+    /// <summary>Resolves the reported ToString invocation and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The invocation, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static InvocationExpressionSyntax? TryGetToStringCall(SyntaxNode root, Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
         => root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InvocationExpressionSyntax invocation
             && Psh1211RemoveIntermediateToStringAnalyzer.IsBareToStringShape(invocation)
-            ? invocation
+            ? new NodeReplacement(invocation, Rewrite(invocation))
             : null;
 
     /// <summary>Builds the replacement: the ToString receiver by itself.</summary>

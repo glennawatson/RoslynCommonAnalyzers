@@ -18,50 +18,12 @@ public sealed class Sst1150ConstructorDeclarationParameterMustBeOnUniqueLinesCod
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
-
-            if (node is BaseMethodDeclarationSyntax syntaxNode)
-            {
-                // In this case there is no justification at all
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        CodeFixResources.SST1150CodeFixTitle,
-                        _ => FixAsync(context.Document, root, syntaxNode),
-                        nameof(Sst1150ConstructorDeclarationParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
-                    diagnostic);
-                return;
-            }
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, nameof(Sst1150ConstructorDeclarationParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add", TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not BaseMethodDeclarationSyntax node)
-        {
-            return;
-        }
-
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-            node => node.ParameterList?.Parameters,
-            (node, parameters) => node.WithParameterList(
-                SyntaxFactory.ParameterList(parameters)
-                    .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                ?? node;
-        editor.ReplaceNode(node, newNode);
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Rewrites the constructor declaration so each parameter is placed on its own line.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -69,14 +31,28 @@ public sealed class Sst1150ConstructorDeclarationParameterMustBeOnUniqueLinesCod
     /// <param name="node">The constructor declaration to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, BaseMethodDeclarationSyntax node)
+        => Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
+
+    /// <summary>Resolves the reported constructor declaration and builds its parameters-on-unique-lines form.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan) is BaseMethodDeclarationSyntax node
+            ? new NodeReplacement(node, Rewrite(node))
+            : null;
+
+    /// <summary>Builds the declaration with each parameter moved to its own line.</summary>
+    /// <param name="node">The constructor declaration to rewrite.</param>
+    /// <returns>The rewritten declaration, or the original when it has no parameter list.</returns>
+    private static BaseMethodDeclarationSyntax Rewrite(BaseMethodDeclarationSyntax node)
     {
         var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
+        return node.ConvertNodeIfAble(
             node => node.ParameterList?.Parameters,
             (node, parameters) => node.WithParameterList(
                 SyntaxFactory.ParameterList(parameters)
                     .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
                 ?? node;
-        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
     }
 }

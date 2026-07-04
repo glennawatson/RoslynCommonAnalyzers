@@ -21,41 +21,12 @@ public sealed class Psh1014ReadonlyStructCodeFixProvider : CodeFixProvider, IBat
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetStruct(root, diagnostic) is not { } declaration)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Make the struct readonly",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, AddReadonlyModifier(declaration)))),
-                    equivalenceKey: nameof(Psh1014ReadonlyStructCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Make the struct readonly", nameof(Psh1014ReadonlyStructCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetStruct(editor.OriginalRoot, diagnostic) is not { } declaration)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(declaration, AddReadonlyModifier(declaration));
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Builds the declaration with a readonly modifier in standard position.</summary>
     /// <param name="declaration">The struct declaration to rewrite.</param>
@@ -93,13 +64,13 @@ public sealed class Psh1014ReadonlyStructCodeFixProvider : CodeFixProvider, IBat
         return declaration.WithModifiers(modifiers.Insert(insertIndex, readonlyToken));
     }
 
-    /// <summary>Returns the reported struct declaration when it still lacks the readonly modifier.</summary>
+    /// <summary>Resolves the reported struct declaration and builds it with the modifier added.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The declaration, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static TypeDeclarationSyntax? TryGetStruct(SyntaxNode root, Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
         => root.FindNode(diagnostic.Location.SourceSpan) is TypeDeclarationSyntax { RawKind: (int)SyntaxKind.StructDeclaration or (int)SyntaxKind.RecordStructDeclaration } declaration
             && !declaration.Modifiers.Any(SyntaxKind.ReadOnlyKeyword)
-            ? declaration
+            ? new NodeReplacement(declaration, AddReadonlyModifier(declaration))
             : null;
 }

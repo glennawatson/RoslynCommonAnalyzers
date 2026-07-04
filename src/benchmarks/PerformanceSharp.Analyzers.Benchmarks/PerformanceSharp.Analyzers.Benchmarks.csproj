@@ -18,4 +18,8 @@
     <ProjectReference Include="..\..\PerformanceSharp.Analyzers.CodeFixes\PerformanceSharp.Analyzers.CodeFixes.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Using Include="RoslynCommon.Analyzers" />
+  </ItemGroup>
+
 </Project>

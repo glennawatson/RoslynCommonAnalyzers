@@ -23,48 +23,21 @@ public sealed class Psh1207SpecifyStringComparisonCodeFixProvider : CodeFixProvi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetInvocation(root, diagnostic, out var invocation))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Specify StringComparison.Ordinal",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, invocation!)),
-                    equivalenceKey: nameof(Psh1207SpecifyStringComparisonCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Specify StringComparison.Ordinal", nameof(Psh1207SpecifyStringComparisonCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetInvocation(editor.OriginalRoot, diagnostic, out var invocation))
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(invocation!.ArgumentList, AppendOrdinal(invocation.ArgumentList));
-    }
-
-    /// <summary>Appends the ordinal comparison argument to the reported invocation.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported invocation and builds its argument list with the ordinal comparison appended.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="invocation">The reported invocation.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation)
-        => document.WithSyntaxRoot(root.ReplaceNode(invocation.ArgumentList, AppendOrdinal(invocation.ArgumentList)));
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => TryGetInvocation(root, diagnostic, out var invocation)
+            ? new NodeReplacement(invocation!.ArgumentList, AppendOrdinal(invocation.ArgumentList))
+            : null;
 
     /// <summary>Resolves the diagnostic's reported method name to its enclosing invocation.</summary>
     /// <param name="root">The syntax root.</param>

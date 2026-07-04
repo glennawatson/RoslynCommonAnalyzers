@@ -38,52 +38,19 @@ public sealed class Psh1210Utf8SequenceEqualCodeFixProvider : CodeFixProvider, I
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryRewrite(root, model, diagnostic) is not { } rewrite)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Compare the bytes with SequenceEqual",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(rewrite.Original, rewrite.Replacement))),
-                    equivalenceKey: nameof(Psh1210Utf8SequenceEqualCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Compare the bytes with SequenceEqual", nameof(Psh1210Utf8SequenceEqualCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryRewrite(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } rewrite)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(rewrite.Original, rewrite.Replacement);
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported comparison and builds its byte-comparison replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The original node and its replacement, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static (BinaryExpressionSyntax Original, ExpressionSyntax Replacement)? TryRewrite(
-        SyntaxNode root,
-        SemanticModel model,
-        Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
     {
         if (root.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax binary
             || Psh1210Utf8SequenceEqualAnalyzer.TryGetComparisonParts(binary) is not { } parts
@@ -102,7 +69,7 @@ public sealed class Psh1210Utf8SequenceEqualCodeFixProvider : CodeFixProvider, I
             ? SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, comparison)
             : comparison;
 
-        return (binary, replacement.WithTriviaFrom(binary));
+        return new NodeReplacement(binary, replacement.WithTriviaFrom(binary));
     }
 
     /// <summary>Builds the SequenceEqual call, extension-style when the System import makes it bind.</summary>

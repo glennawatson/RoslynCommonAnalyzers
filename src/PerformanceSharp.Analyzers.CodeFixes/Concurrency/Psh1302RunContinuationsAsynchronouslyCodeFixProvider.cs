@@ -31,66 +31,23 @@ public sealed class Psh1302RunContinuationsAsynchronouslyCodeFixProvider : CodeF
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetCreation(root, diagnostic) is not { } creation)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Run continuations asynchronously",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, model, creation, cancellationToken)),
-                    equivalenceKey: nameof(Psh1302RunContinuationsAsynchronouslyCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Run continuations asynchronously", nameof(Psh1302RunContinuationsAsynchronouslyCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetCreation(editor.OriginalRoot, diagnostic) is not { } creation
-            || Rewrite(editor.SemanticModel, creation, CancellationToken.None) is not { } rewritten)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(creation, rewritten);
-    }
-
-    /// <summary>Applies the rewrite to a single reported creation.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported creation and builds its flagged replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
-    /// <param name="creation">The reported creation expression.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated document, or the original when the shape no longer matches.</returns>
-    internal static Document Apply(
-        Document document,
-        SyntaxNode root,
-        SemanticModel model,
-        BaseObjectCreationExpressionSyntax creation,
-        CancellationToken cancellationToken)
-        => Rewrite(model, creation, cancellationToken) is { } rewritten
-            ? document.WithSyntaxRoot(root.ReplaceNode(creation, rewritten))
-            : document;
-
-    /// <summary>Returns the reported creation when the diagnostic location still covers one.</summary>
-    /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The creation expression, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static BaseObjectCreationExpressionSyntax? TryGetCreation(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) as BaseObjectCreationExpressionSyntax;
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan) is BaseObjectCreationExpressionSyntax creation
+            && Rewrite(model, creation, CancellationToken.None) is { } rewritten
+            ? new NodeReplacement(creation, rewritten)
+            : null;
 
     /// <summary>Builds the creation with the flag supplied, or <see langword="null"/> when it cannot be placed safely.</summary>
     /// <param name="model">The semantic model for the document.</param>

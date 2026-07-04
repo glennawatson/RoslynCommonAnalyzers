@@ -25,4 +25,9 @@
     <ProjectReference Include="..\..\StyleSharp.Analyzers\StyleSharp.Analyzers.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Using Include="RoslynCommon.Analyzers" />
+    <Using Include="RoslynCommon.Analyzers.CodeFixes" />
+  </ItemGroup>
+
 </Project>

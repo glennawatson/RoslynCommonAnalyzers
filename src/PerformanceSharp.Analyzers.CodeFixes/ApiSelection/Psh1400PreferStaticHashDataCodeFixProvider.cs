@@ -23,40 +23,12 @@ public sealed class Psh1400PreferStaticHashDataCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetChainedInvocation(root, diagnostic) is not { } invocation)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use the static HashData method",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, invocation)),
-                    equivalenceKey: nameof(Psh1400PreferStaticHashDataCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use the static HashData method", nameof(Psh1400PreferStaticHashDataCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetChainedInvocation(editor.OriginalRoot, diagnostic) is not { } invocation)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(invocation, Rewrite(invocation));
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported chained invocation with its static HashData form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -65,6 +37,15 @@ public sealed class Psh1400PreferStaticHashDataCodeFixProvider : CodeFixProvider
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation)
         => document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+
+    /// <summary>Resolves the reported chained invocation and builds its static HashData replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => TryGetChainedInvocation(root, diagnostic) is { } invocation
+            ? new NodeReplacement(invocation, Rewrite(invocation))
+            : null;
 
     /// <summary>Returns the reported chained invocation, or null for the fix-less using-scoped local shape.</summary>
     /// <param name="root">The syntax root.</param>

@@ -16,40 +16,12 @@ public sealed class Psh1401SealAttributeTypesCodeFixProvider : CodeFixProvider, 
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ClassDeclarationSyntax>() is not { } declaration)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Seal the attribute type",
-                    _ => Task.FromResult(Apply(context.Document, root, declaration)),
-                    equivalenceKey: nameof(Psh1401SealAttributeTypesCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Seal the attribute type", nameof(Psh1401SealAttributeTypesCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ClassDeclarationSyntax>() is not { } declaration)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(declaration, AddSealedModifier(declaration));
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Adds the <c>sealed</c> modifier to the reported class declaration.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -58,6 +30,15 @@ public sealed class Psh1401SealAttributeTypesCodeFixProvider : CodeFixProvider, 
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, ClassDeclarationSyntax declaration)
         => document.WithSyntaxRoot(root.ReplaceNode(declaration, AddSealedModifier(declaration)));
+
+    /// <summary>Resolves the reported class declaration and builds its sealed replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ClassDeclarationSyntax>() is { } declaration
+            ? new NodeReplacement(declaration, AddSealedModifier(declaration))
+            : null;
 
     /// <summary>Inserts <c>sealed</c> after any accessibility modifiers, keeping modifier order valid.</summary>
     /// <param name="declaration">The class declaration to seal.</param>

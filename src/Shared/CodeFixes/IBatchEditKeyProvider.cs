@@ -2,7 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace PerformanceSharp.Analyzers;
+namespace RoslynCommon.Analyzers.CodeFixes;
 
 /// <summary>Provides a resolved edit key for batch fixes whose diagnostic span is smaller than the edited node.</summary>
 internal interface IBatchEditKeyProvider

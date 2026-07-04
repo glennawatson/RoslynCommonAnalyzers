@@ -31,52 +31,19 @@ public sealed class Psh1208Utf8LiteralCodeFixProvider : CodeFixProvider, IBatchF
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryRewrite(root, model, diagnostic) is not { } rewrite)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use a u8 literal",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(rewrite.Original, rewrite.Replacement))),
-                    equivalenceKey: nameof(Psh1208Utf8LiteralCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use a u8 literal", nameof(Psh1208Utf8LiteralCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryRewrite(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } rewrite)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(rewrite.Original, rewrite.Replacement);
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported invocation and builds its u8 replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The original node and its replacement, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static (InvocationExpressionSyntax Original, ExpressionSyntax Replacement)? TryRewrite(
-        SyntaxNode root,
-        SemanticModel model,
-        Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
     {
         if (root.FindNode(diagnostic.Location.SourceSpan) is not InvocationExpressionSyntax invocation
             || Psh1208Utf8LiteralAnalyzer.TryGetEncodingPropertyName(invocation) is not { } encodingName)
@@ -101,7 +68,7 @@ public sealed class Psh1208Utf8LiteralCodeFixProvider : CodeFixProvider, IBatchF
                     literal,
                     SyntaxFactory.IdentifierName(ToArrayMethodName)));
 
-        return (invocation, replacement.WithTriviaFrom(invocation));
+        return new NodeReplacement(invocation, replacement.WithTriviaFrom(invocation));
     }
 
     /// <summary>Builds the u8 literal text, keeping a literal argument's original escapes.</summary>

@@ -238,15 +238,7 @@ internal static class ModernSyntaxRules
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
-        new(
-            id,
-            title,
-            messageFormat,
-            "ModernSyntax",
-            DiagnosticSeverity.Warning,
-            isEnabledByDefault: true,
-            description: description,
-            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+        DescriptorFactory.Create(id, title, messageFormat, "ModernSyntax", description);
 
     /// <summary>Creates a ModernSyntax descriptor that is disabled by default (opt-in via .editorconfig).</summary>
     /// <param name="id">The diagnostic id.</param>
@@ -255,13 +247,5 @@ internal static class ModernSyntaxRules
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
-        new(
-            id,
-            title,
-            messageFormat,
-            "ModernSyntax",
-            DiagnosticSeverity.Warning,
-            isEnabledByDefault: false,
-            description: description,
-            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+        DescriptorFactory.CreateOptIn(id, title, messageFormat, "ModernSyntax", description);
 }

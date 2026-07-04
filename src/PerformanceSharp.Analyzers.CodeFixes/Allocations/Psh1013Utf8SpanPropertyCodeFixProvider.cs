@@ -30,52 +30,19 @@ public sealed class Psh1013Utf8SpanPropertyCodeFixProvider : CodeFixProvider, IB
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryRewrite(root, model, diagnostic) is not { } rewrite)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use a ReadOnlySpan<byte> property",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(rewrite.Original, rewrite.Replacement))),
-                    equivalenceKey: nameof(Psh1013Utf8SpanPropertyCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use a ReadOnlySpan<byte> property", nameof(Psh1013Utf8SpanPropertyCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryRewrite(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } rewrite)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(rewrite.Original, rewrite.Replacement);
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported field and builds its span property replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The original field and its replacement, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static (FieldDeclarationSyntax Original, MemberDeclarationSyntax Replacement)? TryRewrite(
-        SyntaxNode root,
-        SemanticModel model,
-        Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
     {
         if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<FieldDeclarationSyntax>() is not { } field
             || !Psh1013Utf8SpanPropertyAnalyzer.HasCandidateShape(field)
@@ -99,7 +66,7 @@ public sealed class Psh1013Utf8SpanPropertyCodeFixProvider : CodeFixProvider, IB
             .Append(" => ").Append(literal.ToString()).Append(';');
 
         var property = SyntaxFactory.ParseMemberDeclaration(text.ToString());
-        return property is null ? null : (field, property.WithTriviaFrom(field));
+        return property is null ? null : new NodeReplacement(field, property.WithTriviaFrom(field));
     }
 
     /// <summary>Returns whether the span type resolves by simple name at a position.</summary>

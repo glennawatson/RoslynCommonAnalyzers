@@ -45,40 +45,12 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetInvocation(root, diagnostic, out var invocation))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Let StringBuilder do the formatting work",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, invocation!)),
-                    equivalenceKey: nameof(Psh1203StringBuilderInnerAllocationCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Let StringBuilder do the formatting work", nameof(Psh1203StringBuilderInnerAllocationCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetInvocation(editor.OriginalRoot, diagnostic, out var invocation))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(invocation!, Rewrite(invocation!));
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported Append invocation with its direct-formatting form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -87,6 +59,15 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation)
         => document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+
+    /// <summary>Resolves the reported Append invocation and builds its direct-formatting replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => TryGetInvocation(root, diagnostic, out var invocation)
+            ? new NodeReplacement(invocation!, Rewrite(invocation!))
+            : null;
 
     /// <summary>Finds the reported Append invocation for a diagnostic and re-validates its shape.</summary>
     /// <param name="root">The syntax root.</param>

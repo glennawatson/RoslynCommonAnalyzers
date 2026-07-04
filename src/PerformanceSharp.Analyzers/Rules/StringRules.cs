@@ -94,6 +94,20 @@ internal static class StringRules
         "Pass the value directly instead of calling ToString",
         RemoveIntermediateToStringDescription);
 
+    /// <summary>PSH1212 — a Substring feeding a span-capable call should slice with AsSpan.</summary>
+    public static readonly DiagnosticDescriptor UseAsSpanOverSubstring = Create(
+        "PSH1212",
+        "Slice with AsSpan when the call accepts a span",
+        "Use AsSpan instead of Substring; '{0}' accepts a span here",
+        UseAsSpanOverSubstringDescription);
+
+    /// <summary>PSH1213 — repeated probes of a constant character set should go through SearchValues.</summary>
+    public static readonly DiagnosticDescriptor UseSearchValues = Create(
+        "PSH1213",
+        "Probe repeated character sets through SearchValues",
+        "Hoist this constant set into a cached SearchValues and search with that",
+        UseSearchValuesDescription);
+
     /// <summary>The PSH1208 rule description.</summary>
     private const string UseUtf8LiteralDescription =
         "Encoding.UTF8.GetBytes on a constant string re-encodes and heap-allocates the same bytes on every call; a u8 literal (C# 11+) "
@@ -110,6 +124,18 @@ internal static class StringRules
         "Decoding bytes with Encoding.GetString allocates a string only to compare it against a constant and throw it away; "
         + "SequenceEqual against a u8 literal (C# 11+) compares the raw bytes and allocates nothing.";
 
+    /// <summary>The PSH1212 rule description.</summary>
+    private const string UseAsSpanOverSubstringDescription =
+        "Substring allocates a new string for the slice; when the invoked method has an overload accepting ReadOnlySpan<char> in the "
+        + "same position, AsSpan produces the slice with no allocation. Reported only when that overload exists and AsSpan resolves at "
+        + "the call site, so the fix always compiles.";
+
+    /// <summary>The PSH1213 rule description.</summary>
+    private const string UseSearchValuesDescription =
+        "IndexOfAny and ContainsAny against an inline constant array rescan the set linearly on every call and can allocate the array "
+        + "each time; a static readonly SearchValues<char> (.NET 8+) precomputes the membership table once and the overloads that take "
+        + "it probe in constant time per character. Suggested only where the API exists.";
+
     /// <summary>The PSH1211 rule description.</summary>
     private const string RemoveIntermediateToStringDescription =
         "Calling ToString to feed an API that can take the value directly allocates an intermediate string; overloads that accept the "
@@ -123,13 +149,5 @@ internal static class StringRules
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
-        new(
-            id,
-            title,
-            messageFormat,
-            "Strings",
-            DiagnosticSeverity.Warning,
-            isEnabledByDefault: true,
-            description: description,
-            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+        DescriptorFactory.Create(id, title, messageFormat, "Strings", description);
 }

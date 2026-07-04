@@ -31,42 +31,12 @@ public sealed class Psh1204EmptyStringComparisonCodeFixProvider : CodeFixProvide
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || !SupportsPatternFix(root.SyntaxTree))
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not BinaryExpressionSyntax binary)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use a null-safe length pattern",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, binary)),
-                    equivalenceKey: nameof(Psh1204EmptyStringComparisonCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use a null-safe length pattern", nameof(Psh1204EmptyStringComparisonCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!SupportsPatternFix(editor.OriginalRoot.SyntaxTree)
-            || editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not BinaryExpressionSyntax binary
-            || !TryGetReplacement(binary, out var replacement))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(binary, replacement!);
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported comparison with its length-pattern form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -77,6 +47,17 @@ public sealed class Psh1204EmptyStringComparisonCodeFixProvider : CodeFixProvide
         => TryGetReplacement(comparison, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement!))
             : document;
+
+    /// <summary>Resolves the reported comparison and builds its length-pattern replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => SupportsPatternFix(root.SyntaxTree)
+            && root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is BinaryExpressionSyntax binary
+            && TryGetReplacement(binary, out var replacement)
+            ? new NodeReplacement(binary, replacement!)
+            : null;
 
     /// <summary>Returns whether the file's language version supports the <c>not</c> pattern the fix emits.</summary>
     /// <param name="tree">The syntax tree being fixed.</param>

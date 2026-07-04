@@ -22,40 +22,12 @@ public sealed class Psh1300PreferLockTypeCodeFixProvider : CodeFixProvider, IBat
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<FieldDeclarationSyntax>() is not { } field)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use System.Threading.Lock",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, field)),
-                    equivalenceKey: nameof(Psh1300PreferLockTypeCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use System.Threading.Lock", nameof(Psh1300PreferLockTypeCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<FieldDeclarationSyntax>() is not { } field)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(field, Rewrite(field));
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported lock field with its <c>System.Threading.Lock</c> form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -64,6 +36,15 @@ public sealed class Psh1300PreferLockTypeCodeFixProvider : CodeFixProvider, IBat
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, FieldDeclarationSyntax field)
         => document.WithSyntaxRoot(root.ReplaceNode(field, Rewrite(field)));
+
+    /// <summary>Resolves the reported lock field and builds its replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<FieldDeclarationSyntax>() is { } field
+            ? new NodeReplacement(field, Rewrite(field))
+            : null;
 
     /// <summary>Rewrites the field's type to System.Threading.Lock and its initializer to <c>new()</c>.</summary>
     /// <param name="field">The field declaration to rewrite.</param>

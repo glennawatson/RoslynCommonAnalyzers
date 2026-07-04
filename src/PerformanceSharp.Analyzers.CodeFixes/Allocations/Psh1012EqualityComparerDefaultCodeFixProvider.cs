@@ -30,57 +30,22 @@ public sealed class Psh1012EqualityComparerDefaultCodeFixProvider : CodeFixProvi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryRewrite(root, model, diagnostic, context.CancellationToken) is not { } rewrite)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use EqualityComparer<T>.Default",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(rewrite.Original, rewrite.Replacement))),
-                    equivalenceKey: nameof(Psh1012EqualityComparerDefaultCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use EqualityComparer<T>.Default", nameof(Psh1012EqualityComparerDefaultCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryRewrite(editor.OriginalRoot, editor.SemanticModel, diagnostic, CancellationToken.None) is not { } rewrite)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(rewrite.Original, rewrite.Replacement);
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported call and builds its comparer-based replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The original node and its replacement, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static (InvocationExpressionSyntax Original, ExpressionSyntax Replacement)? TryRewrite(
-        SyntaxNode root,
-        SemanticModel model,
-        Diagnostic diagnostic,
-        CancellationToken cancellationToken)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
     {
         if (root.FindNode(diagnostic.Location.SourceSpan) is not InvocationExpressionSyntax invocation
-            || Psh1012EqualityComparerDefaultAnalyzer.TryGetBoxingComparison(model, invocation, cancellationToken) is not { } comparison)
+            || Psh1012EqualityComparerDefaultAnalyzer.TryGetBoxingComparison(model, invocation, CancellationToken.None) is not { } comparison)
         {
             return null;
         }
@@ -97,7 +62,7 @@ public sealed class Psh1012EqualityComparerDefaultCodeFixProvider : CodeFixProvi
                     SyntaxFactory.Argument(comparison.Right.WithoutTrivia()).WithLeadingTrivia(SyntaxFactory.Space)))))
             .WithTriviaFrom(invocation);
 
-        return (invocation, replacement);
+        return new NodeReplacement(invocation, replacement);
     }
 
     /// <summary>Returns whether the comparer type resolves by simple name at a position.</summary>

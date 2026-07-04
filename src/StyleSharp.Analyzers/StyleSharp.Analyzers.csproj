@@ -27,11 +27,16 @@
     <Using Include="Microsoft.CodeAnalysis.CSharp" />
     <Using Include="Microsoft.CodeAnalysis.CSharp.Syntax" />
     <Using Include="Microsoft.CodeAnalysis.Diagnostics" />
+    <Using Include="RoslynCommon.Analyzers" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Update="Resources.Designer.cs" DesignTime="True" AutoGen="True" DependentUpon="Resources.resx" />
     <EmbeddedResource Update="Resources.resx" Generator="ResXFileCodeGenerator" LastGenOutput="Resources.Designer.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\Analyzers\*.cs" Link="Helpers\Shared\%(Filename).cs" />
   </ItemGroup>
 
 </Project>

@@ -4,7 +4,7 @@
 
 using System.Threading.Tasks;
 
-namespace StyleSharp.Analyzers;
+namespace RoslynCommon.Analyzers.CodeFixes;
 
 /// <summary>
 /// A <see cref="DocumentBasedFixAllProvider"/> that applies every diagnostic in a document in a single

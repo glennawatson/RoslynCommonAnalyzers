@@ -16,40 +16,12 @@ public sealed class Sst1144PreferOrPatternCodeFixProvider : CodeFixProvider, IBa
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<SwitchSectionSyntax>() is not { } section)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Combine into an 'or' pattern",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, section)),
-                    equivalenceKey: nameof(Sst1144PreferOrPatternCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Combine into an 'or' pattern", nameof(Sst1144PreferOrPatternCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<SwitchSectionSyntax>() is not { } section)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(section, Merge(section));
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the switch section with its combined <c>or</c>-pattern form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -58,6 +30,15 @@ public sealed class Sst1144PreferOrPatternCodeFixProvider : CodeFixProvider, IBa
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, SwitchSectionSyntax section)
         => document.WithSyntaxRoot(root.ReplaceNode(section, Merge(section)));
+
+    /// <summary>Resolves the reported switch section and builds its combined <c>or</c>-pattern form.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<SwitchSectionSyntax>() is { } section
+            ? new NodeReplacement(section, Merge(section))
+            : null;
 
     /// <summary>Builds the section with its labels merged into one <c>or</c>-pattern label.</summary>
     /// <param name="section">The switch section to rewrite.</param>

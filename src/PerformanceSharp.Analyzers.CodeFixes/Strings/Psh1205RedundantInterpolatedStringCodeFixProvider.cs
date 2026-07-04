@@ -21,41 +21,12 @@ public sealed class Psh1205RedundantInterpolatedStringCodeFixProvider : CodeFixP
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not InterpolatedStringExpressionSyntax interpolated)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the redundant interpolation",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, interpolated)),
-                    equivalenceKey: nameof(Psh1205RedundantInterpolatedStringCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Remove the redundant interpolation", nameof(Psh1205RedundantInterpolatedStringCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not InterpolatedStringExpressionSyntax interpolated
-            || !TryGetReplacement(interpolated, out var replacement))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(interpolated, replacement!);
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported interpolated string with its value or literal form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -66,6 +37,16 @@ public sealed class Psh1205RedundantInterpolatedStringCodeFixProvider : CodeFixP
         => TryGetReplacement(interpolated, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(interpolated, replacement!))
             : document;
+
+    /// <summary>Resolves the reported interpolated string and builds its value or literal replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InterpolatedStringExpressionSyntax interpolated
+            && TryGetReplacement(interpolated, out var replacement)
+            ? new NodeReplacement(interpolated, replacement!)
+            : null;
 
     /// <summary>Builds the replacement for a reported interpolated string.</summary>
     /// <param name="interpolated">The interpolated string to rewrite.</param>

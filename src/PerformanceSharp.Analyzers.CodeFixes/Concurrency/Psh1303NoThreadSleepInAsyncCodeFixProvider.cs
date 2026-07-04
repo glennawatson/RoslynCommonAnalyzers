@@ -31,52 +31,23 @@ public sealed class Psh1303NoThreadSleepInAsyncCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetFixableSleepInvocation(root, diagnostic) is not { } invocation)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Await Task.Delay instead",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(model, invocation)))),
-                    equivalenceKey: nameof(Psh1303NoThreadSleepInAsyncCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Await Task.Delay instead", nameof(Psh1303NoThreadSleepInAsyncCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetFixableSleepInvocation(editor.OriginalRoot, diagnostic) is not { } invocation)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(invocation, Rewrite(editor.SemanticModel, invocation));
-    }
-
-    /// <summary>Returns the reported sleep invocation when it stands in a rewritable position.</summary>
+    /// <summary>Resolves the reported sleep invocation and builds its awaited replacement.</summary>
     /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The invocation, or <see langword="null"/> when the shape no longer matches or awaiting in place would not parse.</returns>
-    private static InvocationExpressionSyntax? TryGetFixableSleepInvocation(SyntaxNode root, Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches or awaiting in place would not parse.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
         => root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
             && Psh1303NoThreadSleepInAsyncAnalyzer.IsThreadSleepShape(invocation)
             && invocation.Parent is ExpressionStatementSyntax or AnonymousFunctionExpressionSyntax
-            ? invocation
+            ? new NodeReplacement(invocation, Rewrite(model, invocation))
             : null;
 
     /// <summary>Builds the <c>await Task.Delay(...)</c> replacement for a sleep invocation.</summary>

@@ -20,50 +20,21 @@ public sealed class Psh1010ClearPooledReferenceArraysCodeFixProvider : CodeFixPr
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetReturnInvocation(root, diagnostic) is not { } invocation)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Clear the array on return",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)))),
-                    equivalenceKey: nameof(Psh1010ClearPooledReferenceArraysCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Clear the array on return", nameof(Psh1010ClearPooledReferenceArraysCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetReturnInvocation(editor.OriginalRoot, diagnostic) is not { } invocation)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(invocation, Rewrite(invocation));
-    }
-
-    /// <summary>Returns the reported return invocation when the diagnostic location still covers one.</summary>
+    /// <summary>Resolves the reported return invocation and builds its cleared replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The invocation, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static InvocationExpressionSyntax? TryGetReturnInvocation(SyntaxNode root, Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
         => root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } invocation
             && access.Name.Identifier.ValueText == Psh1010ClearPooledReferenceArraysAnalyzer.ReturnMethodName
-            ? invocation
+            ? new NodeReplacement(invocation, Rewrite(invocation))
             : null;
 
     /// <summary>Builds the invocation with <c>clearArray: true</c> supplied.</summary>

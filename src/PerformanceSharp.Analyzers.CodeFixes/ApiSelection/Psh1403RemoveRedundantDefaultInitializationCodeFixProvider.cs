@@ -16,48 +16,21 @@ public sealed class Psh1403RemoveRedundantDefaultInitializationCodeFixProvider :
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<VariableDeclaratorSyntax>() is not { } declarator)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the redundant initializer",
-                    _ => Task.FromResult(Apply(context.Document, root, declarator)),
-                    equivalenceKey: nameof(Psh1403RemoveRedundantDefaultInitializationCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Remove the redundant initializer", nameof(Psh1403RemoveRedundantDefaultInitializationCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<VariableDeclaratorSyntax>() is not { } declarator)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(declarator, Rewrite(declarator));
-    }
-
-    /// <summary>Removes the reported declarator's initializer, leaving other declarators intact.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported declarator and builds its initializer-free replacement.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="declarator">The variable declarator to rewrite.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, VariableDeclaratorSyntax declarator)
-        => document.WithSyntaxRoot(root.ReplaceNode(declarator, Rewrite(declarator)));
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<VariableDeclaratorSyntax>() is { } declarator
+            ? new NodeReplacement(declarator, Rewrite(declarator))
+            : null;
 
     /// <summary>Drops the initializer while keeping the declarator's trailing trivia.</summary>
     /// <param name="declarator">The variable declarator to rewrite.</param>

@@ -24,49 +24,19 @@ public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider, IBatchF
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryRewrite(root, model, diagnostic) is not { } rewrite)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use the throw helper",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(rewrite.Original, rewrite.Replacement))),
-                    equivalenceKey: nameof(Psh1409ThrowHelperCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use the throw helper", nameof(Psh1409ThrowHelperCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryRewrite(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } rewrite)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(rewrite.Original, rewrite.Replacement);
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported guard and builds its helper-call statement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The original if statement and its replacement, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static (IfStatementSyntax Original, StatementSyntax Replacement)? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
     {
         if (root.FindNode(diagnostic.Location.SourceSpan) is not IfStatementSyntax ifStatement
             || Psh1409ThrowHelperAnalyzer.TryClassify(ifStatement) is not { } shape
@@ -83,7 +53,7 @@ public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider, IBatchF
                 SyntaxFactory.IdentifierName(shape.HelperName)),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)));
 
-        return (ifStatement, SyntaxFactory.ExpressionStatement(call).WithTriviaFrom(ifStatement));
+        return new NodeReplacement(ifStatement, SyntaxFactory.ExpressionStatement(call).WithTriviaFrom(ifStatement));
     }
 
     /// <summary>Builds the helper's argument list.</summary>

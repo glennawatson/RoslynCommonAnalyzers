@@ -131,6 +131,19 @@ internal static class CollectionRules
         "Use GetAlternateLookup<ReadOnlySpan<char>> instead of materializing the key with '{0}'",
         UseAlternateLookupDescription);
 
+    /// <summary>PSH1117 — emptiness should be asked directly where IsEmpty exists.</summary>
+    public static readonly DiagnosticDescriptor UseIsEmpty = Create(
+        "PSH1117",
+        "Ask the collection whether it is empty",
+        "Use IsEmpty instead of comparing '{0}' to zero",
+        UseIsEmptyDescription);
+
+    /// <summary>The PSH1117 rule description.</summary>
+    private const string UseIsEmptyDescription =
+        "Comparing Count or Length to zero answers emptiness indirectly — on some collections counting is O(n) or synchronizes, while "
+        + "IsEmpty is a cheap dedicated check (concurrent collections, immutable collections, spans, and memory). Reported only when "
+        + "the receiver exposes a bool IsEmpty property.";
+
     /// <summary>The PSH1112 rule description.</summary>
     private const string SeedCollectionFromSourceDescription =
         "Creating an empty collection and immediately bulk-adding a source grows the backing store through the default resize schedule; "
@@ -166,15 +179,7 @@ internal static class CollectionRules
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
-        new(
-            id,
-            title,
-            messageFormat,
-            "Collections",
-            DiagnosticSeverity.Warning,
-            isEnabledByDefault: true,
-            description: description,
-            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+        DescriptorFactory.Create(id, title, messageFormat, "Collections", description);
 
     /// <summary>Creates a Collections descriptor that is disabled by default (opt-in via .editorconfig).</summary>
     /// <param name="id">The diagnostic id.</param>
@@ -183,13 +188,5 @@ internal static class CollectionRules
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
-        new(
-            id,
-            title,
-            messageFormat,
-            "Collections",
-            DiagnosticSeverity.Warning,
-            isEnabledByDefault: false,
-            description: description,
-            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+        DescriptorFactory.CreateOptIn(id, title, messageFormat, "Collections", description);
 }

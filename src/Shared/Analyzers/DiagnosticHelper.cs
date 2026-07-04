@@ -4,7 +4,7 @@
 
 using Microsoft.CodeAnalysis.Text;
 
-namespace PerformanceSharp.Analyzers;
+namespace RoslynCommon.Analyzers;
 
 /// <summary>
 /// Centralizes the smallest <c>Diagnostic.Create</c> overloads we use on analyzer hot

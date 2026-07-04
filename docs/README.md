@@ -60,6 +60,7 @@ async, `PSH14xx` API selection.
 | [PSH1114](rules/PSH1114.md) | Freeze static lookup collections that are never mutated. Opt-in. |
 | [PSH1115](rules/PSH1115.md) | Insert-if-absent should probe the dictionary once. Code fix uses `TryAdd`. |
 | [PSH1116](rules/PSH1116.md) | Probe string-keyed collections with a span through `GetAlternateLookup`. |
+| [PSH1117](rules/PSH1117.md) | Ask the collection whether it is empty via `IsEmpty`. Code fix rewrites the comparison. |
 
 ## Strings
 
@@ -77,6 +78,8 @@ async, `PSH14xx` API selection.
 | [PSH1209](rules/PSH1209.md) | Build transformed strings with `string.Create`. |
 | [PSH1210](rules/PSH1210.md) | Compare UTF-8 bytes without decoding them. Code fix uses `SequenceEqual`. |
 | [PSH1211](rules/PSH1211.md) | Pass values directly instead of `ToString` results. Code fix drops the call. |
+| [PSH1212](rules/PSH1212.md) | Slice with `AsSpan` when the call accepts a span. Code fix renames the call. |
+| [PSH1213](rules/PSH1213.md) | Probe repeated character sets through `SearchValues`. |
 
 ## Concurrency (PerformanceSharp)
 

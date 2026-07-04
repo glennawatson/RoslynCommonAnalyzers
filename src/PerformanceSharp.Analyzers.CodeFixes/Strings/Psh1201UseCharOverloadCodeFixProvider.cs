@@ -22,41 +22,12 @@ public sealed class Psh1201UseCharOverloadCodeFixProvider : CodeFixProvider, IBa
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetLiteral(root, diagnostic, out var literal))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use the char overload",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, literal!)),
-                    equivalenceKey: nameof(Psh1201UseCharOverloadCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use the char overload", nameof(Psh1201UseCharOverloadCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetLiteral(editor.OriginalRoot, diagnostic, out var literal)
-            || literal!.Parent is not ArgumentSyntax { Parent: ArgumentListSyntax arguments })
-        {
-            return;
-        }
-
-        editor.ReplaceNode(arguments, Rewrite(arguments, literal));
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported string argument with the char overload's argument list.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -67,6 +38,16 @@ public sealed class Psh1201UseCharOverloadCodeFixProvider : CodeFixProvider, IBa
         => literal.Parent is ArgumentSyntax { Parent: ArgumentListSyntax arguments }
             ? document.WithSyntaxRoot(root.ReplaceNode(arguments, Rewrite(arguments, literal)))
             : document;
+
+    /// <summary>Resolves the reported string argument and builds the char overload's argument list.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => TryGetLiteral(root, diagnostic, out var literal)
+            && literal!.Parent is ArgumentSyntax { Parent: ArgumentListSyntax arguments }
+            ? new NodeReplacement(arguments, Rewrite(arguments, literal))
+            : null;
 
     /// <summary>Finds the reported single-character string literal for a diagnostic.</summary>
     /// <param name="root">The syntax root.</param>

@@ -22,47 +22,18 @@ public sealed class Psh1115SingleProbeInsertCodeFixProvider : CodeFixProvider, I
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryRewrite(root, diagnostic) is not { } rewrite)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use TryAdd",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(rewrite.Original, rewrite.Replacement))),
-                    equivalenceKey: nameof(Psh1115SingleProbeInsertCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use TryAdd", nameof(Psh1115SingleProbeInsertCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryRewrite(editor.OriginalRoot, diagnostic) is not { } rewrite)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(rewrite.Original, rewrite.Replacement);
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported guard and builds the TryAdd statement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The original if statement and its replacement, or <see langword="null"/> for the value-slot shape.</returns>
-    private static (IfStatementSyntax Original, StatementSyntax Replacement)? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> for the value-slot shape.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
         if (root.FindNode(diagnostic.Location.SourceSpan) is not IfStatementSyntax ifStatement
             || Psh1115SingleProbeInsertAnalyzer.TryGetNegatedGuard(
@@ -83,6 +54,6 @@ public sealed class Psh1115SingleProbeInsertCodeFixProvider : CodeFixProvider, I
                 SyntaxFactory.Argument(guard.Key.WithoutTrivia()),
                 SyntaxFactory.Argument(value.WithoutTrivia()).WithLeadingTrivia(SyntaxFactory.Space)))));
 
-        return (ifStatement, SyntaxFactory.ExpressionStatement(tryAdd).WithTriviaFrom(ifStatement));
+        return new NodeReplacement(ifStatement, SyntaxFactory.ExpressionStatement(tryAdd).WithTriviaFrom(ifStatement));
     }
 }

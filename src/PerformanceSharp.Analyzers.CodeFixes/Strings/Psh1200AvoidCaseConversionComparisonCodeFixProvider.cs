@@ -28,41 +28,12 @@ public sealed class Psh1200AvoidCaseConversionComparisonCodeFixProvider : CodeFi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetTarget(root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true), out var target))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use string.Equals with a StringComparison",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, target!)),
-                    equivalenceKey: nameof(Psh1200AvoidCaseConversionComparisonCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Equals with a StringComparison", nameof(Psh1200AvoidCaseConversionComparisonCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetTarget(editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true), out var target)
-            || !TryGetReplacement(target!, out var replacement))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(target!, replacement!);
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported comparison with its <c>string.Equals</c> form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -73,6 +44,16 @@ public sealed class Psh1200AvoidCaseConversionComparisonCodeFixProvider : CodeFi
         => TryGetReplacement(comparison, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement!))
             : document;
+
+    /// <summary>Resolves the reported comparison and builds its <c>string.Equals</c> replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => TryGetTarget(root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true), out var target)
+            && TryGetReplacement(target!, out var replacement)
+            ? new NodeReplacement(target!, replacement!)
+            : null;
 
     /// <summary>Resolves the diagnostic's node to the comparison expression that gets replaced.</summary>
     /// <param name="node">The node found at the diagnostic location.</param>

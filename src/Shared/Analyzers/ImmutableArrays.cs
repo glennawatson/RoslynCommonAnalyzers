@@ -2,7 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace PerformanceSharp.Analyzers;
+namespace RoslynCommon.Analyzers;
 
 /// <summary>
 /// Tiny allocation-light factories for the single-element <see cref="ImmutableArray{T}"/>

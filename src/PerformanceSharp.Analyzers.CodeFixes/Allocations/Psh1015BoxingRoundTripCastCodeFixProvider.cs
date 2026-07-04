@@ -22,50 +22,21 @@ public sealed class Psh1015BoxingRoundTripCastCodeFixProvider : CodeFixProvider,
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetRoundTripCast(root, diagnostic) is not { } cast)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Cast directly without boxing",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(cast, Rewrite(cast)))),
-                    equivalenceKey: nameof(Psh1015BoxingRoundTripCastCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Cast directly without boxing", nameof(Psh1015BoxingRoundTripCastCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetRoundTripCast(editor.OriginalRoot, diagnostic) is not { } cast)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(cast, Rewrite(cast));
-    }
-
-    /// <summary>Returns the reported outer cast when its round-trip shape still matches.</summary>
+    /// <summary>Resolves the reported outer cast and builds its direct-cast replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The outer cast, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static CastExpressionSyntax? TryGetRoundTripCast(SyntaxNode root, Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
         => root.FindNode(diagnostic.Location.SourceSpan) is CastExpressionSyntax cast
             && Psh1015BoxingRoundTripCastAnalyzer.TryGetObjectCast(cast) is not null
-            ? cast
+            ? new NodeReplacement(cast, Rewrite(cast))
             : null;
 
     /// <summary>Builds the direct cast, dropping the intermediate object cast.</summary>

@@ -20,50 +20,22 @@ public sealed class Psh1309UnsafeRegisterCodeFixProvider : CodeFixProvider, IBat
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetRegisterName(root, diagnostic) is not { } name)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use UnsafeRegister",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(name, Rewrite(name)))),
-                    equivalenceKey: nameof(Psh1309UnsafeRegisterCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use UnsafeRegister", nameof(Psh1309UnsafeRegisterCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetRegisterName(editor.OriginalRoot, diagnostic) is not { } name)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(name, Rewrite(name));
-    }
-
-    /// <summary>Returns the <c>Register</c> member name of the reported invocation when its shape still matches.</summary>
+    /// <summary>Resolves the reported invocation's <c>Register</c> name and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The member name node, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static SimpleNameSyntax? TryGetRegisterName(SyntaxNode root, Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
         => root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
             && Psh1309UnsafeRegisterAnalyzer.IsRegisterShape(invocation)
-            ? ((MemberAccessExpressionSyntax)invocation.Expression).Name
+            && ((MemberAccessExpressionSyntax)invocation.Expression).Name is { } name
+            ? new NodeReplacement(name, Rewrite(name))
             : null;
 
     /// <summary>Builds the <c>UnsafeRegister</c> name replacement.</summary>

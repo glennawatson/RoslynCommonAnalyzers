@@ -53,6 +53,7 @@ dotnet_diagnostic.PSH1113.severity = warning # Sort naturally instead of orderin
 # dotnet_diagnostic.PSH1114.severity = warning # Freeze static lookup collections (opt-in; freezing trades slower construction for faster reads)
 dotnet_diagnostic.PSH1115.severity = warning # Insert-if-absent should probe the dictionary once
 dotnet_diagnostic.PSH1116.severity = warning # Probe string-keyed collections with a span through GetAlternateLookup
+dotnet_diagnostic.PSH1117.severity = warning # Ask the collection whether it is empty
 
 # Strings
 dotnet_diagnostic.PSH1200.severity = warning # Compare strings without allocating case-converted copies
@@ -67,6 +68,8 @@ dotnet_diagnostic.PSH1208.severity = warning # Encode constant strings with u8 l
 dotnet_diagnostic.PSH1209.severity = warning # Build transformed strings with string.Create
 dotnet_diagnostic.PSH1210.severity = warning # Compare UTF-8 bytes without decoding them
 dotnet_diagnostic.PSH1211.severity = warning # Pass values directly instead of ToString results
+dotnet_diagnostic.PSH1212.severity = warning # Slice with AsSpan when the call accepts a span
+dotnet_diagnostic.PSH1213.severity = warning # Probe repeated character sets through SearchValues
 
 # Concurrency
 dotnet_diagnostic.PSH1300.severity = warning # Use System.Threading.Lock for a dedicated lock object

@@ -34,52 +34,19 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider, 
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryRewrite(root, model, diagnostic) is not { } rewrite)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Add AggressiveInlining",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(rewrite.Original, rewrite.Replacement))),
-                    equivalenceKey: nameof(Psh1410AggressiveInliningCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Add AggressiveInlining", nameof(Psh1410AggressiveInliningCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryRewrite(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } rewrite)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(rewrite.Original, rewrite.Replacement);
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported member and builds it with the attribute prepended.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The original member and its replacement, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static (BaseMethodDeclarationSyntax Original, BaseMethodDeclarationSyntax Replacement)? TryRewrite(
-        SyntaxNode root,
-        SemanticModel model,
-        Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
     {
         if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseMethodDeclarationSyntax>() is not { } declaration
             || !Psh1410AggressiveInliningAnalyzer.IsEligibleForwarder(declaration))
@@ -96,7 +63,7 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider, 
         var replacement = declaration
             .WithLeadingTrivia(default(SyntaxTriviaList))
             .WithAttributeLists(declaration.AttributeLists.Insert(0, attributeList));
-        return (declaration, replacement);
+        return new NodeReplacement(declaration, replacement);
     }
 
     /// <summary>Returns the indentation whitespace at the end of a member's leading trivia.</summary>

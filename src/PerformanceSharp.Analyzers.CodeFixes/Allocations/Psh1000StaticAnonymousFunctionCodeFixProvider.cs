@@ -19,40 +19,12 @@ public sealed class Psh1000StaticAnonymousFunctionCodeFixProvider : CodeFixProvi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>() is not { } function)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Make the anonymous function static",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, function)),
-                    equivalenceKey: nameof(Psh1000StaticAnonymousFunctionCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Make the anonymous function static", nameof(Psh1000StaticAnonymousFunctionCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>() is not { } function)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(function, Rewrite(function));
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Adds the <c>static</c> modifier to the reported anonymous function.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -61,6 +33,15 @@ public sealed class Psh1000StaticAnonymousFunctionCodeFixProvider : CodeFixProvi
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, AnonymousFunctionExpressionSyntax function)
         => document.WithSyntaxRoot(root.ReplaceNode(function, Rewrite(function)));
+
+    /// <summary>Resolves the reported anonymous function and builds its static replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>() is { } function
+            ? new NodeReplacement(function, Rewrite(function))
+            : null;
 
     /// <summary>Inserts a leading <c>static</c> modifier, keeping the function's leading trivia on it.</summary>
     /// <param name="function">The anonymous function to rewrite.</param>

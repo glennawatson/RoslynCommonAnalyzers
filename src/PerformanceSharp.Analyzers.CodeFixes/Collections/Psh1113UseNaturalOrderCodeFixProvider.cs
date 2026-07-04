@@ -22,41 +22,21 @@ public sealed class Psh1113UseNaturalOrderCodeFixProvider : CodeFixProvider, IBa
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetSortInvocation(root, diagnostic) is not { } invocation)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Sort naturally",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)))),
-                    equivalenceKey: nameof(Psh1113UseNaturalOrderCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Sort naturally", nameof(Psh1113UseNaturalOrderCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetSortInvocation(editor.OriginalRoot, diagnostic) is not { } invocation)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(invocation, Rewrite(invocation));
-    }
+    /// <summary>Resolves the reported identity sort and builds its natural-order replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => TryGetSortInvocation(root, diagnostic) is { } invocation
+            ? new NodeReplacement(invocation, Rewrite(invocation))
+            : null;
 
     /// <summary>Returns the reported sort invocation when the diagnostic location still covers one.</summary>
     /// <param name="root">The syntax root.</param>

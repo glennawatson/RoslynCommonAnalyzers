@@ -21,50 +21,21 @@ public sealed class Psh1308CompletedTaskCodeFixProvider : CodeFixProvider, IBatc
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetFromResultInvocation(root, diagnostic) is not { } invocation)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use Task.CompletedTask",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)))),
-                    equivalenceKey: nameof(Psh1308CompletedTaskCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use Task.CompletedTask", nameof(Psh1308CompletedTaskCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetFromResultInvocation(editor.OriginalRoot, diagnostic) is not { } invocation)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(invocation, Rewrite(invocation));
-    }
-
-    /// <summary>Returns the reported FromResult invocation when its shape still matches.</summary>
+    /// <summary>Resolves the reported FromResult invocation and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The invocation, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static InvocationExpressionSyntax? TryGetFromResultInvocation(SyntaxNode root, Diagnostic diagnostic)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
         => root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
             && Psh1308CompletedTaskAnalyzer.IsTaskFromResultShape(invocation)
-            ? invocation
+            ? new NodeReplacement(invocation, Rewrite(invocation))
             : null;
 
     /// <summary>Builds the <c>Task.CompletedTask</c> replacement, reusing the original receiver spelling.</summary>

@@ -28,42 +28,22 @@ public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider,
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetFixableField(root, diagnostic) is not { } field)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Freeze the lookup",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(field, Rewrite(root, model, field, cancellationToken)))),
-                    equivalenceKey: nameof(Psh1114FreezeStaticLookupsCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Freeze the lookup", nameof(Psh1114FreezeStaticLookupsCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetFixableField(editor.OriginalRoot, diagnostic) is not { } field)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(field, Rewrite(editor.OriginalRoot, editor.SemanticModel, field, CancellationToken.None));
-    }
+    /// <summary>Resolves the reported lookup field and builds its frozen replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model for the document.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+        => TryGetFixableField(root, diagnostic) is { } field
+            ? new NodeReplacement(field, Rewrite(root, model, field, CancellationToken.None))
+            : null;
 
     /// <summary>Returns the reported field when the declared type and initializer support the rewrite.</summary>
     /// <param name="root">The syntax root.</param>

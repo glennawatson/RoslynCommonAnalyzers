@@ -38,6 +38,7 @@ PSH1113 | Collections | Warning | Psh1113UseNaturalOrderAnalyzer
 PSH1114 | Collections | Disabled | Psh1114FreezeStaticLookupsAnalyzer
 PSH1115 | Collections | Warning | Psh1115SingleProbeInsertAnalyzer
 PSH1116 | Collections | Warning | Psh1116AlternateLookupAnalyzer
+PSH1117 | Collections | Warning | Psh1117UseIsEmptyAnalyzer
 PSH1200 | Strings | Warning | Psh1200AvoidCaseConversionComparisonAnalyzer
 PSH1201 | Strings | Warning | Psh1201UseCharOverloadAnalyzer
 PSH1202 | Strings | Warning | Psh1202StringBuilderAppendCharAnalyzer
@@ -50,6 +51,8 @@ PSH1208 | Strings | Warning | Psh1208Utf8LiteralAnalyzer
 PSH1209 | Strings | Warning | Psh1209StringCreateAnalyzer
 PSH1210 | Strings | Warning | Psh1210Utf8SequenceEqualAnalyzer
 PSH1211 | Strings | Warning | Psh1211RemoveIntermediateToStringAnalyzer
+PSH1212 | Strings | Warning | Psh1212AsSpanOverSubstringAnalyzer
+PSH1213 | Strings | Warning | Psh1213UseSearchValuesAnalyzer
 PSH1300 | Concurrency | Warning | Psh1300PreferLockTypeAnalyzer (moved from StyleSharp.Analyzers SST1900)
 PSH1301 | Concurrency | Warning | Psh1301AwaitSingleTaskDirectlyAnalyzer
 PSH1302 | Concurrency | Warning | Psh1302RunContinuationsAsynchronouslyAnalyzer

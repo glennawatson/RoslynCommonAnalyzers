@@ -29,43 +29,23 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider : Code
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null || !PairSupportsDeconstruct(model.Compilation))
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetFixableForEach(root, diagnostic) is not { } statement)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Enumerate the dictionary's key/value pairs",
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(statement, Rewrite(statement)))),
-                    equivalenceKey: nameof(Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the dictionary's key/value pairs", nameof(Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!PairSupportsDeconstruct(editor.SemanticModel.Compilation)
-            || TryGetFixableForEach(editor.OriginalRoot, diagnostic) is not { } statement)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(statement, Rewrite(statement));
-    }
+    /// <summary>Resolves the reported foreach and builds its deconstructing replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model for the document.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+        => PairSupportsDeconstruct(model.Compilation)
+            && TryGetFixableForEach(root, diagnostic) is { } statement
+            ? new NodeReplacement(statement, Rewrite(statement))
+            : null;
 
     /// <summary>Returns whether the compilation's key/value pair type exposes a Deconstruct method.</summary>
     /// <param name="compilation">The compilation to probe.</param>

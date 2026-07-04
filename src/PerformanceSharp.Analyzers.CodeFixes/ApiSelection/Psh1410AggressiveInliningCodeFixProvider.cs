@@ -58,7 +58,7 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider, 
         var leading = declaration.GetLeadingTrivia();
         var attributeList = ((MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration($"{text} void P();")!).AttributeLists[0]
             .WithLeadingTrivia(leading)
-            .WithTrailingTrivia(SyntaxFactory.EndOfLine("\n"), GetIndentation(leading));
+            .WithTrailingTrivia(LineEndingHelper.GetLineBreak(declaration), GetIndentation(leading));
 
         var replacement = declaration
             .WithLeadingTrivia(default(SyntaxTriviaList))

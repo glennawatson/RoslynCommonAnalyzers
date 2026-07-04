@@ -273,12 +273,13 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
 
         var baseType = SyntaxFactory.SimpleBaseType(SyntaxFactory.ParseTypeName($"{equatable}<{selfType}>"));
         var indentation = GetMemberIndentation(declaration);
+        var lineBreak = LineEndingHelper.GetLineBreak(declaration);
         return AddEquatableBase(declaration, baseType).AddMembers(
-            ParseMember($"public bool Equals({selfType} other) => {BuildEqualsExpression(members, comparer)};", indentation),
-            ParseMember($"public override bool Equals({objectParameterType} obj) => obj is {selfType} other && Equals(other);", indentation),
-            ParseMember($"public override int GetHashCode() => {BuildHashExpression(members, hashCode)};", indentation),
-            ParseMember($"public static bool operator ==({selfType} left, {selfType} right) => left.Equals(right);", indentation),
-            ParseMember($"public static bool operator !=({selfType} left, {selfType} right) => !left.Equals(right);", indentation));
+            ParseMember($"public bool Equals({selfType} other) => {BuildEqualsExpression(members, comparer)};", indentation, lineBreak),
+            ParseMember($"public override bool Equals({objectParameterType} obj) => obj is {selfType} other && Equals(other);", indentation, lineBreak),
+            ParseMember($"public override int GetHashCode() => {BuildHashExpression(members, hashCode)};", indentation, lineBreak),
+            ParseMember($"public static bool operator ==({selfType} left, {selfType} right) => left.Equals(right);", indentation, lineBreak),
+            ParseMember($"public static bool operator !=({selfType} left, {selfType} right) => !left.Equals(right);", indentation, lineBreak));
     }
 
     /// <summary>Returns the indentation for generated members: the struct's own indent plus one level.</summary>
@@ -324,11 +325,12 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
     /// <summary>Parses one generated member, placing it on its own line after a separating blank line.</summary>
     /// <param name="text">The member source text.</param>
     /// <param name="indentation">The member indentation whitespace.</param>
+    /// <param name="lineBreak">The file's line-break trivia.</param>
     /// <returns>The parsed member.</returns>
-    private static MemberDeclarationSyntax ParseMember(string text, string indentation)
+    private static MemberDeclarationSyntax ParseMember(string text, string indentation, SyntaxTrivia lineBreak)
         => SyntaxFactory.ParseMemberDeclaration(text)!
-            .WithLeadingTrivia(SyntaxFactory.EndOfLine("\n"), SyntaxFactory.Whitespace(indentation))
-            .WithTrailingTrivia(SyntaxFactory.EndOfLine("\n"));
+            .WithLeadingTrivia(lineBreak, SyntaxFactory.Whitespace(indentation))
+            .WithTrailingTrivia(lineBreak);
 
     /// <summary>Builds the strongly typed Equals body comparing every data member.</summary>
     /// <param name="members">The instance data members.</param>

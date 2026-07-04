@@ -101,6 +101,45 @@ public class ValueTypeEqualityCodeFixUnitTest
         await VerifyAsync(Source, FixedSource, "Psh1005ValueTypeEqualityCodeFixProvider.Equatable");
     }
 
+    /// <summary>Verifies the generated members use the file's own line endings on CRLF sources.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task EquatableActionKeepsCrlfLineEndingsAsync()
+    {
+        const string Source = """
+                              using System;
+                              using System.Collections.Generic;
+
+                              public struct {|PSH1005:Counter|}
+                              {
+                                  public int Count;
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+                                   using System.Collections.Generic;
+
+                                   public struct Counter : IEquatable<Counter>
+                                   {
+                                       public int Count;
+
+                                       public bool Equals(Counter other) => EqualityComparer<int>.Default.Equals(Count, other.Count);
+
+                                       public override bool Equals(object obj) => obj is Counter other && Equals(other);
+
+                                       public override int GetHashCode() => HashCode.Combine(Count);
+
+                                       public static bool operator ==(Counter left, Counter right) => left.Equals(right);
+
+                                       public static bool operator !=(Counter left, Counter right) => !left.Equals(right);
+                                   }
+                                   """;
+        await VerifyAsync(
+            Source.Replace("\n", "\r\n", StringComparison.Ordinal),
+            FixedSource.Replace("\n", "\r\n", StringComparison.Ordinal),
+            "Psh1005ValueTypeEqualityCodeFixProvider.Equatable");
+    }
+
     /// <summary>Verifies the combined action implements the interface and makes the struct readonly.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

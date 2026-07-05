@@ -15,7 +15,17 @@ SST1448 | Maintainability | Warning | Sst1448CallerInfoArgumentAnalyzer
 SST1449 | Maintainability | Warning | Sst1449NoConsoleOutputAnalyzer
 SST1451 | Maintainability | Warning | Sst1451DateTimeKindAnalyzer
 SST1452 | Maintainability | Warning | Sst1452UnusedTypeParameterAnalyzer
+SST1453 | Maintainability | Warning | Sst1453UnreachableCodeAnalyzer
+SST1454 | Maintainability | Warning | Sst1454CompositeFormatStringAnalyzer
+SST1455 | Maintainability | Warning | Sst1455UnnecessaryUnsafeModifierAnalyzer
+SST1456 | Maintainability | Warning | Sst1456ReadonlyMutableStructFieldAnalyzer
 SST2234 | ModernSyntax | Warning | Sst2234NullableShorthandAnalyzer
+SST2235 | ModernSyntax | Warning | Sst2235StaticLocalFunctionAnalyzer
+SST2236 | ModernSyntax | Warning | Sst2236UsingDeclarationAnalyzer
+SST2237 | ModernSyntax | Warning | Sst2237FileScopedNamespaceAnalyzer
+SST2238 | ModernSyntax | Warning | Sst2238NestedPropertyPatternAnalyzer
+SST2239 | ModernSyntax | Warning | Sst2239MethodGroupAnalyzer
+SST2240 | ModernSyntax | Warning | Sst2240ConditionalDelegateInvocationAnalyzer
 
 ### Removed Rules
 

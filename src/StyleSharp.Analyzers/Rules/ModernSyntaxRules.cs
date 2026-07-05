@@ -231,6 +231,48 @@ internal static class ModernSyntaxRules
         "Replace 'Nullable<{0}>' with '{0}?'",
         "The question-mark shorthand and the explicit Nullable<T> spelling are the same type; the shorthand is shorter and matches how nullable annotations read everywhere else.");
 
+    /// <summary>SST2235 — a capture-free local function can be declared <c>static</c>.</summary>
+    public static readonly DiagnosticDescriptor MakeLocalFunctionStatic = Create(
+        "SST2235",
+        "Make local functions static when they do not capture",
+        "Make local function '{0}' static",
+        "A local function that does not capture locals, parameters, or instance state is declared static so later edits cannot accidentally introduce a capture.");
+
+    /// <summary>SST2236 — a tail-position <c>using</c> block can use a C# 8 using declaration.</summary>
+    public static readonly DiagnosticDescriptor UseUsingDeclaration = Create(
+        "SST2236",
+        "Use a simple using declaration",
+        "Rewrite this tail-position using block as a using declaration",
+        "A using block that is already the last statement in its containing block can use a using declaration without extending the disposal lifetime.");
+
+    /// <summary>SST2237 — a single block-scoped namespace can use file-scoped namespace syntax.</summary>
+    public static readonly DiagnosticDescriptor UseFileScopedNamespace = Create(
+        "SST2237",
+        "Use file-scoped namespace syntax",
+        "Rewrite namespace '{0}' as a file-scoped namespace",
+        "A file with one block-scoped namespace and no sibling declarations can use file-scoped namespace syntax to remove one indentation level.");
+
+    /// <summary>SST2238 — nested property patterns can be flattened with extended property-pattern syntax.</summary>
+    public static readonly DiagnosticDescriptor SimplifyNestedPropertyPattern = Create(
+        "SST2238",
+        "Simplify nested property patterns",
+        "Flatten this nested property pattern",
+        "A nested property pattern such as '{ P: { Q: value } }' can be written as '{ P.Q: value }' when C# 10 syntax is available.");
+
+    /// <summary>SST2239 — an unambiguous lambda that forwards all arguments to a method can be a method group.</summary>
+    public static readonly DiagnosticDescriptor UseMethodGroup = Create(
+        "SST2239",
+        "Use a method group",
+        "Replace this forwarding lambda with a method group",
+        "A lambda that only passes its parameters through to one unambiguous method can be written as a method group.");
+
+    /// <summary>SST2240 — a delegate null check followed by invocation can use conditional invocation.</summary>
+    public static readonly DiagnosticDescriptor UseConditionalDelegateInvocation = Create(
+        "SST2240",
+        "Use conditional delegate invocation",
+        "Use conditional invocation for this delegate call",
+        "A delegate checked for null and then invoked can use '?.Invoke(...)', which evaluates the delegate target once.");
+
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

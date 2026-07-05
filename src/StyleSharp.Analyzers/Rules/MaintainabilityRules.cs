@@ -182,7 +182,7 @@ internal static class MaintainabilityRules
         "SST1424",
         "Fields that are never reassigned should be readonly",
         "Make field '{0}' readonly",
-        "A private instance field assigned only by its initializer or constructors is declared readonly. Off by default to avoid overlap with the rule.");
+        "A private instance field assigned only by its initializer or constructors is declared readonly. Off by default because readonly conversion can be a source-compatibility decision.");
 
     /// <summary>SST1425 — a class/struct primary-constructor parameter is reassigned after capture.</summary>
     public static readonly DiagnosticDescriptor NoReassignedPrimaryConstructorParameter = Create(
@@ -365,6 +365,34 @@ internal static class MaintainabilityRules
         "Remove unused type parameters",
         "The type parameter '{0}' is never used; remove it",
         "A type parameter nothing references forces every caller to supply a meaningless type argument and usually marks a refactoring leftover.");
+
+    /// <summary>SST1453 - code appears after a statement that unconditionally leaves the block.</summary>
+    public static readonly DiagnosticDescriptor NoUnreachableCode = Create(
+        "SST1453",
+        "Unreachable code should be removed",
+        "Remove this unreachable statement",
+        "Statements after an unconditional return, throw, break, or continue in the same block never execute and should be removed.");
+
+    /// <summary>SST1454 - a composite format string contains a placeholder that cannot be satisfied.</summary>
+    public static readonly DiagnosticDescriptor ValidCompositeFormatString = Create(
+        "SST1454",
+        "Composite format strings should match their arguments",
+        "Fix this composite format string; one of its placeholders cannot be satisfied",
+        "A composite format string is checked against the supplied arguments so invalid or out-of-range placeholders are caught at compile time.");
+
+    /// <summary>SST1455 - an unsafe modifier is present where the declaration contains no unsafe construct.</summary>
+    public static readonly DiagnosticDescriptor NoUnnecessaryUnsafeModifier = Create(
+        "SST1455",
+        "Remove unnecessary unsafe modifiers",
+        "Remove the unnecessary 'unsafe' modifier",
+        "An unsafe modifier is used only where the declaration actually contains pointer, function-pointer, fixed, or sizeof syntax that requires unsafe context.");
+
+    /// <summary>SST1456 - a readonly field stores a mutable source-defined struct.</summary>
+    public static readonly DiagnosticDescriptor NoReadonlyMutableStructField = Create(
+        "SST1456",
+        "Mutable struct fields should not be readonly",
+        "Remove 'readonly' from field '{0}', or make the struct readonly",
+        "A readonly field of a mutable struct still allows defensive-copy surprises on member access. Make the struct immutable or keep the field writable so the mutability is explicit.");
 
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

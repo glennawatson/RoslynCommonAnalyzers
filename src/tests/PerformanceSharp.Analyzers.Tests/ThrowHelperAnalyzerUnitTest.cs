@@ -291,6 +291,27 @@ public class ThrowHelperAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a null guard on a System.Threading.Lock is left alone — ThrowIfNull would not compile (CS9216).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NullGuardOnLockIsCleanAsync()
+        => await VerifyAsync(
+            """
+            using System;
+            using System.Threading;
+
+            public class C
+            {
+                public void M(Lock gate)
+                {
+                    if (gate is null)
+                    {
+                        throw new ArgumentNullException(nameof(gate));
+                    }
+                }
+            }
+            """);
+
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
     /// <param name="fixedSource">The expected fixed source, when a fix should apply.</param>

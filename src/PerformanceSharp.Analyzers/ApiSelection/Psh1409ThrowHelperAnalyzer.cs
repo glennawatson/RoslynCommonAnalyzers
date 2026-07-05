@@ -523,11 +523,23 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
 
         return shape.Kind switch
         {
-            GuardKind.NullCheck => model.GetTypeInfo(shape.Value, context.CancellationToken).Type is { IsReferenceType: true },
+            GuardKind.NullCheck => model.GetTypeInfo(shape.Value, context.CancellationToken).Type is { IsReferenceType: true } valueType
+                && !IsSystemThreadingLock(model.Compilation, valueType),
             GuardKind.Comparison => IsNumericType(model.GetTypeInfo(shape.Value, context.CancellationToken).Type),
             _ => true,
         };
     }
+
+    /// <summary>Returns whether a type is <c>System.Threading.Lock</c>.</summary>
+    /// <param name="compilation">The compilation, used to resolve the well-known type.</param>
+    /// <param name="type">The checked value's type.</param>
+    /// <returns>
+    /// <see langword="true"/> for <c>System.Threading.Lock</c>. Suggesting <c>ArgumentNullException.ThrowIfNull</c>
+    /// there is wrong: the helper's <c>object?</c> parameter forces a conversion the compiler rejects with CS9216
+    /// (a <c>Lock</c> widened to <c>object</c> would silently fall back to monitor-based locking).
+    /// </returns>
+    private static bool IsSystemThreadingLock(Compilation compilation, ITypeSymbol type)
+        => SymbolEqualityComparer.Default.Equals(type, compilation.GetTypeByMetadataName("System.Threading.Lock"));
 
     /// <summary>Returns whether a type is one of the built-in numeric types the helpers accept.</summary>
     /// <param name="type">The checked value's type.</param>

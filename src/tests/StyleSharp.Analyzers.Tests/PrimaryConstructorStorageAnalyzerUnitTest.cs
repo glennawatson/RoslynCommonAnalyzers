@@ -135,6 +135,47 @@ public class PrimaryConstructorStorageAnalyzerUnitTest
         await VerifyCodeFixAsync(Source, Fixed);
     }
 
+    /// <summary>Verifies Fix All converts nested storage-only types in one document.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task FixAllConvertsNestedStorageOnlyTypesAsync()
+    {
+        const string Source = """
+            public sealed class Outer
+            {
+                private readonly int _value;
+
+                public {|SST2241:Outer|}(int value)
+                {
+                    _value = value;
+                }
+
+                private sealed class Inner
+                {
+                    private readonly string _name;
+
+                    public {|SST2241:Inner|}(string name)
+                    {
+                        _name = name;
+                    }
+                }
+            }
+            """;
+        const string Fixed = """
+            public sealed class Outer(int value)
+            {
+                private readonly int _value = value;
+
+                private sealed class Inner(string name)
+                {
+                    private readonly string _name = name;
+                }
+            }
+            """;
+
+        await VerifyCodeFixAsync(Source, Fixed);
+    }
+
     /// <summary>Verifies constructors with extra work are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

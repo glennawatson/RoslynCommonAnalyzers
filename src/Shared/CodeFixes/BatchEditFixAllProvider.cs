@@ -80,12 +80,39 @@ internal sealed class BatchEditFixAllProvider : DocumentBasedFixAllProvider
         }
 
         var editor = await DocumentEditor.CreateAsync(document, fixAllContext.CancellationToken).ConfigureAwait(false);
-        foreach (var diagnostic in UniqueDiagnostics(editor.OriginalRoot, fix, diagnostics))
+        var orderedDiagnostics = GetOrderedDiagnostics(editor.OriginalRoot, fix, diagnostics);
+        for (var i = 0; i < orderedDiagnostics.Count; i++)
         {
-            RegisterBatchEdit(editor, fix, diagnostic);
+            RegisterBatchEdit(editor, fix, orderedDiagnostics[i]);
         }
 
         return editor.GetChangedDocument();
+    }
+
+    /// <summary>Returns unique diagnostics in an order that lets nested edits compose before parent replacements.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="fix">The batch fix.</param>
+    /// <param name="diagnostics">The diagnostics to order.</param>
+    /// <returns>The ordered diagnostics.</returns>
+    private static List<Diagnostic> GetOrderedDiagnostics(SyntaxNode root, IBatchFixableCodeFix fix, ImmutableArray<Diagnostic> diagnostics)
+    {
+        var ordered = new List<Diagnostic>(UniqueDiagnostics(root, fix, diagnostics));
+        ordered.Sort(CompareDiagnosticsForBatchEdit);
+        return ordered;
+    }
+
+    /// <summary>Orders diagnostics from innermost/later spans to outer spans for SyntaxEditor composition.</summary>
+    /// <param name="left">The first diagnostic.</param>
+    /// <param name="right">The second diagnostic.</param>
+    /// <returns>The comparison result.</returns>
+    private static int CompareDiagnosticsForBatchEdit(Diagnostic left, Diagnostic right)
+    {
+        var leftSpan = left.Location.SourceSpan;
+        var rightSpan = right.Location.SourceSpan;
+        var startComparison = rightSpan.Start.CompareTo(leftSpan.Start);
+        return startComparison != 0
+            ? startComparison
+            : leftSpan.Length.CompareTo(rightSpan.Length);
     }
 
     /// <summary>Returns whether an exception represents a duplicate syntax edit target already consumed by <see cref="SyntaxEditor"/>.</summary>

@@ -164,6 +164,27 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
         await VerifyNet90Async(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All rewrites nested capture-free anonymous functions in one pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesNestedAnonymousFunctionsAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public System.Func<System.Func<int>> M() => {|PSH1000:()|} => {|PSH1000:()|} => 1;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public System.Func<System.Func<int>> M() => static () => static () => 1;
+                                   }
+                                   """;
+
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
     /// <summary>Verifies a lambda capturing a local variable is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

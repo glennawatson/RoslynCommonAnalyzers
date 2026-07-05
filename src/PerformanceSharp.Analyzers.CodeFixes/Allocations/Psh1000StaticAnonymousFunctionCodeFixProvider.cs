@@ -40,8 +40,14 @@ public sealed class Psh1000StaticAnonymousFunctionCodeFixProvider : CodeFixProvi
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
         => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>() is { } function
-            ? new NodeReplacement(function, Rewrite(function))
+            ? new NodeReplacement(function, Rewrite(function), RewriteCurrent)
             : null;
+
+    /// <summary>Rewrites the current anonymous function during batch FixAll composition.</summary>
+    /// <param name="current">The current anonymous function node.</param>
+    /// <returns>The rewritten anonymous function.</returns>
+    private static AnonymousFunctionExpressionSyntax RewriteCurrent(SyntaxNode current)
+        => Rewrite((AnonymousFunctionExpressionSyntax)current);
 
     /// <summary>Inserts a leading <c>static</c> modifier, keeping the function's leading trivia on it.</summary>
     /// <param name="function">The anonymous function to rewrite.</param>

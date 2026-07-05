@@ -104,6 +104,12 @@ internal static class ReplaceNodeCodeFix
             return;
         }
 
+        if (edit.RewriteCurrent is { } rewriteCurrent)
+        {
+            editor.ReplaceNode(edit.Original, (current, _) => rewriteCurrent(current));
+            return;
+        }
+
         editor.ReplaceNode(edit.Original, edit.Replacement);
     }
 
@@ -115,6 +121,12 @@ internal static class ReplaceNodeCodeFix
     {
         if (tryRewrite(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } edit)
         {
+            return;
+        }
+
+        if (edit.RewriteCurrent is { } rewriteCurrent)
+        {
+            editor.ReplaceNode(edit.Original, (current, _) => rewriteCurrent(current));
             return;
         }
 

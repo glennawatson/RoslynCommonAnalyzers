@@ -51,14 +51,22 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        if (!TryCreateReplacement(editor.OriginalRoot, diagnostic, out var type, out var replacement)
+        if (!TryFindConstructor(editor.OriginalRoot, diagnostic, out var type, out var constructor)
             || type is null
-            || replacement is null)
+            || constructor is null
+            || !TryCreateReplacement(type, constructor, out _))
         {
             return;
         }
 
-        editor.ReplaceNode(type, replacement);
+        editor.ReplaceNode(type, (current, _) =>
+        {
+            var currentType = (TypeDeclarationSyntax)current;
+            return TryFindConstructor(currentType, constructor.Identifier.ValueText, out var currentConstructor)
+                && TryCreateReplacement(currentType, currentConstructor!, out var currentReplacement)
+                ? currentReplacement!
+                : current;
+        });
     }
 
     /// <summary>Applies the primary-constructor storage rewrite.</summary>
@@ -92,9 +100,30 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     {
         type = null;
         replacement = null;
-        var constructor = root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<ConstructorDeclarationSyntax>();
-        if (constructor?.Parent is not TypeDeclarationSyntax containingType
-            || constructor.Body is not { } body
+        if (!TryFindConstructor(root, diagnostic, out var containingType, out var constructor)
+            || containingType is null
+            || constructor is null
+            || !TryCreateReplacement(containingType, constructor, out replacement))
+        {
+            return false;
+        }
+
+        type = containingType;
+        return true;
+    }
+
+    /// <summary>Creates a replacement for the specified type and constructor.</summary>
+    /// <param name="containingType">The type containing the constructor.</param>
+    /// <param name="constructor">The constructor to move.</param>
+    /// <param name="replacement">The replacement type.</param>
+    /// <returns><see langword="true"/> when the replacement was built.</returns>
+    private static bool TryCreateReplacement(
+        TypeDeclarationSyntax containingType,
+        ConstructorDeclarationSyntax constructor,
+        out TypeDeclarationSyntax? replacement)
+    {
+        replacement = null;
+        if (constructor.Body is not { } body
             || !TryCollectAssignments(body, out var assignments)
             || !TryRewriteMembers(containingType, constructor, assignments, out var members)
             || !TryGetBaseList(containingType, constructor.Initializer, out var baseList))
@@ -102,7 +131,6 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             return false;
         }
 
-        type = containingType;
         replacement = WithParameterList(
                 containingType.WithIdentifier(containingType.Identifier.WithTrailingTrivia(default(SyntaxTriviaList))),
                 constructor.ParameterList.WithoutTrivia().WithTrailingTrivia(containingType.Identifier.TrailingTrivia))
@@ -110,6 +138,48 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             .WithMembers(members)
             .WithLeadingTrivia(MoveParameterDocsToType(containingType, constructor));
         return true;
+    }
+
+    /// <summary>Finds the constructor reported by an SST2241 diagnostic.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="type">The containing type.</param>
+    /// <param name="constructor">The constructor declaration.</param>
+    /// <returns><see langword="true"/> when the constructor was found.</returns>
+    private static bool TryFindConstructor(
+        SyntaxNode root,
+        Diagnostic diagnostic,
+        out TypeDeclarationSyntax? type,
+        out ConstructorDeclarationSyntax? constructor)
+    {
+        constructor = root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<ConstructorDeclarationSyntax>();
+        type = constructor?.Parent as TypeDeclarationSyntax;
+        return type is not null && constructor is not null;
+    }
+
+    /// <summary>Finds the matching constructor in a current replacement type node.</summary>
+    /// <param name="type">The current type declaration.</param>
+    /// <param name="constructorName">The constructor name.</param>
+    /// <param name="constructor">The matching constructor.</param>
+    /// <returns><see langword="true"/> when the constructor was found.</returns>
+    private static bool TryFindConstructor(
+        TypeDeclarationSyntax type,
+        string constructorName,
+        out ConstructorDeclarationSyntax? constructor)
+    {
+        var members = type.Members;
+        for (var i = 0; i < members.Count; i++)
+        {
+            if (members[i] is ConstructorDeclarationSyntax candidate
+                && string.Equals(candidate.Identifier.ValueText, constructorName, StringComparison.Ordinal))
+            {
+                constructor = candidate;
+                return true;
+            }
+        }
+
+        constructor = null;
+        return false;
     }
 
     /// <summary>Copies a constructor parameter list onto a type declaration.</summary>

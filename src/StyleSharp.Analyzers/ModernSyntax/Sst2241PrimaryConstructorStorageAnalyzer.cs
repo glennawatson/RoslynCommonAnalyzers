@@ -5,10 +5,12 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Finds class and struct constructors whose body only copies constructor parameters into
+/// Implements SST2241 by finding class and struct constructors whose body only copies constructor parameters into
 /// instance fields or properties. The analyzer binds only assignment pairs after a strict syntax
 /// prefilter, and it requires every parameter to be stored exactly once so the suggestion stays a
-/// straightforward primary-constructor migration.
+/// straightforward primary-constructor migration. It also requires the constructor to be the only
+/// explicitly declared instance constructor because primary-constructor storage changes the type's
+/// construction contract when sibling constructors do not already chain through that shape.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyzer
@@ -33,6 +35,11 @@ public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyze
     {
         var constructor = (ConstructorDeclarationSyntax)context.Node;
         if (!TryGetCandidate(constructor, out var body))
+        {
+            return;
+        }
+
+        if (!HasSingleDeclaredInstanceConstructor(constructor, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -72,6 +79,40 @@ public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyze
 
         body = constructorBody;
         return true;
+    }
+
+    /// <summary>Returns whether the containing type has exactly one explicit instance constructor.</summary>
+    /// <param name="constructor">The constructor declaration being analyzed.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when promoting this constructor cannot invalidate sibling constructor entry points.</returns>
+    private static bool HasSingleDeclaredInstanceConstructor(
+        ConstructorDeclarationSyntax constructor,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        if (model.GetDeclaredSymbol(constructor, cancellationToken) is not IMethodSymbol { ContainingType: { } type })
+        {
+            return false;
+        }
+
+        var explicitConstructorCount = 0;
+        var constructors = type.InstanceConstructors;
+        for (var i = 0; i < constructors.Length; i++)
+        {
+            if (constructors[i].IsImplicitlyDeclared)
+            {
+                continue;
+            }
+
+            explicitConstructorCount++;
+            if (explicitConstructorCount > 1)
+            {
+                return false;
+            }
+        }
+
+        return explicitConstructorCount == 1;
     }
 
     /// <summary>Returns whether each constructor parameter is copied into instance storage once.</summary>

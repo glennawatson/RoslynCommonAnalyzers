@@ -60,4 +60,36 @@ public class PrimaryConstructorStorageAnalyzerUnitTest
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies a storage-only constructor is clean when the type has another constructor.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task StorageOnlyConstructorOnMultiConstructorTypeIsCleanAsync()
+    {
+        var test = new VerifyPrimaryConstructorStorage.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = """
+                       #nullable enable
+
+                       public sealed class Bag
+                       {
+                           private readonly object? _a;
+                           private readonly object? _b;
+
+                           public Bag()
+                           {
+                           }
+
+                           public Bag(object a, object b)
+                           {
+                               _a = a;
+                               _b = b;
+                           }
+                       }
+                       """,
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
 }

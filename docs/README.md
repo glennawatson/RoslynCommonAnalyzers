@@ -446,32 +446,33 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST1148](rules/SST1148.md) | A regular comment appears to contain C# code. Opt-in. |
 | [SST1149](rules/SST1149.md) | A null check uses `== null` or `!= null` instead of `is null` or `is not null`. |
 
-The unique-line list family was renumbered to `SST1150`-`SST1171`. The detailed docs pages still live under the earlier `SST0001`-`SST0022` filenames, so the links below point to those existing pages.
+The unique-line list family uses `SST1150`-`SST1171`. Older `SST0001`-`SST0022`
+pages are retained only as historical aliases.
 
 | Rule | Description |
 | --- | --- |
-| [SST1150](rules/SST0001.md) | Require each constructor parameter on a unique line. |
-| [SST1151](rules/SST0002.md) | Require each method parameter on a unique line. |
-| [SST1152](rules/SST0003.md) | Require each delegate parameter on a unique line. |
-| [SST1153](rules/SST0004.md) | Require each indexer parameter on a unique line. |
-| [SST1154](rules/SST0005.md) | Require each invocation argument on a unique line. |
-| [SST1155](rules/SST0006.md) | Require each object creation argument on a unique line. |
-| [SST1156](rules/SST0007.md) | Require each element access argument on a unique line. |
-| [SST1157](rules/SST0008.md) | Require each attribute argument on a unique line. |
-| [SST1158](rules/SST0009.md) | Require each anonymous method parameter on a unique line. |
-| [SST1159](rules/SST0010.md) | Require each parenthesized lambda parameter on a unique line. |
-| [SST1160](rules/SST0011.md) | Require each record primary-constructor parameter on a unique line. |
-| [SST1161](rules/SST0012.md) | Require each class primary-constructor parameter on a unique line. |
-| [SST1162](rules/SST0013.md) | Require each struct primary-constructor parameter on a unique line. |
-| [SST1163](rules/SST0014.md) | Require each target-typed object creation argument on a unique line. |
-| [SST1164](rules/SST0015.md) | Require each constructor initializer argument on a unique line. |
-| [SST1165](rules/SST0016.md) | Require each primary-constructor base argument on a unique line. |
-| [SST1166](rules/SST0017.md) | Require each local-function parameter on a unique line. |
-| [SST1167](rules/SST0018.md) | Require each operator parameter on a unique line. |
-| [SST1168](rules/SST0019.md) | Require each conversion-operator parameter on a unique line. |
-| [SST1169](rules/SST0020.md) | Require each type parameter on a unique line. |
-| [SST1170](rules/SST0021.md) | Require each type argument on a unique line. |
-| [SST1171](rules/SST0022.md) | Require each function-pointer parameter on a unique line. |
+| [SST1150](rules/SST1150.md) | Require each constructor parameter on a unique line. |
+| [SST1151](rules/SST1151.md) | Require each method parameter on a unique line. |
+| [SST1152](rules/SST1152.md) | Require each delegate parameter on a unique line. |
+| [SST1153](rules/SST1153.md) | Require each indexer parameter on a unique line. |
+| [SST1154](rules/SST1154.md) | Require each invocation argument on a unique line. |
+| [SST1155](rules/SST1155.md) | Require each object creation argument on a unique line. |
+| [SST1156](rules/SST1156.md) | Require each element access argument on a unique line. |
+| [SST1157](rules/SST1157.md) | Require each attribute argument on a unique line. |
+| [SST1158](rules/SST1158.md) | Require each anonymous method parameter on a unique line. |
+| [SST1159](rules/SST1159.md) | Require each parenthesized lambda parameter on a unique line. |
+| [SST1160](rules/SST1160.md) | Require each record primary-constructor parameter on a unique line. |
+| [SST1161](rules/SST1161.md) | Require each class primary-constructor parameter on a unique line. |
+| [SST1162](rules/SST1162.md) | Require each struct primary-constructor parameter on a unique line. |
+| [SST1163](rules/SST1163.md) | Require each target-typed object creation argument on a unique line. |
+| [SST1164](rules/SST1164.md) | Require each constructor initializer argument on a unique line. |
+| [SST1165](rules/SST1165.md) | Require each primary-constructor base argument on a unique line. |
+| [SST1166](rules/SST1166.md) | Require each local-function parameter on a unique line. |
+| [SST1167](rules/SST1167.md) | Require each operator parameter on a unique line. |
+| [SST1168](rules/SST1168.md) | Require each conversion-operator parameter on a unique line. |
+| [SST1169](rules/SST1169.md) | Require each type parameter on a unique line. |
+| [SST1170](rules/SST1170.md) | Require each type argument on a unique line. |
+| [SST1171](rules/SST1171.md) | Require each function-pointer parameter on a unique line. |
 | [SST1172](rules/SST1172.md) | A comparison is negated with `!` instead of using the opposite operator. |
 | [SST1173](rules/SST1173.md) | An anonymous-type member restates a name that would be inferred. |
 | [SST1174](rules/SST1174.md) | A `return;` at the tail of a void member, or a `continue;` at the tail of a loop, has no effect. |

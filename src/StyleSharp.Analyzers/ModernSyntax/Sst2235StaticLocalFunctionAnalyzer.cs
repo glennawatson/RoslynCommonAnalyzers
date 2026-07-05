@@ -64,6 +64,8 @@ public sealed class Sst2235StaticLocalFunctionAnalyzer : DiagnosticAnalyzer
                 case ThisExpressionSyntax:
                 case BaseExpressionSyntax:
                     return false;
+                case IdentifierNameSyntax identifier when IsCaptureFreeSyntax(identifier, localFunction):
+                    break;
                 case IdentifierNameSyntax identifier when IsCapturedReference(identifier, localFunction, model, cancellationToken):
                     return false;
             }
@@ -71,6 +73,47 @@ public sealed class Sst2235StaticLocalFunctionAnalyzer : DiagnosticAnalyzer
 
         return true;
     }
+
+    /// <summary>Returns whether an identifier can be classified without binding.</summary>
+    /// <param name="identifier">The identifier.</param>
+    /// <param name="localFunction">The local function.</param>
+    /// <returns><see langword="true"/> when the identifier is syntax-only safe for static local functions.</returns>
+    private static bool IsCaptureFreeSyntax(IdentifierNameSyntax identifier, LocalFunctionStatementSyntax localFunction)
+    {
+        if (IsMemberName(identifier))
+        {
+            return true;
+        }
+
+        var name = identifier.Identifier.ValueText;
+        if (name == localFunction.Identifier.ValueText)
+        {
+            return true;
+        }
+
+        var parameters = localFunction.ParameterList.Parameters;
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            if (name == parameters[i].Identifier.ValueText)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether an identifier is the selected member name rather than the capturing receiver.</summary>
+    /// <param name="identifier">The identifier.</param>
+    /// <returns><see langword="true"/> when capture analysis belongs to the receiver expression.</returns>
+    private static bool IsMemberName(IdentifierNameSyntax identifier)
+        => identifier.Parent switch
+        {
+            MemberAccessExpressionSyntax memberAccess => memberAccess.Name == identifier,
+            MemberBindingExpressionSyntax memberBinding => memberBinding.Name == identifier,
+            QualifiedNameSyntax qualifiedName => qualifiedName.Right == identifier,
+            _ => false
+        };
 
     /// <summary>Returns whether an identifier would be illegal inside a static local function.</summary>
     /// <param name="identifier">The identifier.</param>

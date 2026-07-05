@@ -44,6 +44,38 @@ public class StaticLocalFunctionAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a recursive capture-free local function is reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RecursiveCaptureFreeLocalFunctionIsReportedAsync()
+        => await RunAsync(
+            """
+            public sealed class C
+            {
+                public int M(int value)
+                {
+                    int {|SST2235:Factorial|}(int input) => input <= 1 ? 1 : input * Factorial(input - 1);
+                    return Factorial(value);
+                }
+            }
+            """);
+
+    /// <summary>Verifies member-access names do not hide a capturing receiver.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task CapturingReceiverIsCleanAsync()
+        => await RunAsync(
+            """
+            public sealed class C
+            {
+                public int M(int value)
+                {
+                    int Format(int input) => value.ToString().Length + input;
+                    return Format(1);
+                }
+            }
+            """);
+
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>
     /// <returns>A task representing the asynchronous operation.</returns>

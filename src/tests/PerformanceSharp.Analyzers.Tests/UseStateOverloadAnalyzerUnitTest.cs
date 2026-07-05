@@ -76,6 +76,32 @@ public class UseStateOverloadAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a recursive scheduler callback is clean when no recursive state overload exists.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RecursiveSchedulerWithoutRecursiveStateOverloadIsCleanAsync()
+        => await VerifyAsync(
+            """
+            using System;
+
+            public interface IScheduler
+            {
+                IDisposable Schedule(Action<Action> work);
+
+                IDisposable Schedule<TState>(TState state, Action<TState> work);
+            }
+
+            public static class Loop
+            {
+                public static IDisposable Run(IScheduler scheduler, IObserver<int> observer, int value)
+                    => scheduler.Schedule(self =>
+                    {
+                        observer.OnNext(value);
+                        self();
+                    });
+            }
+            """);
+
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

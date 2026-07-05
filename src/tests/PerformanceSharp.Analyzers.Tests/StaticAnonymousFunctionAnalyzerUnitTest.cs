@@ -138,6 +138,32 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
         await VerifyNet90Async(Source, FixedSource);
     }
 
+    /// <summary>Verifies Fix All handles multiple simple predicate lambdas in one document.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FixAllRewritesEverySimplePredicateAsync()
+    {
+        const string Source = """
+                              using System.Linq;
+
+                              public class C
+                              {
+                                  public int M(int[] values)
+                                      => values.Count({|PSH1000:x|} => x > 100) + values.Count({|PSH1000:x|} => x < 0);
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Linq;
+
+                                   public class C
+                                   {
+                                       public int M(int[] values)
+                                           => values.Count(static x => x > 100) + values.Count(static x => x < 0);
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
     /// <summary>Verifies a lambda capturing a local variable is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -36,8 +36,7 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeLambda(SyntaxNodeAnalysisContext context)
     {
         var lambda = (AnonymousFunctionExpressionSyntax)context.Node;
-        if (lambda.Modifiers.Any(SyntaxKind.StaticKeyword)
-            || lambda.Parent is not ArgumentSyntax { NameColon: null, Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax outer } argumentList } argument)
+        if (!TryGetInvocationArgument(lambda, out var outer, out var argumentList, out var argument))
         {
             return;
         }
@@ -51,8 +50,9 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
         var method = bound.ReducedFrom ?? bound;
         var index = argumentList.Arguments.IndexOf(argument) + (bound.ReducedFrom is null ? 0 : 1);
         if (index >= method.Parameters.Length
-            || GetDelegateArity(method.Parameters[index].Type) is not { } arity
-            || !HasStateOverload(method, arity))
+            || method.Parameters[index].Type is not { } callbackType
+            || GetDelegateInvoke(callbackType) is not { } callbackInvoke
+            || !HasStateOverload(method, callbackInvoke))
         {
             return;
         }
@@ -69,19 +69,46 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
             method.Name));
     }
 
-    /// <summary>Returns the parameter count of a delegate type's Invoke method.</summary>
+    /// <summary>Returns the invocation and argument carrying a non-static, positional anonymous function.</summary>
+    /// <param name="lambda">The anonymous function being analyzed.</param>
+    /// <param name="outer">The containing invocation.</param>
+    /// <param name="argumentList">The containing argument list.</param>
+    /// <param name="argument">The argument that contains the anonymous function.</param>
+    /// <returns><see langword="true"/> when the lambda sits in a positional invocation argument.</returns>
+    private static bool TryGetInvocationArgument(
+        AnonymousFunctionExpressionSyntax lambda,
+        [NotNullWhen(true)] out InvocationExpressionSyntax? outer,
+        [NotNullWhen(true)] out ArgumentListSyntax? argumentList,
+        [NotNullWhen(true)] out ArgumentSyntax? argument)
+    {
+        outer = null;
+        argumentList = null;
+        argument = null;
+        if (lambda.Modifiers.Any(SyntaxKind.StaticKeyword)
+            || lambda.Parent is not ArgumentSyntax { NameColon: null, Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax invocation } arguments } lambdaArgument)
+        {
+            return false;
+        }
+
+        outer = invocation;
+        argumentList = arguments;
+        argument = lambdaArgument;
+        return true;
+    }
+
+    /// <summary>Returns a delegate type's Invoke method.</summary>
     /// <param name="type">The candidate delegate type.</param>
-    /// <returns>The arity, or <see langword="null"/> for non-delegates.</returns>
-    private static int? GetDelegateArity(ITypeSymbol type)
+    /// <returns>The Invoke method, or <see langword="null"/> for non-delegates.</returns>
+    private static IMethodSymbol? GetDelegateInvoke(ITypeSymbol type)
         => type is INamedTypeSymbol { TypeKind: TypeKind.Delegate, DelegateInvokeMethod: { } invoke }
-            ? invoke.Parameters.Length
+            ? invoke
             : null;
 
     /// <summary>Scans the method group for a same-name overload adding a state parameter.</summary>
     /// <param name="method">The bound method, unreduced.</param>
-    /// <param name="callbackArity">The current callback delegate's arity.</param>
+    /// <param name="callbackInvoke">The current callback delegate's Invoke method.</param>
     /// <returns><see langword="true"/> when a state-taking twin exists.</returns>
-    private static bool HasStateOverload(IMethodSymbol method, int callbackArity)
+    private static bool HasStateOverload(IMethodSymbol method, IMethodSymbol callbackInvoke)
     {
         foreach (var member in method.ContainingType.GetMembers(method.Name))
         {
@@ -89,7 +116,7 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
                 && !SymbolEqualityComparer.Default.Equals(sibling.OriginalDefinition, method.OriginalDefinition)
                 && sibling.IsStatic == method.IsStatic
                 && sibling.Parameters.Length == method.Parameters.Length + 1
-                && HasStateShape(sibling, callbackArity))
+                && HasStateShape(sibling, callbackInvoke))
             {
                 return true;
             }
@@ -100,9 +127,9 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether an overload carries a state parameter and a callback that can receive it.</summary>
     /// <param name="sibling">The candidate overload.</param>
-    /// <param name="callbackArity">The current callback delegate's arity.</param>
+    /// <param name="callbackInvoke">The current callback delegate's Invoke method.</param>
     /// <returns><see langword="true"/> when the overload has the callback-and-state shape.</returns>
-    private static bool HasStateShape(IMethodSymbol sibling, int callbackArity)
+    private static bool HasStateShape(IMethodSymbol sibling, IMethodSymbol callbackInvoke)
     {
         var hasState = false;
         var hasCallback = false;
@@ -113,13 +140,42 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
             {
                 hasState = true;
             }
-            else if (GetDelegateArity(parameter.Type) is { } arity && (arity == callbackArity || arity == callbackArity + 1))
+            else if (GetDelegateInvoke(parameter.Type) is { } siblingInvoke && IsStateCallbackShape(siblingInvoke, callbackInvoke))
             {
                 hasCallback = true;
             }
         }
 
         return hasState && hasCallback;
+    }
+
+    /// <summary>Returns whether a candidate callback can carry state without dropping existing callback inputs.</summary>
+    /// <param name="siblingInvoke">The candidate callback delegate's Invoke method.</param>
+    /// <param name="callbackInvoke">The original callback delegate's Invoke method.</param>
+    /// <returns><see langword="true"/> when the candidate preserves the original callback shape and can receive state.</returns>
+    private static bool IsStateCallbackShape(IMethodSymbol siblingInvoke, IMethodSymbol callbackInvoke)
+    {
+        var siblingParameters = siblingInvoke.Parameters;
+        var callbackParameters = callbackInvoke.Parameters;
+        if (siblingParameters.Length == callbackParameters.Length + 1)
+        {
+            return true;
+        }
+
+        if (siblingParameters.Length != callbackParameters.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < callbackParameters.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(siblingParameters[i].Type, callbackParameters[i].Type))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Returns whether a lambda captures variables or <c>this</c> from the enclosing scope.</summary>

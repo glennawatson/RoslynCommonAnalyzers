@@ -127,6 +127,103 @@ public class VolatileInterlockedFieldAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a read through a readonly member stays clean — the Volatile fix can't take a ref there.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReadonlyMemberReadIsCleanAsync()
+        => await VerifyAsync(
+            """
+            using System.Threading;
+
+            public struct C
+            {
+                private int _count;
+
+                public void Add() => Interlocked.Increment(ref _count);
+
+                public readonly int Snapshot() => _count;
+
+                public readonly int Count => _count;
+            }
+            """);
+
+    /// <summary>Verifies a read through a whole-property readonly block accessor stays clean.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReadonlyPropertyBlockAccessorIsCleanAsync()
+        => await VerifyAsync(
+            """
+            using System.Threading;
+
+            public struct C
+            {
+                private int _count;
+
+                public void Add() => Interlocked.Increment(ref _count);
+
+                public readonly int Count
+                {
+                    get => _count;
+                }
+            }
+            """);
+
+    /// <summary>Verifies the reported false positive — readonly equality/hash members reading an interlocked field.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReadonlyEqualityMembersAreCleanAsync()
+        => await VerifyAsync(
+            """
+            #nullable enable
+            using System;
+            using System.Threading;
+
+            public struct Cell : IEquatable<Cell>
+            {
+                private object? _value;
+
+                public void Publish(object v) => Interlocked.CompareExchange(ref _value, v, null);
+
+                public readonly bool Equals(Cell other) => ReferenceEquals(_value, other._value);
+
+                public override readonly int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+                public override readonly bool Equals(object? obj) => obj is Cell c && Equals(c);
+            }
+            """);
+
+    /// <summary>Verifies a non-readonly struct member is still flagged and fixed — the guard is readonly-only.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NonReadonlyStructMemberIsFlaggedAsync()
+    {
+        const string Source = """
+                              using System.Threading;
+
+                              public struct C
+                              {
+                                  private int _count;
+
+                                  public void Add() => Interlocked.Increment(ref _count);
+
+                                  public int Snapshot() => {|PSH1307:_count|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Threading;
+
+                                   public struct C
+                                   {
+                                       private int _count;
+
+                                       public void Add() => Interlocked.Increment(ref _count);
+
+                                       public int Snapshot() => Volatile.Read(ref _count);
+                                   }
+                                   """;
+        await VerifyAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies accesses inside a lock stay clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

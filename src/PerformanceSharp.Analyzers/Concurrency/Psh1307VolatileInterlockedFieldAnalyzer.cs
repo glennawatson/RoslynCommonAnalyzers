@@ -11,8 +11,11 @@ namespace PerformanceSharp.Analyzers;
 /// syntax-only pass collects <c>Interlocked.*(ref field, ...)</c> calls — most types have
 /// none and bail with no binding — and only then are the remaining references classified.
 /// Constructor and initializer accesses, ref and out arguments, <c>nameof</c> operands, and
-/// accesses inside lock statements are not reported. Every reported access is bound to a
-/// field of the containing type whose type has Volatile overloads.
+/// accesses inside lock statements are not reported. Instance-field reads reached through a
+/// readonly <c>this</c> — inside a <c>readonly</c> member or a <c>readonly struct</c> — are
+/// not reported either, because <c>Volatile.Read(ref field)</c> cannot take a writable ref
+/// through a readonly receiver (CS1605). Every reported access is bound to a field of the
+/// containing type whose type has Volatile overloads.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
@@ -175,6 +178,41 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
             ? qualified.Name.Identifier.ValueText
             : ((IdentifierNameSyntax)usage).Identifier.ValueText;
 
+    /// <summary>Returns whether an instance-field access is reached through a readonly <c>this</c>.</summary>
+    /// <param name="containingType">The scanned type declaration.</param>
+    /// <param name="usage">The usage expression, always an implicit or explicit <c>this</c> access here.</param>
+    /// <returns>
+    /// <see langword="true"/> when the enclosing member is <c>readonly</c> or the type is a
+    /// <c>readonly struct</c>; in either case <c>ref field</c> — the rule's remedy — will not compile.
+    /// </returns>
+    private static bool IsThroughReadOnlyThis(TypeDeclarationSyntax containingType, ExpressionSyntax usage)
+    {
+        // A readonly struct makes 'this' readonly in every instance member; the modifier only
+        // binds on a struct, so its bare presence is enough to identify the case.
+        if (containingType.Modifiers.Any(SyntaxKind.ReadOnlyKeyword))
+        {
+            return true;
+        }
+
+        // Otherwise the receiver is readonly only when the specific enclosing member is. A block
+        // accessor can carry readonly on the accessor or on the whole property/indexer, so keep
+        // walking past a non-readonly member instead of stopping at the first one.
+        for (SyntaxNode? current = usage.Parent; current is not null && current != containingType; current = current.Parent)
+        {
+            if (current is AccessorDeclarationSyntax accessor && accessor.Modifiers.Any(SyntaxKind.ReadOnlyKeyword))
+            {
+                return true;
+            }
+
+            if (current is MemberDeclarationSyntax member && member.Modifiers.Any(SyntaxKind.ReadOnlyKeyword))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Reports every collected plain access whose field verifies.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="containingType">The scanned type declaration.</param>
@@ -196,7 +234,8 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
             if (!targets.Contains(GetUsageName(usage))
                 || context.SemanticModel.GetSymbolInfo(usage, context.CancellationToken).Symbol is not IFieldSymbol field
                 || !SymbolEqualityComparer.Default.Equals(field.ContainingType, typeSymbol)
-                || !HasVolatileOverload(field.Type))
+                || !HasVolatileOverload(field.Type)
+                || (!field.IsStatic && IsThroughReadOnlyThis(containingType, usage)))
             {
                 continue;
             }

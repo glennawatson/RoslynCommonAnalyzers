@@ -72,7 +72,7 @@ public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyze
             || parameterCount > MaximumTrackedParameters
             || constructor.Body is not { } constructorBody
             || constructorBody.Statements.Count != parameterCount
-            || constructor.Initializer is { ArgumentList.Arguments.Count: > 0 })
+            || HasUnsupportedConstructorInitializer(constructor.Initializer))
         {
             return false;
         }
@@ -80,6 +80,13 @@ public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyze
         body = constructorBody;
         return true;
     }
+
+    /// <summary>Returns whether a constructor initializer cannot be represented on a primary constructor.</summary>
+    /// <param name="initializer">The constructor initializer.</param>
+    /// <returns><see langword="true"/> when the initializer blocks the rewrite.</returns>
+    private static bool HasUnsupportedConstructorInitializer(ConstructorInitializerSyntax? initializer)
+        => initializer is { ArgumentList.Arguments.Count: > 0 }
+            && !initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword);
 
     /// <summary>Returns whether the containing type has exactly one explicit instance constructor.</summary>
     /// <param name="constructor">The constructor declaration being analyzed.</param>

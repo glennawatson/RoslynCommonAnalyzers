@@ -348,7 +348,7 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST2238](rules/SST2238.md) | A nested property pattern can use extended property-pattern syntax. |
 | [SST2239](rules/SST2239.md) | A lambda that only forwards to one method can use a method group. |
 | [SST2240](rules/SST2240.md) | A delegate null check followed by invocation can use conditional invocation. |
-| [SST2241](rules/SST2241.md) | A constructor that only stores its parameters can use primary-constructor storage. |
+| [SST2241](rules/SST2241.md) | A constructor that only stores its parameters can use primary-constructor storage. Code fix moves the parameters and member initializers. |
 | [SST2242](rules/SST2242.md) | An enum switch statement mapping should name every enum value or include a catch-all. |
 
 ## Naming

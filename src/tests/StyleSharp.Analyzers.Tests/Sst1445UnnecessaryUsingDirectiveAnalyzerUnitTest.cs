@@ -2,6 +2,9 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1445UnnecessaryUsingDirectiveAnalyzer>;
 
@@ -214,4 +217,74 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
                 public string M() => new StringBuilder().Append(Environment.NewLine).ToString();
             }
             """);
+
+    /// <summary>Verifies a using consumed only by a C# 14 extension-block member invocation is clean.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task UsingConsumedByExtensionBlockMemberIsCleanAsync()
+        => await RunWithExtensionBlocksAsync(
+            """
+            using Lib.Internal;
+
+            namespace Lib.Internal
+            {
+                internal static class Ext
+                {
+                    extension<T>(System.Collections.Generic.IEnumerable<T> source)
+                    {
+                        public int CountItems() => System.Linq.Enumerable.Count(source);
+                    }
+                }
+            }
+
+            namespace Consumer
+            {
+                internal static class Use
+                {
+                    public static int N(System.Collections.Generic.IEnumerable<int> xs) => xs.CountItems();
+                }
+            }
+            """);
+
+    /// <summary>Verifies a using consumed only by a C# 14 extension-block property access is clean.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task UsingConsumedByExtensionBlockPropertyIsCleanAsync()
+        => await RunWithExtensionBlocksAsync(
+            """
+            using Lib.Internal;
+
+            namespace Lib.Internal
+            {
+                internal static class Ext
+                {
+                    extension(string text)
+                    {
+                        public bool IsBlank => text.Length == 0;
+                    }
+                }
+            }
+
+            namespace Consumer
+            {
+                internal static class Use
+                {
+                    public static bool N(string s) => s.IsBlank;
+                }
+            }
+            """);
+
+    /// <summary>Runs the analyzer verifier with a language version that parses extension blocks.</summary>
+    /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private static async Task RunWithExtensionBlocksAsync(string source)
+    {
+        var test = new Verify.Test { TestCode = source };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Preview));
+        });
+        await test.RunAsync(CancellationToken.None);
+    }
 }

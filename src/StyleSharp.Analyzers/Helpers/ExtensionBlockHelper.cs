@@ -145,6 +145,25 @@ internal static class ExtensionBlockHelper
         }
     }
 
+    /// <summary>
+    /// Returns whether a type symbol is the compiler-generated container of a C# 14 extension block —
+    /// the type that surfaces as the <see cref="ISymbol.ContainingType"/> of an extension member.
+    /// On Roslyn 5+ the container reports <c>IsExtension</c>; on earlier slots it is recognised by its
+    /// empty name and synthesized metadata name, since the syntax cannot occur on the 4.8 floor.
+    /// </summary>
+    /// <param name="type">The candidate containing type.</param>
+    /// <returns><see langword="true"/> when the type is an extension-block marker type.</returns>
+    public static bool IsExtensionContainer(INamedTypeSymbol? type)
+    {
+#if ROSLYN_5_OR_GREATER
+        return type is { IsExtension: true };
+#else
+        return type is { Name.Length: 0 }
+            && (type.MetadataName.StartsWith("<>E__", StringComparison.Ordinal)
+                || type.MetadataName.StartsWith("<M>$", StringComparison.Ordinal));
+#endif
+    }
+
     /// <summary>Returns whether the member is a classic <c>this</c>-parameter extension method.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns><see langword="true"/> when the member is a static extension method declared the pre-C#14 way.</returns>

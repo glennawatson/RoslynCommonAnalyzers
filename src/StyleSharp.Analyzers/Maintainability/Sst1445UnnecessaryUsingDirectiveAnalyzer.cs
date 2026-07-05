@@ -283,9 +283,12 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                 return;
             }
 
-            // C# 14 extension members surface as members of a static class; treat any member of a
-            // static class as potentially import-dependent. Over-marking is the safe direction.
-            if (symbol.ContainingType is not { IsStatic: true } holder)
+            // C# 14 extension members surface as members of a static class, or of the compiler's
+            // generated extension marker type nested inside it; either way the enclosing namespace
+            // import is load-bearing. Treat both as import-dependent — over-marking is the safe
+            // direction. The marker's ContainingNamespace already resolves to the holder's namespace.
+            if (symbol.ContainingType is not { } holder
+                || (!holder.IsStatic && !ExtensionBlockHelper.IsExtensionContainer(holder)))
             {
                 return;
             }
@@ -303,7 +306,10 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                 return;
             }
 
-            if (!method.IsExtensionMethod && method.ReducedFrom is null && method.ContainingType is not { IsStatic: true })
+            if (!method.IsExtensionMethod
+                && method.ReducedFrom is null
+                && method.ContainingType is not { IsStatic: true }
+                && !ExtensionBlockHelper.IsExtensionContainer(method.ContainingType))
             {
                 return;
             }

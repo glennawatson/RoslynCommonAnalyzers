@@ -449,21 +449,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when removing the receiver would break binding.</returns>
     private static bool IsReceiverRequiredExtensionMember(ISymbol symbol)
         => symbol is IMethodSymbol { MethodKind: MethodKind.ReducedExtension }
-        || IsExtensionBlockContainer(symbol.ContainingType);
-
-    /// <summary>Returns whether a type symbol represents a C# extension-block container.</summary>
-    /// <param name="containingType">The symbol's containing type.</param>
-    /// <returns><see langword="true"/> when the containing type is an extension marker.</returns>
-    private static bool IsExtensionBlockContainer(INamedTypeSymbol? containingType)
-    {
-#if ROSLYN_5_OR_GREATER
-        return containingType is { IsExtension: true };
-#else
-        return containingType is { Name.Length: 0 }
-            && (containingType.MetadataName.StartsWith("<>E__", StringComparison.Ordinal)
-                || containingType.MetadataName.StartsWith("<M>$", StringComparison.Ordinal));
-#endif
-    }
+        || ExtensionBlockHelper.IsExtensionContainer(symbol.ContainingType);
 
     /// <summary>Uses symbol lookup for the common non-generic type or namespace simplification path.</summary>
     /// <param name="model">The semantic model.</param>

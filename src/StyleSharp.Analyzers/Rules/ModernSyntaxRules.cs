@@ -273,6 +273,20 @@ internal static class ModernSyntaxRules
         "Use conditional invocation for this delegate call",
         "A delegate checked for null and then invoked can use '?.Invoke(...)', which evaluates the delegate target once.");
 
+    /// <summary>SST2241 — a constructor that only stores its parameters can become a primary constructor.</summary>
+    public static readonly DiagnosticDescriptor UsePrimaryConstructorStorage = Create(
+        "SST2241",
+        "Move simple constructor storage to the type declaration",
+        "Move constructor '{0}' to the type declaration and keep the storage initializers with their members",
+        "A constructor whose body only copies parameters into instance fields or properties can use primary-constructor parameters, keeping storage wiring at the type boundary.");
+
+    /// <summary>SST2242 — a switch statement over an enum omits named enum values in a non-catch-all mapping.</summary>
+    public static readonly DiagnosticDescriptor CompleteEnumSwitchStatementMapping = Create(
+        "SST2242",
+        "Enum switch statements should name every mapped value",
+        "Add the missing enum values to this switch statement or add an intentional catch-all section",
+        "A switch statement that maps enum values without a default section names every enum member explicitly so newly added or forgotten values remain visible.");
+
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

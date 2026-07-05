@@ -269,6 +269,17 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST1450](rules/SST1450.md) | Files should be stored as UTF-8 without a byte order mark. Opt-in. |
 | [SST1451](rules/SST1451.md) | A DateTime is created without a DateTimeKind. |
 | [SST1452](rules/SST1452.md) | A generic type parameter is never used. |
+| [SST1453](rules/SST1453.md) | A statement follows an unconditional exit and cannot run. |
+| [SST1454](rules/SST1454.md) | A composite format string contains a placeholder that no argument can satisfy. |
+| [SST1455](rules/SST1455.md) | A declaration is marked `unsafe` but contains no unsafe syntax. |
+| [SST1456](rules/SST1456.md) | A readonly field stores a mutable source-defined struct. |
+| [SST1457](rules/SST1457.md) | A global suppression target does not resolve to a declaration in the compilation. |
+| [SST1458](rules/SST1458.md) | A global suppression target uses a legacy tilde-prefixed target string. |
+| [SST1459](rules/SST1459.md) | Parentheses wrap a standalone expression in a context where grouping has no effect. |
+| [SST1460](rules/SST1460.md) | A struct instance member can be marked `readonly` because it does not mutate state. |
+| [SST1461](rules/SST1461.md) | A private or local-function parameter is never read. |
+| [SST1462](rules/SST1462.md) | A suppression targets a diagnostic that is disabled in the active analyzer config scope. |
+| [SST1463](rules/SST1463.md) | A symbol-name string literal can use `nameof`. |
 
 ## Modernization
 
@@ -282,6 +293,7 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST2005](rules/SST2005.md) | An `as` cast compared to `null` (`x as T != null`) should use the `is` type pattern. |
 | [SST2006](rules/SST2006.md) | A negated type test (`!(x is T)`) should use the `is not` pattern. |
 | [SST2007](rules/SST2007.md) | An `is` check followed by a cast local should use a declaration pattern. |
+| [SST2008](rules/SST2008.md) | A negated pattern test should use an `is not` pattern. |
 
 ## Collection Expressions
 
@@ -330,6 +342,14 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST2231](rules/SST2231.md) | A broad `object` pattern can use a direct null pattern. |
 | [SST2232](rules/SST2232.md) | `nameof` does not need concrete generic type arguments. |
 | [SST2234](rules/SST2234.md) | `Nullable<T>` should use the `T?` shorthand. Code fix rewrites it. |
+| [SST2235](rules/SST2235.md) | A capture-free local function can be declared `static`. |
+| [SST2236](rules/SST2236.md) | A tail-position using block can use a using declaration. |
+| [SST2237](rules/SST2237.md) | A single block-scoped namespace can use file-scoped syntax. |
+| [SST2238](rules/SST2238.md) | A nested property pattern can use extended property-pattern syntax. |
+| [SST2239](rules/SST2239.md) | A lambda that only forwards to one method can use a method group. |
+| [SST2240](rules/SST2240.md) | A delegate null check followed by invocation can use conditional invocation. |
+| [SST2241](rules/SST2241.md) | A constructor that only stores its parameters can use primary-constructor storage. |
+| [SST2242](rules/SST2242.md) | An enum switch statement mapping should name every enum value or include a catch-all. |
 
 ## Naming
 

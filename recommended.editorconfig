@@ -166,6 +166,17 @@ dotnet_diagnostic.SST1449.severity = warning # Code writes directly to the conso
 # dotnet_diagnostic.SST1450.severity = warning # Files should be stored as UTF-8 without a byte order mark (opt-in)
 dotnet_diagnostic.SST1451.severity = warning # A DateTime is created without a DateTimeKind
 dotnet_diagnostic.SST1452.severity = warning # A generic type parameter is never used
+dotnet_diagnostic.SST1453.severity = warning # Statements after an unconditional exit should be removed
+dotnet_diagnostic.SST1454.severity = warning # Composite format placeholders should match the supplied arguments
+dotnet_diagnostic.SST1455.severity = warning # Unsafe modifiers should be used only when unsafe syntax is present
+dotnet_diagnostic.SST1456.severity = warning # Readonly fields should not store mutable source-defined structs
+dotnet_diagnostic.SST1457.severity = warning # Global suppressions should point at real declarations
+dotnet_diagnostic.SST1458.severity = warning # Global suppression targets should use declaration ids directly
+dotnet_diagnostic.SST1459.severity = warning # Grouping parentheses should be removed when the parent syntax already isolates the expression
+dotnet_diagnostic.SST1460.severity = warning # Non-mutating struct members should be readonly
+dotnet_diagnostic.SST1461.severity = warning # Private parameters that are never read should be removed
+dotnet_diagnostic.SST1462.severity = warning # Suppressions for diagnostics already disabled by config should be removed
+dotnet_diagnostic.SST1463.severity = warning # Symbol-name strings should use nameof
 
 # Modernization
 dotnet_diagnostic.SST2000.severity = warning # A null check + throw should use ArgumentNullException.ThrowIfNull
@@ -176,6 +187,7 @@ dotnet_diagnostic.SST2004.severity = warning # A range check should use an Argum
 dotnet_diagnostic.SST2005.severity = warning # An 'as' cast compared to null should use the 'is' type pattern
 dotnet_diagnostic.SST2006.severity = warning # A negated type test '!(x is T)' should use the 'is not' pattern
 dotnet_diagnostic.SST2007.severity = warning # An 'is' check followed by a cast local should use a declaration pattern
+dotnet_diagnostic.SST2008.severity = warning # Negated pattern tests should use is-not patterns
 
 # Collection expressions
 dotnet_diagnostic.SST2100.severity = warning # An empty collection creation can use []
@@ -218,6 +230,14 @@ dotnet_diagnostic.SST2228.severity = warning # A delegate local used only as a c
 dotnet_diagnostic.SST2231.severity = warning # A broad object pattern can use a direct null pattern
 dotnet_diagnostic.SST2232.severity = warning # nameof does not need concrete generic type arguments
 dotnet_diagnostic.SST2234.severity = warning # Nullable<T> should use the T? shorthand
+dotnet_diagnostic.SST2235.severity = warning # Capture-free local functions should be static
+dotnet_diagnostic.SST2236.severity = warning # Tail-position using blocks can use using declarations
+dotnet_diagnostic.SST2237.severity = warning # Single block-scoped namespaces can use file-scoped syntax
+dotnet_diagnostic.SST2238.severity = warning # Nested property patterns can use extended property syntax
+dotnet_diagnostic.SST2239.severity = warning # Forwarding lambdas can use method groups
+dotnet_diagnostic.SST2240.severity = warning # Delegate null checks can use conditional invocation
+dotnet_diagnostic.SST2241.severity = warning # Constructors that only store parameters can use primary-constructor storage
+dotnet_diagnostic.SST2242.severity = warning # Enum switch statement mappings should name every enum value or include a catch-all
 
 # Naming
 dotnet_diagnostic.SST1300.severity = warning # Types and members should be PascalCase

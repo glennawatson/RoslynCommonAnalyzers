@@ -394,6 +394,55 @@ internal static class MaintainabilityRules
         "Remove 'readonly' from field '{0}', or make the struct readonly",
         "A readonly field of a mutable struct still allows defensive-copy surprises on member access. Make the struct immutable or keep the field writable so the mutability is explicit.");
 
+    /// <summary>SST1457 - a global suppression target cannot be resolved to a declaration in the compilation.</summary>
+    public static readonly DiagnosticDescriptor ValidGlobalSuppressionTarget = Create(
+        "SST1457",
+        "Global suppressions should point at real declarations",
+        "Fix or remove this global suppression target; '{0}' does not resolve in this compilation",
+        "A global SuppressMessage target should resolve to the declaration it suppresses so stale suppression entries are removed instead of silently accumulating.");
+
+    /// <summary>SST1458 - a global suppression target uses the old tilde-prefixed target spelling.</summary>
+    public static readonly DiagnosticDescriptor UseDeclarationIdSuppressionTarget = Create(
+        "SST1458",
+        "Global suppression targets should use declaration ids directly",
+        "Remove the legacy '~' prefix from this global suppression target",
+        "Global SuppressMessage targets use declaration ids directly, which keeps the string consumable by Roslyn's documentation-id resolver without an extra legacy marker.");
+
+    /// <summary>SST1459 - parentheses wrap an expression in a context where grouping has no effect.</summary>
+    public static readonly DiagnosticDescriptor RemoveUnnecessaryParentheses = Create(
+        "SST1459",
+        "Remove grouping parentheses that do not group anything",
+        "Remove these parentheses; this expression is already isolated by its containing syntax",
+        "Parentheses around a standalone return value, argument, initializer, or assignment value add visual noise when no operator precedence is being clarified.");
+
+    /// <summary>SST1460 - a struct instance member can be readonly because its body does not mutate state.</summary>
+    public static readonly DiagnosticDescriptor MakeStructMemberReadonly = Create(
+        "SST1460",
+        "Mark non-mutating struct members readonly",
+        "Mark '{0}' as readonly so it can be called without a defensive copy",
+        "A struct member that only reads state is marked readonly so calls through readonly receivers avoid defensive-copy overhead and communicate the member's non-mutating contract.");
+
+    /// <summary>SST1461 - a private parameter is never read by its declaration body.</summary>
+    public static readonly DiagnosticDescriptor RemoveUnusedPrivateParameter = Create(
+        "SST1461",
+        "Remove private parameters that are never read",
+        "Remove parameter '{0}' because this private declaration never reads it",
+        "A private or local-function parameter that is not read by its body adds dead API surface inside the type and usually marks an unfinished refactor.");
+
+    /// <summary>SST1462 - a suppression targets a diagnostic that is disabled in the active analyzer config scope.</summary>
+    public static readonly DiagnosticDescriptor RemoveDisabledDiagnosticSuppression = Create(
+        "SST1462",
+        "Remove suppressions for diagnostics that are already disabled",
+        "Remove this suppression because diagnostic '{0}' is disabled in this analyzer config scope",
+        "A SuppressMessage attribute for a diagnostic configured to 'none' or 'silent' cannot suppress a live report and should not stay in source as stale policy documentation.");
+
+    /// <summary>SST1463 - a string literal names an in-scope symbol in a name-shaped argument.</summary>
+    public static readonly DiagnosticDescriptor UseNameofForSymbolName = Create(
+        "SST1463",
+        "Use nameof for symbol-name strings",
+        "Use 'nameof({0})' so this symbol-name string follows renames",
+        "A string literal passed to a name-shaped parameter is written with nameof when it matches an in-scope symbol, keeping rename operations correct without reflection or runtime lookup.");
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

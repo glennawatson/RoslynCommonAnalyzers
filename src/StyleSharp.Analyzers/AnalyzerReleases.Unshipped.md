@@ -19,6 +19,14 @@ SST1453 | Maintainability | Warning | Sst1453UnreachableCodeAnalyzer
 SST1454 | Maintainability | Warning | Sst1454CompositeFormatStringAnalyzer
 SST1455 | Maintainability | Warning | Sst1455UnnecessaryUnsafeModifierAnalyzer
 SST1456 | Maintainability | Warning | Sst1456ReadonlyMutableStructFieldAnalyzer
+SST1457 | Maintainability | Warning | GlobalSuppressionTargetAnalyzer
+SST1458 | Maintainability | Warning | GlobalSuppressionTargetAnalyzer
+SST1459 | Maintainability | Warning | Sst1459UnnecessaryParenthesesAnalyzer
+SST1460 | Maintainability | Warning | Sst1460ReadonlyStructMemberAnalyzer
+SST1461 | Maintainability | Warning | Sst1461UnusedParameterAnalyzer
+SST1462 | Maintainability | Warning | Sst1462DisabledDiagnosticSuppressionAnalyzer
+SST1463 | Maintainability | Warning | Sst1463NameofLiteralAnalyzer
+SST2008 | Modernization | Warning | Sst2008IsNotPatternAnalyzer
 SST2234 | ModernSyntax | Warning | Sst2234NullableShorthandAnalyzer
 SST2235 | ModernSyntax | Warning | Sst2235StaticLocalFunctionAnalyzer
 SST2236 | ModernSyntax | Warning | Sst2236UsingDeclarationAnalyzer
@@ -26,6 +34,8 @@ SST2237 | ModernSyntax | Warning | Sst2237FileScopedNamespaceAnalyzer
 SST2238 | ModernSyntax | Warning | Sst2238NestedPropertyPatternAnalyzer
 SST2239 | ModernSyntax | Warning | Sst2239MethodGroupAnalyzer
 SST2240 | ModernSyntax | Warning | Sst2240ConditionalDelegateInvocationAnalyzer
+SST2241 | ModernSyntax | Warning | Sst2241PrimaryConstructorStorageAnalyzer
+SST2242 | ModernSyntax | Warning | Sst2242EnumSwitchStatementMappingAnalyzer
 
 ### Removed Rules
 

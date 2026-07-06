@@ -76,6 +76,18 @@ internal static class ModernizationRules
         "Use 'is not' instead of negating this pattern test",
         "A pattern test negated with '!' reads more directly as 'is not', and avoids wrapping the whole pattern expression in an extra grouping expression.");
 
+    /// <summary>SST2009 — a catch block opens with a condition that decides whether to rethrow.</summary>
+    public static readonly DiagnosticDescriptor UseExceptionFilter = Create(
+        "SST2009",
+        "Filter exceptions with a when clause",
+        "Move this condition into a 'when' filter",
+        UseExceptionFilterDescription);
+
+    /// <summary>The SST2009 rule description.</summary>
+    private const string UseExceptionFilterDescription =
+        "A catch block that immediately tests a condition and rethrows on the losing branch is an exception filter written by hand; "
+        + "'catch ... when' skips the handler without unwinding the stack for exceptions it was never going to keep.";
+
     /// <summary>Creates a Warning-severity Modernization descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

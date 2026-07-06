@@ -138,6 +138,27 @@ internal static class CollectionRules
         "Use IsEmpty instead of comparing '{0}' to zero",
         UseIsEmptyDescription);
 
+    /// <summary>PSH1118 — a sequence is sorted just to take one extreme element.</summary>
+    public static readonly DiagnosticDescriptor TakeExtremeWithoutSorting = Create(
+        "PSH1118",
+        "Take the extreme element without sorting",
+        "Use '{0}' instead of ordering the sequence to take one element",
+        TakeExtremeWithoutSortingDescription);
+
+    /// <summary>PSH1119 — a full count is computed only to compare it against zero.</summary>
+    public static readonly DiagnosticDescriptor UseAnyOverCount = Create(
+        "PSH1119",
+        "Check for elements without counting them all",
+        "Use '{0}' instead of counting the whole sequence",
+        UseAnyOverCountDescription);
+
+    /// <summary>PSH1120 — a sequence is copied into a collection just to be enumerated once.</summary>
+    public static readonly DiagnosticDescriptor DoNotMaterializeToEnumerate = Create(
+        "PSH1120",
+        "Do not materialize a sequence just to enumerate it",
+        "Enumerate the source directly instead of copying it with '{0}'",
+        DoNotMaterializeToEnumerateDescription);
+
     /// <summary>The PSH1117 rule description.</summary>
     private const string UseIsEmptyDescription =
         "Comparing Count or Length to zero answers emptiness indirectly — on some collections counting is O(n) or synchronizes, while "
@@ -171,6 +192,24 @@ internal static class CollectionRules
         "Allocating a string just to look it up throws the copy away after hashing; GetAlternateLookup (.NET 9+) probes string-keyed "
         + "dictionaries and sets with a ReadOnlySpan<char> key and allocates nothing. The collection's comparer must support alternate "
         + "lookups — the ordinal defaults do. Suggested only where the API exists.";
+
+    /// <summary>The PSH1118 rule description.</summary>
+    private const string TakeExtremeWithoutSortingDescription =
+        "OrderBy followed by First or Last sorts the entire sequence — an O(n log n) pass over an allocated buffer — to keep a single "
+        + "element; Min, Max, MinBy, and MaxBy scan once with no buffer. MinBy and MaxBy are suggested only where the API exists, and "
+        + "the docs page lists the exact mapping including empty-sequence behavior.";
+
+    /// <summary>The PSH1119 rule description.</summary>
+    private const string UseAnyOverCountDescription =
+        "Enumerable.Count() walks the whole sequence to produce a number that the comparison immediately collapses to a yes or no; "
+        + "Any() stops at the first element. The parameterless form is reported only for sources without an O(1) Count or Length "
+        + "property — those are PSH1103's territory; the predicate form counts every match, so it is reported on any receiver.";
+
+    /// <summary>The PSH1120 rule description.</summary>
+    private const string DoNotMaterializeToEnumerateDescription =
+        "ToList and ToArray copy every element into a new collection that is discarded when the loop ends; enumerating the source "
+        + "directly skips the buffer and its growth copies. Not reported when the loop body mentions the source again, where the copy "
+        + "may be guarding against modification during enumeration.";
 
     /// <summary>Creates a Warning-severity Collections descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

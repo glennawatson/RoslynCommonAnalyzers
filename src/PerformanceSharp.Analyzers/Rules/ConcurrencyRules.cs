@@ -82,6 +82,27 @@ internal static class ConcurrencyRules
         "Use UnsafeRegister instead of Register for this cancellation callback",
         UseUnsafeRegisterDescription);
 
+    /// <summary>PSH1310 — an async method disposes an IAsyncDisposable synchronously.</summary>
+    public static readonly DiagnosticDescriptor UseAwaitUsing = Create(
+        "PSH1310",
+        "Dispose asynchronously in async code",
+        "Use 'await using' for this asynchronously disposable resource",
+        UseAwaitUsingDescription);
+
+    /// <summary>PSH1311 — an async method exists only to forward another task.</summary>
+    public static readonly DiagnosticDescriptor RemovePassThroughStateMachine = Create(
+        "PSH1311",
+        "Remove a pass-through async state machine",
+        "Return the task directly instead of awaiting it",
+        RemovePassThroughStateMachineDescription);
+
+    /// <summary>PSH1312 — a task-returning member returns null.</summary>
+    public static readonly DiagnosticDescriptor ReturnCompletedTaskOverNull = Create(
+        "PSH1312",
+        "Return a completed task, never null",
+        "Return '{0}' instead of null",
+        ReturnCompletedTaskOverNullDescription);
+
     /// <summary>The PSH1302 rule description.</summary>
     private const string RunContinuationsAsynchronouslyDescription =
         "Completing a TaskCompletionSource without TaskCreationOptions.RunContinuationsAsynchronously runs every waiter's continuation inline "
@@ -125,6 +146,24 @@ internal static class ConcurrencyRules
         "CancellationToken.Register captures the current ExecutionContext and restores it inside the callback on every registration; "
         + "UnsafeRegister skips the capture. Callbacks that read AsyncLocal state would observe different values, so the rule is opt-in. "
         + "Suggested only where the API exists.";
+
+    /// <summary>The PSH1310 rule description.</summary>
+    private const string UseAwaitUsingDescription =
+        "Disposing an IAsyncDisposable synchronously forces its cleanup — often a flush or close with real I/O — to block the current "
+        + "thread; 'await using' lets that work complete without pinning a pool thread. Reported only inside async contexts, where the "
+        + "await costs nothing extra.";
+
+    /// <summary>The PSH1311 rule description.</summary>
+    private const string RemovePassThroughStateMachineDescription =
+        "An async method whose body only awaits one task in tail position allocates a state machine and an extra scheduling hop just "
+        + "to forward the result; returning the task directly removes both. Synchronous exceptions then surface at the call site "
+        + "instead of inside the returned task, so only bodies with nothing before the await are reported.";
+
+    /// <summary>The PSH1312 rule description.</summary>
+    private const string ReturnCompletedTaskOverNullDescription =
+        "A null returned where a Task is expected turns every await into a NullReferenceException and forces callers into defensive "
+        + "null checks; the runtime caches completed task instances, so Task.CompletedTask and Task.FromResult cost nothing over the "
+        + "null. A default ValueTask is already a completed task and is not reported.";
 
     /// <summary>Creates a Warning-severity Concurrency descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

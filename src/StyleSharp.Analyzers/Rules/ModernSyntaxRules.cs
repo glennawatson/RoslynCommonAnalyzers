@@ -287,6 +287,19 @@ internal static class ModernSyntaxRules
         "Add the missing enum values to this switch statement or add an intentional catch-all section",
         "A switch statement that maps enum values without a default section names every enum member explicitly so newly added or forgotten values remain visible.");
 
+    /// <summary>SST2243 — a verbatim string literal is better expressed as a raw string literal.</summary>
+    public static readonly DiagnosticDescriptor UseRawStringLiteral = Create(
+        "SST2243",
+        "Use a raw string literal",
+        "Write this string as a raw string literal",
+        UseRawStringLiteralDescription);
+
+    /// <summary>The SST2243 rule description.</summary>
+    private const string UseRawStringLiteralDescription =
+        "A verbatim string full of doubled-quote escapes, or one spanning multiple lines, reads with less escape noise as a raw string "
+        + "literal while the content stays character-for-character identical. Reported only when the language version supports raw "
+        + "strings (C# 11).";
+
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

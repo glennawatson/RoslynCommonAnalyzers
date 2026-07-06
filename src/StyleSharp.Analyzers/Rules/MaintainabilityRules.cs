@@ -443,6 +443,60 @@ internal static class MaintainabilityRules
         "Use 'nameof({0})' so this symbol-name string follows renames",
         "A string literal passed to a name-shaped parameter is written with nameof when it matches an in-scope symbol, keeping rename operations correct without reflection or runtime lookup.");
 
+    /// <summary>SST1464 — an else clause follows a branch that never falls through.</summary>
+    public static readonly DiagnosticDescriptor UnwrapElseAfterJump = Create(
+        "SST1464",
+        "Unwrap else after a branch that does not fall through",
+        "Unwrap this 'else'; the preceding branch always jumps",
+        "When the if branch ends in a return, throw, break, or continue, the else wrapper only adds nesting; moving its statements after the if reads straighter.");
+
+    /// <summary>SST1465 — an else block contains only an if statement.</summary>
+    public static readonly DiagnosticDescriptor CollapseElseIntoElseIf = Create(
+        "SST1465",
+        "Collapse an else block that only wraps an if",
+        "Write this as 'else if'",
+        "An else block whose only statement is an if statement flattens into an 'else if' chain, removing a level of nesting without changing the branch order.");
+
+    /// <summary>SST1466 — a case label shares a switch section with the default label.</summary>
+    public static readonly DiagnosticDescriptor RemoveCaseBesideDefault = Create(
+        "SST1466",
+        "Remove case labels that share a section with default",
+        "Remove this case label; the default label already routes here",
+        "A case label in the same switch section as the default label selects the body the default already provides; it stays only when a 'goto case' statement targets it.");
+
+    /// <summary>SST1467 — a loop drives an enumerator by hand instead of using foreach.</summary>
+    public static readonly DiagnosticDescriptor UseForeachOverManualEnumerator = Create(
+        "SST1467",
+        "Enumerate with foreach instead of driving the enumerator by hand",
+        "Replace this manual enumerator loop with 'foreach'",
+        "A while loop over GetEnumerator, MoveNext, and Current restates what foreach compiles to, without the guaranteed disposal and scoping that foreach provides.");
+
+    /// <summary>SST1468 — boolean logic uses a non-short-circuiting operator.</summary>
+    public static readonly DiagnosticDescriptor UseShortCircuitOperator = Create(
+        "SST1468",
+        "Boolean logic should short-circuit",
+        "Use '{0}' so the right operand is evaluated only when it can matter",
+        UseShortCircuitOperatorDescription);
+
+    /// <summary>SST1469 — a non-nullable value type is compared to null.</summary>
+    public static readonly DiagnosticDescriptor ValueTypeNullComparison = Create(
+        "SST1469",
+        "Do not compare a value type to null",
+        "'{0}' is a non-nullable value type; this comparison is always {1}",
+        "A non-nullable value type can never be null, so the comparison folds to a constant and usually points at a misread type or a missing '?'.");
+
+    /// <summary>SST1470 — a trailing catch clause only rethrows.</summary>
+    public static readonly DiagnosticDescriptor RemoveRethrowOnlyCatch = Create(
+        "SST1470",
+        "Remove a catch clause that only rethrows",
+        "Remove this catch clause; it only rethrows the exception",
+        "A final catch clause whose body is exactly 'throw;' with no filter changes nothing about how the exception propagates and hides the clauses that do work.");
+
+    /// <summary>The SST1468 rule description.</summary>
+    private const string UseShortCircuitOperatorDescription =
+        "The bitwise '&' and '|' operators on booleans always evaluate both operands; the conditional forms stop as soon as the answer "
+        + "is known. Reported only when the right operand has no side effects to skip.";
+
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

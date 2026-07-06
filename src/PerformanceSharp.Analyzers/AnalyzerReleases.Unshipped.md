@@ -21,6 +21,7 @@ PSH1012 | Allocations | Warning | Psh1012EqualityComparerDefaultAnalyzer
 PSH1013 | Allocations | Warning | Psh1013Utf8SpanPropertyAnalyzer
 PSH1014 | Allocations | Warning | Psh1014ReadonlyStructAnalyzer
 PSH1015 | Allocations | Warning | Psh1015BoxingRoundTripCastAnalyzer
+PSH1016 | Allocations | Warning | Psh1016UseBitwiseFlagTestAnalyzer
 PSH1100 | Collections | Disabled | LinqUsageAnalyzer (moved from StyleSharp.Analyzers SST2233)
 PSH1101 | Collections | Warning | LinqUsageAnalyzer (moved from StyleSharp.Analyzers SST2229)
 PSH1102 | Collections | Warning | LinqUsageAnalyzer (moved from StyleSharp.Analyzers SST2230)
@@ -39,6 +40,9 @@ PSH1114 | Collections | Disabled | Psh1114FreezeStaticLookupsAnalyzer
 PSH1115 | Collections | Warning | Psh1115SingleProbeInsertAnalyzer
 PSH1116 | Collections | Warning | Psh1116AlternateLookupAnalyzer
 PSH1117 | Collections | Warning | Psh1117UseIsEmptyAnalyzer
+PSH1118 | Collections | Warning | Psh1118TakeExtremeWithoutSortingAnalyzer
+PSH1119 | Collections | Warning | Psh1119UseAnyOverCountAnalyzer
+PSH1120 | Collections | Warning | Psh1120DoNotMaterializeToEnumerateAnalyzer
 PSH1200 | Strings | Warning | Psh1200AvoidCaseConversionComparisonAnalyzer
 PSH1201 | Strings | Warning | Psh1201UseCharOverloadAnalyzer
 PSH1202 | Strings | Warning | Psh1202StringBuilderAppendCharAnalyzer
@@ -53,6 +57,9 @@ PSH1210 | Strings | Warning | Psh1210Utf8SequenceEqualAnalyzer
 PSH1211 | Strings | Warning | Psh1211RemoveIntermediateToStringAnalyzer
 PSH1212 | Strings | Warning | Psh1212AsSpanOverSubstringAnalyzer
 PSH1213 | Strings | Warning | Psh1213UseSearchValuesAnalyzer
+PSH1214 | Strings | Warning | Psh1214SplitConcatenatedAppendAnalyzer
+PSH1215 | Strings | Warning | Psh1215UseConcatOverEmptyJoinAnalyzer
+PSH1216 | Strings | Warning | Psh1216UseEqualsOverCompareAnalyzer
 PSH1300 | Concurrency | Warning | Psh1300PreferLockTypeAnalyzer (moved from StyleSharp.Analyzers SST1900)
 PSH1301 | Concurrency | Warning | Psh1301AwaitSingleTaskDirectlyAnalyzer
 PSH1302 | Concurrency | Warning | Psh1302RunContinuationsAsynchronouslyAnalyzer
@@ -63,6 +70,9 @@ PSH1306 | Concurrency | Disabled | Psh1306InterlockedOnceGuardAnalyzer
 PSH1307 | Concurrency | Warning | Psh1307VolatileInterlockedFieldAnalyzer
 PSH1308 | Concurrency | Warning | Psh1308CompletedTaskAnalyzer
 PSH1309 | Concurrency | Disabled | Psh1309UnsafeRegisterAnalyzer
+PSH1310 | Concurrency | Warning | Psh1310UseAwaitUsingAnalyzer
+PSH1311 | Concurrency | Warning | Psh1311RemovePassThroughStateMachineAnalyzer
+PSH1312 | Concurrency | Warning | Psh1312ReturnCompletedTaskOverNullAnalyzer
 PSH1400 | ApiSelection | Warning | Psh1400PreferStaticHashDataAnalyzer
 PSH1401 | ApiSelection | Warning | Psh1401SealAttributeTypesAnalyzer
 PSH1402 | ApiSelection | Warning | Psh1402PreferConstOverStaticReadonlyAnalyzer

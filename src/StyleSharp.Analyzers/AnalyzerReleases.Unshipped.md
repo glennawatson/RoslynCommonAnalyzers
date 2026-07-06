@@ -26,7 +26,16 @@ SST1460 | Maintainability | Warning | Sst1460ReadonlyStructMemberAnalyzer
 SST1461 | Maintainability | Warning | Sst1461UnusedParameterAnalyzer
 SST1462 | Maintainability | Warning | Sst1462DisabledDiagnosticSuppressionAnalyzer
 SST1463 | Maintainability | Warning | Sst1463NameofLiteralAnalyzer
+SST1464 | Maintainability | Warning | Sst1464UnwrapElseAfterJumpAnalyzer
+SST1465 | Maintainability | Warning | Sst1465CollapseElseIntoElseIfAnalyzer
+SST1466 | Maintainability | Warning | Sst1466RemoveCaseBesideDefaultAnalyzer
+SST1467 | Maintainability | Warning | Sst1467UseForeachOverManualEnumeratorAnalyzer
+SST1468 | Maintainability | Warning | Sst1468UseShortCircuitOperatorAnalyzer
+SST1469 | Maintainability | Warning | Sst1469ValueTypeNullComparisonAnalyzer
+SST1470 | Maintainability | Warning | Sst1470RemoveRethrowOnlyCatchAnalyzer
+SST1658 | Documentation | Warning | Sst1658NoRepeatedWordsAnalyzer
 SST2008 | Modernization | Warning | Sst2008IsNotPatternAnalyzer
+SST2009 | Modernization | Warning | Sst2009UseExceptionFilterAnalyzer
 SST2234 | ModernSyntax | Warning | Sst2234NullableShorthandAnalyzer
 SST2235 | ModernSyntax | Warning | Sst2235StaticLocalFunctionAnalyzer
 SST2236 | ModernSyntax | Warning | Sst2236UsingDeclarationAnalyzer
@@ -36,6 +45,7 @@ SST2239 | ModernSyntax | Warning | Sst2239MethodGroupAnalyzer
 SST2240 | ModernSyntax | Warning | Sst2240ConditionalDelegateInvocationAnalyzer
 SST2241 | ModernSyntax | Warning | Sst2241PrimaryConstructorStorageAnalyzer
 SST2242 | ModernSyntax | Warning | Sst2242EnumSwitchStatementMappingAnalyzer
+SST2243 | ModernSyntax | Warning | Sst2243UseRawStringLiteralAnalyzer
 
 ### Removed Rules
 

@@ -108,6 +108,27 @@ internal static class StringRules
         "Hoist this constant set into a cached SearchValues and search with that",
         UseSearchValuesDescription);
 
+    /// <summary>PSH1214 — a StringBuilder append concatenates its argument first.</summary>
+    public static readonly DiagnosticDescriptor SplitConcatenatedAppend = Create(
+        "PSH1214",
+        "Append the parts, not a concatenated whole",
+        "Split this concatenation into separate Append calls",
+        SplitConcatenatedAppendDescription);
+
+    /// <summary>PSH1215 — string.Join is called with an empty separator.</summary>
+    public static readonly DiagnosticDescriptor UseConcatOverEmptyJoin = Create(
+        "PSH1215",
+        "Concatenate when there is no separator",
+        "Use string.Concat instead of string.Join with an empty separator",
+        UseConcatOverEmptyJoinDescription);
+
+    /// <summary>PSH1216 — an ordering comparison result is only tested for equality.</summary>
+    public static readonly DiagnosticDescriptor UseEqualsOverCompare = Create(
+        "PSH1216",
+        "Ask for equality, not ordering",
+        "Use string.Equals instead of comparing '{0}' to zero",
+        UseEqualsOverCompareDescription);
+
     /// <summary>The PSH1208 rule description.</summary>
     private const string UseUtf8LiteralDescription =
         "Encoding.UTF8.GetBytes on a constant string re-encodes and heap-allocates the same bytes on every call; a u8 literal (C# 11+) "
@@ -141,6 +162,23 @@ internal static class StringRules
         "Calling ToString to feed an API that can take the value directly allocates an intermediate string; overloads that accept the "
         + "value, and interpolated string holes, format without the throwaway copy — value types with span formatting write straight "
         + "into the destination buffer.";
+
+    /// <summary>The PSH1214 rule description.</summary>
+    private const string SplitConcatenatedAppendDescription =
+        "Appending 'a + b' builds an intermediate string only to copy its characters into the builder; chaining Append(a).Append(b) "
+        + "writes each part straight into the buffer. The compiler already folds all-constant concatenations, so only concatenations "
+        + "with a non-constant operand are reported.";
+
+    /// <summary>The PSH1215 rule description.</summary>
+    private const string UseConcatOverEmptyJoinDescription =
+        "string.Join with an empty separator still runs the separator-insertion bookkeeping between every element; string.Concat "
+        + "copies the pieces straight through.";
+
+    /// <summary>The PSH1216 rule description.</summary>
+    private const string UseEqualsOverCompareDescription =
+        "string.Compare computes full ordering information that an equality test throws away, and cannot bail out early on length "
+        + "mismatches the way string.Equals can. The fix preserves the comparison's culture semantics — the two-argument Compare "
+        + "defaults to the current culture, not ordinal.";
 
     /// <summary>Creates a Warning-severity Strings descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

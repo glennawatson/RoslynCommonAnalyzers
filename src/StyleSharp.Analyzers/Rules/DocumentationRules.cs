@@ -321,6 +321,13 @@ internal static class DocumentationRules
         "'{0}' does not match any parameter or type parameter of the extension block",
         "Each <param> and <typeparam> element in an extension block's documentation refers to a name the block declares.");
 
+    /// <summary>SST1658 — documentation text repeats a word.</summary>
+    public static readonly DiagnosticDescriptor NoRepeatedWords = Create(
+        "SST1658",
+        "Documentation should not repeat a word",
+        "The word '{0}' is repeated",
+        "A word typed twice in a row in documentation text is almost always an editing leftover; code elements inside the documentation are not scanned.");
+
     /// <summary>Creates a Warning-severity Documentation descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

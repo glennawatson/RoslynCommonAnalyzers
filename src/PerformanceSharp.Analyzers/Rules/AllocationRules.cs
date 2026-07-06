@@ -123,6 +123,13 @@ internal static class AllocationRules
         "Casting this '{0}' value through object boxes it; cast directly",
         BoxingRoundTripCastDescription);
 
+    /// <summary>PSH1016 — an enum flag is tested through Enum.HasFlag.</summary>
+    public static readonly DiagnosticDescriptor UseBitwiseFlagTest = Create(
+        "PSH1016",
+        "Test enum flags with bitwise operators",
+        "Replace this HasFlag call with a bitwise flag test",
+        UseBitwiseFlagTestDescription);
+
     /// <summary>The PSH1009 rule description.</summary>
     private const string UnboundedStackallocDescription =
         "A stackalloc whose length comes from data can blow the stack on adversarial or unexpected input; the resilient shape tests the "
@@ -161,6 +168,12 @@ internal static class AllocationRules
     private const string BoxingRoundTripCastDescription =
         "A cast to object followed by an immediate cast back to a value type allocates a box that is thrown away as soon as it is "
         + "unboxed; when a direct conversion between the two value types exists, casting directly converts with no allocation.";
+
+    /// <summary>The PSH1016 rule description.</summary>
+    private const string UseBitwiseFlagTestDescription =
+        "Enum.HasFlag boxes both the value and the argument on runtimes without the JIT intrinsic (.NET Framework, and any "
+        + "netstandard2.0 consumer running there) and hides the comparison behind a virtual call; a bitwise AND test compiles to a "
+        + "register comparison everywhere and is never slower.";
 
     /// <summary>Creates a Warning-severity Allocations descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

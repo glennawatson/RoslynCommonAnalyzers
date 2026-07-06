@@ -558,9 +558,19 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="separation">The whitespace separation between the tokens.</param>
     private static void CheckCommaSemicolon(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
     {
-        if (separation == Separation.Space)
+        if (separation == Separation.Space && !IsUnboundGenericArityComma(current))
         {
             ReportPrecedingSpace(context, current);
+        }
+
+        if (IsUnboundGenericArityComma(previous))
+        {
+            if (separation == Separation.Space)
+            {
+                Report(context, SpacingRules.CommaSpacing, previous, RemoveAfter);
+            }
+
+            return;
         }
 
         if (separation != Separation.Adjacent || IsClosing(current))
@@ -669,6 +679,33 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the token is that bracket of an attribute list.</returns>
     private static bool IsAttributeBracket(SyntaxToken token, SyntaxKind kind)
         => token.IsKind(kind) && token.Parent is AttributeListSyntax;
+
+    /// <summary>Returns whether the comma separates omitted type arguments in an unbound generic arity marker.</summary>
+    /// <param name="token">The candidate comma token.</param>
+    /// <returns><see langword="true"/> for commas in forms such as <c>Dictionary&lt;,&gt;</c>.</returns>
+    private static bool IsUnboundGenericArityComma(SyntaxToken token)
+    {
+        if (!token.IsKind(SyntaxKind.CommaToken) || token.Parent is not TypeArgumentListSyntax typeArguments)
+        {
+            return false;
+        }
+
+        var arguments = typeArguments.Arguments;
+        if (arguments.Count == 0)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < arguments.Count; index++)
+        {
+            if (arguments[index] is not OmittedTypeArgumentSyntax)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>Reports a comma or semicolon preceded by whitespace.</summary>
     /// <param name="context">The syntax tree analysis context.</param>

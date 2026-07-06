@@ -206,6 +206,51 @@ public class SpacingAnalyzerUnitTest
         await VerifySpacing.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies an unbound generic type name inside nameof keeps its compact arity marker.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UnboundGenericCommaWithoutSpaceIsCleanAsync()
+    {
+        const string Source = """
+                              internal sealed class ProjectedReadOnlyState<T1, T2>
+                              {
+                                  private void ThrowDisposed()
+                                  {
+                                      throw new System.ObjectDisposedException(nameof(ProjectedReadOnlyState<,>));
+                                  }
+                              }
+                              """;
+
+        await VerifySpacing.VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies a space after an unbound generic comma is removed by generic bracket spacing.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SpaceAfterUnboundGenericCommaRemovedAsync()
+    {
+        const string Source = """
+                              internal sealed class ProjectedReadOnlyState<T1, T2>
+                              {
+                                  private void ThrowDisposed()
+                                  {
+                                      throw new System.ObjectDisposedException(nameof(ProjectedReadOnlyState<{|SST1001:,|} >));
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal sealed class ProjectedReadOnlyState<T1, T2>
+                                   {
+                                       private void ThrowDisposed()
+                                       {
+                                           throw new System.ObjectDisposedException(nameof(ProjectedReadOnlyState<,>));
+                                       }
+                                   }
+                                   """;
+
+        await VerifySpacing.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a space before a semicolon is reported (SST1002) and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

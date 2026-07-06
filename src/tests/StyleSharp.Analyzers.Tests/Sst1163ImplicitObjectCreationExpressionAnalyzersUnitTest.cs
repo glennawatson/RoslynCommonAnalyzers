@@ -83,6 +83,71 @@ public class Sst1163ImplicitObjectCreationExpressionAnalyzersUnitTest
         await Verifysst0014.VerifyCodeFixAsync(Test, FixedSource);
     }
 
+    /// <summary>Verifies the code fix is offered for a nested target-typed creation used as another constructor argument.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CodeFixHandlesNestedTargetTypedCreationArgumentAsync()
+    {
+        const string Test = """
+            public sealed class Inputs
+            {
+                public Inputs(int src1, int src2, int src3, int src4)
+                {
+                }
+            }
+
+            public sealed class Outer
+            {
+                public Outer(Inputs inputs, string selector)
+                {
+                }
+
+                public static Outer Create(
+                    int src1,
+                    int src2,
+                    int src3,
+                    int src4,
+                    string selector) =>
+                    new Outer(
+                        {|SST1163:new(src1, src2, src3,
+                            src4)|},
+                        selector);
+            }
+            """;
+
+        const string FixedSource = """
+            public sealed class Inputs
+            {
+                public Inputs(int src1, int src2, int src3, int src4)
+                {
+                }
+            }
+
+            public sealed class Outer
+            {
+                public Outer(Inputs inputs, string selector)
+                {
+                }
+
+                public static Outer Create(
+                    int src1,
+                    int src2,
+                    int src3,
+                    int src4,
+                    string selector) =>
+                    new Outer(
+                        new(
+                            src1,
+                            src2,
+                            src3,
+                            src4),
+                        selector);
+            }
+            """;
+
+        await Verifysst0014.VerifyCodeFixAsync(Test, FixedSource);
+    }
+
     /// <summary>Verifies Fix All rewrites every implicit object creation with split arguments in a single document.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

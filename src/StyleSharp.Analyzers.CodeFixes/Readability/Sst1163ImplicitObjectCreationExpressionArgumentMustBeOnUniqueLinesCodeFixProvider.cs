@@ -29,11 +29,8 @@ public sealed class Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqu
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
-
-            if (node is ImplicitObjectCreationExpressionSyntax syntaxNode)
+            if (TryFindImplicitObjectCreation(root, diagnostic, out var syntaxNode))
             {
-                // In this case there is no justification at all
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         CodeFixResources.SST1150CodeFixTitle,
@@ -48,7 +45,7 @@ public sealed class Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqu
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ImplicitObjectCreationExpressionSyntax node)
+        if (!TryFindImplicitObjectCreation(editor.OriginalRoot, diagnostic, out var node))
         {
             return;
         }
@@ -81,5 +78,28 @@ public sealed class Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqu
                                   .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
                       ?? node;
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
+    }
+
+    /// <summary>Finds the implicit object creation reported by the diagnostic.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="node">The implicit object creation node.</param>
+    /// <returns><see langword="true"/> when the diagnostic resolves to an implicit object creation.</returns>
+    private static bool TryFindImplicitObjectCreation(
+        SyntaxNode root,
+        Diagnostic diagnostic,
+        out ImplicitObjectCreationExpressionSyntax node)
+    {
+        var candidate = root
+            .FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)
+            .FirstAncestorOrSelf<ImplicitObjectCreationExpressionSyntax>();
+        if (candidate is null)
+        {
+            node = null!;
+            return false;
+        }
+
+        node = candidate;
+        return true;
     }
 }

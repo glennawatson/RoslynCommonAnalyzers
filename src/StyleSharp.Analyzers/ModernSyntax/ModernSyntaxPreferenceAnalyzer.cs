@@ -108,6 +108,11 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax context.</param>
     private static void AnalyzeAccessor(SyntaxNodeAnalysisContext context)
     {
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7 })
+        {
+            return;
+        }
+
         var accessor = (AccessorDeclarationSyntax)context.Node;
         if (!TryGetAccessorExpression(accessor, out _))
         {

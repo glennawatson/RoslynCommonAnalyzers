@@ -287,6 +287,12 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeDefaultExpression(SyntaxNodeAnalysisContext context)
     {
+        // The bare 'default' literal is a C# 7.1 feature; below that the fix would not compile.
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7_1 })
+        {
+            return;
+        }
+
         var defaultExpression = (DefaultExpressionSyntax)context.Node;
         if (!IsTargetTypedDefaultPosition(defaultExpression))
         {

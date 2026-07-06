@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -133,6 +134,42 @@ public class ReadonlyStructAnalyzerUnitTest
             """
             public record struct Pair(int First, int Second);
             """);
+
+    /// <summary>Verifies the readonly struct modifier is offered on C# 7.2, the version that introduced it (regression against an over-strict 7.3 gate).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ImmutableStructIsFlaggedOnCSharp72Async()
+    {
+        const string Source = """
+                              public struct {|PSH1014:Point|}
+                              {
+                                  private readonly int _x;
+
+                                  public Point(int x) => _x = x;
+
+                                  public int X => _x;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public readonly struct Point
+                                   {
+                                       private readonly int _x;
+
+                                       public Point(int x) => _x = x;
+
+                                       public int X => _x;
+                                   }
+                                   """;
+
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, FixedCode = FixedSource };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp7_2));
+        });
+
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>

@@ -21,6 +21,9 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the .NET 9 lock type.</summary>
     private const string LockMetadataName = "System.Threading.Lock";
 
+    /// <summary>The numeric C# 13 language-version value, the first where 'lock' binds to the Lock type's scope.</summary>
+    private const int CSharp13 = 1300;
+
     /// <summary>Classifies a matching field-name token for the syntax-only fast path.</summary>
     internal enum FieldNameTokenKind
     {
@@ -160,7 +163,9 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         ConcurrentDictionary<TypeDeclarationSyntax, byte> analyzedTypes)
     {
         var field = (FieldDeclarationSyntax)context.Node;
-        if (!CouldBeCandidateLockField(field)
+        if (field.SyntaxTree.Options is not CSharpParseOptions options
+            || (int)options.LanguageVersion < CSharp13
+            || !CouldBeCandidateLockField(field)
             || field.Parent is not TypeDeclarationSyntax type
             || !analyzedTypes.TryAdd(type, 0))
         {

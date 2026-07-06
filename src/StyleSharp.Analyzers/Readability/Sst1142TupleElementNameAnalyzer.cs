@@ -47,6 +47,12 @@ public sealed class Sst1142TupleElementNameAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
+        // Named tuple element access is a C# 7 feature; below that the fix would not compile.
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7 })
+        {
+            return;
+        }
+
         var access = (MemberAccessExpressionSyntax)context.Node;
         if (access.Name is not IdentifierNameSyntax identifier
             || !TryGetReplacementName(access, context.SemanticModel, context.CancellationToken, out var name))

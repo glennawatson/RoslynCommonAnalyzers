@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyModernSyntaxPreference = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -182,6 +183,38 @@ public class ModernSyntaxPreferenceAnalyzerUnitTest
                               }
                               """;
         var test = CreateNet80Test(Source, Source);
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies expression-bodied accessor suggestions stay silent below C# 7, where they cannot be written.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task SimplePropertyAccessorsAreSilentBelowCSharp7Async()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  private int _value;
+
+                                  public int Value
+                                  {
+                                      get { return _value; }
+                                      set { _value = value; }
+                                  }
+                              }
+                              """;
+        var test = new VerifyModernSyntaxPreference.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = Source
+        };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp6));
+        });
 
         await test.RunAsync(CancellationToken.None);
     }

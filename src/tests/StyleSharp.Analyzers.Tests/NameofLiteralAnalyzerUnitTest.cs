@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+
 using VerifyNameofLiteral = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1463NameofLiteralAnalyzer>;
 
@@ -45,4 +47,33 @@ public class NameofLiteralAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies the rule stays silent below C# 6, where nameof does not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SilentBelowCSharp6Async()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int Count { get; set; }
+
+                                  public void M()
+                                  {
+                                      Notify("Count");
+                                  }
+
+                                  private static void Notify(string propertyName)
+                                  {
+                                  }
+                              }
+                              """;
+        var test = new VerifyNameofLiteral.Test { TestCode = Source };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp5));
+        });
+        await test.RunAsync(CancellationToken.None);
+    }
 }

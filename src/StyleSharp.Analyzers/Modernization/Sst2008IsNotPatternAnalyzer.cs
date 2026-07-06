@@ -27,6 +27,12 @@ public sealed class Sst2008IsNotPatternAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
+        // The fix emits an 'is not' pattern, which requires C# 9.
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 })
+        {
+            return;
+        }
+
         var notExpression = (PrefixUnaryExpressionSyntax)context.Node;
         if (Unwrap(notExpression.Operand) is not IsPatternExpressionSyntax isPattern || ContainsDeclaration(isPattern.Pattern))
         {

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+
 using VerifyNull = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1149PreferIsNullPatternAnalyzer,
     StyleSharp.Analyzers.Sst1149PreferIsNullPatternCodeFixProvider>;
@@ -91,5 +93,45 @@ public class PreferIsNullPatternAnalyzerUnitTest
                                    """;
 
         await VerifyNull.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies the <c>== null</c> branch stays silent below C# 7, where the <c>is null</c> pattern the fix emits does not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task EqualsNullSilentBelowCSharp7Async()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public bool M(object x) => x == null;
+                              }
+                              """;
+        var test = new VerifyNull.Test { TestCode = Source, FixedCode = Source };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp6));
+        });
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the <c>!= null</c> branch stays silent below C# 9, where the <c>is not null</c> pattern the fix emits does not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NotEqualsNullSilentBelowCSharp9Async()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public bool M(object x) => x != null;
+                              }
+                              """;
+        var test = new VerifyNull.Test { TestCode = Source, FixedCode = Source };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp8));
+        });
+        await test.RunAsync(CancellationToken.None);
     }
 }

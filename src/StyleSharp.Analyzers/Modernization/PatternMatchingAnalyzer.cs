@@ -113,7 +113,14 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var suggestion = comparison.IsKind(SyntaxKind.NotEqualsExpression) ? "is" : "is not";
+        // The '== null' branch is fixed to 'x is not T' (needs C# 9); the '!= null' branch becomes a plain 'x is T' (C# 1).
+        var isEqualNull = comparison.IsKind(SyntaxKind.EqualsExpression);
+        if (isEqualNull && context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 })
+        {
+            return;
+        }
+
+        var suggestion = isEqualNull ? "is not" : "is";
         context.ReportDiagnostic(Diagnostic.Create(ModernizationRules.UseIsPatternOverAsNullCheck, comparison.GetLocation(), suggestion));
     }
 
@@ -121,6 +128,12 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeNegatedIs(SyntaxNodeAnalysisContext context)
     {
+        // The fix emits an 'is not' pattern, which requires C# 9.
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 })
+        {
+            return;
+        }
+
         var not = (PrefixUnaryExpressionSyntax)context.Node;
 
         // Only the type-test form ('x is T') negates cleanly; declaration patterns ('x is T t') bind a name.
@@ -137,6 +150,12 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeIsCheckFollowedByCast(SyntaxNodeAnalysisContext context)
     {
+        // The fix emits a declaration pattern ('x is T t'), which requires C# 7.
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7 })
+        {
+            return;
+        }
+
         if (!TryGetIsCheckCastCandidate((IfStatementSyntax)context.Node, out var candidate))
         {
             return;

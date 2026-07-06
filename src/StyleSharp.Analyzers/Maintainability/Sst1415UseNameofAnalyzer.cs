@@ -55,6 +55,11 @@ public sealed class Sst1415UseNameofAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp6 })
+        {
+            return;
+        }
+
         var creation = (ObjectCreationExpressionSyntax)context.Node;
         if (!IsArgumentExceptionType(creation.Type)
             || creation.ArgumentList is not { Arguments.Count: > 0 } arguments)

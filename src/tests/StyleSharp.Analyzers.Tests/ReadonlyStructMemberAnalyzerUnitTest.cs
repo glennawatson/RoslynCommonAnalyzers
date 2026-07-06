@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+
 using VerifyReadonlyStructMember = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1460ReadonlyStructMemberAnalyzer>;
 
@@ -36,4 +38,26 @@ public class ReadonlyStructMemberAnalyzerUnitTest
                 private readonly int GetValue() => 1;
             }
             """);
+
+    /// <summary>Verifies the rule stays silent below C# 8, where readonly instance members do not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SilentBelowCSharp8Async()
+    {
+        const string Source = """
+                              public struct Counter
+                              {
+                                  private int _value;
+
+                                  public int Value() => _value;
+                              }
+                              """;
+        var test = new VerifyReadonlyStructMember.Test { TestCode = Source };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp7_3));
+        });
+        await test.RunAsync(CancellationToken.None);
+    }
 }

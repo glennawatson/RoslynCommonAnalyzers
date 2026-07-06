@@ -632,6 +632,68 @@ public class ModernSyntaxValueAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies discard-assignment suggestions stay silent below C# 7, where discards do not exist.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task IgnoredExpressionValueIsSilentBelowCSharp7Async()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      Compute();
+                                  }
+
+                                  private int Compute()
+                                  {
+                                      return 1;
+                                  }
+                              }
+                              """;
+        var test = new VerifyModernSyntaxValue.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = Source
+        };
+        Enable(test, "SST2221");
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp6));
+        });
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies anonymous-object-to-tuple suggestions stay silent below C# 7, where tuples do not exist.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task AnonymousObjectToTupleIsSilentBelowCSharp7Async()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public object M(int id, string name) => new { id, Label = name };
+                              }
+                              """;
+        var test = new VerifyModernSyntaxValue.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = Source
+        };
+        Enable(test, "SST2224");
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp6));
+        });
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Creates a .NET 8 verifier test.</summary>
     /// <param name="source">The source.</param>
     /// <param name="fixedSource">The optional fixed source.</param>

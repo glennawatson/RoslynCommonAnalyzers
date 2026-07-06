@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+
 using VerifyDefaultLiteral = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ExpressionSimplificationAnalyzer,
     StyleSharp.Analyzers.UseDefaultLiteralCodeFixProvider>;
@@ -70,5 +72,27 @@ public class UseDefaultLiteralAnalyzerUnitTest
                                    }
                                    """;
         await VerifyDefaultLiteral.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies SST1188 stays silent below C# 7.1, where the bare <c>default</c> literal the fix emits does not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SilentBelowCSharp71Async()
+    {
+        // 'default(int)' compiles at C# 7, but the fix's bare 'default' literal only arrived in
+        // C# 7.1, so under the C# 7 pin the analyzer must not report the redundant type argument.
+        const string Source = """
+                              public class C
+                              {
+                                  public int M() => default(int);
+                              }
+                              """;
+        var test = new VerifyDefaultLiteral.Test { TestCode = Source, FixedCode = Source };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp7));
+        });
+        await test.RunAsync(CancellationToken.None);
     }
 }

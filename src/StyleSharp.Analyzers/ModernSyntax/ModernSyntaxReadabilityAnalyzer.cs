@@ -12,7 +12,10 @@ namespace StyleSharp.Analyzers;
 public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The numeric C# 7 language-version value.</summary>
-    private const int CSharp7 = 700;
+    private const int CSharp7 = 7;
+
+    /// <summary>The numeric C# 7.1 language-version value, the first with inferred tuple element names.</summary>
+    private const int CSharp71 = 701;
 
     /// <summary>The numeric C# 11 language-version value.</summary>
     private const int CSharp11 = 1100;
@@ -123,7 +126,7 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeTupleArgument(SyntaxNodeAnalysisContext context)
     {
         var argument = (ArgumentSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(argument, CSharp7)
+        if (!IsLanguageVersionAtLeast(argument, CSharp71)
             || argument.Parent is not TupleExpressionSyntax
             || !ModernSyntaxReadabilityAnalysis.TryGetInferredTupleElementName(argument, out _))
         {

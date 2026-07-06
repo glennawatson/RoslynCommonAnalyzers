@@ -308,6 +308,36 @@ public class ModernSyntaxReadabilityAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies inferred tuple element names are not suggested on C# 7.0, before the C# 7.1 inference feature.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task InferredTupleElementNamesAreSilentOnCSharp7Async()
+    {
+        const string Source = """
+                              public sealed class Person
+                              {
+                                  public int Age { get; set; }
+                              }
+
+                              public sealed class C
+                              {
+                                  public (string name, int Age) M(Person person, string name) => (name: name, Age: person.Age);
+                              }
+                              """;
+        var test = new VerifyModernSyntaxReadability.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source
+        };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp7));
+        });
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Creates a modern C# verification test using the .NET 8 reference pack.</summary>
     /// <param name="source">The source to analyze.</param>
     /// <param name="fixedSource">The optional fixed source.</param>

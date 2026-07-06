@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyModernSyntaxFlow = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -230,6 +231,41 @@ public class ModernSyntaxFlowAnalyzerUnitTest
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
             TestCode = Source
         };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the inline out-variable rule stays silent below C# 7, where inline out declarations do not exist.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task InlineOutVariableIsSilentBelowCSharp7Async()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(string text)
+                                  {
+                                      int value;
+                                      if (int.TryParse(text, out value))
+                                      {
+                                          return value;
+                                      }
+
+                                      return 0;
+                                  }
+                              }
+                              """;
+        var test = new VerifyModernSyntaxFlow.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = Source
+        };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp6));
+        });
 
         await test.RunAsync(CancellationToken.None);
     }

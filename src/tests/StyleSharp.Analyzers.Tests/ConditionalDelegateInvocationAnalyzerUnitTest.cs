@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyConditionalDelegateInvocation = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -53,6 +54,38 @@ public class ConditionalDelegateInvocationAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies the rule stays silent below C# 6, where null-conditional invocation does not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SilentBelowCSharp6Async()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public void M(Action changed)
+                                  {
+                                      if (changed != null)
+                                      {
+                                          changed();
+                                      }
+                                  }
+                              }
+                              """;
+        var test = new VerifyConditionalDelegateInvocation.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source
+        };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp5));
+        });
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>

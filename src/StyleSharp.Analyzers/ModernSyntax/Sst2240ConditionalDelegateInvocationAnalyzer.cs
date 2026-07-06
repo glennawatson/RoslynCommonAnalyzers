@@ -23,6 +23,11 @@ public sealed class Sst2240ConditionalDelegateInvocationAnalyzer : DiagnosticAna
     /// <param name="context">The syntax node context.</param>
     private static void AnalyzeIfStatement(SyntaxNodeAnalysisContext context)
     {
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp6 })
+        {
+            return;
+        }
+
         var ifStatement = (IfStatementSyntax)context.Node;
         if (ifStatement.Else is not null
             || !TryGetNullCheckedExpression(ifStatement.Condition, out var checkedExpression)

@@ -30,6 +30,11 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     private static void AnalyzeMethod(SyntaxNodeAnalysisContext context)
     {
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp8 })
+        {
+            return;
+        }
+
         var method = (MethodDeclarationSyntax)context.Node;
         if (!IsStructInstanceMember(method.Modifiers, method.Parent)
             || (method.Body is null && method.ExpressionBody is null)
@@ -48,6 +53,11 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     private static void AnalyzeProperty(SyntaxNodeAnalysisContext context)
     {
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp8 })
+        {
+            return;
+        }
+
         var property = (PropertyDeclarationSyntax)context.Node;
         if (!IsStructInstanceMember(property.Modifiers, property.Parent) || HasSetter(property))
         {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyPrimaryConstructorStorage = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -358,6 +359,36 @@ public class PrimaryConstructorStorageAnalyzerUnitTest
                        """,
         };
 
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the rule stays silent below C# 12, where primary constructors on classes do not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SilentBelowCSharp12Async()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  private readonly int _value;
+
+                                  public C(int value)
+                                  {
+                                      _value = value;
+                                  }
+                              }
+                              """;
+        var test = new VerifyPrimaryConstructorStorage.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = Source
+        };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp11));
+        });
         await test.RunAsync(CancellationToken.None);
     }
 

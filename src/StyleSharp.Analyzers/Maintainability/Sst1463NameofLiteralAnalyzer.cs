@@ -30,6 +30,11 @@ public sealed class Sst1463NameofLiteralAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     private static void AnalyzeLiteral(SyntaxNodeAnalysisContext context)
     {
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp6 })
+        {
+            return;
+        }
+
         var literal = (LiteralExpressionSyntax)context.Node;
         if (literal.Token.Value is not string { Length: > 0 } name
             || literal.Parent is not ArgumentSyntax argument

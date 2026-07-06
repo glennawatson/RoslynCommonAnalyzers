@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyTuple = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -126,6 +127,30 @@ public class UseTupleSyntaxAnalyzerUnitTest
                               }
                               """;
         var test = new VerifyTuple.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = Source };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the rule stays silent below C# 7, where the tuple type syntax the fix emits does not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SilentBelowCSharp7Async()
+    {
+        // 'ValueTuple<int, string>' is ordinary generic usage that compiles at C# 6; only the fix's
+        // '(int, string)' form needs C# 7, so the analyzer must not report it under the C# 6 pin.
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  public ValueTuple<int, string> M() => default(ValueTuple<int, string>);
+                              }
+                              """;
+        var test = new VerifyTuple.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = Source };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp6));
+        });
         await test.RunAsync(CancellationToken.None);
     }
 }

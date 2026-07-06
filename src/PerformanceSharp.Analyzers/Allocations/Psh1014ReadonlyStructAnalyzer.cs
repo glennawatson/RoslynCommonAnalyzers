@@ -149,7 +149,7 @@ public sealed class Psh1014ReadonlyStructAnalyzer : DiagnosticAnalyzer
         var declaration = (TypeDeclarationSyntax)context.Node;
         if (declaration.Modifiers.Any(SyntaxKind.ReadOnlyKeyword)
             || declaration.Modifiers.Any(SyntaxKind.PartialKeyword)
-            || declaration.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7_3 }
+            || declaration.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7_2 }
             || !HasImmutableInstanceState(declaration))
         {
             return;

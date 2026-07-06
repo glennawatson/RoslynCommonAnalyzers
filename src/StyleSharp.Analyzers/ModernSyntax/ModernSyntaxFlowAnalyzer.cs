@@ -9,7 +9,7 @@ namespace StyleSharp.Analyzers;
 public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The numeric C# 7 language-version value.</summary>
-    private const int CSharp7 = 700;
+    private const int CSharp7 = 7;
 
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
@@ -201,6 +201,11 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeLocalDeclaration(SyntaxNodeAnalysisContext context)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
+        if (!IsLanguageVersionAtLeast(declaration, CSharp7))
+        {
+            return;
+        }
+
         if (declaration.Declaration.Variables.Count != 1
             || declaration.Declaration.Type is IdentifierNameSyntax { Identifier.ValueText: "var" }
             || declaration.Declaration.Variables[0].Initializer is not null

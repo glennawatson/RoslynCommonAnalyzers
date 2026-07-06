@@ -33,6 +33,11 @@ public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyze
     /// <param name="context">The syntax node context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp12 })
+        {
+            return;
+        }
+
         var constructor = (ConstructorDeclarationSyntax)context.Node;
         if (!TryGetCandidate(constructor, out var body))
         {

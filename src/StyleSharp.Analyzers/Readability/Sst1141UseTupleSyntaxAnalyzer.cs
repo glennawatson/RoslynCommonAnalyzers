@@ -35,6 +35,12 @@ public sealed class Sst1141UseTupleSyntaxAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
+        // Tuple type syntax '(T1, T2)' is a C# 7 feature; below that the fix would not compile.
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7 })
+        {
+            return;
+        }
+
         var node = (GenericNameSyntax)context.Node;
         if (node.Identifier.ValueText != "ValueTuple")
         {

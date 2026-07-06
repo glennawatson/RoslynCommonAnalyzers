@@ -60,6 +60,15 @@ public sealed class Sst1149PreferIsNullPatternAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
+
+        // 'x is null' is a C# 7 feature; the negated 'x is not null' pattern only arrived in C# 9.
+        // Below the required version the suggested fix would not compile, so stay silent.
+        var requiredVersion = binary.IsKind(SyntaxKind.NotEqualsExpression) ? LanguageVersion.CSharp9 : LanguageVersion.CSharp7;
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions options || options.LanguageVersion < requiredVersion)
+        {
+            return;
+        }
+
         if (!TryGetNullComparison(binary, out _))
         {
             return;

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+
 using VerifyNegatedIs = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.PatternMatchingAnalyzer,
     StyleSharp.Analyzers.NegatedIsPatternCodeFixProvider>;
@@ -72,4 +74,24 @@ public class NegatedIsPatternAnalyzerUnitTest
                 public bool Flag(bool ready) => !ready;
             }
             """);
+
+    /// <summary>Verifies the rule stays silent below C# 9, where the <c>is not</c> pattern the fix emits does not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SilentBelowCSharp9Async()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public bool M(object x) => !(x is string);
+                              }
+                              """;
+        var test = new VerifyNegatedIs.Test { TestCode = Source, FixedCode = Source };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp8));
+        });
+        await test.RunAsync(CancellationToken.None);
+    }
 }

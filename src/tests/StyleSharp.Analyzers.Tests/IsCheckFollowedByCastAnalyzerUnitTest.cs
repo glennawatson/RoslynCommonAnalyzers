@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+
 using VerifyPatternMatching = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.PatternMatchingAnalyzer,
     StyleSharp.Analyzers.DeclarationPatternCodeFixProvider>;
@@ -94,4 +96,33 @@ public class IsCheckFollowedByCastAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies the rule stays silent below C# 7, where the declaration pattern the fix emits does not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SilentBelowCSharp7Async()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(object value)
+                                  {
+                                      if (value is string)
+                                      {
+                                          var text = (string)value;
+                                          return text.Length;
+                                      }
+
+                                      return 0;
+                                  }
+                              }
+                              """;
+        var test = new VerifyPatternMatching.Test { TestCode = Source, FixedCode = Source };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp6));
+        });
+        await test.RunAsync(CancellationToken.None);
+    }
 }

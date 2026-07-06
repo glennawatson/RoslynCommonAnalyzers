@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyTryGetValue = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -455,6 +456,38 @@ public class UseTryGetValueAnalyzerUnitTest
                                    }
                                    """;
         await VerifyNet90Async(Source, FixedSource);
+    }
+
+    /// <summary>Verifies the rule stays silent below C# 7, where the 'out var' declaration the fix emits does not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SilentWhenLanguageVersionBelowCSharp7Async()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+
+                              public class C
+                              {
+                                  public int M(Dictionary<string, int> map, string key)
+                                  {
+                                      if (map.ContainsKey(key))
+                                      {
+                                          return map[key];
+                                      }
+
+                                      return 0;
+                                  }
+                              }
+                              """;
+
+        var test = new VerifyTryGetValue.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, FixedCode = Source };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp6));
+        });
+
+        await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies.</summary>

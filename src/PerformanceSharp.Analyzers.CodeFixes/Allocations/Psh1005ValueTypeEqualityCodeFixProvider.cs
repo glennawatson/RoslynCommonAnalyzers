@@ -90,7 +90,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
         }
 
         if (immutable && !declaration.Modifiers.Any(SyntaxKind.ReadOnlyKeyword)
-            && declaration.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7_3 })
+            && declaration.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7_2 })
         {
             context.RegisterCodeFix(
                 CodeAction.Create(
@@ -102,13 +102,16 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
                 diagnostic);
         }
 
-        context.RegisterCodeFix(
-            CodeAction.Create(
-                "Implement IEquatable",
-                cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(
-                    root.ReplaceNode(declaration, ImplementEquatable(model, declaration, members)))),
-                equivalenceKey: nameof(Psh1005ValueTypeEqualityCodeFixProvider) + ".Equatable"),
-            diagnostic);
+        if (declaration.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7 })
+        {
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    "Implement IEquatable",
+                    cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(
+                        root.ReplaceNode(declaration, ImplementEquatable(model, declaration, members)))),
+                    equivalenceKey: nameof(Psh1005ValueTypeEqualityCodeFixProvider) + ".Equatable"),
+                diagnostic);
+        }
     }
 
     /// <summary>Returns whether the struct already declares an equality-shaped member the rewrites would collide with.</summary>

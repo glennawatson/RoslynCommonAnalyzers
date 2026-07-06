@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+
 using VerifyNameof = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1415UseNameofAnalyzer,
     StyleSharp.Analyzers.Sst1415UseNameofCodeFixProvider>;
@@ -106,5 +108,30 @@ public class UseNameofAnalyzerUnitTest
                                    }
                                    """;
         await VerifyNameof.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies the rule stays silent below C# 6, where nameof does not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SilentBelowCSharp6Async()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  public void M(string value)
+                                  {
+                                      throw new ArgumentNullException("value");
+                                  }
+                              }
+                              """;
+        var test = new VerifyNameof.Test { TestCode = Source, FixedCode = Source };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp5));
+        });
+        await test.RunAsync(CancellationToken.None);
     }
 }

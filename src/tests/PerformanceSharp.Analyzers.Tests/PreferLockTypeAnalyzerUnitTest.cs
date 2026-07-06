@@ -350,6 +350,36 @@ public class PreferLockTypeAnalyzerUnitTest
             Psh1300PreferLockTypeAnalyzer.FieldNameTokenKind.Conflict);
     }
 
+    /// <summary>Verifies the rule stays silent below C# 13, where 'lock' does not bind to the Lock type's scope even though the Lock type exists.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SilentWhenLanguageVersionBelowCSharp13Async()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private readonly object _gate = new();
+
+                                  public void M()
+                                  {
+                                      lock (_gate)
+                                      {
+                                          System.Console.WriteLine();
+                                      }
+                                  }
+                              }
+                              """;
+
+        var test = new VerifyLock.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, FixedCode = Source };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp12));
+        });
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies (where the Lock type exists).</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected fixed source.</param>

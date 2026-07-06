@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyTupleName = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -99,6 +100,38 @@ public class TupleElementNameAnalyzerUnitTest
                               }
                               """;
         var test = new VerifyTupleName.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = Source };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the rule stays silent below C# 7, where the named-element access the fix emits does not exist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SilentBelowCSharp7Async()
+    {
+        // The named tuple arrives through a referenced project, so the consuming C# 6 source still
+        // compiles its plain '.Item1' field access. At C# 7+ that access would be reported (the fix
+        // rewrites it to '.Count'), so under the C# 6 pin the analyzer must stay silent.
+        const string LibrarySource = """
+                                     public static class TupleLib
+                                     {
+                                         public static (int Count, int Total) Get() => (1, 2);
+                                     }
+                                     """;
+        const string Source = """
+                              public class C
+                              {
+                                  public int M() => TupleLib.Get().Item1;
+                              }
+                              """;
+        var test = new VerifyTupleName.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
+        test.TestState.AdditionalProjects["TupleLib"].ReferenceAssemblies = ReferenceAssemblies.Net.Net80;
+        test.TestState.AdditionalProjects["TupleLib"].Sources.Add(LibrarySource);
+        test.TestState.AdditionalProjectReferences.Add("TupleLib");
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp6));
+        });
         await test.RunAsync(CancellationToken.None);
     }
 }

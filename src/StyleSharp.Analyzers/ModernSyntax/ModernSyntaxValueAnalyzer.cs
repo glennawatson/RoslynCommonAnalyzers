@@ -31,7 +31,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     internal const string ThrowFold = "Throw";
 
     /// <summary>The numeric C# 7 language-version value.</summary>
-    private const int CSharp7 = 700;
+    private const int CSharp7 = 7;
 
     /// <summary>The numeric C# 8 language-version value.</summary>
     private const int CSharp8 = 800;
@@ -205,7 +205,8 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!IsIgnoredValueCandidate(statement.Expression)
+        if (!IsLanguageVersionAtLeast(statement, CSharp7)
+            || !IsIgnoredValueCandidate(statement.Expression)
             || context.SemanticModel.GetTypeInfo(statement.Expression, context.CancellationToken).Type is not { } type
             || type.SpecialType == SpecialType.System_Void)
         {
@@ -334,7 +335,8 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeAnonymousObject(SyntaxNodeAnalysisContext context)
     {
         var anonymous = (AnonymousObjectCreationExpressionSyntax)context.Node;
-        if (anonymous.Initializers.Count < 2)
+        if (!IsLanguageVersionAtLeast(anonymous, CSharp7)
+            || anonymous.Initializers.Count < 2)
         {
             return;
         }

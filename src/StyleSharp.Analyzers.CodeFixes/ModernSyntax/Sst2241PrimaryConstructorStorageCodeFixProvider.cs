@@ -125,6 +125,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
         replacement = null;
         if (constructor.Body is not { } body
             || !TryCollectAssignments(body, out var assignments)
+            || HasBodyScopeNameCollision(containingType, constructor)
             || !TryRewriteMembers(containingType, constructor, assignments, out var members)
             || !TryGetBaseList(containingType, constructor.Initializer, out var baseList))
         {
@@ -132,8 +133,8 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
         }
 
         replacement = WithParameterList(
-                containingType.WithIdentifier(containingType.Identifier.WithTrailingTrivia(default(SyntaxTriviaList))),
-                constructor.ParameterList.WithoutTrivia().WithTrailingTrivia(containingType.Identifier.TrailingTrivia))
+                ClearPrimaryConstructorInsertionTrivia(containingType),
+                CreatePrimaryConstructorParameterList(containingType, constructor.ParameterList))
             .WithBaseList(baseList)
             .WithMembers(members)
             .WithLeadingTrivia(MoveParameterDocsToType(containingType, constructor));
@@ -194,6 +195,43 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             _ => type
         };
 
+    /// <summary>Clears trivia before the primary-constructor insertion point so the parameter list touches the type name.</summary>
+    /// <param name="type">The type declaration.</param>
+    /// <returns>The type declaration with insertion-point trailing trivia removed.</returns>
+    private static TypeDeclarationSyntax ClearPrimaryConstructorInsertionTrivia(TypeDeclarationSyntax type)
+    {
+        if (type.TypeParameterList is { } typeParameterList)
+        {
+            return type.WithTypeParameterList(typeParameterList.WithGreaterThanToken(typeParameterList.GreaterThanToken.WithTrailingTrivia(default(SyntaxTriviaList))));
+        }
+
+        return type.WithIdentifier(type.Identifier.WithTrailingTrivia(default(SyntaxTriviaList)));
+    }
+
+    /// <summary>Creates a primary-constructor parameter list with separator trivia moved from the type name.</summary>
+    /// <param name="type">The type declaration.</param>
+    /// <param name="parameterList">The constructor parameter list.</param>
+    /// <returns>The parameter list to attach to the type declaration.</returns>
+    private static ParameterListSyntax CreatePrimaryConstructorParameterList(TypeDeclarationSyntax type, ParameterListSyntax parameterList)
+        => parameterList
+            .WithoutTrivia()
+            .WithLeadingTrivia(default(SyntaxTriviaList))
+            .WithTrailingTrivia(GetPrimaryConstructorTrailingTrivia(type));
+
+    /// <summary>Gets the trivia that should follow the inserted primary-constructor parameter list.</summary>
+    /// <param name="type">The type declaration.</param>
+    /// <returns>The trailing trivia for the parameter list.</returns>
+    private static SyntaxTriviaList GetPrimaryConstructorTrailingTrivia(TypeDeclarationSyntax type)
+    {
+        var trailing = type.TypeParameterList is { } typeParameterList
+            ? typeParameterList.GreaterThanToken.TrailingTrivia
+            : type.Identifier.TrailingTrivia;
+
+        return trailing.Count != 0 || (type.BaseList is null && type.ConstraintClauses.Count == 0)
+            ? trailing
+            : SyntaxFactory.TriviaList(SyntaxFactory.Space);
+    }
+
     /// <summary>Returns the base list that preserves a constructor <c>base(...)</c> call.</summary>
     /// <param name="type">The containing type.</param>
     /// <param name="initializer">The constructor initializer.</param>
@@ -233,6 +271,103 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
 
         baseList = currentBaseList.WithTypes(currentBaseList.Types.Replace(first, replacement));
         return true;
+    }
+
+    /// <summary>Returns whether promoted constructor parameters would be shadowed by declarations inside the type body.</summary>
+    /// <param name="type">The type declaration.</param>
+    /// <param name="constructor">The constructor being converted.</param>
+    /// <returns><see langword="true"/> when a promoted parameter name would collide.</returns>
+    private static bool HasBodyScopeNameCollision(TypeDeclarationSyntax type, ConstructorDeclarationSyntax constructor)
+    {
+        var parameters = constructor.ParameterList.Parameters;
+        if (parameters.Count == 0)
+        {
+            return false;
+        }
+
+        var members = type.Members;
+        for (var i = 0; i < members.Count; i++)
+        {
+            var member = members[i];
+            if (member == constructor || member is TypeDeclarationSyntax)
+            {
+                continue;
+            }
+
+            if (ContainsParameterNameDeclaration(member, parameters))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a node declares one of the promoted constructor parameter names.</summary>
+    /// <param name="node">The syntax node to inspect.</param>
+    /// <param name="parameters">The promoted constructor parameters.</param>
+    /// <returns><see langword="true"/> when a matching declaration is found.</returns>
+    private static bool ContainsParameterNameDeclaration(SyntaxNode node, SeparatedSyntaxList<ParameterSyntax> parameters)
+    {
+        if (node is TypeDeclarationSyntax)
+        {
+            return false;
+        }
+
+        if (IsPromotedParameterDeclaration(node, parameters))
+        {
+            return true;
+        }
+
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
+        {
+            if (children[i].AsNode() is { } child && ContainsParameterNameDeclaration(child, parameters))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a node declares a promoted constructor parameter name.</summary>
+    /// <param name="node">The node to inspect.</param>
+    /// <param name="parameters">The promoted constructor parameters.</param>
+    /// <returns><see langword="true"/> when the node declares a matching name.</returns>
+    private static bool IsPromotedParameterDeclaration(SyntaxNode node, SeparatedSyntaxList<ParameterSyntax> parameters)
+        => node switch
+        {
+            ParameterSyntax parameter => IsPromotedParameterName(parameter.Identifier, parameters),
+            VariableDeclaratorSyntax variable => IsPromotedParameterName(variable.Identifier, parameters),
+            ForEachStatementSyntax forEach => IsPromotedParameterName(forEach.Identifier, parameters),
+            CatchDeclarationSyntax catchDeclaration => IsPromotedParameterName(catchDeclaration.Identifier, parameters),
+            SingleVariableDesignationSyntax designation => IsPromotedParameterName(designation.Identifier, parameters),
+            LocalFunctionStatementSyntax localFunction => IsPromotedParameterName(localFunction.Identifier, parameters),
+            _ => false
+        };
+
+    /// <summary>Returns whether an identifier matches a promoted constructor parameter name.</summary>
+    /// <param name="identifier">The identifier to inspect.</param>
+    /// <param name="parameters">The promoted constructor parameters.</param>
+    /// <returns><see langword="true"/> when the identifier matches a promoted parameter.</returns>
+    private static bool IsPromotedParameterName(SyntaxToken identifier, SeparatedSyntaxList<ParameterSyntax> parameters)
+    {
+        if (identifier.RawKind == 0)
+        {
+            return false;
+        }
+
+        var name = identifier.ValueText;
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            if (string.Equals(parameters[i].Identifier.ValueText, name, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Collects constructor assignments that can become member initializers.</summary>
@@ -597,27 +732,30 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     private static string GetTypeIndentation(TypeDeclarationSyntax type)
     {
         var leading = type.GetLeadingTrivia();
-        for (var i = 0; i < leading.Count; i++)
+        var text = leading.ToFullString();
+        var markerIndex = text.IndexOf("///", StringComparison.Ordinal);
+        if (markerIndex >= 0)
         {
-            if (leading[i].IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia))
-            {
-                return GetDocumentationIndentation(leading[i]);
-            }
+            return GetLinePrefix(text, markerIndex);
         }
 
-        var text = leading.ToFullString();
         var lineStart = Math.Max(text.LastIndexOf('\n'), text.LastIndexOf('\r')) + 1;
         return lineStart < text.Length ? text.Substring(lineStart) : text;
     }
 
-    /// <summary>Gets the indentation before a documentation comment marker.</summary>
-    /// <param name="trivia">The documentation trivia.</param>
-    /// <returns>The indentation text.</returns>
-    private static string GetDocumentationIndentation(SyntaxTrivia trivia)
+    /// <summary>Gets the text before a target index on the same line.</summary>
+    /// <param name="text">The text to inspect.</param>
+    /// <param name="index">The target index.</param>
+    /// <returns>The text between the start of the line and the target index.</returns>
+    private static string GetLinePrefix(string text, int index)
     {
-        var text = trivia.ToFullString();
-        var markerIndex = text.IndexOf("///", StringComparison.Ordinal);
-        return markerIndex > 0 ? text.Substring(0, markerIndex) : string.Empty;
+        var lineStart = index;
+        while (lineStart > 0 && text[lineStart - 1] != '\r' && text[lineStart - 1] != '\n')
+        {
+            lineStart--;
+        }
+
+        return lineStart < index ? text.Substring(lineStart, index - lineStart) : string.Empty;
     }
 
     /// <summary>Captures a constructor storage assignment.</summary>

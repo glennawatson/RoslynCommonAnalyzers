@@ -86,7 +86,7 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
         var constructor = (ConstructorDeclarationSyntax)context.Node;
         if (ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword)
             || constructor.Parent is not TypeDeclarationSyntax type
-            || !ModifierListHelper.Contains(type.Modifiers, SyntaxKind.AbstractKeyword))
+            || !IsAbstractType(type, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -99,6 +99,27 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
                 return;
             }
         }
+    }
+
+    /// <summary>Returns whether a type declaration's merged symbol is <c>abstract</c>.</summary>
+    /// <param name="type">The type declaration containing the constructor.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when the type is abstract, including via another partial part.</returns>
+    /// <remarks>
+    /// The <c>abstract</c> keyword need only appear on one part, so its absence here does not
+    /// mean the type is concrete. The syntactic hit short-circuits the common case; only a
+    /// partial part without the keyword pays for the symbol lookup.
+    /// </remarks>
+    private static bool IsAbstractType(TypeDeclarationSyntax type, SemanticModel model, CancellationToken cancellationToken)
+    {
+        if (ModifierListHelper.Contains(type.Modifiers, SyntaxKind.AbstractKeyword))
+        {
+            return true;
+        }
+
+        return ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword)
+            && model.GetDeclaredSymbol(type, cancellationToken) is { IsAbstract: true };
     }
 
     /// <summary>Reports SST1432 for a non-static class whose members are all static-compatible.</summary>

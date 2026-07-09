@@ -55,4 +55,40 @@ public class AbstractTypePublicConstructorAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies a public constructor is reported when a sibling part carries the abstract marker.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PublicConstructorOnAbstractPartialSiblingIsReportedAsync()
+        => await VerifyAbstractCtor.VerifyAnalyzerAsync(
+            """
+            public abstract partial class A
+            {
+            }
+
+            public partial class A
+            {
+                {|SST1428:public|} A()
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies a concrete partial type keeps its public constructor clean.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PublicConstructorOnConcretePartialIsCleanAsync()
+        => await VerifyAbstractCtor.VerifyAnalyzerAsync(
+            """
+            public partial class A
+            {
+            }
+
+            public partial class A
+            {
+                public A()
+                {
+                }
+            }
+            """);
 }

@@ -103,17 +103,45 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SST1432 for a non-static class whose members are all static-compatible.</summary>
     /// <param name="context">The syntax node analysis context.</param>
+    /// <remarks>
+    /// <c>static</c> applies to the whole type, so a partial class is judged across every part:
+    /// one part declaring an instance member or a base list rules out all of them. The report
+    /// lands on the first part so the type yields a single diagnostic.
+    /// </remarks>
     private static void AnalyzeClass(SyntaxNodeAnalysisContext context)
     {
         var declaration = (ClassDeclarationSyntax)context.Node;
+        if (HasStaticDisqualifier(declaration))
+        {
+            return;
+        }
 
+        if (!ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PartialKeyword))
+        {
+            if (declaration.Members.Count == 0)
+            {
+                return;
+            }
+        }
+        else if (!IsFirstPartOfStaticCompatibleType(declaration, context.SemanticModel, context.CancellationToken))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.MakeClassStatic, declaration.Identifier.GetLocation(), declaration.Identifier.ValueText));
+    }
+
+    /// <summary>Returns whether a single class declaration rules its type out of being <c>static</c>.</summary>
+    /// <param name="declaration">The class declaration, which may be one part of a partial type.</param>
+    /// <returns><see langword="true"/> when this declaration alone prevents the type from being static.</returns>
+    private static bool HasStaticDisqualifier(ClassDeclarationSyntax declaration)
+    {
         // A base list, a primary constructor, or an existing static/abstract marker rules the class out.
-        if (declaration.Members.Count == 0
-            || declaration.BaseList is not null
+        if (declaration.BaseList is not null
             || declaration.ParameterList is not null
             || ModifierListHelper.ContainsEither(declaration.Modifiers, SyntaxKind.StaticKeyword, SyntaxKind.AbstractKeyword))
         {
-            return;
+            return true;
         }
 
         var members = declaration.Members;
@@ -121,11 +149,55 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
         {
             if (!IsStaticCompatibleMember(members[i]))
             {
-                return;
+                return true;
             }
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.MakeClassStatic, declaration.Identifier.GetLocation(), declaration.Identifier.ValueText));
+        return false;
+    }
+
+    /// <summary>Returns whether every other part of a partial type also allows <c>static</c>, and this is the first part.</summary>
+    /// <param name="declaration">The part being analyzed; already known to carry no disqualifier.</param>
+    /// <param name="model">The semantic model for the part's tree.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when the whole type qualifies and this part should carry the report.</returns>
+    private static bool IsFirstPartOfStaticCompatibleType(
+        ClassDeclarationSyntax declaration,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        if (model.GetDeclaredSymbol(declaration, cancellationToken) is not INamedTypeSymbol symbol)
+        {
+            return false;
+        }
+
+        var references = symbol.DeclaringSyntaxReferences;
+        if (references.Length == 0)
+        {
+            return false;
+        }
+
+        // Only the first part carries the report, so later parts stop after one lookup.
+        if (references[0].GetSyntax(cancellationToken) is not ClassDeclarationSyntax first
+            || first.SyntaxTree != declaration.SyntaxTree
+            || first.Span != declaration.Span)
+        {
+            return false;
+        }
+
+        var memberCount = 0;
+        for (var i = 0; i < references.Length; i++)
+        {
+            if (references[i].GetSyntax(cancellationToken) is not ClassDeclarationSyntax part || HasStaticDisqualifier(part))
+            {
+                return false;
+            }
+
+            memberCount += part.Members.Count;
+        }
+
+        // An entirely empty type is not worth marking static.
+        return memberCount > 0;
     }
 
     /// <summary>Reports SST1431 for an externally visible static member of a generic type that ignores its type parameters.</summary>

@@ -61,6 +61,111 @@ public class MakeClassStaticAnalyzerUnitTest
         await VerifyMakeStatic.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a partial part is clean when a sibling part declares an instance member.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PartialPartWithInstanceMemberInSiblingIsCleanAsync()
+    {
+        var test = new VerifyMakeStatic.Test
+        {
+            TestState =
+            {
+                Sources =
+                {
+                    ("Thing.Helpers.cs", """
+                                         internal partial class Thing
+                                         {
+                                             internal static int Zero() => 0;
+                                         }
+                                         """),
+                    ("Thing.cs", """
+                                 internal partial class Thing
+                                 {
+                                     internal int Value { get; set; }
+                                 }
+                                 """),
+                },
+            },
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a partial part is clean when a sibling part declares a base type.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PartialPartWithBaseTypeInSiblingIsCleanAsync()
+    {
+        var test = new VerifyMakeStatic.Test
+        {
+            TestState =
+            {
+                Sources =
+                {
+                    ("Thing.Helpers.cs", """
+                                         internal partial class Thing
+                                         {
+                                             internal static int Zero() => 0;
+                                         }
+                                         """),
+                    ("Thing.cs", """
+                                 internal partial class Thing : System.IDisposable
+                                 {
+                                     public void Dispose() { }
+                                 }
+                                 """),
+                },
+            },
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies an all-static partial type is reported once, on its first part, and marked static.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AllStaticPartialTypeIsReportedOnFirstPartAsync()
+    {
+        var test = new VerifyMakeStatic.Test
+        {
+            TestState =
+            {
+                Sources =
+                {
+                    ("Thing.cs", """
+                                 internal partial class {|SST1432:Thing|}
+                                 {
+                                     internal static int Value => 0;
+                                 }
+                                 """),
+                    ("Thing.Helpers.cs", """
+                                         internal partial class Thing
+                                         {
+                                             internal static int Zero() => 0;
+                                         }
+                                         """),
+                },
+            },
+            FixedState =
+            {
+                Sources =
+                {
+                    ("Thing.cs", """
+                                 internal static partial class Thing
+                                 {
+                                     internal static int Value => 0;
+                                 }
+                                 """),
+                    ("Thing.Helpers.cs", """
+                                         internal partial class Thing
+                                         {
+                                             internal static int Zero() => 0;
+                                         }
+                                         """),
+                },
+            },
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a class with an instance member and an already-static class are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

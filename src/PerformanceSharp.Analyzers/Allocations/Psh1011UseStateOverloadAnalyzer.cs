@@ -12,6 +12,11 @@ namespace PerformanceSharp.Analyzers;
 /// <c>QueueUserWorkItem</c>, and scheduler-style APIs. A static lambda plus state allocates
 /// neither closure nor per-call delegate. The capture analysis runs last, only after a
 /// sibling overload is found, and only captures declared outside the lambda count.
+/// The twin must <em>add</em> a state parameter: an <c>object</c> parameter the current
+/// overload already declares is not caller state. Keyed dependency-injection registration
+/// is the motivating counter-example — <c>AddKeyedSingleton(Type, object?, factory)</c>
+/// widens <c>AddKeyedSingleton&lt;T&gt;(object?, factory)</c> with a service type, and the
+/// <c>object?</c> both declare is the service key the factory receives, not state.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
@@ -110,13 +115,15 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when a state-taking twin exists.</returns>
     private static bool HasStateOverload(IMethodSymbol method, IMethodSymbol callbackInvoke)
     {
+        var methodStateCount = CountStateParameters(method.OriginalDefinition);
         foreach (var member in method.ContainingType.GetMembers(method.Name))
         {
             if (member is IMethodSymbol sibling
                 && !SymbolEqualityComparer.Default.Equals(sibling.OriginalDefinition, method.OriginalDefinition)
                 && sibling.IsStatic == method.IsStatic
                 && sibling.Parameters.Length == method.Parameters.Length + 1
-                && HasStateShape(sibling, callbackInvoke))
+                && CountStateParameters(sibling.OriginalDefinition) > methodStateCount
+                && HasStateCallback(sibling, callbackInvoke))
             {
                 return true;
             }
@@ -125,28 +132,43 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether an overload carries a state parameter and a callback that can receive it.</summary>
-    /// <param name="sibling">The candidate overload.</param>
-    /// <param name="callbackInvoke">The current callback delegate's Invoke method.</param>
-    /// <returns><see langword="true"/> when the overload has the callback-and-state shape.</returns>
-    private static bool HasStateShape(IMethodSymbol sibling, IMethodSymbol callbackInvoke)
+    /// <summary>Counts the parameters an overload could pass to its callback as caller-supplied state.</summary>
+    /// <param name="method">The method definition to scan.</param>
+    /// <returns>The number of <c>object</c> or method-type-parameter parameters.</returns>
+    /// <remarks>
+    /// Counted on the original definition so an inferred type argument cannot turn a
+    /// <c>TState</c> parameter into a concrete type and hide it.
+    /// </remarks>
+    private static int CountStateParameters(IMethodSymbol method)
     {
-        var hasState = false;
-        var hasCallback = false;
-        foreach (var parameter in sibling.Parameters)
+        var count = 0;
+        foreach (var parameter in method.Parameters)
         {
             if (parameter.Type.SpecialType == SpecialType.System_Object
                 || parameter.Type is ITypeParameterSymbol { DeclaringMethod: not null })
             {
-                hasState = true;
-            }
-            else if (GetDelegateInvoke(parameter.Type) is { } siblingInvoke && IsStateCallbackShape(siblingInvoke, callbackInvoke))
-            {
-                hasCallback = true;
+                count++;
             }
         }
 
-        return hasState && hasCallback;
+        return count;
+    }
+
+    /// <summary>Returns whether an overload has a callback that can receive the state argument.</summary>
+    /// <param name="sibling">The candidate overload.</param>
+    /// <param name="callbackInvoke">The current callback delegate's Invoke method.</param>
+    /// <returns><see langword="true"/> when one parameter is a state-carrying callback.</returns>
+    private static bool HasStateCallback(IMethodSymbol sibling, IMethodSymbol callbackInvoke)
+    {
+        foreach (var parameter in sibling.Parameters)
+        {
+            if (GetDelegateInvoke(parameter.Type) is { } siblingInvoke && IsStateCallbackShape(siblingInvoke, callbackInvoke))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether a candidate callback can carry state without dropping existing callback inputs.</summary>

@@ -102,6 +102,67 @@ public class UseStateOverloadAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a keyed-DI factory lambda is clean; the sibling overload adds a service type, not state.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task KeyedServiceFactoryIsCleanAsync()
+        => await VerifyAsync(
+            """
+            #nullable enable
+            using System;
+
+            public interface IServiceCollection;
+
+            public static class KeyedRegistration
+            {
+                public static IServiceCollection AddKeyedSingleton<TService>(
+                    this IServiceCollection services,
+                    object? serviceKey,
+                    Func<IServiceProvider, object?, TService> implementationFactory)
+                    where TService : class => services;
+
+                public static IServiceCollection AddKeyedSingleton(
+                    this IServiceCollection services,
+                    Type serviceType,
+                    object? serviceKey,
+                    Func<IServiceProvider, object?, object> implementationFactory) => services;
+            }
+
+            public sealed class Holder(string setting)
+            {
+                public string Setting { get; } = setting;
+            }
+
+            public static class C
+            {
+                public static void Add(IServiceCollection services, string key, string setting)
+                    => services.AddKeyedSingleton(key, (provider, _) => new Holder(setting));
+            }
+            """);
+
+    /// <summary>Verifies an overload that genuinely adds an object state parameter is still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AddedObjectStateOverloadIsReportedAsync()
+        => await VerifyAsync(
+            """
+            #nullable enable
+            using System;
+
+            public static class Registry
+            {
+                public static void Run(Action<int> callback) { }
+
+                public static void Run(Action<int, object?> callback, object? state) { }
+            }
+
+            public static class C
+            {
+                public static void M(string label)
+                    => Registry.Run({|PSH1011:value => Console.WriteLine(label)|});
+            }
+            """);
+
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

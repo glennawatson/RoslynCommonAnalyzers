@@ -25,7 +25,15 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeSimpleLambda(SyntaxNodeAnalysisContext context)
     {
         var lambda = (SimpleLambdaExpressionSyntax)context.Node;
-        if (!IsForwardingLambda(lambda.Body, lambda.Parameter, context.SemanticModel, context.CancellationToken))
+        if (lambda.Body is not InvocationExpressionSyntax invocation)
+        {
+            return;
+        }
+
+        var arguments = invocation.ArgumentList.Arguments;
+        if (arguments.Count != 1
+            || !IsPlainIdentifierArgument(arguments[0], lambda.Parameter.Identifier.ValueText)
+            || !IsMethodGroupConvertible(invocation, lambda, arguments, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -39,10 +47,14 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
     {
         var lambda = (ParenthesizedLambdaExpressionSyntax)context.Node;
         var parameters = lambda.ParameterList.Parameters;
-        if (parameters.Count == 0
-            || lambda.Body is not InvocationExpressionSyntax invocation
-            || !IsResolvedMethodCall(invocation, context.SemanticModel, context.CancellationToken)
-            || !ArgumentsMatchParameters(invocation.ArgumentList.Arguments, parameters))
+        if (parameters.Count == 0 || lambda.Body is not InvocationExpressionSyntax invocation)
+        {
+            return;
+        }
+
+        var arguments = invocation.ArgumentList.Arguments;
+        if (!ArgumentsMatchParameters(arguments, parameters)
+            || !IsMethodGroupConvertible(invocation, lambda, arguments, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -50,29 +62,55 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.UseMethodGroup, lambda.GetLocation()));
     }
 
-    /// <summary>Returns whether a simple lambda forwards its parameter to one method call.</summary>
-    /// <param name="body">The lambda body.</param>
-    /// <param name="parameter">The lambda parameter.</param>
+    /// <summary>Returns whether the lambda can be replaced by the invoked method group.</summary>
+    /// <param name="invocation">The forwarding invocation in the lambda body.</param>
+    /// <param name="lambda">The lambda being replaced.</param>
+    /// <param name="arguments">The invocation arguments.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
-    /// <returns><see langword="true"/> when the lambda can be represented by the invoked method group.</returns>
-    private static bool IsForwardingLambda(
-        CSharpSyntaxNode body,
-        ParameterSyntax parameter,
+    /// <returns><see langword="true"/> when the method group converts to the lambda's target type.</returns>
+    /// <remarks>
+    /// A method group conversion only ever uses a candidate's normal form and never applies
+    /// optional-parameter defaults, so a call that omits optional parameters or expands a
+    /// <see langword="params"/> parameter has no method-group equivalent. Expression trees
+    /// cannot hold a method group at all.
+    /// </remarks>
+    private static bool IsMethodGroupConvertible(
+        InvocationExpressionSyntax invocation,
+        ExpressionSyntax lambda,
+        in SeparatedSyntaxList<ArgumentSyntax> arguments,
         SemanticModel model,
         CancellationToken cancellationToken)
-        => body is InvocationExpressionSyntax invocation
-            && IsResolvedMethodCall(invocation, model, cancellationToken)
-            && invocation.ArgumentList.Arguments.Count == 1
-            && IsPlainIdentifierArgument(invocation.ArgumentList.Arguments[0], parameter.Identifier.ValueText);
+        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { MethodKind: MethodKind.Ordinary } method
+            && method.Parameters.Length == arguments.Count
+            && !IsExpandedParamsCall(method, arguments, model, cancellationToken)
+            && model.GetTypeInfo(lambda, cancellationToken).ConvertedType is { TypeKind: TypeKind.Delegate };
 
-    /// <summary>Returns whether an invocation resolves to a normal method call.</summary>
-    /// <param name="invocation">The invocation.</param>
+    /// <summary>Returns whether a call to a <see langword="params"/> method uses its expanded form.</summary>
+    /// <param name="method">The resolved target method, with one parameter per argument.</param>
+    /// <param name="arguments">The invocation arguments.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
-    /// <returns><see langword="true"/> when the call target is known.</returns>
-    private static bool IsResolvedMethodCall(InvocationExpressionSyntax invocation, SemanticModel model, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { MethodKind: MethodKind.Ordinary };
+    /// <returns><see langword="true"/> when the trailing argument is packed into the params collection.</returns>
+    /// <remarks>
+    /// With one argument per parameter, only the trailing argument can be expanded; the compiler
+    /// converts it to the element type when it does, and to the collection type otherwise.
+    /// </remarks>
+    private static bool IsExpandedParamsCall(
+        IMethodSymbol method,
+        in SeparatedSyntaxList<ArgumentSyntax> arguments,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        var lastParameter = method.Parameters[method.Parameters.Length - 1];
+        if (!lastParameter.IsParams)
+        {
+            return false;
+        }
+
+        var convertedType = model.GetTypeInfo(arguments[arguments.Count - 1].Expression, cancellationToken).ConvertedType;
+        return !SymbolEqualityComparer.Default.Equals(convertedType, lastParameter.Type);
+    }
 
     /// <summary>Returns whether invocation arguments are the lambda parameters in declaration order.</summary>
     /// <param name="arguments">The invocation arguments.</param>

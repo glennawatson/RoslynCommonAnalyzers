@@ -73,7 +73,12 @@ public sealed class MakeClassStaticCodeFixProvider : CodeFixProvider, IBatchFixa
                 .WithModifiers(SyntaxFactory.TokenList(staticToken));
         }
 
-        var appended = SyntaxFactory.Token(SyntaxKind.StaticKeyword).WithTrailingTrivia(SyntaxFactory.Space);
-        return declaration.WithModifiers(declaration.Modifiers.Add(appended));
+        // 'partial' must stay last in the modifier list, so 'static' goes in front of it.
+        var inserted = SyntaxFactory.Token(SyntaxKind.StaticKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+        var partialIndex = declaration.Modifiers.IndexOf(SyntaxKind.PartialKeyword);
+        var modifiers = partialIndex < 0
+            ? declaration.Modifiers.Add(inserted)
+            : declaration.Modifiers.Insert(partialIndex, inserted);
+        return declaration.WithModifiers(modifiers);
     }
 }

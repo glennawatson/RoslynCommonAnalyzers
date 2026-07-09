@@ -41,4 +41,86 @@ public class UnreachableCodeAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies a local function declared after a return is clean; the compiler hoists it.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task LocalFunctionAfterReturnIsCleanAsync()
+        => await VerifyUnreachableCode.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public int M(int[] values)
+                {
+                    var total = 0;
+                    foreach (var v in values)
+                    {
+                        total = Add(total, v);
+                    }
+
+                    return total;
+
+                    static int Add(int a, int b) => a + b;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a local function declared after a throw is clean.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task LocalFunctionAfterThrowIsCleanAsync()
+        => await VerifyUnreachableCode.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public int M()
+                {
+                    throw new System.InvalidOperationException(Describe());
+
+                    static string Describe() => "boom";
+                }
+            }
+            """);
+
+    /// <summary>Verifies a statement after a hoisted local function is still reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task StatementAfterLocalFunctionIsReportedAsync()
+        => await VerifyUnreachableCode.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public void M()
+                {
+                    return;
+
+                    static int F() => 1;
+
+                    {|SST1453:System.Console.WriteLine(F());|}
+                }
+            }
+            """);
+
+    /// <summary>Verifies a labeled statement and what follows it stay clean; a goto can reach them.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task LabeledStatementAfterReturnIsCleanAsync()
+        => await VerifyUnreachableCode.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public int M(bool condition)
+                {
+                    if (condition)
+                    {
+                        goto end;
+                    }
+
+                    return 1;
+                end:
+                    System.Console.WriteLine(1);
+                    return 2;
+                }
+            }
+            """);
 }

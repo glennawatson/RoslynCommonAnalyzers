@@ -4,7 +4,13 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>Reports statements that cannot execute because an earlier statement leaves the block (SST1453).</summary>
+/// <summary>
+/// Reports statements that cannot execute because an earlier statement leaves the block (SST1453).
+/// Local function declarations are hoisted rather than executed in place, and a labeled statement
+/// can be entered by a <c>goto</c>, so neither is reported; both mirror the compiler, which raises
+/// no CS0162 for them. A label conservatively restores reachability even when no <c>goto</c> targets
+/// it — CS0162 already covers that case.
+/// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1453UnreachableCodeAnalyzer : DiagnosticAnalyzer
 {
@@ -28,6 +34,21 @@ public sealed class Sst1453UnreachableCodeAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < statements.Count; i++)
         {
             var statement = statements[i];
+
+            // A label can be entered by a goto, so it and everything after it run again.
+            if (statement.IsKind(SyntaxKind.LabeledStatement))
+            {
+                unreachable = false;
+                continue;
+            }
+
+            // A local function is a hoisted declaration, not code at this position. It is never
+            // unreachable, and it does not make the statements after it reachable either.
+            if (statement.IsKind(SyntaxKind.LocalFunctionStatement))
+            {
+                continue;
+            }
+
             if (unreachable)
             {
                 context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.NoUnreachableCode, statement.GetLocation()));

@@ -16,6 +16,13 @@ internal static class FieldReferenceAnalysis
     /// </summary>
     private static readonly ConditionalWeakTable<TypeDeclarationSyntax, TypeFieldReferenceIndex> IndexCache = new();
 
+    /// <summary>
+    /// Caches, per containing type, the declaration each declared field name resolves to. Without it every
+    /// property rescans all of its type's members to find one backing field, so a type with many such
+    /// properties costs quadratic time.
+    /// </summary>
+    private static readonly ConditionalWeakTable<TypeDeclarationSyntax, TypeFieldDeclarationIndex> DeclarationIndexCache = new();
+
     /// <summary>Finds a private single-variable backing field referenced by a property and nowhere else.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="property">The property declaration.</param>
@@ -42,7 +49,7 @@ internal static class FieldReferenceAnalysis
             return false;
         }
 
-        if (FindReferencedField(model, property, cancellationToken) is not { } candidate
+        if (FindReferencedField(model, type, property, cancellationToken) is not { } candidate
             || !TryGetDeclaration(candidate, cancellationToken, out var declaration, out var declarator)
             || !IsEligible(candidate, declaration!, IsStaticProperty(property))
             || !OnlyReferencedInside(model, type, candidate, property, cancellationToken))
@@ -265,16 +272,25 @@ internal static class FieldReferenceAnalysis
         return true;
     }
 
-    /// <summary>Finds the first field symbol referenced by a property.</summary>
+    /// <summary>Finds the first field declared by the containing type that a property references.</summary>
     /// <param name="model">The semantic model.</param>
+    /// <param name="type">The containing type.</param>
     /// <param name="property">The property.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The field symbol, or <see langword="null"/>.</returns>
+    /// <remarks>
+    /// Only an identifier spelling a field the type declares is bound, so a property that reads another
+    /// type's field first still finds its own backing field, and the walk pays one bind instead of one per
+    /// identifier. A field the type does not declare could never survive the eligibility and single-use
+    /// checks anyway.
+    /// </remarks>
     private static IFieldSymbol? FindReferencedField(
         SemanticModel model,
+        TypeDeclarationSyntax type,
         PropertyDeclarationSyntax property,
         CancellationToken cancellationToken)
     {
+        var declaredFields = TypeFieldDeclarationIndex.GetOrCreate(type);
         var children = property.ChildNodesAndTokens();
         for (var i = 0; i < children.Count; i++)
         {
@@ -284,7 +300,7 @@ internal static class FieldReferenceAnalysis
                 continue;
             }
 
-            if (TryFindReferencedField(childNode, model, cancellationToken, out var field))
+            if (TryFindReferencedField(childNode, model, declaredFields, cancellationToken, out var field))
             {
                 return field;
             }
@@ -296,19 +312,22 @@ internal static class FieldReferenceAnalysis
     /// <summary>Finds the first field symbol referenced by a descendant node in preorder.</summary>
     /// <param name="node">The subtree to inspect.</param>
     /// <param name="model">The semantic model.</param>
+    /// <param name="declaredFields">The fields the containing type declares.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <param name="field">The discovered field symbol.</param>
     /// <returns><see langword="true"/> when a field reference is found.</returns>
     private static bool TryFindReferencedField(
         SyntaxNode node,
         SemanticModel model,
+        TypeFieldDeclarationIndex declaredFields,
         CancellationToken cancellationToken,
         out IFieldSymbol? field)
     {
         field = null;
         if (node is IdentifierNameSyntax identifier)
         {
-            if (model.GetSymbolInfo(identifier, cancellationToken).Symbol is IFieldSymbol candidate)
+            if (declaredFields.Contains(identifier.Identifier.ValueText)
+                && model.GetSymbolInfo(identifier, cancellationToken).Symbol is IFieldSymbol candidate)
             {
                 field = candidate;
                 return true;
@@ -326,7 +345,7 @@ internal static class FieldReferenceAnalysis
                 continue;
             }
 
-            if (TryFindReferencedField(childNode, model, cancellationToken, out field))
+            if (TryFindReferencedField(childNode, model, declaredFields, cancellationToken, out field))
             {
                 return true;
             }
@@ -412,31 +431,7 @@ internal static class FieldReferenceAnalysis
         string name,
         out FieldDeclarationSyntax? declaration,
         out VariableDeclaratorSyntax? declarator)
-    {
-        declaration = null;
-        declarator = null;
-        for (var memberIndex = 0; memberIndex < type.Members.Count; memberIndex++)
-        {
-            if (type.Members[memberIndex] is not FieldDeclarationSyntax field)
-            {
-                continue;
-            }
-
-            var variables = field.Declaration.Variables;
-            for (var variableIndex = 0; variableIndex < variables.Count; variableIndex++)
-            {
-                var variable = variables[variableIndex];
-                if (variable.Identifier.ValueText == name)
-                {
-                    declaration = field;
-                    declarator = variable;
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+        => TypeFieldDeclarationIndex.GetOrCreate(type).TryGet(name, out declaration, out declarator);
 
     /// <summary>Returns whether the type contains a matching private object field.</summary>
     /// <param name="type">The containing type declaration.</param>
@@ -606,6 +601,85 @@ internal static class FieldReferenceAnalysis
 
     /// <summary>Captures the state required while searching for earlier locals.</summary>
     private readonly record struct EarlierLocalSearchState(int Position, string Name, bool Found);
+
+    /// <summary>One field declaration and the declarator that names it.</summary>
+    /// <param name="Declaration">The field declaration.</param>
+    /// <param name="Declarator">The variable declarator.</param>
+    private readonly record struct FieldDeclarationEntry(
+        FieldDeclarationSyntax Declaration,
+        VariableDeclaratorSyntax Declarator);
+
+    /// <summary>Maps each field name declared in a type to its declaration, built once per type.</summary>
+    private sealed class TypeFieldDeclarationIndex
+    {
+        /// <summary>The field declarations in the type keyed by declared name.</summary>
+        private readonly Dictionary<string, FieldDeclarationEntry> _declarationsByName;
+
+        /// <summary>Initializes a new instance of the <see cref="TypeFieldDeclarationIndex"/> class.</summary>
+        /// <param name="declarationsByName">The field declarations keyed by declared name.</param>
+        private TypeFieldDeclarationIndex(Dictionary<string, FieldDeclarationEntry> declarationsByName)
+            => _declarationsByName = declarationsByName;
+
+        /// <summary>Gets the cached index for a type, building it on first request.</summary>
+        /// <param name="type">The containing type declaration.</param>
+        /// <returns>The declaration index for the type.</returns>
+        public static TypeFieldDeclarationIndex GetOrCreate(TypeDeclarationSyntax type)
+            => DeclarationIndexCache.GetValue(type, Build);
+
+        /// <summary>Returns whether the type declares a field with the supplied name.</summary>
+        /// <param name="name">The candidate field name.</param>
+        /// <returns><see langword="true"/> when the name is a declared field of the type.</returns>
+        public bool Contains(string name) => _declarationsByName.ContainsKey(name);
+
+        /// <summary>Looks up the declaration of a field by name.</summary>
+        /// <param name="name">The field name.</param>
+        /// <param name="declaration">The field declaration.</param>
+        /// <param name="declarator">The variable declarator.</param>
+        /// <returns><see langword="true"/> when the type declares a field with that name.</returns>
+        public bool TryGet(string name, out FieldDeclarationSyntax? declaration, out VariableDeclaratorSyntax? declarator)
+        {
+            if (_declarationsByName.TryGetValue(name, out var entry))
+            {
+                declaration = entry.Declaration;
+                declarator = entry.Declarator;
+                return true;
+            }
+
+            declaration = null;
+            declarator = null;
+            return false;
+        }
+
+        /// <summary>Builds the index by scanning the type's members once.</summary>
+        /// <param name="type">The containing type declaration.</param>
+        /// <returns>The populated index.</returns>
+        /// <remarks>The first declarator wins, matching the linear scan this replaced.</remarks>
+        private static TypeFieldDeclarationIndex Build(TypeDeclarationSyntax type)
+        {
+            var members = type.Members;
+            var declarationsByName = new Dictionary<string, FieldDeclarationEntry>(members.Count, StringComparer.Ordinal);
+            for (var memberIndex = 0; memberIndex < members.Count; memberIndex++)
+            {
+                if (members[memberIndex] is not FieldDeclarationSyntax field)
+                {
+                    continue;
+                }
+
+                var variables = field.Declaration.Variables;
+                for (var variableIndex = 0; variableIndex < variables.Count; variableIndex++)
+                {
+                    var variable = variables[variableIndex];
+                    var name = variable.Identifier.ValueText;
+                    if (!declarationsByName.ContainsKey(name))
+                    {
+                        declarationsByName.Add(name, new FieldDeclarationEntry(field, variable));
+                    }
+                }
+            }
+
+            return new TypeFieldDeclarationIndex(declarationsByName);
+        }
+    }
 
     /// <summary>Caches, per containing type, the identifiers that share a declared field name.</summary>
     private sealed class TypeFieldReferenceIndex

@@ -150,7 +150,7 @@ public sealed class Sst2200PreferFieldKeywordCodeFixProvider : CodeFixProvider
         IFieldSymbol symbol,
         CancellationToken cancellationToken)
     {
-        var references = new List<IdentifierNameSyntax>(4);
+        var references = new List<ExpressionSyntax>(4);
         var state = new FieldReferenceCollectionState(model, symbol, references, cancellationToken);
         DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, FieldReferenceCollectionState>(property, ref state, CollectFieldReference);
 
@@ -200,14 +200,27 @@ public sealed class Sst2200PreferFieldKeywordCodeFixProvider : CodeFixProvider
             return true;
         }
 
-        state.References.Add(identifier);
+        state.References.Add(GetReplaceableReference(identifier));
         return true;
     }
+
+    /// <summary>Returns the node that stands for the whole backing-field reference.</summary>
+    /// <param name="identifier">The identifier bound to the backing field.</param>
+    /// <returns>The enclosing <c>this.</c> access when there is one, otherwise the identifier.</returns>
+    /// <remarks>
+    /// The contextual <c>field</c> keyword replaces the entire access. Rewriting only the identifier of a
+    /// <c>this._value</c> access would leave <c>this.field</c>, which does not bind (CS1061).
+    /// </remarks>
+    private static ExpressionSyntax GetReplaceableReference(IdentifierNameSyntax identifier)
+        => identifier.Parent is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } memberAccess
+            && ReferenceEquals(memberAccess.Name, identifier)
+                ? memberAccess
+                : identifier;
 
     /// <summary>Captures the state required while collecting backing-field references.</summary>
     private readonly record struct FieldReferenceCollectionState(
         SemanticModel Model,
         IFieldSymbol Symbol,
-        List<IdentifierNameSyntax> References,
+        List<ExpressionSyntax> References,
         CancellationToken CancellationToken);
 }

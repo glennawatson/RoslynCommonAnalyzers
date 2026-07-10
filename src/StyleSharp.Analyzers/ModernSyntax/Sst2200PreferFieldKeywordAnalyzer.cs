@@ -24,6 +24,12 @@ public sealed class Sst2200PreferFieldKeywordAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a property with a non-trivial single-use backing field.</summary>
     /// <param name="context">The syntax node context.</param>
+    /// <remarks>
+    /// The syntactic prepass rejects the common shape for free. When every accessor is a bare read or write
+    /// of one name, the only field the semantic search could find is that name's, and its accessors are by
+    /// construction trivial — so the rule would bail after the search anyway. Short-circuiting here keeps a
+    /// property that SST1420 already owns from ever touching the semantic model.
+    /// </remarks>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         // A property without an accessor list has no accessor logic worth keeping, so SST1420 converts it
@@ -34,6 +40,7 @@ public sealed class Sst2200PreferFieldKeywordAnalyzer : DiagnosticAnalyzer
             || ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword)
             || property.AccessorList is null
             || property.ExplicitInterfaceSpecifier is not null
+            || Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out _)
             || !FieldReferenceAnalysis.TryFindSingleUseBackingField(
                 context.SemanticModel,
                 property,

@@ -288,11 +288,15 @@ internal static class ModernSyntaxBenchmarkSource
                {
                    private int _value{{index}};
 
+                   private readonly int _direct{{index}};
+
                    public int Value{{index}}
                    {
                        get => _value{{index}};
                        set => _value{{index}} = value;
                    }
+
+                   public int Direct{{index}} => _direct{{index}};
                }
                """;
 

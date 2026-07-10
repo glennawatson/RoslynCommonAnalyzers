@@ -7,6 +7,15 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// <summary>Builds synthetic source for semantic and type-oriented analyzer benchmarks.</summary>
 internal static class SemanticTypeBenchmarkSource
 {
+    /// <summary>The number of distinct property shapes the trivial-auto-property corpus rotates through.</summary>
+    private const int TrivialAutoPropertyShapes = 3;
+
+    /// <summary>The shape index that emits an expression-bodied property.</summary>
+    private const int ExpressionBodiedShape = 1;
+
+    /// <summary>The shape index that emits a static property.</summary>
+    private const int StaticShape = 2;
+
     /// <summary>Builds source for trivial-auto-property analyzer benchmarks.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit trivial property wrappers.</param>
@@ -111,13 +120,36 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating property wrapper.</param>
     /// <returns>The generated member block.</returns>
+    /// <remarks>
+    /// The violating members rotate through the accessor-list, expression-bodied and static shapes the rule
+    /// converts, and the clean members include a write-only property, which has no auto-property form.
+    /// </remarks>
     private static string GenerateTrivialAutoPropertyMember(int index, bool violating)
+        => violating
+            ? GenerateTrivialAutoPropertyViolation(index, index % TrivialAutoPropertyShapes)
+            : GenerateTrivialAutoPropertyCleanMember(index, index % TrivialAutoPropertyShapes);
+
+    /// <summary>Builds one violating property in the shape selected for the index.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="shape">The selected property shape.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateTrivialAutoPropertyViolation(int index, int shape) => shape switch
     {
-        return !violating
-            ? $$"""
-                  public int Value{{index}} { get; set; }
-                  """
-            : $$"""
+        ExpressionBodiedShape => $$"""
+                  private readonly int _value{{index}};
+
+                  public int Value{{index}} => _value{{index}};
+                  """,
+        StaticShape => $$"""
+                  private static int _value{{index}};
+
+                  public static int Value{{index}}
+                  {
+                      get => _value{{index}};
+                      set => _value{{index}} = value;
+                  }
+                  """,
+        _ => $$"""
                   private int _value{{index}};
 
                   public int Value{{index}}
@@ -125,8 +157,37 @@ internal static class SemanticTypeBenchmarkSource
                       get => _value{{index}};
                       set => _value{{index}} = value;
                   }
-                  """;
-    }
+                  """,
+    };
+
+    /// <summary>Builds one clean property in the shape selected for the index.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="shape">The selected property shape.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateTrivialAutoPropertyCleanMember(int index, int shape) => shape switch
+    {
+        // A write-only property has no auto-property form. The field is used nowhere else, so the rule
+        // reaches the getter check rather than rejecting earlier on the single-use test.
+        ExpressionBodiedShape => $$"""
+                  private int _value{{index}};
+
+                  public int Value{{index}} { set => _value{{index}} = value; }
+                  """,
+
+        // An instance property over a static field must keep its shared storage.
+        StaticShape => $$"""
+                  private static int _value{{index}};
+
+                  public int Value{{index}}
+                  {
+                      get => _value{{index}};
+                      set => _value{{index}} = value;
+                  }
+                  """,
+        _ => $$"""
+                  public int Value{{index}} { get; set; }
+                  """,
+    };
 
     /// <summary>Builds one clean or violating declaration for redundant-modifier analysis.</summary>
     /// <param name="index">The synthetic declaration index.</param>

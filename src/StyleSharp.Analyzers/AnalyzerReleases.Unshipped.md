@@ -33,6 +33,7 @@ SST1467 | Maintainability | Warning | Sst1467UseForeachOverManualEnumeratorAnaly
 SST1468 | Maintainability | Warning | Sst1468UseShortCircuitOperatorAnalyzer
 SST1469 | Maintainability | Warning | Sst1469ValueTypeNullComparisonAnalyzer
 SST1470 | Maintainability | Warning | Sst1470RemoveRethrowOnlyCatchAnalyzer
+SST1471 | Maintainability | Warning | Sst1471MagicNumberAnalyzer
 SST1658 | Documentation | Warning | Sst1658NoRepeatedWordsAnalyzer
 SST2008 | Modernization | Warning | Sst2008IsNotPatternAnalyzer
 SST2009 | Modernization | Warning | Sst2009UseExceptionFilterAnalyzer

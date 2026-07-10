@@ -126,6 +126,272 @@ public class PreferFieldKeywordAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies expression-bodied trivial accessors are left to SST1420.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task TrivialAccessorsAreCleanAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _value;
+
+                public int Value
+                {
+                    get => _value;
+                    set => _value = value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies block-bodied trivial accessors are left to SST1420.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task BlockBodiedTrivialAccessorsAreCleanAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _value;
+
+                public int Value
+                {
+                    get { return _value; }
+                    set { _value = value; }
+                }
+            }
+            """);
+
+    /// <summary>Verifies <c>this.</c>-qualified trivial accessors are left to SST1420.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ThisQualifiedTrivialAccessorsAreCleanAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _value;
+
+                public int Value
+                {
+                    get => this._value;
+                    set => this._value = value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a trivial get-only property is left to SST1420.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task GetOnlyTrivialAccessorIsCleanAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private readonly int _value;
+
+                public int Value
+                {
+                    get => _value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a trivial write-only property has no accessor logic worth a field keyword.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>A write-only property has no getter, so the syntactic prepass cannot short-circuit it.</remarks>
+    [Test]
+    public async Task WriteOnlyTrivialAccessorIsCleanAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _value;
+
+                public int Value
+                {
+                    set => _value = value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies logic in the getter alone is enough to report.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task GetterWithLogicIsReportedAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _value;
+
+                public int {|SST2200:Value|}
+                {
+                    get => _value * 2;
+                    set => _value = value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a <c>this.</c>-qualified backing field with setter logic is rewritten.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ThisQualifiedBackingFieldWithLogicIsFixedAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private int _value;
+
+                                  public int {|SST2200:Value|}
+                                  {
+                                      get => this._value;
+                                      set => this._value = value < 0 ? 0 : value;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public int Value
+                                       {
+                                           get => field;
+                                           set => field = value < 0 ? 0 : value;
+                                       }
+                                   }
+                                   """;
+        await VerifyFieldKeyword.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a static property is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task StaticPropertyIsCleanAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private static int _value;
+
+                public static int Value
+                {
+                    get => _value;
+                    set => _value = value < 0 ? 0 : value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies an explicit interface implementation is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ExplicitInterfaceImplementationIsCleanAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            public interface I
+            {
+                int Value { get; set; }
+            }
+
+            public class C : I
+            {
+                private int _value;
+
+                int I.Value
+                {
+                    get => _value;
+                    set => _value = value < 0 ? 0 : value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a volatile backing field is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task VolatileBackingFieldIsCleanAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private volatile int _value;
+
+                public int Value
+                {
+                    get => _value;
+                    set => _value = value < 0 ? 0 : value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies an attributed backing field is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task AttributedBackingFieldIsCleanAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            [AttributeUsage(AttributeTargets.Field)]
+            public sealed class MarkAttribute : Attribute
+            {
+            }
+
+            public class C
+            {
+                [Mark]
+                private int _value;
+
+                public int Value
+                {
+                    get => _value;
+                    set => _value = value < 0 ? 0 : value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a field declared alongside another declarator is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MultipleDeclaratorsBackingFieldIsCleanAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _value, _other;
+
+                public int Value
+                {
+                    get => _value;
+                    set => _value = value < 0 ? 0 : value;
+                }
+
+                public int Other() => _other;
+            }
+            """);
+
+    /// <summary>Verifies another type's field read before the backing field does not hide the report.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>The backing-field search skips fields the containing type does not declare.</remarks>
+    [Test]
+    public async Task ForeignFieldReferencedFirstIsReportedAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            public static class Other
+            {
+                public static int Y = 1;
+            }
+
+            public class C
+            {
+                private int _value;
+
+                public int {|SST2200:Value|}
+                {
+                    get => Other.Y + _value;
+                    set => _value = value < 0 ? 0 : value;
+                }
+            }
+            """);
+
     /// <summary>Verifies every single-use backing field in one type is reported independently.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

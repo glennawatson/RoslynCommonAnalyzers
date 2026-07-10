@@ -73,6 +73,7 @@ Some rules expose options. Current options:
 | `stylesharp.count_external_types` | [SST1446](rules/SST1446.md) | `true`, `false` | `false` |
 | `stylesharp.max_property_cognitive_complexity` | [SST1443](rules/SST1443.md) | positive integer | `3` |
 | `stylesharp.allowed_hungarian_prefixes` | [SST1305](rules/SST1305.md) | comma-separated prefixes | built-in list only |
+| `stylesharp.magic_number_allowed_values` | [SST1471](rules/SST1471.md) | comma-separated numbers | `-1, 0, 1` |
 | `stylesharp.SST1431.additional_per_owner_types` | [SST1431](rules/SST1431.md) | comma-separated fully-qualified type names | built-in list only |
 | `stylesharp.document_exposed_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_internal_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |

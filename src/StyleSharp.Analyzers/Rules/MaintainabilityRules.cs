@@ -492,10 +492,24 @@ internal static class MaintainabilityRules
         "Remove this catch clause; it only rethrows the exception",
         "A final catch clause whose body is exactly 'throw;' with no filter changes nothing about how the exception propagates and hides the clauses that do work.");
 
+    /// <summary>SST1471 — a numeric literal in an expression carries unexplained meaning.</summary>
+    public static readonly DiagnosticDescriptor MagicNumber = Create(
+        "SST1471",
+        "Magic numbers should be named constants",
+        "Replace the magic number '{0}' with a named constant",
+        MagicNumberDescription);
+
     /// <summary>The SST1468 rule description.</summary>
     private const string UseShortCircuitOperatorDescription =
         "The bitwise '&' and '|' operators on booleans always evaluate both operands; the conditional forms stop as soon as the answer "
         + "is known. Reported only when the right operand has no side effects to skip.";
+
+    /// <summary>The SST1471 rule description.</summary>
+    private const string MagicNumberDescription =
+        "A numeric literal buried in an expression states a value without stating its meaning. A literal is excluded when it already sits "
+        + "at a declaration that names it, when it is -1, 0 or 1, when it is a bit pattern or shift distance, when it guards a Count or "
+        + "Length, or when its position already carries the meaning. Configure the allowed values with "
+        + "'stylesharp.SST1471.magic_number_allowed_values'.";
 
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

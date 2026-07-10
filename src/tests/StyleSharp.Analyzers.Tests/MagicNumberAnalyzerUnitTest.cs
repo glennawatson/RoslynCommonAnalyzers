@@ -204,6 +204,41 @@ public class MagicNumberAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a mixing prime held in a local inside <c>GetHashCode</c> is clean.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>The declaration does not name the value, so the walk must reach the method that excuses it.</remarks>
+    [Test]
+    public async Task GetHashCodeLocalIsCleanAsync()
+        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private readonly string _name = string.Empty;
+
+                public override int GetHashCode()
+                {
+                    var valueHashCode = _name.Length == 0 ? 1963 : _name.GetHashCode();
+                    return valueHashCode ^ 397;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a local inside an ordinary method is still reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task LocalInsideOrdinaryMethodIsReportedAsync()
+        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int Delay()
+                {
+                    var timeout = {|SST1471:5000|} + 1;
+                    return timeout;
+                }
+            }
+            """);
+
     /// <summary>Verifies arguments to a positional BCL constructor are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

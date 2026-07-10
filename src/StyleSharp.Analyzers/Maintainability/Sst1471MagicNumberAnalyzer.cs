@@ -358,7 +358,9 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// A constant-defining site exempts its whole initializer, because everything in it is part of the
     /// named value: <c>static readonly TimeSpan Retry = TimeSpan.FromSeconds(30);</c> is the fix this rule
     /// asks for, not a violation. The walk stops at a lambda or local function so a literal buried in one
-    /// does not inherit the enclosing field's name.
+    /// does not inherit the enclosing field's name. A declaration that does not name its whole initializer
+    /// must let the walk continue, or a mixing prime in a local inside <c>GetHashCode</c> never reaches the
+    /// method that excuses it.
     /// </remarks>
     private static bool IsAtNamedDeclarationSite(ExpressionSyntax node)
     {
@@ -374,10 +376,11 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
                 case AttributeArgumentSyntax:
                 case ParameterSyntax:
                     return true;
-                case FieldDeclarationSyntax field:
-                    return ModifierListHelper.ContainsEither(field.Modifiers, SyntaxKind.ConstKeyword, SyntaxKind.ReadOnlyKeyword);
-                case LocalDeclarationStatementSyntax local:
-                    return local.IsConst;
+                case FieldDeclarationSyntax field
+                    when ModifierListHelper.ContainsEither(field.Modifiers, SyntaxKind.ConstKeyword, SyntaxKind.ReadOnlyKeyword):
+                    return true;
+                case LocalDeclarationStatementSyntax { IsConst: true }:
+                    return true;
                 case MethodDeclarationSyntax method:
                     return method.Identifier.ValueText == "GetHashCode";
             }

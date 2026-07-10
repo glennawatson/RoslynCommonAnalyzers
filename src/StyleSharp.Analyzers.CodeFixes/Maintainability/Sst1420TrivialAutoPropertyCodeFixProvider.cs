@@ -113,20 +113,22 @@ public sealed class Sst1420TrivialAutoPropertyCodeFixProvider : CodeFixProvider
         FieldDeclarationSyntax field,
         VariableDeclaratorSyntax variable)
     {
-        var accessors = property.AccessorList!.Accessors;
-        var rewritten = new AccessorDeclarationSyntax[accessors.Count];
-        for (var i = 0; i < accessors.Count; i++)
-        {
-            rewritten[i] = accessors[i]
-                .WithBody(null)
+        // An accessor list already carries the property's trailing newline on its closing brace, so that
+        // common path is left untouched. A synthesized list has none, and an initializer pushes the
+        // newline onto the trailing semicolon instead.
+        var updated = property.AccessorList is { } accessorList
+            ? property.WithAccessorList(accessorList.WithAccessors(ToAutoAccessors(accessorList.Accessors)))
+            : property
                 .WithExpressionBody(null)
-                .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
-        }
+                .WithSemicolonToken(default)
+                .WithAccessorList(CreateGetOnlyAccessorList().WithTrailingTrivia(property.GetTrailingTrivia()));
 
-        var updated = property.WithAccessorList(property.AccessorList.WithAccessors(SyntaxFactory.List(rewritten)));
         if (variable.Initializer is { } initializer)
         {
-            updated = updated.WithInitializer(initializer).WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+            updated = updated
+                .WithAccessorList(updated.AccessorList!.WithTrailingTrivia(SyntaxFactory.Space))
+                .WithInitializer(initializer)
+                .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(property.GetTrailingTrivia()));
         }
 
         var annotation = new SyntaxAnnotation();
@@ -144,4 +146,35 @@ public sealed class Sst1420TrivialAutoPropertyCodeFixProvider : CodeFixProvider
         var normalizedProperty = currentProperty.WithLeadingTrivia(CodeFixTriviaHelper.CollapseLeadingBlankLine(leadingTrivia));
         return document.WithSyntaxRoot(changed.ReplaceNode(currentProperty, normalizedProperty));
     }
+
+    /// <summary>Strips every accessor down to its auto-implemented semicolon form.</summary>
+    /// <param name="accessors">The accessors to rewrite.</param>
+    /// <returns>The auto-implemented accessors.</returns>
+    private static SyntaxList<AccessorDeclarationSyntax> ToAutoAccessors(SyntaxList<AccessorDeclarationSyntax> accessors)
+    {
+        var rewritten = new AccessorDeclarationSyntax[accessors.Count];
+        for (var i = 0; i < accessors.Count; i++)
+        {
+            rewritten[i] = accessors[i]
+                .WithBody(null)
+                .WithExpressionBody(null)
+                .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+        }
+
+        return SyntaxFactory.List(rewritten);
+    }
+
+    /// <summary>Builds the <c>{ get; }</c> accessor list that replaces an expression-bodied property.</summary>
+    /// <returns>The get-only accessor list.</returns>
+    /// <remarks>
+    /// The braces and semicolon carry their spacing directly rather than relying on a formatting pass,
+    /// so the fix stays a pure syntax rewrite.
+    /// </remarks>
+    private static AccessorListSyntax CreateGetOnlyAccessorList()
+        => SyntaxFactory.AccessorList(
+            SyntaxFactory.Token(SyntaxKind.OpenBraceToken).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.SingletonList(
+                SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                    .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(SyntaxFactory.Space))),
+            SyntaxFactory.Token(SyntaxKind.CloseBraceToken));
 }

@@ -41,6 +41,20 @@ public class PreferFieldKeywordAnalyzerUnitTest
         await VerifyFieldKeyword.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies an expression-bodied property is left to SST1420 rather than steered toward the field keyword.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ExpressionBodiedPropertyIsCleanAsync()
+        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _value;
+
+                public int Value => _value + 1;
+            }
+            """);
+
     /// <summary>Verifies a field used by another member is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

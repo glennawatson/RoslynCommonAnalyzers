@@ -26,10 +26,13 @@ public sealed class Sst2200PreferFieldKeywordAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
+        // A property without an accessor list has no accessor logic worth keeping, so SST1420 converts it
+        // to an auto-property rather than this rule steering it toward a field-keyword backing store.
         var property = (PropertyDeclarationSyntax)context.Node;
         if (property.SyntaxTree.Options is not CSharpParseOptions options
             || (int)options.LanguageVersion < CSharp14
             || ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword)
+            || property.AccessorList is null
             || property.ExplicitInterfaceSpecifier is not null
             || !FieldReferenceAnalysis.TryFindSingleUseBackingField(
                 context.SemanticModel,

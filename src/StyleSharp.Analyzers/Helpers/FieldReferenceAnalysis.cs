@@ -37,14 +37,14 @@ internal static class FieldReferenceAnalysis
         symbol = null;
         if (property.Parent is not TypeDeclarationSyntax type
             || ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword)
-            || property.AccessorList is null)
+            || !HasBody(property))
         {
             return false;
         }
 
         if (FindReferencedField(model, property, cancellationToken) is not { } candidate
             || !TryGetDeclaration(candidate, cancellationToken, out var declaration, out var declarator)
-            || !IsEligible(candidate, declaration!)
+            || !IsEligible(candidate, declaration!, IsStaticProperty(property))
             || !OnlyReferencedInside(model, type, candidate, property, cancellationToken))
         {
             return false;
@@ -79,12 +79,12 @@ internal static class FieldReferenceAnalysis
         symbol = null;
         if (property.Parent is not TypeDeclarationSyntax type
             || ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword)
-            || property.AccessorList is null
+            || !HasBody(property)
             || !TryFindFieldDeclaration(type, fieldName, out var declaration, out var declarator)
             || declaration is null
             || declarator is null
             || model.GetDeclaredSymbol(declarator, cancellationToken) is not IFieldSymbol candidate
-            || !IsEligible(candidate, declaration)
+            || !IsEligible(candidate, declaration, IsStaticProperty(property))
             || !OnlyReferencedInside(model, type, candidate, property, declaration, cancellationToken))
         {
             return false;
@@ -209,12 +209,31 @@ internal static class FieldReferenceAnalysis
         return true;
     }
 
+    /// <summary>Returns whether a property declares accessors or an expression body.</summary>
+    /// <param name="property">The property declaration.</param>
+    /// <returns><see langword="true"/> when the property has a body that can reference a field.</returns>
+    private static bool HasBody(PropertyDeclarationSyntax property)
+        => property.AccessorList is not null || property.ExpressionBody is not null;
+
+    /// <summary>Returns whether a property is declared <c>static</c>.</summary>
+    /// <param name="property">The property declaration.</param>
+    /// <returns><see langword="true"/> when the property is static.</returns>
+    private static bool IsStaticProperty(PropertyDeclarationSyntax property)
+        => ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword);
+
     /// <summary>Returns whether a field and declaration meet the shared eligibility requirements.</summary>
     /// <param name="candidate">The field symbol.</param>
     /// <param name="declaration">The field declaration.</param>
+    /// <param name="propertyIsStatic">Whether the property that references the field is static.</param>
     /// <returns><see langword="true"/> when the field is eligible.</returns>
-    private static bool IsEligible(IFieldSymbol candidate, FieldDeclarationSyntax declaration) =>
-        !candidate.IsStatic
+    /// <remarks>
+    /// The field's static-ness must match the property's. An instance property over a static field shares
+    /// one slot across every instance, so folding the field away would silently give each instance its own
+    /// storage. A <c>const</c> field is excluded outright: it is compile-time state, not a backing store.
+    /// </remarks>
+    private static bool IsEligible(IFieldSymbol candidate, FieldDeclarationSyntax declaration, bool propertyIsStatic) =>
+        candidate.IsStatic == propertyIsStatic
+        && !candidate.IsConst
         && candidate.DeclaredAccessibility == Accessibility.Private
         && declaration.Declaration.Variables.Count == 1
         && declaration.AttributeLists.Count == 0

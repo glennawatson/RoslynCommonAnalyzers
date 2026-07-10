@@ -51,6 +51,158 @@ public class TrivialAutoPropertyAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a backing-field initializer moves onto the generated auto-property.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task FieldInitializerMovesToAutoPropertyAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private int _value = 5;
+
+                                  public int {|SST1420:Value|} { get => _value; set => _value = value; }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public int Value { get; set; } = 5;
+                                   }
+                                   """;
+        await VerifyAutoProperty.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a write-only property is left alone because an auto-property requires a getter.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task WriteOnlyPropertyIsCleanAsync()
+        => await VerifyAutoProperty.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _value;
+
+                public int Value { set => _value = value; }
+            }
+            """);
+
+    /// <summary>Verifies an expression-bodied property over a single-use field is converted to a get-only auto-property.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ExpressionBodiedPropertyIsFixedAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private readonly int _value = 5;
+
+                                  public int {|SST1420:Value|} => _value;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public int Value { get; } = 5;
+                                   }
+                                   """;
+        await VerifyAutoProperty.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a static property over a static single-use field is converted to a static auto-property.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task StaticPropertyIsFixedAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private static int _value;
+
+                                  public static int {|SST1420:Value|} { get => _value; set => _value = value; }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public static int Value { get; set; }
+                                   }
+                                   """;
+        await VerifyAutoProperty.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a static expression-bodied property keeps its initializer and its static modifier.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task StaticExpressionBodiedPropertyIsFixedAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private static readonly int _value = 5;
+
+                                  public static int {|SST1420:Value|} => _value;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public static int Value { get; } = 5;
+                                   }
+                                   """;
+        await VerifyAutoProperty.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a <c>this.</c>-qualified expression-bodied property is converted.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ThisQualifiedExpressionBodiedPropertyIsFixedAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private readonly int _value;
+
+                                  public int {|SST1420:Value|} => this._value;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public int Value { get; }
+                                   }
+                                   """;
+        await VerifyAutoProperty.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a const backing field is left alone because it is compile-time state, not storage.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ConstBackingFieldIsCleanAsync()
+        => await VerifyAutoProperty.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private const int Limit = 5;
+
+                public static int Value => Limit;
+            }
+            """);
+
+    /// <summary>Verifies an instance property over a static field is left alone because storage would stop being shared.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task InstancePropertyOverStaticFieldIsCleanAsync()
+        => await VerifyAutoProperty.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private static int _value;
+
+                public int Value { get => _value; set => _value = value; }
+            }
+            """);
+
     /// <summary>Verifies the syntax prepass recognizes a trivial property that uses <c>this.</c> on both accessors.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

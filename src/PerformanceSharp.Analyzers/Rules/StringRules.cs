@@ -129,6 +129,20 @@ internal static class StringRules
         "Use string.Equals instead of comparing '{0}' to zero",
         UseEqualsOverCompareDescription);
 
+    /// <summary>PSH1217 — a sequence is copied to an array only to be read straight back.</summary>
+    public static readonly DiagnosticDescriptor RedundantSequenceCopy = Create(
+        "PSH1217",
+        "Do not copy a sequence to an array just to read it",
+        "'{0}' allocates a copy that '{1}' does not need; pass the {2} directly",
+        RedundantSequenceCopyDescription);
+
+    /// <summary>PSH1218 — a substring is allocated only to search it.</summary>
+    public static readonly DiagnosticDescriptor SearchWithStartIndex = Create(
+        "PSH1218",
+        "Slice with AsSpan instead of allocating a substring to search it",
+        "'{0}' allocates a substring only to search it; slice with 'AsSpan' so '{1}' searches in place",
+        SearchWithStartIndexDescription);
+
     /// <summary>The PSH1208 rule description.</summary>
     private const string UseUtf8LiteralDescription =
         "Encoding.UTF8.GetBytes on a constant string re-encodes and heap-allocates the same bytes on every call; a u8 literal (C# 11+) "
@@ -179,6 +193,24 @@ internal static class StringRules
         "string.Compare computes full ordering information that an equality test throws away, and cannot bail out early on length "
         + "mismatches the way string.Equals can. The fix preserves the comparison's culture semantics — the two-argument Compare "
         + "defaults to the current culture, not ordinal.";
+
+    /// <summary>The PSH1217 rule description.</summary>
+    private const string RedundantSequenceCopyDescription =
+        "'string.ToCharArray()' and 'ReadOnlySpan<T>.ToArray()' allocate and copy. When the result is handed straight to something that "
+        + "already accepts the original — a 'foreach', an indexer, a 'Length' read, or any parameter that takes a 'ReadOnlySpan<char>' or a "
+        + "'string' — the copy is pure waste. Pass the string or the span itself. A copy that is retained, mutated, or handed to an API that "
+        + "genuinely needs an array is left alone.";
+
+    /// <summary>The PSH1218 rule description.</summary>
+    private const string SearchWithStartIndexDescription =
+        "'text.Substring(i).IndexOf(value)' copies the whole tail of the string before it looks at a single character. 'AsSpan(i)' slices "
+        + "the same characters in place and allocates nothing, and 'IndexOf', 'LastIndexOf', 'StartsWith', 'EndsWith' and 'Contains' all "
+        + "search a span directly. The result needs no adjustment: a span search reports its hit relative to the span, which is the basis the "
+        + "substring already had, and still answers -1 on a miss — so the value is the same whether it is used as a boolean or as an index. "
+        + "(The 'IndexOf(value, i)' string overload is NOT equivalent: it reports relative to the original string. 'LastIndexOf(value, i)' is "
+        + "worse still, searching backward from 'i'.) A comparison is only rewritten when it is ordinal-equivalent, so a culture-sensitive "
+        + "search is never silently made ordinal, and the rewritten call is bound before it is offered, so an overload the target framework "
+        + "lacks is never suggested. A substring used for anything besides the search is not reported.";
 
     /// <summary>Creates a Warning-severity Strings descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

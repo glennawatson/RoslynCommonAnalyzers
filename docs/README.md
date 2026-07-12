@@ -38,6 +38,8 @@ async, `PSH14xx` API selection.
 | [PSH1013](rules/PSH1013.md) | Expose constant UTF-8 data as a `ReadOnlySpan<byte>` property. Code fix converts the field. |
 | [PSH1014](rules/PSH1014.md) | Declare immutable structs as `readonly`. Code fix adds the modifier. |
 | [PSH1015](rules/PSH1015.md) | Avoid casting value types through `object`. Code fix casts directly. |
+| [PSH1016](rules/PSH1016.md) | Test enum flags with bitwise operators instead of `Enum.HasFlag`. |
+| [PSH1017](rules/PSH1017.md) | A property allocates a copy of a collection on every read. |
 
 ## Collections
 
@@ -61,6 +63,10 @@ async, `PSH14xx` API selection.
 | [PSH1115](rules/PSH1115.md) | Insert-if-absent should probe the dictionary once. Code fix uses `TryAdd`. |
 | [PSH1116](rules/PSH1116.md) | Probe string-keyed collections with a span through `GetAlternateLookup`. |
 | [PSH1117](rules/PSH1117.md) | Ask the collection whether it is empty via `IsEmpty`. Code fix rewrites the comparison. |
+| [PSH1118](rules/PSH1118.md) | Take the extreme element without sorting. |
+| [PSH1119](rules/PSH1119.md) | Check for elements without counting them all. |
+| [PSH1120](rules/PSH1120.md) | Do not materialize a sequence just to enumerate it. |
+| [PSH1122](rules/PSH1122.md) | Read a sorted set's extreme through its `Min`/`Max` property, not the LINQ extension. Code fix uses the property. |
 
 ## Strings
 
@@ -80,6 +86,11 @@ async, `PSH14xx` API selection.
 | [PSH1211](rules/PSH1211.md) | Pass values directly instead of `ToString` results. Code fix drops the call. |
 | [PSH1212](rules/PSH1212.md) | Slice with `AsSpan` when the call accepts a span. Code fix renames the call. |
 | [PSH1213](rules/PSH1213.md) | Probe repeated character sets through `SearchValues`. |
+| [PSH1214](rules/PSH1214.md) | Append the parts, not a concatenated whole. |
+| [PSH1215](rules/PSH1215.md) | Concatenate when there is no separator. |
+| [PSH1216](rules/PSH1216.md) | Ask for equality, not ordering. |
+| [PSH1217](rules/PSH1217.md) | Do not copy a sequence to an array just to read it. Code fix drops the copy. |
+| [PSH1218](rules/PSH1218.md) | Slice with `AsSpan` instead of allocating a substring to search it. Code fix rewrites the slice. |
 
 ## Concurrency (PerformanceSharp)
 
@@ -111,6 +122,7 @@ async, `PSH14xx` API selection.
 | [PSH1408](rules/PSH1408.md) | Measure elapsed time with `Stopwatch.GetTimestamp`/`GetElapsedTime` instead of allocating a Stopwatch. |
 | [PSH1409](rules/PSH1409.md) | Use the built-in throw helpers for argument guards. Code fix rewrites the guard, honoring helper aliases. |
 | [PSH1410](rules/PSH1410.md) | Mark trivial forwarders for aggressive inlining. Opt-in. |
+| [PSH1411](rules/PSH1411.md) | Seal non-public types nothing derives from so the JIT can devirtualize. Code fix adds `sealed`. |
 
 # StyleSharp Rule Index
 
@@ -280,6 +292,30 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST1461](rules/SST1461.md) | A private or local-function parameter is never read. |
 | [SST1462](rules/SST1462.md) | A suppression targets a diagnostic that is disabled in the active analyzer config scope. |
 | [SST1463](rules/SST1463.md) | A symbol-name string literal can use `nameof`. |
+| [SST1464](rules/SST1464.md) | Unwrap an `else` that follows a branch which does not fall through. |
+| [SST1465](rules/SST1465.md) | Collapse an `else` block that only wraps an `if`. |
+| [SST1466](rules/SST1466.md) | Remove case labels that share a section with `default`. |
+| [SST1467](rules/SST1467.md) | Enumerate with `foreach` instead of driving the enumerator by hand. |
+| [SST1468](rules/SST1468.md) | Boolean logic should short-circuit. |
+| [SST1469](rules/SST1469.md) | Do not compare a value type to null. |
+| [SST1470](rules/SST1470.md) | Remove a catch clause that only rethrows. |
+| [SST1471](rules/SST1471.md) | Magic numbers should be named constants. |
+| [SST1472](rules/SST1472.md) | Signatures should not declare too many parameters. |
+| [SST1473](rules/SST1473.md) | Floating-point values should not be compared for exact equality. Code fix rewrites NaN tests as `IsNaN`. |
+| [SST1474](rules/SST1474.md) | Identical expressions appear on both sides of an operator. |
+| [SST1475](rules/SST1475.md) | A condition repeats an earlier one in the same if/else-if chain, so its branch cannot run. |
+| [SST1476](rules/SST1476.md) | Every branch of a conditional has the same body, so the condition decides nothing. |
+| [SST1477](rules/SST1477.md) | An integer division is widened to a floating-point type after it has already truncated. Code fix casts an operand. |
+| [SST1478](rules/SST1478.md) | A shift count is zero, negative, or at least the operand's width. |
+| [SST1479](rules/SST1479.md) | A count or length is compared against a value it can never take. Code fix folds the constant. |
+| [SST1480](rules/SST1480.md) | An exception is constructed and then discarded. Code fix adds the `throw`. |
+| [SST1481](rules/SST1481.md) | A bitwise operation has a constant operand that makes it pointless. Code fix removes the operation. |
+| [SST1482](rules/SST1482.md) | `GetHashCode` reads mutable state, which loses the object in any hash-based collection. |
+| [SST1483](rules/SST1483.md) | A constructor calls an overridable member, so a derived override sees a half-built object. |
+| [SST1484](rules/SST1484.md) | A declaration shadows a field or property of an enclosing scope. |
+| [SST1485](rules/SST1485.md) | A member callers cannot defend against — `Equals`, `Dispose`, an operator — throws. |
+| [SST1486](rules/SST1486.md) | The same string literal is repeated instead of being named once. |
+| [SST1487](rules/SST1487.md) | A collection element is assigned twice with nothing reading it in between. |
 
 ## Modernization
 

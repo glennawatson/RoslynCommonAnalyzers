@@ -88,6 +88,13 @@ internal static class ApiSelectionRules
         "Add MethodImplOptions.AggressiveInlining to '{0}'",
         InlineTrivialForwardersDescription);
 
+    /// <summary>PSH1411 — a non-public class that nothing derives from is not sealed.</summary>
+    public static readonly DiagnosticDescriptor SealNonDerivedType = Create(
+        "PSH1411",
+        "Seal types that nothing derives from",
+        "Nothing derives from '{0}'; sealing it lets the JIT devirtualize and inline its members",
+        SealNonDerivedTypeDescription);
+
     /// <summary>The PSH1408 rule description.</summary>
     private const string UseStopwatchTimestampsDescription =
         "A Stopwatch allocated only to read elapsed time can be replaced by capturing Stopwatch.GetTimestamp into a long and asking "
@@ -104,6 +111,16 @@ internal static class ApiSelectionRules
         "An expression-bodied method that only forwards to another member can still be skipped by the JIT's IL-size inlining heuristics, "
         + "leaving a call frame around a one-line body; MethodImplOptions.AggressiveInlining makes the intent explicit. Blanket inlining "
         + "attributes are an opinionated convention, so the rule is opt-in.";
+
+    /// <summary>The PSH1411 rule description.</summary>
+    private const string SealNonDerivedTypeDescription =
+        "A call on an unsealed class must go through a virtual dispatch unless the JIT can prove no override exists. Sealing a class it "
+        + "cannot be told about states that up front: virtual and interface calls on it devirtualize, inline, and stop blocking the "
+        + "optimizations downstream of them. Only 'private', 'file' and 'internal' classes are reported, because those are the ones whose "
+        + "whole set of derived types the compilation can see — a 'public' class may be derived from outside the assembly, so sealing it is "
+        + "a breaking change. Set 'performancesharp.PSH1411.include_public = true' in a project that is not a library to report those too. "
+        + "A class that is already sealed, static, abstract, or a record, and one that any type in the compilation derives from, is never "
+        + "reported.";
 
     /// <summary>Creates a Warning-severity ApiSelection descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

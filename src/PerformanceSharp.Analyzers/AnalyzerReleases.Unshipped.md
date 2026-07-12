@@ -22,6 +22,7 @@ PSH1013 | Allocations | Warning | Psh1013Utf8SpanPropertyAnalyzer
 PSH1014 | Allocations | Warning | Psh1014ReadonlyStructAnalyzer
 PSH1015 | Allocations | Warning | Psh1015BoxingRoundTripCastAnalyzer
 PSH1016 | Allocations | Warning | Psh1016UseBitwiseFlagTestAnalyzer
+PSH1017 | Allocations | Warning | Psh1017PropertyCopiesCollectionAnalyzer
 PSH1100 | Collections | Disabled | LinqUsageAnalyzer (moved from StyleSharp.Analyzers SST2233)
 PSH1101 | Collections | Warning | LinqUsageAnalyzer (moved from StyleSharp.Analyzers SST2229)
 PSH1102 | Collections | Warning | LinqUsageAnalyzer (moved from StyleSharp.Analyzers SST2230)
@@ -43,6 +44,7 @@ PSH1117 | Collections | Warning | Psh1117UseIsEmptyAnalyzer
 PSH1118 | Collections | Warning | Psh1118TakeExtremeWithoutSortingAnalyzer
 PSH1119 | Collections | Warning | Psh1119UseAnyOverCountAnalyzer
 PSH1120 | Collections | Warning | Psh1120DoNotMaterializeToEnumerateAnalyzer
+PSH1122 | Collections | Warning | Psh1122UseSortedSetExtremePropertyAnalyzer
 PSH1200 | Strings | Warning | Psh1200AvoidCaseConversionComparisonAnalyzer
 PSH1201 | Strings | Warning | Psh1201UseCharOverloadAnalyzer
 PSH1202 | Strings | Warning | Psh1202StringBuilderAppendCharAnalyzer
@@ -60,6 +62,8 @@ PSH1213 | Strings | Warning | Psh1213UseSearchValuesAnalyzer
 PSH1214 | Strings | Warning | Psh1214SplitConcatenatedAppendAnalyzer
 PSH1215 | Strings | Warning | Psh1215UseConcatOverEmptyJoinAnalyzer
 PSH1216 | Strings | Warning | Psh1216UseEqualsOverCompareAnalyzer
+PSH1217 | Strings | Warning | Psh1217RedundantSequenceCopyAnalyzer
+PSH1218 | Strings | Warning | Psh1218SearchWithStartIndexAnalyzer
 PSH1300 | Concurrency | Warning | Psh1300PreferLockTypeAnalyzer (moved from StyleSharp.Analyzers SST1900)
 PSH1301 | Concurrency | Warning | Psh1301AwaitSingleTaskDirectlyAnalyzer
 PSH1302 | Concurrency | Warning | Psh1302RunContinuationsAsynchronouslyAnalyzer
@@ -84,3 +88,4 @@ PSH1407 | ApiSelection | Warning | Psh1407UseContainsKeyOverKeysContainsAnalyzer
 PSH1408 | ApiSelection | Warning | Psh1408UseStopwatchTimestampsAnalyzer
 PSH1409 | ApiSelection | Warning | Psh1409ThrowHelperAnalyzer
 PSH1410 | ApiSelection | Disabled | Psh1410AggressiveInliningAnalyzer
+PSH1411 | ApiSelection | Warning | Psh1411SealNonDerivedTypeAnalyzer

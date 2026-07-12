@@ -28,6 +28,13 @@
 # stylesharp.max_inheritance_depth = 5                     # SST1446
 # stylesharp.count_external_types = false                  # SST1446 (set true to count ancestors from other assemblies)
 # stylesharp.magic_number_allowed_values = -1, 0, 1        # SST1471 (comma-separated; the values that need no name)
+# stylesharp.allow_zero_comparison = true                  # SST1473 (set false to also report '== 0.0' on a float/double)
+# stylesharp.minimum_statements = 1                        # SST1476 (the smallest identical branch body that counts)
+# stylesharp.allow_zero_shift = false                      # SST1478 (set true to allow a shift by 0 in a regular table of shifts)
+# stylesharp.check_base_types = false                      # SST1484 (set true to also report a field shadowing an inherited one)
+# stylesharp.additional_members = Close, Cleanup           # SST1485 (comma-separated; extra members that must not throw)
+# stylesharp.duplicate_string_threshold = 3                # SST1486 (occurrences of one literal in a file before it is reported)
+# stylesharp.minimum_string_length = 5                     # SST1486 (shorter literals are never reported)
 # stylesharp.allowed_hungarian_prefixes = db, ui           # SST1305 (comma-separated; added to the built-in list)
 # stylesharp.extension_container_preferred_suffix = Extensions # SST1704 (Extensions | Mixins)
 # stylesharp.file_naming_convention = braces               # SST1402/SST1649 code fixes (braces 'Widget{T}.cs' | metadata 'Widget`1.cs')
@@ -197,6 +204,21 @@ dotnet_diagnostic.SST1469.severity = warning # A value type is compared to null
 dotnet_diagnostic.SST1470.severity = warning # A catch clause only rethrows
 dotnet_diagnostic.SST1471.severity = warning # A numeric literal carries meaning without a name (allowed values configurable)
 dotnet_diagnostic.SST1472.severity = warning # A signature declares more parameters than the configured maximum
+dotnet_diagnostic.SST1473.severity = warning # A floating-point value is compared for exact equality (zero comparison allowed by default)
+dotnet_diagnostic.SST1474.severity = warning # Both sides of an operator are the same expression
+dotnet_diagnostic.SST1475.severity = warning # A condition repeats an earlier one in the chain, so its branch cannot run
+dotnet_diagnostic.SST1476.severity = warning # Every branch of a conditional has the same body (minimum body size configurable)
+dotnet_diagnostic.SST1477.severity = warning # An integer division is widened to floating point after it has already truncated
+dotnet_diagnostic.SST1478.severity = warning # A shift count is zero, negative, or at least the operand's width
+dotnet_diagnostic.SST1479.severity = warning # A count or length is compared against a value it can never take
+dotnet_diagnostic.SST1480.severity = warning # An exception is constructed and then discarded
+dotnet_diagnostic.SST1481.severity = warning # A bitwise operation has a constant operand that makes it pointless
+dotnet_diagnostic.SST1482.severity = warning # GetHashCode reads mutable state
+dotnet_diagnostic.SST1483.severity = warning # A constructor calls an overridable member
+dotnet_diagnostic.SST1484.severity = warning # A declaration shadows an outer field or property (base types opt-in)
+dotnet_diagnostic.SST1485.severity = warning # A member that must not throw throws (additional members configurable)
+dotnet_diagnostic.SST1486.severity = warning # The same string literal is repeated (threshold and minimum length configurable)
+dotnet_diagnostic.SST1487.severity = warning # A collection element is assigned twice with nothing reading it in between
 
 # Modernization
 dotnet_diagnostic.SST2000.severity = warning # A null check + throw should use ArgumentNullException.ThrowIfNull

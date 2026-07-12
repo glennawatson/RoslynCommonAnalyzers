@@ -130,6 +130,13 @@ internal static class AllocationRules
         "Replace this HasFlag call with a bitwise flag test",
         UseBitwiseFlagTestDescription);
 
+    /// <summary>PSH1017 — a property returns a fresh copy of a collection on every read.</summary>
+    public static readonly DiagnosticDescriptor PropertyCopiesCollection = Create(
+        "PSH1017",
+        "Properties should not copy a collection on every read",
+        "'{0}' allocates a copy of the collection every time it is read; expose a method or a read-only view instead",
+        PropertyCopiesCollectionDescription);
+
     /// <summary>The PSH1009 rule description.</summary>
     private const string UnboundedStackallocDescription =
         "A stackalloc whose length comes from data can blow the stack on adversarial or unexpected input; the resilient shape tests the "
@@ -174,6 +181,14 @@ internal static class AllocationRules
         "Enum.HasFlag boxes both the value and the argument on runtimes without the JIT intrinsic (.NET Framework, and any "
         + "netstandard2.0 consumer running there) and hides the comparison behind a virtual call; a bitwise AND test compiles to a "
         + "register comparison everywhere and is never slower.";
+
+    /// <summary>The PSH1017 rule description.</summary>
+    private const string PropertyCopiesCollectionDescription =
+        "A property reads like a field, so callers use it in a loop and in a condition without expecting to pay for it. One that ends in "
+        + "'ToArray', 'ToList' or a clone allocates and copies the whole collection on every read, turning 'for (var i = 0; i < Items.Count; "
+        + "i++) Use(Items[i]);' into a quadratic copy. Return a cached 'ReadOnlyCollection<T>' or an 'ImmutableArray<T>', or make it a "
+        + "method so the cost is visible at the call site. A property that copies a genuinely small fixed-size collection can be excluded "
+        + "with 'performancesharp.PSH1017.excluded_properties'.";
 
     /// <summary>Creates a Warning-severity Allocations descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

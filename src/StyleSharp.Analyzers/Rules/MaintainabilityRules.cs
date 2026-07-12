@@ -506,6 +506,111 @@ internal static class MaintainabilityRules
         "'{0}' declares {1} parameters, which exceeds the maximum of {2}; group the related ones into a type",
         TooManyParametersDescription);
 
+    /// <summary>SST1473 — a binary floating-point value is compared for exact equality.</summary>
+    public static readonly DiagnosticDescriptor FloatingPointEquality = Create(
+        "SST1473",
+        "Floating-point values should not be compared for exact equality",
+        "Comparing '{0}' values with '{1}' is unreliable; compare against a tolerance instead",
+        FloatingPointEqualityDescription);
+
+    /// <summary>SST1474 — both operands of a binary operator are the same expression.</summary>
+    public static readonly DiagnosticDescriptor IdenticalOperands = Create(
+        "SST1474",
+        "Identical expressions should not appear on both sides of an operator",
+        "Both sides of '{0}' are the same expression; this is a copy-paste mistake or the operation is pointless",
+        IdenticalOperandsDescription);
+
+    /// <summary>SST1475 — a condition in an if/else-if chain repeats an earlier one.</summary>
+    public static readonly DiagnosticDescriptor DuplicateCondition = Create(
+        "SST1475",
+        "A condition should not be repeated in an if/else-if chain",
+        "This condition repeats the one on line {0}; the branch it guards can never run",
+        DuplicateConditionDescription);
+
+    /// <summary>SST1476 — every branch of a conditional has the same body.</summary>
+    public static readonly DiagnosticDescriptor IdenticalBranches = Create(
+        "SST1476",
+        "Conditional branches should not have identical bodies",
+        "{0} have identical bodies, so the condition decides nothing",
+        IdenticalBranchesDescription);
+
+    /// <summary>SST1477 — an integer division is consumed as a floating-point value.</summary>
+    public static readonly DiagnosticDescriptor IntegerDivisionAsFloatingPoint = Create(
+        "SST1477",
+        "Integer division should not be assigned to a floating-point target",
+        "This division truncates before it is widened to '{0}'; cast an operand first to divide in floating point",
+        IntegerDivisionAsFloatingPointDescription);
+
+    /// <summary>SST1478 — a shift count is zero or at least the operand's width.</summary>
+    public static readonly DiagnosticDescriptor SuspiciousShiftCount = Create(
+        "SST1478",
+        "Shift counts should be within the operand's width",
+        "Shifting a {0}-bit value by {1} {2}",
+        SuspiciousShiftCountDescription);
+
+    /// <summary>SST1479 — a count or length is compared against a value it can never take.</summary>
+    public static readonly DiagnosticDescriptor MeaninglessCountComparison = Create(
+        "SST1479",
+        "Count and length comparisons should be satisfiable",
+        "A count is never negative, so this comparison is always {0}",
+        MeaninglessCountComparisonDescription);
+
+    /// <summary>SST1480 — an exception is constructed but never thrown.</summary>
+    public static readonly DiagnosticDescriptor ExceptionNeverThrown = Create(
+        "SST1480",
+        "A constructed exception should be thrown",
+        "This '{0}' is created and then discarded; throw it or remove it",
+        ExceptionNeverThrownDescription);
+
+    /// <summary>SST1481 — a bitwise operation uses a constant operand that makes it pointless.</summary>
+    public static readonly DiagnosticDescriptor RedundantBitwiseOperation = Create(
+        "SST1481",
+        "Bitwise operations should not use identity operands",
+        "The constant operand makes '{0}' pointless; it can only return the value unchanged or discard it entirely",
+        RedundantBitwiseOperationDescription);
+
+    /// <summary>SST1482 — GetHashCode reads state that can change.</summary>
+    public static readonly DiagnosticDescriptor MutableGetHashCode = Create(
+        "SST1482",
+        "GetHashCode should not read mutable state",
+        "'{0}' can change after the object is hashed, which loses it in any hash-based collection",
+        MutableGetHashCodeDescription);
+
+    /// <summary>SST1483 — a constructor calls a member a derived type can override.</summary>
+    public static readonly DiagnosticDescriptor VirtualCallInConstructor = Create(
+        "SST1483",
+        "Constructors should not call overridable members",
+        "'{0}' is overridable and is called from a constructor, so a derived override runs before its fields are initialized",
+        VirtualCallInConstructorDescription);
+
+    /// <summary>SST1484 — a declaration hides a field or property from an enclosing scope.</summary>
+    public static readonly DiagnosticDescriptor ShadowedDeclaration = Create(
+        "SST1484",
+        "Declarations should not shadow an outer field or property",
+        "'{0}' shadows the {1} of the same name; rename it or qualify the outer one",
+        ShadowedDeclarationDescription);
+
+    /// <summary>SST1485 — a member that callers assume cannot throw throws.</summary>
+    public static readonly DiagnosticDescriptor UnexpectedThrow = Create(
+        "SST1485",
+        "Members that must not throw should not throw",
+        "'{0}' should not throw; callers cannot handle an exception here",
+        UnexpectedThrowDescription);
+
+    /// <summary>SST1486 — the same string literal is written repeatedly instead of being named once.</summary>
+    public static readonly DiagnosticDescriptor DuplicatedStringLiteral = Create(
+        "SST1486",
+        "Repeated string literals should be named constants",
+        "The literal \"{0}\" appears {1} times in this file; give it a name once",
+        DuplicatedStringLiteralDescription);
+
+    /// <summary>SST1487 — a collection element is assigned twice with nothing reading it in between.</summary>
+    public static readonly DiagnosticDescriptor OverwrittenCollectionElement = Create(
+        "SST1487",
+        "Collection elements should not be overwritten before they are read",
+        "'{0}' is assigned again with nothing reading it in between, so the first value is lost",
+        OverwrittenCollectionElementDescription);
+
     /// <summary>The SST1472 rule description.</summary>
     private const string TooManyParametersDescription =
         "A long parameter list is easy to call wrongly — adjacent arguments of the same type are silently swappable — and usually means a "
@@ -525,6 +630,111 @@ internal static class MaintainabilityRules
         + "at a declaration that names it, when it is -1, 0 or 1, when it is a bit pattern or shift distance, when it guards a Count or "
         + "Length, or when its position already carries the meaning. Configure the allowed values with "
         + "'stylesharp.SST1471.magic_number_allowed_values'.";
+
+    /// <summary>The SST1473 rule description.</summary>
+    private const string FloatingPointEqualityDescription =
+        "Binary floating-point arithmetic rounds, so two values that are mathematically equal often differ in their last bits and an exact "
+        + "'==' silently answers false. Comparing against NaN is worse: every operator except '!=' answers false, including 'x == x'. "
+        + "Compare a difference against a tolerance, or use 'double.IsNaN'. A comparison against a literal zero is allowed by default "
+        + "because it tests a sign or an initialization rather than an arithmetic result; set "
+        + "'stylesharp.SST1473.allow_zero_comparison = false' to report it too. 'decimal' is exact and is never reported.";
+
+    /// <summary>The SST1474 rule description.</summary>
+    private const string IdenticalOperandsDescription =
+        "An operator whose two operands are the same expression either does nothing ('x & x', 'a || a') or answers a constant "
+        + "('x == x', 'x - x'), and is almost always a mistyped operand. Only side-effect-free operands are compared, so 'Next() == Next()' "
+        + "stays clean. A self-comparison on a floating-point type is the deliberate NaN idiom and is left to SST1473.";
+
+    /// <summary>The SST1475 rule description.</summary>
+    private const string DuplicateConditionDescription =
+        "In an if/else-if chain the first matching condition wins, so a condition that repeats an earlier one guards a branch that can "
+        + "never execute — the intended condition was almost certainly meant to differ. The same reasoning covers a 'switch' whose labels "
+        + "repeat a constant. Only side-effect-free conditions are compared.";
+
+    /// <summary>The SST1476 rule description.</summary>
+    private const string IdenticalBranchesDescription =
+        "When every branch of an 'if'/'else', a conditional expression or a 'switch' does the same thing, the condition is dead weight and "
+        + "the code says something it does not mean — usually one branch was meant to differ. Reported only when the chain is exhaustive "
+        + "(an 'if' with an 'else', a 'switch' with a 'default'), because a partial chain that falls through to nothing is a different "
+        + "shape. Configure the smallest body that counts with 'stylesharp.SST1476.minimum_statements'.";
+
+    /// <summary>The SST1477 rule description.</summary>
+    private const string IntegerDivisionAsFloatingPointDescription =
+        "Dividing two integers performs integer division and throws the remainder away; widening the truncated result to 'float', 'double' "
+        + "or 'decimal' afterwards cannot bring it back, so '1 / 2' stored in a double is 0, not 0.5. Cast one operand before the division "
+        + "when a fractional result is meant. A division by a compile-time constant of 1, or one whose operands make the truncation "
+        + "irrelevant, is still reported: the widening is what makes the intent ambiguous.";
+
+    /// <summary>The SST1478 rule description.</summary>
+    private const string SuspiciousShiftCountDescription =
+        "C# masks a shift count to the operand's width, so shifting a 32-bit value by 32 shifts by 0 and returns the value unchanged — not "
+        + "zero, as the code reads. A shift by 0 is a no-op that usually means a loop bound or an offset is wrong. Only constant counts are "
+        + "reported, so a computed shift stays clean. A count of 0 that is written to make a table of shifts regular can be allowed with "
+        + "'stylesharp.SST1478.allow_zero_shift'.";
+
+    /// <summary>The SST1479 rule description.</summary>
+    private const string MeaninglessCountComparisonDescription =
+        "'Count', 'Length' and the result of 'Enumerable.Count()' are never negative, so 'count >= 0' is always true and 'count < 0' is "
+        + "always false — the test does nothing and hides the check that was meant. Comparisons against a negative literal are reported for "
+        + "the same reason. The rule reads the well-known count members of arrays, strings, spans and the BCL collection interfaces.";
+
+    /// <summary>The SST1480 rule description.</summary>
+    private const string ExceptionNeverThrownDescription =
+        "Creating an exception has no effect on control flow — a 'new InvalidOperationException(...)' written as a statement, or as the "
+        + "value of an expression nobody consumes, means a 'throw' was forgotten and the error path silently continues. An exception that "
+        + "is returned, assigned, passed as an argument or captured is left alone: those are the shapes of an exception factory.";
+
+    /// <summary>The SST1481 rule description.</summary>
+    private const string RedundantBitwiseOperationDescription =
+        "'x | 0', 'x ^ 0' and 'x & ~0' all return 'x' unchanged, and 'x & 0' always returns 0 whatever 'x' was. The operation reads as "
+        + "though it does something, so the constant is usually the wrong one — a mask that was meant to be non-zero, or one whose width is "
+        + "off. Only constant operands are examined. A shift by zero is the same kind of mistake but its meaning depends on the operand's "
+        + "width, so it belongs to SST1478.";
+
+    /// <summary>The SST1482 rule description.</summary>
+    private const string MutableGetHashCodeDescription =
+        "A hash-based collection places an object in a bucket when it is added and looks in that bucket when it is asked for. If a field the "
+        + "hash reads is then reassigned, the object's hash moves but the object does not, and it can no longer be found — not even by a "
+        + "reference to itself. Hash only 'readonly' fields, get-only auto-properties, or values that cannot change for the object's "
+        + "lifetime.";
+
+    /// <summary>The SST1483 rule description.</summary>
+    private const string VirtualCallInConstructorDescription =
+        "A base constructor runs before the derived constructor, so a virtual call made from it dispatches to the derived override while the "
+        + "derived fields are still at their defaults — the override sees an object that does not exist yet, and 'readonly' fields it reads "
+        + "are null. Seal the type, seal the member, or move the call out of the constructor into an initialization method the caller "
+        + "invokes. A call on another instance is not reported, and neither is one in a sealed type, which cannot be overridden.";
+
+    /// <summary>The SST1484 rule description.</summary>
+    private const string ShadowedDeclarationDescription =
+        "A local or parameter that reuses the name of a field or property makes every unqualified use of that name ambiguous to a reader — "
+        + "and an assignment that was meant for the field silently updates the local instead. A constructor parameter that feeds the field "
+        + "it shadows is the idiomatic exception and is not reported. Set 'stylesharp.SST1484.check_base_types = true' to also report a "
+        + "field that shadows one inherited from a base type.";
+
+    /// <summary>The SST1485 rule description.</summary>
+    private const string UnexpectedThrowDescription =
+        "Some members are invoked implicitly, by the runtime or by code that has no way to catch — 'Equals', 'GetHashCode', 'ToString', "
+        + "'Dispose', a static constructor, an equality operator and an implicit conversion. An exception from one of them surfaces far from "
+        + "its cause, and from 'Dispose' it can replace the exception already unwinding. Return a sentinel instead of throwing. "
+        + "'NotImplementedException' and 'NotSupportedException' are allowed: they mark a member as deliberately absent. Add members with "
+        + "'stylesharp.SST1485.additional_members'.";
+
+    /// <summary>The SST1486 rule description.</summary>
+    private const string DuplicatedStringLiteralDescription =
+        "A string written out several times has to be changed in several places, and a typo in one copy compiles cleanly and fails at "
+        + "runtime. Naming it once makes the change atomic and gives the value a meaning. Short literals are excluded — a name for \"\" or "
+        + "\",\" buys nothing — as are the places a repeated literal is idiomatic: attribute arguments, 'nameof' operands, constant "
+        + "declarations, and the literals a switch already labels. Configure the number of copies allowed with "
+        + "'stylesharp.SST1486.duplicate_string_threshold' and the shortest literal that counts with "
+        + "'stylesharp.SST1486.minimum_string_length'.";
+
+    /// <summary>The SST1487 rule description.</summary>
+    private const string OverwrittenCollectionElementDescription =
+        "Assigning the same element twice in a row throws the first value away — the index or key was almost certainly meant to differ, and "
+        + "the loop that was supposed to advance it does not. Only a literal repeat is reported: the two assignments must be adjacent, the "
+        + "receiver and the index must be the same side-effect-free expression, and nothing between them may read the element or touch the "
+        + "collection. A compound assignment ('sum[i] += x') reads before it writes and is never reported.";
 
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

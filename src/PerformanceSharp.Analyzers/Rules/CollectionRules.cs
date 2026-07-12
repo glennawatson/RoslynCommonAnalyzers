@@ -159,6 +159,13 @@ internal static class CollectionRules
         "Enumerate the source directly instead of copying it with '{0}'",
         DoNotMaterializeToEnumerateDescription);
 
+    /// <summary>PSH1122 — a sorted set's extreme element is fetched through LINQ.</summary>
+    public static readonly DiagnosticDescriptor UseSortedSetExtremeProperty = Create(
+        "PSH1122",
+        "Use a sorted set's Min and Max properties",
+        "'{0}' scans the whole set; '{1}' reads the {2} element directly",
+        UseSortedSetExtremePropertyDescription);
+
     /// <summary>The PSH1117 rule description.</summary>
     private const string UseIsEmptyDescription =
         "Comparing Count or Length to zero answers emptiness indirectly — on some collections counting is O(n) or synchronizes, while "
@@ -210,6 +217,13 @@ internal static class CollectionRules
         "ToList and ToArray copy every element into a new collection that is discarded when the loop ends; enumerating the source "
         + "directly skips the buffer and its growth copies. Not reported when the loop body mentions the source again, where the copy "
         + "may be guarding against modification during enumeration.";
+
+    /// <summary>The PSH1122 rule description.</summary>
+    private const string UseSortedSetExtremePropertyDescription =
+        "'SortedSet<T>' and 'ImmutableSortedSet<T>' keep their elements in order, so the smallest and largest are already at the ends: the "
+        + "'Min' and 'Max' properties return them in constant time. The 'Enumerable.Min' and 'Enumerable.Max' extensions know nothing about the "
+        + "receiver and walk every element to rediscover what the set already knows. Only a receiver whose static type is a sorted set is "
+        + "reported, and only for the parameterless extensions — one that takes a selector or a comparer is asking a different question.";
 
     /// <summary>Creates a Warning-severity Collections descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

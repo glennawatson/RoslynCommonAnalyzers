@@ -58,6 +58,8 @@ Some rules expose options. Current options:
 | `performancesharp.in_parameter_minimum_size` | [PSH1007](rules/PSH1007.md) | positive integer (estimated bytes); values below `17` are raised to it | `32` |
 | `performancesharp.in_parameter_excluded_types` | [PSH1007](rules/PSH1007.md) | comma-separated type names | built-ins only (spans, memory, `CancellationToken`, the SIMD types) |
 | `performancesharp.in_parameter_include_public_api` | [PSH1007](rules/PSH1007.md) | `true`, `false` | `false` |
+| `performancesharp.excluded_properties` | [PSH1017](rules/PSH1017.md) | comma-separated property names | none |
+| `performancesharp.include_public` | [PSH1411](rules/PSH1411.md) | `true`, `false` | `false` |
 | `stylesharp.tuple_element_naming` | [SST1316](rules/SST1316.md) | `pascal_case`, `camel_case` | `pascal_case` |
 | `stylesharp.union_member_naming` | [SST1315](rules/SST1315.md) | `pascal_case`, `camel_case` | `pascal_case` |
 | `stylesharp.record_parameter_naming` | [SST1801](rules/SST1801.md) | `pascal_case`, `camel_case` | `pascal_case` |
@@ -78,6 +80,13 @@ Some rules expose options. Current options:
 | `stylesharp.max_parameters` | [SST1472](rules/SST1472.md) | positive integer | `7` |
 | `stylesharp.check_positional_records` | [SST1472](rules/SST1472.md) | `true`, `false` | `false` |
 | `stylesharp.count_optional_parameters` | [SST1472](rules/SST1472.md) | `true`, `false` | `true` |
+| `stylesharp.allow_zero_comparison` | [SST1473](rules/SST1473.md) | `true`, `false` | `true` |
+| `stylesharp.minimum_statements` | [SST1476](rules/SST1476.md) | positive integer | `1` |
+| `stylesharp.allow_zero_shift` | [SST1478](rules/SST1478.md) | `true`, `false` | `false` |
+| `stylesharp.check_base_types` | [SST1484](rules/SST1484.md) | `true`, `false` | `false` |
+| `stylesharp.additional_members` | [SST1485](rules/SST1485.md) | comma-separated member names | built-ins only |
+| `stylesharp.duplicate_string_threshold` | [SST1486](rules/SST1486.md) | integer `>= 2` | `3` |
+| `stylesharp.minimum_string_length` | [SST1486](rules/SST1486.md) | positive integer | `5` |
 | `stylesharp.SST1431.additional_per_owner_types` | [SST1431](rules/SST1431.md) | comma-separated fully-qualified type names | built-in list only |
 | `stylesharp.document_exposed_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_internal_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |

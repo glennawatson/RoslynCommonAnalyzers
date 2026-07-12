@@ -137,6 +137,18 @@ internal static class OrderingRules
         "Order the using static directive alphabetically",
         "Using static directives are ordered alphabetically by namespace.");
 
+    /// <summary>SST1218 — a method's overloads are split apart by other members.</summary>
+    public static readonly DiagnosticDescriptor OverloadsGrouped = Create(
+        "SST1218",
+        "Method overloads should be grouped together",
+        "The overloads of '{0}' are separated by other members; keep them together",
+        OverloadsGroupedDescription);
+
+    /// <summary>The OverloadsGrouped rule description.</summary>
+    private const string OverloadsGroupedDescription =
+        "Overloads are one idea with several entry points. Scattering them through a type means a reader who found one has no reason to "
+        + "suspect the others exist, and a change to the family gets applied to the copy they happened to land on.";
+
     /// <summary>Creates a Warning-severity Ordering descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

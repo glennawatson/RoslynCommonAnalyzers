@@ -523,8 +523,8 @@ internal static class MaintainabilityRules
     /// <summary>SST1475 — a condition in an if/else-if chain repeats an earlier one.</summary>
     public static readonly DiagnosticDescriptor DuplicateCondition = Create(
         "SST1475",
-        "A condition should not be repeated in an if/else-if chain",
-        "This condition repeats the one on line {0}; the branch it guards can never run",
+        "A condition should not be repeated",
+        "This condition repeats the one on line {0}; {1}",
         DuplicateConditionDescription);
 
     /// <summary>SST1476 — every branch of a conditional has the same body.</summary>
@@ -625,6 +625,76 @@ internal static class MaintainabilityRules
         "'{0}' is obsolete on this target framework and can be removed",
         ObsoleteSerializationMemberDescription);
 
+    /// <summary>SST1490 — a base list names something the declaration already implies.</summary>
+    public static readonly DiagnosticDescriptor RedundantBaseListEntry = Create(
+        "SST1490",
+        "Base lists should not state what is already implied",
+        "'{0}' is already implied by the rest of the base list; remove it",
+        RedundantBaseListEntryDescription);
+
+    /// <summary>SST1491 — a modifier restates the declaration's default.</summary>
+    public static readonly DiagnosticDescriptor RedundantModifier = Create(
+        "SST1491",
+        "Modifiers should not restate the default",
+        "'{0}' is the default here and can be removed",
+        RedundantModifierDescription);
+
+    /// <summary>SST1492 — a value is tested against what it is about to be assigned.</summary>
+    public static readonly DiagnosticDescriptor SelfAssignmentGuard = Create(
+        "SST1492",
+        "Do not test a value against what it is about to be assigned",
+        "'{0}' is compared with the value it is then assigned; the guard decides nothing",
+        SelfAssignmentGuardDescription);
+
+    /// <summary>SST1493 — a method's body is a single constant.</summary>
+    public static readonly DiagnosticDescriptor MethodReturnsConstant = Create(
+        "SST1493",
+        "Methods should not return a constant",
+        "'{0}' always returns the same value; expose it as a constant or a property",
+        MethodReturnsConstantDescription);
+
+    /// <summary>SST1494 — an argument repeats a parameter's default value.</summary>
+    public static readonly DiagnosticDescriptor RedundantDefaultArgument = Create(
+        "SST1494",
+        "Do not pass an argument that repeats the parameter's default",
+        "'{0}' already defaults to this value; the argument can be omitted",
+        RedundantDefaultArgumentDescription);
+
+    /// <summary>SST1495 — reference equality is used on a type that defines value equality.</summary>
+    public static readonly DiagnosticDescriptor ReferenceEqualityOnValueEqualType = Create(
+        "SST1495",
+        "Do not compare with == when the type overrides Equals",
+        "'{0}' overrides Equals but does not overload ==; this compares references, not values",
+        ReferenceEqualityOnValueEqualTypeDescription);
+
+    /// <summary>SST1496 — an abstract type declares nothing abstract.</summary>
+    public static readonly DiagnosticDescriptor AbstractTypeWithoutAbstractMembers = Create(
+        "SST1496",
+        "Abstract types should declare something abstract",
+        "'{0}' is abstract but declares no abstract member; it is a base class, not a contract",
+        AbstractTypeWithoutAbstractMembersDescription);
+
+    /// <summary>SST1497 — a local is declared and never read.</summary>
+    public static readonly DiagnosticDescriptor UnusedLocal = Create(
+        "SST1497",
+        "Unused locals should be removed",
+        "'{0}' is never read; remove it or use a discard",
+        UnusedLocalDescription);
+
+    /// <summary>SST1498 — a private member is used only from a nested type.</summary>
+    public static readonly DiagnosticDescriptor PrivateMemberUsedOnlyByNestedType = Create(
+        "SST1498",
+        "Move a private member used only by a nested type into it",
+        "'{0}' is used only by '{1}'; move it there",
+        PrivateMemberUsedOnlyByNestedTypeDescription);
+
+    /// <summary>SST1499 — a mutable static field is exposed.</summary>
+    public static readonly DiagnosticDescriptor MutableStaticField = Create(
+        "SST1499",
+        "Do not expose a mutable static field",
+        "'{0}' is static, visible and mutable; any caller can change it for every caller",
+        MutableStaticFieldDescription);
+
     /// <summary>The SST1472 rule description.</summary>
     private const string TooManyParametersDescription =
         "A long parameter list is easy to call wrongly — adjacent arguments of the same type are silently swappable — and usually means a "
@@ -663,7 +733,10 @@ internal static class MaintainabilityRules
     private const string DuplicateConditionDescription =
         "In an if/else-if chain the first matching condition wins, so a condition that repeats an earlier one guards a branch that can "
         + "never execute — the intended condition was almost certainly meant to differ. The same reasoning covers a 'switch' whose labels "
-        + "repeat a constant. Only side-effect-free conditions are compared.";
+        + "repeat a constant. Two adjacent 'if' statements that test the same condition are reported too: there both branches run, so the "
+        + "code is not dead, but either the two should be one 'if' or one of the conditions was meant to say something else. Only "
+        + "side-effect-free conditions are compared, and the adjacent pair is only reported when the first 'if' provably cannot change what "
+        + "the condition reads.";
 
     /// <summary>The SST1476 rule description.</summary>
     private const string IdenticalBranchesDescription =
@@ -767,6 +840,68 @@ internal static class MaintainabilityRules
         + "still has to be read, maintained, and kept in step with every new field. The rule is gated on the target framework actually "
         + "having obsoleted them — it probes whether 'Exception.GetObjectData' carries an [Obsolete] attribute — so a project still "
         + "targeting .NET Framework or netstandard2.0, where the members are live, is never reported.";
+
+    /// <summary>The RedundantBaseListEntry rule description.</summary>
+    private const string RedundantBaseListEntryDescription =
+        "A base list that names 'object', or an interface a base type or another interface already brings in, states a fact the compiler "
+        + "knew anyway. It reads as though it means something — that this type implements the interface *directly* — and hides the entries "
+        + "that do carry information.";
+
+    /// <summary>The RedundantModifier rule description.</summary>
+    private const string RedundantModifierDescription =
+        "A modifier that names what the declaration already is — 'sealed' on a member of a sealed type, 'virtual' that no type can reach, "
+        + "'static' on a member of a static class — adds a keyword a reader must check and discard. It also invites the opposite mistake: "
+        + "removing the type's 'sealed' silently changes what the member's modifier means.";
+
+    /// <summary>The SelfAssignmentGuard rule description.</summary>
+    private const string SelfAssignmentGuardDescription =
+        "'if (x != y) { x = y; }' does the same thing as 'x = y' — the guard only skips an assignment that would have changed nothing. "
+        + "The shape usually means the condition or the assignment was mistyped, and the fix is to work out which. A property setter with "
+        + "side effects behind it is the one case where the guard is deliberate, so a property whose accessor is written by hand is "
+        + "excluded.";
+
+    /// <summary>The MethodReturnsConstant rule description.</summary>
+    private const string MethodReturnsConstantDescription =
+        "A method whose whole body is 'return 42;' promises a computation it does not do. Callers pay a call, readers look for the logic, "
+        + "and nobody can tell the value is fixed without opening it. A constant or a get-only property says the same thing and says it at "
+        + "the call site. An override, an interface implementation and a virtual member are excluded: their shape is dictated elsewhere, and "
+        + "returning a constant is how a derived type answers a question.";
+
+    /// <summary>The RedundantDefaultArgument rule description.</summary>
+    private const string RedundantDefaultArgumentDescription =
+        "Passing a value that is already the parameter's default adds noise and — worse — freezes it. When the default later changes, every "
+        + "call site that spelled the old one out keeps the old behavior, silently, while the calls that omitted it move on. Only a trailing "
+        + "argument is reported, because an earlier one cannot be dropped without naming the ones after it.";
+
+    /// <summary>The ReferenceEqualityOnValueEqualType rule description.</summary>
+    private const string ReferenceEqualityOnValueEqualTypeDescription =
+        "A type that overrides 'Equals' has said what equality means for it — and a type that does not also overload '==' leaves that "
+        + "operator comparing references. So 'a == b' and 'a.Equals(b)' answer differently for the same pair, and the one the author "
+        + "reached for first is usually the wrong one. Call 'Equals', or overload the operator so both agree.";
+
+    /// <summary>The AbstractTypeWithoutAbstractMembers rule description.</summary>
+    private const string AbstractTypeWithoutAbstractMembersDescription =
+        "An abstract type with nothing abstract in it cannot be instantiated but asks nothing of its derived types either — it is a base "
+        + "class wearing a contract's clothes. Either give it the member the derived types must supply, or drop 'abstract' and seal it. A "
+        + "type that inherits an abstract member it does not implement is genuinely abstract and is not reported.";
+
+    /// <summary>The UnusedLocal rule description.</summary>
+    private const string UnusedLocalDescription =
+        "A local nobody reads is either dead code or a bug — the value it holds was meant to be used. Removing it is free; keeping it costs "
+        + "every future reader the time to work out that it does not matter. A local assigned from a call with side effects is still "
+        + "reported, but the fix keeps the call and drops only the variable, so the effect survives.";
+
+    /// <summary>The PrivateMemberUsedOnlyByNestedType rule description.</summary>
+    private const string PrivateMemberUsedOnlyByNestedTypeDescription =
+        "A private member that only a nested type touches is declared further out than it needs to be. Moving it in narrows what a reader "
+        + "has to hold in their head when they change it, and it stops the outer type from growing a surface it does not use.";
+
+    /// <summary>The MutableStaticField rule description.</summary>
+    private const string MutableStaticFieldDescription =
+        "A visible static field that is not 'readonly' is global mutable state: any code in any thread can reassign it, and every other "
+        + "user of the type sees the change with no way to notice it happened. A 'readonly' array or list is barely better — the reference "
+        + "cannot move but the contents can — so a visible static collection is reported too. Expose a copy, an immutable collection, or a "
+        + "property with the mutation you actually mean.";
 
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

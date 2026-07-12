@@ -5,6 +5,11 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
+SST1218 | Ordering | Warning | Sst1218OverloadsGroupedAnalyzer
+SST1521 | Layout | Warning | Sst1521LineTooLongAnalyzer
+SST1522 | Layout | Warning | Sst1522FileTooLongAnalyzer
+SST1523 | Layout | Warning | Sst1523MethodTooLongAnalyzer
+SST1524 | Layout | Warning | Sst1524SwitchSectionTooLongAnalyzer
 SST1442 | Maintainability | Warning | FunctionComplexityAnalyzer
 SST1443 | Maintainability | Warning | FunctionComplexityAnalyzer
 SST1444 | Maintainability | Warning | SingleIterationLoopAnalyzer
@@ -52,9 +57,26 @@ SST1486 | Maintainability | Warning | Sst1486DuplicatedStringLiteralAnalyzer
 SST1487 | Maintainability | Warning | Sst1487OverwrittenCollectionElementAnalyzer
 SST1488 | Maintainability | Warning | ExceptionConstructorAnalyzer
 SST1489 | Maintainability | Warning | ExceptionConstructorAnalyzer
+SST1490 | Maintainability | Warning | Sst1490RedundantBaseListEntryAnalyzer
+SST1491 | Maintainability | Warning | Sst1491RedundantModifierAnalyzer
+SST1492 | Maintainability | Warning | Sst1492SelfAssignmentGuardAnalyzer
+SST1493 | Maintainability | Warning | Sst1493MethodReturnsConstantAnalyzer
+SST1494 | Maintainability | Warning | Sst1494RedundantDefaultArgumentAnalyzer
+SST1495 | Maintainability | Warning | Sst1495ReferenceEqualityOnValueEqualTypeAnalyzer
+SST1496 | Maintainability | Warning | Sst1496AbstractTypeWithoutAbstractMembersAnalyzer
+SST1497 | Maintainability | Warning | Sst1497UnusedLocalAnalyzer
+SST1498 | Maintainability | Warning | Sst1498PrivateMemberUsedOnlyByNestedTypeAnalyzer
+SST1499 | Maintainability | Warning | Sst1499MutableStaticFieldAnalyzer
 SST1658 | Documentation | Warning | Sst1658NoRepeatedWordsAnalyzer
+SST1659 | Documentation | Warning | Sst1659EmptyCommentAnalyzer
 SST2008 | Modernization | Warning | Sst2008IsNotPatternAnalyzer
 SST2009 | Modernization | Warning | Sst2009UseExceptionFilterAnalyzer
+SST2010 | Modernization | Disabled | Sst2010UseTimeProviderAnalyzer
+SST2011 | Modernization | Warning | Sst2011RecordInstantsInUtcAnalyzer
+SST2012 | Modernization | Warning | Sst2012UseGuidEmptyAnalyzer
+SST2013 | Modernization | Warning | Sst2013MergeNestedIfAnalyzer
+SST2014 | Modernization | Warning | Sst2014AvoidGotoAnalyzer
+SST2015 | Modernization | Warning | Sst2015IsolateIncrementAnalyzer
 SST2234 | ModernSyntax | Warning | Sst2234NullableShorthandAnalyzer
 SST2235 | ModernSyntax | Warning | Sst2235StaticLocalFunctionAnalyzer
 SST2236 | ModernSyntax | Warning | Sst2236UsingDeclarationAnalyzer
@@ -65,6 +87,27 @@ SST2240 | ModernSyntax | Warning | Sst2240ConditionalDelegateInvocationAnalyzer
 SST2241 | ModernSyntax | Warning | Sst2241PrimaryConstructorStorageAnalyzer
 SST2242 | ModernSyntax | Warning | Sst2242EnumSwitchStatementMappingAnalyzer
 SST2243 | ModernSyntax | Warning | Sst2243UseRawStringLiteralAnalyzer
+SST2244 | ModernSyntax | Warning | Sst2244UppercaseLiteralSuffixAnalyzer
+SST2245 | ModernSyntax | Warning | Sst2245UseWhileOverForAnalyzer
+SST2300 | Design | Warning | Sst2300DisposePatternAnalyzer
+SST2301 | Design | Warning | Sst2301EquatableTypeShouldBeSealedAnalyzer
+SST2302 | Design | Warning | Sst2302InconsistentOperatorOverloadsAnalyzer
+SST2303 | Design | Warning | Sst2303MisusedFlagsAttributeAnalyzer
+SST2304 | Design | Warning | Sst2304EventHandlerSignatureAnalyzer
+SST2305 | Design | Warning | Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer
+SST2306 | Design | Warning | Sst2306ReturnEmptyCollectionNotNullAnalyzer
+SST2307 | Design | Warning | Sst2307WriteOnlyPropertyAnalyzer
+SST2308 | Design | Warning | Sst2308ObsoleteWithoutExplanationAnalyzer
+SST2400 | Correctness | Warning | Sst2400SwappedArgumentsAnalyzer
+SST2401 | Correctness | Warning | Sst2401CatchNullReferenceAnalyzer
+SST2402 | Correctness | Warning | Sst2402StaticFieldWrittenInConstructorAnalyzer
+SST2403 | Correctness | Warning | Sst2403ThisEscapesConstructorAnalyzer
+SST2404 | Correctness | Warning | Sst2404IteratorValidatesTooLateAnalyzer
+SST2405 | Correctness | Warning | Sst2405DebuggerDisplayNamesMissingMemberAnalyzer
+SST2406 | Correctness | Warning | Sst2406InvariantLoopConditionAnalyzer
+SST2407 | Correctness | Warning | Sst2407EventNeverRaisedAnalyzer
+SST2408 | Correctness | Warning | Sst2408StringBuilderNeverReadAnalyzer
+SST2409 | Correctness | Warning | Sst2409ThrowsGeneralExceptionAnalyzer
 
 ### Removed Rules
 

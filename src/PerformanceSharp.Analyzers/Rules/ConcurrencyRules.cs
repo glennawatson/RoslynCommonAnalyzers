@@ -103,6 +103,20 @@ internal static class ConcurrencyRules
         "Return '{0}' instead of null",
         ReturnCompletedTaskOverNullDescription);
 
+    /// <summary>PSH1313 — a blocking call is made inside an async method.</summary>
+    public static readonly DiagnosticDescriptor CallAsyncInAsyncContext = Create(
+        "PSH1313",
+        "Call the async overload from an async method",
+        "'{0}' blocks; call '{1}' and await it",
+        CallAsyncInAsyncContextDescription);
+
+    /// <summary>PSH1314 — a stream is read or written through the array-based overloads.</summary>
+    public static readonly DiagnosticDescriptor UseMemoryBasedStreamOverloads = Create(
+        "PSH1314",
+        "Read and write streams through the memory-based overloads",
+        "Use the '{0}' overload that takes a Memory or ReadOnlyMemory",
+        UseMemoryBasedStreamOverloadsDescription);
+
     /// <summary>The PSH1302 rule description.</summary>
     private const string RunContinuationsAsynchronouslyDescription =
         "Completing a TaskCompletionSource without TaskCreationOptions.RunContinuationsAsynchronously runs every waiter's continuation inline "
@@ -164,6 +178,18 @@ internal static class ConcurrencyRules
         "A null returned where a Task is expected turns every await into a NullReferenceException and forces callers into defensive "
         + "null checks; the runtime caches completed task instances, so Task.CompletedTask and Task.FromResult cost nothing over the "
         + "null. A default ValueTask is already a completed task and is not reported.";
+
+    /// <summary>The PSH1313 rule description.</summary>
+    private const string CallAsyncInAsyncContextDescription =
+        "A synchronous call inside an async method blocks the thread that was supposed to be released — which, on a thread pool of finite "
+        + "size, is how an application that looks asynchronous deadlocks under load. The async overload exists precisely so the thread can "
+        + "go and do something else while the work is outstanding.";
+
+    /// <summary>The PSH1314 rule description.</summary>
+    private const string UseMemoryBasedStreamOverloadsDescription =
+        "The array-based 'ReadAsync'/'WriteAsync' overloads have to allocate state to carry the array, offset and count across the await. "
+        + "The 'Memory<byte>' overloads carry all three in the value itself and return a 'ValueTask', so a call that completes synchronously "
+        + "— which, on a buffered stream, is most of them — allocates nothing at all.";
 
     /// <summary>Creates a Warning-severity Concurrency descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

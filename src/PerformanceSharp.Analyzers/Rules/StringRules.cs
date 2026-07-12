@@ -143,6 +143,55 @@ internal static class StringRules
         "'{0}' allocates a substring only to search it; slice with 'AsSpan' so '{1}' searches in place",
         SearchWithStartIndexDescription);
 
+    /// <summary>PSH1219 — a string is trimmed only to ask whether it is blank.</summary>
+    public static readonly DiagnosticDescriptor UseIsNullOrWhiteSpace = Create(
+        "PSH1219",
+        "Ask whether a string is blank without trimming it",
+        "'{0}' allocates a trimmed copy only to measure it; 'string.IsNullOrWhiteSpace' answers in place",
+        UseIsNullOrWhiteSpaceDescription);
+
+    /// <summary>PSH1220 — do not pass a length that reaches the end.</summary>
+    public static readonly DiagnosticDescriptor RedundantLengthArgument = Create(
+        "PSH1220",
+        "Do not pass a length that reaches the end",
+        "The length argument reaches the end of '{0}'; the shorter overload says the same thing",
+        RedundantLengthArgumentDescription);
+
+    /// <summary>PSH1221 — ask whether a string starts with a value, not where the value is.</summary>
+    public static readonly DiagnosticDescriptor UseStartsWithOverIndexOf = Create(
+        "PSH1221",
+        "Ask whether a string starts with a value, not where the value is",
+        "'{0}' searches the whole string to answer a question 'StartsWith' answers at the first character",
+        UseStartsWithOverIndexOfDescription);
+
+    /// <summary>PSH1222 — concatenate slices without materializing them.</summary>
+    public static readonly DiagnosticDescriptor UseSpanBasedConcat = Create(
+        "PSH1222",
+        "Concatenate slices without materializing them",
+        "'{0}' allocates a substring only to concatenate it; concatenate the spans instead",
+        UseSpanBasedConcatDescription);
+
+    /// <summary>PSH1223 — parse a reused format string once.</summary>
+    public static readonly DiagnosticDescriptor UseCompositeFormat = Create(
+        "PSH1223",
+        "Parse a reused format string once",
+        "'{0}' is a constant format string parsed on every call; hoist it into a CompositeFormat",
+        UseCompositeFormatDescription);
+
+    /// <summary>PSH1224 — convert bytes to hex in one call.</summary>
+    public static readonly DiagnosticDescriptor UseConvertToHexString = Create(
+        "PSH1224",
+        "Convert bytes to hex in one call",
+        "Use '{0}' instead of building the hex string by hand",
+        UseConvertToHexStringDescription);
+
+    /// <summary>PSH1225 — decode bytes to a string in one call.</summary>
+    public static readonly DiagnosticDescriptor UseEncodingGetString = Create(
+        "PSH1225",
+        "Decode bytes to a string in one call",
+        "Use '{0}' instead of decoding into a char buffer and building the string from it",
+        UseEncodingGetStringDescription);
+
     /// <summary>The PSH1208 rule description.</summary>
     private const string UseUtf8LiteralDescription =
         "Encoding.UTF8.GetBytes on a constant string re-encodes and heap-allocates the same bytes on every call; a u8 literal (C# 11+) "
@@ -211,6 +260,46 @@ internal static class StringRules
         + "worse still, searching backward from 'i'.) A comparison is only rewritten when it is ordinal-equivalent, so a culture-sensitive "
         + "search is never silently made ordinal, and the rewritten call is bound before it is offered, so an overload the target framework "
         + "lacks is never suggested. A substring used for anything besides the search is not reported.";
+
+    /// <summary>The UseIsNullOrWhiteSpace rule description.</summary>
+    private const string UseIsNullOrWhiteSpaceDescription =
+        "'text.Trim().Length == 0' allocates a whole new string, copies the non-blank characters into it — of which, on the path that "
+        + "matters, there are none — and then asks how long it is. 'string.IsNullOrWhiteSpace' scans the original and stops at the first "
+        + "character that is not white space, allocating nothing. Note the two differ on null: 'Trim()' throws and 'IsNullOrWhiteSpace' "
+        + "answers true, so the rewrite also removes a latent NullReferenceException.";
+
+    /// <summary>The PSH1220 rule description.</summary>
+    private const string RedundantLengthArgumentDescription =
+        "Passing a length computed to land exactly on the end of the string or span restates what the overload without it already does, and "
+        + "it restates it with arithmetic that can be got wrong when the code around it changes.";
+
+    /// <summary>The PSH1221 rule description.</summary>
+    private const string UseStartsWithOverIndexOfDescription =
+        "'text.IndexOf(value) == 0' scans forward through the string looking for a match it will reject anywhere but position zero. "
+        + "'StartsWith' compares at position zero and stops. The comparison the rewrite would use has to mean the same thing, so the "
+        + "'char' form is suggested only where 'StartsWith(char)' exists — it does not on netstandard2.0 or .NET Framework — and a "
+        + "culture-sensitive search is never silently made ordinal.";
+
+    /// <summary>The PSH1222 rule description.</summary>
+    private const string UseSpanBasedConcatDescription =
+        "'string.Concat(a.Substring(i), b)' allocates the substring, copies into it, and then copies again into the result. The span "
+        + "overloads of 'string.Concat' take the slice directly and copy once. Suggested only where those overloads exist.";
+
+    /// <summary>The PSH1223 rule description.</summary>
+    private const string UseCompositeFormatDescription =
+        "Every 'string.Format' call re-parses the format string to find its placeholders. A format that never changes can be parsed once "
+        + "into a 'CompositeFormat' and reused, which turns per-call parsing into a field read. Suggested only where the type exists.";
+
+    /// <summary>The PSH1224 rule description.</summary>
+    private const string UseConvertToHexStringDescription =
+        "Turning bytes into hex through 'BitConverter.ToString' builds the hyphen-separated form first, then allocates a second string to "
+        + "strip the hyphens back out. 'Convert.ToHexString' writes the result once. Suggested only where the API exists.";
+
+    /// <summary>The PSH1225 rule description.</summary>
+    private const string UseEncodingGetStringDescription =
+        "Decoding into a 'char[]' and constructing a string from it allocates the buffer and then copies it into the string. "
+        + "'Encoding.GetString' produces the string directly. The span-taking overload does not exist on every target, so it is suggested "
+        + "only where it does.";
 
     /// <summary>Creates a Warning-severity Strings descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

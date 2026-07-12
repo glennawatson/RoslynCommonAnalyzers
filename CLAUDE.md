@@ -110,7 +110,7 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   mirroring the `*Rules.cs` descriptor classes (StyleSharp: `Spacing/`,
   `Readability/`, `Ordering/`, `Naming/`, `Maintainability/`, `Layout/`,
   `Documentation/`, `Extensions/`, `Records/`, `Concurrency/`, `Modernization/`,
-  `CollectionExpressions/`, `ModernSyntax/`; PerformanceSharp: `Allocations/`,
+  `CollectionExpressions/`, `ModernSyntax/`, `Design/`, `Correctness/`; PerformanceSharp: `Allocations/`,
   `Collections/`, `Strings/`, `Concurrency/`, `ApiSelection/`), with shared logic
   in `Helpers/` and descriptors in `Rules/`. Folders are organizational only — the
   namespace stays flat (`StyleSharp.Analyzers` / `PerformanceSharp.Analyzers` and
@@ -167,6 +167,33 @@ well-known type/interface/attribute by name (e.g. the `IUnion` marker in
 rule on the marker being present so it costs nothing otherwise. Use real 5.x APIs
 behind `#if ROSLYN_5_OR_GREATER` only when structural probing won't do.
 
+## Never suggest an API without proving it exists
+
+A rule that says "use `X` instead" is wrong — not merely unhelpful, **wrong** — when
+the analyzed project targets a framework that has no `X`. The user gets a diagnostic
+they cannot fix, or a code fix that does not compile.
+
+So: **any rule that suggests an API must resolve that API in the analyzed
+compilation and stay silent when it is absent.** Probe it; never infer it from a TFM
+string, a language version, or an assumption. Resolve it lazily, once, and gate the
+whole rule on it so a project that cannot use the suggestion pays nothing.
+
+This is not hypothetical. The overloads below all look universal and are not:
+
+| Suggestion | First available in |
+| --- | --- |
+| `string.Contains(char)`, `StartsWith(char)`, `EndsWith(char)`, `IndexOf(char)` | .NET Core 2.0+ — **absent on netstandard2.0 and .NET Framework** |
+| `string.Concat(ReadOnlySpan<char>, …)`, `Encoding.GetString(ReadOnlySpan<byte>)` | .NET Core 2.1+ |
+| `Convert.ToHexString` | .NET 5+ (`ToHexStringLower` is .NET 9+) |
+| `Random.Shared`, `DateTime.UnixEpoch`, `TimeProvider`, `CompositeFormat` | .NET 6 / Core 2.1 / .NET 8 respectively |
+| `Enumerable.Order`, `FrozenDictionary`, `SearchValues`, `GetAlternateLookup` | .NET 7 / .NET 8 / .NET 9 |
+
+Where the *syntax* rather than an API is the suggestion (collection expressions,
+raw strings, `field`, primary constructors), gate on `LanguageVersion` the same way.
+
+The same applies to a code fix: bind the rewritten call speculatively before
+offering it, so a fix that would not compile is never offered.
+
 ## Diagnostic id schemes
 
 Both packages use four-digit ids grouped by the hundreds digit; each group maps
@@ -180,7 +207,7 @@ Both packages use four-digit ids grouped by the hundreds digit; each group maps
 | `SST11xx` | Readability — the "parameters/arguments must be on unique lines" family (one analyzer per syntax kind) lives at the **end** of the range, `SST1150`–`SST1171` |
 | `SST12xx` | Ordering |
 | `SST13xx` | Naming, **adapted to .NET runtime conventions** (e.g. SST1309 requires private fields to be `_camelCase`) |
-| `SST14xx` | Maintainability |
+| `SST14xx` | Maintainability. **This range is full** (only `SST1409` is unused; `SST1434` moved to PerformanceSharp and is never reused). New rules of this flavour go to `SST23xx` or `SST24xx`. |
 | `SST15xx` | Layout |
 | `SST16xx` | Documentation |
 | `SST17xx` | Extensions (extension blocks/methods) |
@@ -189,6 +216,8 @@ Both packages use four-digit ids grouped by the hundreds digit; each group maps
 | `SST20xx` | Modernization (throw helpers, patterns) |
 | `SST21xx` | Collection expressions |
 | `SST22xx` | Modern syntax |
+| `SST23xx` | Design — the shape of a type's public surface: interface contracts (`IDisposable`, `IEquatable<T>`), operator and event conventions, what a member exposes |
+| `SST24xx` | Correctness — code that compiles and runs but does not do what it says: mismatched argument order, a guard that runs too late, a reference to a member that is not there |
 
 ### PerformanceSharp (`PSH####`)
 

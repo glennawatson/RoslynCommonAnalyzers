@@ -95,6 +95,48 @@ internal static class ApiSelectionRules
         "Nothing derives from '{0}'; sealing it lets the JIT devirtualize and inline its members",
         SealNonDerivedTypeDescription);
 
+    /// <summary>PSH1412 — a Random instance is allocated where the shared one would do.</summary>
+    public static readonly DiagnosticDescriptor UseSharedRandom = Create(
+        "PSH1412",
+        "Use Random.Shared instead of allocating a Random",
+        "Use 'Random.Shared' instead of allocating a '{0}'",
+        UseSharedRandomDescription);
+
+    /// <summary>PSH1413 — the Unix epoch is constructed rather than read.</summary>
+    public static readonly DiagnosticDescriptor UseUnixEpochField = Create(
+        "PSH1413",
+        "Read the Unix epoch from the framework",
+        "Use '{0}.UnixEpoch' instead of constructing the epoch",
+        UseUnixEpochFieldDescription);
+
+    /// <summary>PSH1414 — mark members that do not touch instance state as static.</summary>
+    public static readonly DiagnosticDescriptor MarkMembersStatic = Create(
+        "PSH1414",
+        "Mark members that do not touch instance state as static",
+        "'{0}' never uses instance state; making it static removes the hidden 'this' argument",
+        MarkMembersStaticDescription);
+
+    /// <summary>PSH1415 — hold the concrete type when the concrete type is what you have.</summary>
+    public static readonly DiagnosticDescriptor UseConcreteType = Create(
+        "PSH1415",
+        "Hold the concrete type when the concrete type is what you have",
+        "'{0}' is declared as '{1}' but only ever holds '{2}'; declare the concrete type so its members can be called directly",
+        UseConcreteTypeDescription);
+
+    /// <summary>PSH1416 — cache the serializer options instead of building them per call.</summary>
+    public static readonly DiagnosticDescriptor CacheSerializerOptions = Create(
+        "PSH1416",
+        "Cache the serializer options instead of building them per call",
+        "'{0}' is constructed on every call; cache it in a static readonly field",
+        CacheSerializerOptionsDescription);
+
+    /// <summary>PSH1417 — do not compute an expensive argument for an assertion.</summary>
+    public static readonly DiagnosticDescriptor ExpensiveDebugAssertArgument = Create(
+        "PSH1417",
+        "Do not compute an expensive argument for an assertion",
+        "'{0}' is evaluated on every call, including in release builds where the assertion does nothing",
+        ExpensiveDebugAssertArgumentDescription);
+
     /// <summary>The PSH1408 rule description.</summary>
     private const string UseStopwatchTimestampsDescription =
         "A Stopwatch allocated only to read elapsed time can be replaced by capturing Stopwatch.GetTimestamp into a long and asking "
@@ -121,6 +163,42 @@ internal static class ApiSelectionRules
         + "a breaking change. Set 'performancesharp.PSH1411.include_public = true' in a project that is not a library to report those too. "
         + "A class that is already sealed, static, abstract, or a record, and one that any type in the compilation derives from, is never "
         + "reported.";
+
+    /// <summary>The UseSharedRandom rule description.</summary>
+    private const string UseSharedRandomDescription =
+        "'Random.Shared' is a thread-safe instance the runtime already made, so taking it costs nothing. Allocating your own is worse than "
+        + "redundant: a 'new Random()' created in a tight loop or per request can be seeded from the same clock tick as the last one and "
+        + "hand back the identical sequence, and a single instance shared across threads without a lock is not safe. A Random constructed "
+        + "with an explicit seed is deliberate — a reproducible sequence — and is never reported.";
+
+    /// <summary>The UseUnixEpochField rule description.</summary>
+    private const string UseUnixEpochFieldDescription =
+        "'new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)' is the Unix epoch spelled out, and spelling it out invites getting it wrong — "
+        + "the overload without a 'DateTimeKind' produces an Unspecified epoch that silently shifts by the local offset the moment it is "
+        + "compared or converted. 'DateTime.UnixEpoch' and 'DateTimeOffset.UnixEpoch' are the value, already UTC, computed at compile time.";
+
+    /// <summary>The PSH1414 rule description.</summary>
+    private const string MarkMembersStaticDescription =
+        "An instance method that never reads 'this' still takes it — a hidden argument passed at every call, and a receiver the JIT must "
+        + "prove non-null before it can dispatch. Static says what the method actually is, and lets the call go direct.";
+
+    /// <summary>The PSH1415 rule description.</summary>
+    private const string UseConcreteTypeDescription =
+        "A local or field typed as an interface dispatches through it — every call is virtual, and none of it can be inlined. When the code "
+        + "assigns exactly one concrete type and never needs the abstraction, declaring the concrete type turns those calls direct and lets "
+        + "the JIT see through them.";
+
+    /// <summary>The PSH1416 rule description.</summary>
+    private const string CacheSerializerOptionsDescription =
+        "The serializer caches its per-type metadata against the options instance it was handed. A fresh options object on every call throws "
+        + "that cache away and re-derives the whole contract — reflection, converter lookup and all — for a type it has already seen. This is "
+        + "one of the most expensive accidental costs in a serialization path.";
+
+    /// <summary>The PSH1417 rule description.</summary>
+    private const string ExpensiveDebugAssertArgumentDescription =
+        "The call to 'Debug.Assert' is compiled away in release builds — but the arguments are evaluated before the call, so the work that "
+        + "produced them is not. An assertion whose message interpolates state, or whose condition calls something costly, pays that cost in "
+        + "production for a check that no longer runs.";
 
     /// <summary>Creates a Warning-severity ApiSelection descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

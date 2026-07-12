@@ -328,6 +328,18 @@ internal static class DocumentationRules
         "The word '{0}' is repeated",
         "A word typed twice in a row in documentation text is almost always an editing leftover; code elements inside the documentation are not scanned.");
 
+    /// <summary>SST1659 — a comment says nothing.</summary>
+    public static readonly DiagnosticDescriptor EmptyComment = Create(
+        "SST1659",
+        "Comments should not be empty",
+        "This comment has no text; remove it",
+        EmptyCommentDescription);
+
+    /// <summary>The EmptyComment rule description.</summary>
+    private const string EmptyCommentDescription =
+        "A comment with no text is a leftover — a line someone meant to write, or the remains of one they deleted. It costs a reader a "
+        + "glance and tells them nothing.";
+
     /// <summary>Creates a Warning-severity Documentation descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

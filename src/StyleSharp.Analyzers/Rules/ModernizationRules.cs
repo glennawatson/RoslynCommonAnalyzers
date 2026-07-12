@@ -83,10 +83,88 @@ internal static class ModernizationRules
         "Move this condition into a 'when' filter",
         UseExceptionFilterDescription);
 
+    /// <summary>SST2010 — the clock is read from a static the caller cannot replace.</summary>
+    public static readonly DiagnosticDescriptor UseTimeProvider = CreateOptIn(
+        "SST2010",
+        "Read the clock through a TimeProvider",
+        "'{0}' reads the machine clock directly; take a TimeProvider so the caller can supply the time",
+        UseTimeProviderDescription);
+
+    /// <summary>SST2011 — an instant is recorded in local time.</summary>
+    public static readonly DiagnosticDescriptor RecordInstantsInUtc = Create(
+        "SST2011",
+        "Record instants in UTC",
+        "'{0}' records an instant in local time; use the UTC clock",
+        RecordInstantsInUtcDescription);
+
+    /// <summary>SST2012 — the empty GUID is constructed rather than named.</summary>
+    public static readonly DiagnosticDescriptor UseGuidEmpty = Create(
+        "SST2012",
+        "Use Guid.Empty for the empty GUID",
+        "Use 'Guid.Empty' instead of 'new Guid()'",
+        UseGuidEmptyDescription);
+
+    /// <summary>SST2013 — an if that only wraps another if can state one condition.</summary>
+    public static readonly DiagnosticDescriptor MergeNestedIf = Create(
+        "SST2013",
+        "Merge an if that only wraps another if",
+        "This 'if' only wraps another; combine the conditions with '&&'",
+        MergeNestedIfDescription);
+
+    /// <summary>SST2014 — control jumps to a label.</summary>
+    public static readonly DiagnosticDescriptor AvoidGoto = Create(
+        "SST2014",
+        "Avoid goto",
+        "'goto' makes control flow hard to follow; use a loop, a method, or a flag",
+        AvoidGotoDescription);
+
+    /// <summary>SST2015 — an increment is buried inside a larger expression.</summary>
+    public static readonly DiagnosticDescriptor IsolateIncrement = Create(
+        "SST2015",
+        "Do not bury an increment inside a larger expression",
+        "'{0}' both reads and writes '{1}' inside a larger expression; give it its own statement",
+        IsolateIncrementDescription);
+
     /// <summary>The SST2009 rule description.</summary>
     private const string UseExceptionFilterDescription =
         "A catch block that immediately tests a condition and rethrows on the losing branch is an exception filter written by hand; "
         + "'catch ... when' skips the handler without unwinding the stack for exceptions it was never going to keep.";
+
+    /// <summary>The UseTimeProvider rule description.</summary>
+    private const string UseTimeProviderDescription =
+        "A type that calls 'DateTime.Now' reaches out of itself for a value nobody can control, which means the behavior that depends on it "
+        + "cannot be tested without waiting for real time to pass — or without changing the machine's clock. 'TimeProvider' is the seam: the "
+        + "production caller passes 'TimeProvider.System' and the test passes a fake. Off by default, because introducing the seam is a "
+        + "design change and not every type wants it; turn it on where time is part of the logic.";
+
+    /// <summary>The RecordInstantsInUtc rule description.</summary>
+    private const string RecordInstantsInUtcDescription =
+        "Local time is a presentation format, not a point in time. An instant stored as local time is ambiguous twice a year — the hour "
+        + "that repeats when the clocks go back genuinely maps to two different moments — and it means something different again when the "
+        + "process moves to another machine. Record UTC and convert to local only where a human reads it.";
+
+    /// <summary>The UseGuidEmpty rule description.</summary>
+    private const string UseGuidEmptyDescription =
+        "'new Guid()' does not make a new GUID — it makes the all-zero one, which is the opposite of what the code appears to say. The "
+        + "reader who wanted a fresh identifier has to know that 'Guid.NewGuid' is the one that generates, and that this one does not. "
+        + "'Guid.Empty' says what the value is.";
+
+    /// <summary>The MergeNestedIf rule description.</summary>
+    private const string MergeNestedIfDescription =
+        "Two nested ifs with nothing between them and no else on either are one condition written across two levels of indentation. "
+        + "Combining them with '&&' says the same thing, and gives the reader back the nesting level for something that earns it.";
+
+    /// <summary>The AvoidGoto rule description.</summary>
+    private const string AvoidGotoDescription =
+        "A 'goto' means the reader can no longer work out how control reached a line by looking at the lines above it. The structured forms "
+        + "— break, continue, return, an extracted method — say where control goes in the same breath as why. The one place 'goto' still "
+        + "earns its keep is jumping between switch sections, which the language has no other word for, and that use is not reported.";
+
+    /// <summary>The IsolateIncrement rule description.</summary>
+    private const string IsolateIncrementDescription =
+        "'array[i++] = Compute(i)' has a value that depends on which side the compiler evaluates first, and readers reliably guess wrong. "
+        + "The increment is doing two jobs — producing a value and advancing a variable — and only one of them is visible where it is "
+        + "written. Put it on its own line; the cost is a line and the gain is that the code means one thing.";
 
     /// <summary>Creates a Warning-severity Modernization descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

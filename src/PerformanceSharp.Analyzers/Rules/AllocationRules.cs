@@ -137,6 +137,27 @@ internal static class AllocationRules
         "'{0}' allocates a copy of the collection every time it is read; expose a method or a read-only view instead",
         PropertyCopiesCollectionDescription);
 
+    /// <summary>PSH1018 — an array is allocated to feed a params parameter.</summary>
+    public static readonly DiagnosticDescriptor RedundantParamsArray = Create(
+        "PSH1018",
+        "Do not build an array for a params parameter",
+        "'{0}' takes params; pass the arguments directly instead of allocating the array",
+        RedundantParamsArrayDescription);
+
+    /// <summary>PSH1019 — slice arrays with AsSpan instead of the range indexer.</summary>
+    public static readonly DiagnosticDescriptor UseAsSpanOverRangeIndexer = Create(
+        "PSH1019",
+        "Slice arrays with AsSpan instead of the range indexer",
+        "'{0}' allocates a copy; 'AsSpan' or 'AsMemory' slices in place",
+        UseAsSpanOverRangeIndexerDescription);
+
+    /// <summary>PSH1020 — prefer a jagged array over a multidimensional one.</summary>
+    public static readonly DiagnosticDescriptor PreferJaggedArrays = Create(
+        "PSH1020",
+        "Prefer a jagged array over a multidimensional one",
+        "'{0}' is multidimensional; a jagged array indexes faster",
+        PreferJaggedArraysDescription);
+
     /// <summary>The PSH1009 rule description.</summary>
     private const string UnboundedStackallocDescription =
         "A stackalloc whose length comes from data can blow the stack on adversarial or unexpected input; the resilient shape tests the "
@@ -189,6 +210,22 @@ internal static class AllocationRules
         + "i++) Use(Items[i]);' into a quadratic copy. Return a cached 'ReadOnlyCollection<T>' or an 'ImmutableArray<T>', or make it a "
         + "method so the cost is visible at the call site. A property that copies a genuinely small fixed-size collection can be excluded "
         + "with 'performancesharp.PSH1017.excluded_properties'.";
+
+    /// <summary>The RedundantParamsArray rule description.</summary>
+    private const string RedundantParamsArrayDescription =
+        "Writing the array out by hand at a params call site allocates exactly the array the compiler would have produced anyway, and hides "
+        + "which overload is being called. Passing the arguments directly lets the compiler pick the params overload — and on a call with no "
+        + "arguments at all it can reuse the empty array instead of allocating a fresh one.";
+
+    /// <summary>The PSH1019 rule description.</summary>
+    private const string UseAsSpanOverRangeIndexerDescription =
+        "The range indexer on an array allocates a new array and copies the elements into it. 'AsSpan(range)' and 'AsMemory(range)' "
+        + "return a view over the original — no allocation, no copy — and every API that takes a span accepts one.";
+
+    /// <summary>The PSH1020 rule description.</summary>
+    private const string PreferJaggedArraysDescription =
+        "The CLR gives single-dimensional arrays a fast, bounds-check-elided access path that multidimensional arrays do not get: every "
+        + "'a[i, j]' goes through a slower helper. A jagged array is an array of single-dimensional arrays, so each row gets the fast path.";
 
     /// <summary>Creates a Warning-severity Allocations descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

@@ -40,6 +40,7 @@ async, `PSH14xx` API selection.
 | [PSH1015](rules/PSH1015.md) | Avoid casting value types through `object`. Code fix casts directly. |
 | [PSH1016](rules/PSH1016.md) | Test enum flags with bitwise operators instead of `Enum.HasFlag`. |
 | [PSH1017](rules/PSH1017.md) | A property allocates a copy of a collection on every read. |
+| [PSH1018](rules/PSH1018.md) | A hand-written array is passed to a `params` parameter. Code fix passes the elements directly. |
 
 ## Collections
 
@@ -67,6 +68,7 @@ async, `PSH14xx` API selection.
 | [PSH1119](rules/PSH1119.md) | Check for elements without counting them all. |
 | [PSH1120](rules/PSH1120.md) | Do not materialize a sequence just to enumerate it. |
 | [PSH1122](rules/PSH1122.md) | Read a sorted set's extreme through its `Min`/`Max` property, not the LINQ extension. Code fix uses the property. |
+| [PSH1124](rules/PSH1124.md) | Read a linked list's end through its `First`/`Last` property, not the LINQ extension. Code fix reads the node's `Value`. |
 
 ## Strings
 
@@ -91,6 +93,7 @@ async, `PSH14xx` API selection.
 | [PSH1216](rules/PSH1216.md) | Ask for equality, not ordering. |
 | [PSH1217](rules/PSH1217.md) | Do not copy a sequence to an array just to read it. Code fix drops the copy. |
 | [PSH1218](rules/PSH1218.md) | Slice with `AsSpan` instead of allocating a substring to search it. Code fix rewrites the slice. |
+| [PSH1219](rules/PSH1219.md) | Ask whether a string is blank without trimming it. Code fix uses `string.IsNullOrWhiteSpace`. |
 
 ## Concurrency (PerformanceSharp)
 
@@ -123,6 +126,8 @@ async, `PSH14xx` API selection.
 | [PSH1409](rules/PSH1409.md) | Use the built-in throw helpers for argument guards. Code fix rewrites the guard, honoring helper aliases. |
 | [PSH1410](rules/PSH1410.md) | Mark trivial forwarders for aggressive inlining. Opt-in. |
 | [PSH1411](rules/PSH1411.md) | Seal non-public types nothing derives from so the JIT can devirtualize. Code fix adds `sealed`. |
+| [PSH1412](rules/PSH1412.md) | Use `Random.Shared` instead of allocating a `Random`. Code fix takes the shared instance. |
+| [PSH1413](rules/PSH1413.md) | Read the Unix epoch from `DateTime.UnixEpoch`, not a hand-built date. Code fix uses the field. |
 
 # StyleSharp Rule Index
 
@@ -303,7 +308,7 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST1472](rules/SST1472.md) | Signatures should not declare too many parameters. |
 | [SST1473](rules/SST1473.md) | Floating-point values should not be compared for exact equality. Code fix rewrites NaN tests as `IsNaN`. |
 | [SST1474](rules/SST1474.md) | Identical expressions appear on both sides of an operator. |
-| [SST1475](rules/SST1475.md) | A condition repeats an earlier one in the same if/else-if chain, so its branch cannot run. |
+| [SST1475](rules/SST1475.md) | A condition repeats one already tested — in a chain or `switch` (its branch cannot run), or in the `if` immediately before it. |
 | [SST1476](rules/SST1476.md) | Every branch of a conditional has the same body, so the condition decides nothing. |
 | [SST1477](rules/SST1477.md) | An integer division is widened to a floating-point type after it has already truncated. Code fix casts an operand. |
 | [SST1478](rules/SST1478.md) | A shift count is zero, negative, or at least the operand's width. |
@@ -318,6 +323,10 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST1487](rules/SST1487.md) | A collection element is assigned twice with nothing reading it in between. |
 | [SST1488](rules/SST1488.md) | An exception type does not declare the standard constructors. Code fix adds them, documented. |
 | [SST1489](rules/SST1489.md) | An exception type carries formatter-based serialization members the target framework has obsoleted. Code fix removes them. |
+| [SST1490](rules/SST1490.md) | A base list names an interface the rest of the list already implies. Code fix removes the entry. |
+| [SST1491](rules/SST1491.md) | A modifier restates the declaration's default. Code fix removes the modifier. |
+| [SST1492](rules/SST1492.md) | A value is tested against what it is then assigned, so the guard decides nothing. Code fix keeps the assignment. |
+| [SST1493](rules/SST1493.md) | A method's whole body is a constant. Code fix exposes it as a get-only property. |
 
 ## Modernization
 
@@ -388,6 +397,8 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST2240](rules/SST2240.md) | A delegate null check followed by invocation can use conditional invocation. |
 | [SST2241](rules/SST2241.md) | A constructor that only stores its parameters can use primary-constructor storage. Code fix moves the parameters and member initializers. |
 | [SST2242](rules/SST2242.md) | An enum switch statement mapping should name every enum value or include a catch-all. |
+| [SST2244](rules/SST2244.md) | A numeric literal's suffix is lower case. Code fix upper-cases the suffix, leaving the digits alone. |
+| [SST2245](rules/SST2245.md) | A `for` loop with only a condition should be a `while` loop. Code fix rewrites it. |
 
 ## Naming
 

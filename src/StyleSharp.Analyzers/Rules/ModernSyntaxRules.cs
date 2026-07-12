@@ -294,11 +294,35 @@ internal static class ModernSyntaxRules
         "Write this string as a raw string literal",
         UseRawStringLiteralDescription);
 
+    /// <summary>SST2244 — a numeric literal's suffix is lower case.</summary>
+    public static readonly DiagnosticDescriptor UppercaseLiteralSuffix = Create(
+        "SST2244",
+        "Numeric literal suffixes should be upper case",
+        "Write the '{0}' suffix in upper case",
+        UppercaseLiteralSuffixDescription);
+
+    /// <summary>SST2245 — a for loop that only tests a condition should be a while loop.</summary>
+    public static readonly DiagnosticDescriptor UseWhileOverFor = Create(
+        "SST2245",
+        "Use while when a for loop has no initializer or increment",
+        "This 'for' has neither an initializer nor an increment; write it as a 'while'",
+        UseWhileOverForDescription);
+
     /// <summary>The SST2243 rule description.</summary>
     private const string UseRawStringLiteralDescription =
         "A verbatim string full of doubled-quote escapes, or one spanning multiple lines, reads with less escape noise as a raw string "
         + "literal while the content stays character-for-character identical. Reported only when the language version supports raw "
         + "strings (C# 11).";
+
+    /// <summary>The UppercaseLiteralSuffix rule description.</summary>
+    private const string UppercaseLiteralSuffixDescription =
+        "A lower-case 'l' is very nearly a '1' in most fonts, so '1l' reads as eleven. The other suffixes follow the same rule for "
+        + "consistency rather than because they are ambiguous.";
+
+    /// <summary>The UseWhileOverFor rule description.</summary>
+    private const string UseWhileOverForDescription =
+        "'for (; condition; )' is a 'while' with two empty clauses the reader still has to check. Writing 'while (condition)' says the same "
+        + "thing with nothing left over.";
 
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

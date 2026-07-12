@@ -17,6 +17,7 @@
 # performancesharp.in_parameter_include_public_api = false  # PSH1007 (set true to also report public members; adding 'in' is a binary break)
 # performancesharp.excluded_properties = Items, Keys        # PSH1017 (comma-separated; properties allowed to copy on read)
 # performancesharp.include_public = false                   # PSH1411 (set true in an app to seal public types too; a break in a library)
+# performancesharp.empty_string_style = pattern            # PSH1204 (pattern | length | is_null_or_empty; the last two are only offered where the string is provably not null)
 
 [*.cs]
 
@@ -84,6 +85,7 @@ dotnet_diagnostic.PSH1215.severity = warning # Concatenate when there is no sepa
 dotnet_diagnostic.PSH1216.severity = warning # Ask for equality, not ordering, when only equality matters
 dotnet_diagnostic.PSH1217.severity = warning # A sequence is copied to an array just to be read straight back
 dotnet_diagnostic.PSH1218.severity = warning # A substring is allocated only to search it; slice with AsSpan instead
+dotnet_diagnostic.PSH1219.severity = warning # Ask whether a string is blank without trimming it
 
 # Concurrency
 dotnet_diagnostic.PSH1300.severity = warning # Use System.Threading.Lock for a dedicated lock object
@@ -113,3 +115,5 @@ dotnet_diagnostic.PSH1408.severity = warning # Measure elapsed time with Stopwat
 dotnet_diagnostic.PSH1409.severity = warning # Use the built-in throw helpers for argument guards
 # dotnet_diagnostic.PSH1410.severity = warning # Mark trivial forwarders for aggressive inlining (opt-in; opinionated convention)
 dotnet_diagnostic.PSH1411.severity = warning # Seal non-public types nothing derives from so the JIT can devirtualize (public opt-in)
+dotnet_diagnostic.PSH1412.severity = warning # Use Random.Shared instead of allocating a Random
+dotnet_diagnostic.PSH1413.severity = warning # Read the Unix epoch from the framework, not a hand-built DateTime

@@ -59,6 +59,7 @@ Some rules expose options. Current options:
 | `performancesharp.in_parameter_excluded_types` | [PSH1007](rules/PSH1007.md) | comma-separated type names | built-ins only (spans, memory, `CancellationToken`, the SIMD types) |
 | `performancesharp.in_parameter_include_public_api` | [PSH1007](rules/PSH1007.md) | `true`, `false` | `false` |
 | `performancesharp.excluded_properties` | [PSH1017](rules/PSH1017.md) | comma-separated property names | none |
+| `performancesharp.empty_string_style` | [PSH1204](rules/PSH1204.md) | `pattern`, `length`, `is_null_or_empty` | `pattern` |
 | `performancesharp.include_public` | [PSH1411](rules/PSH1411.md) | `true`, `false` | `false` |
 | `stylesharp.tuple_element_naming` | [SST1316](rules/SST1316.md) | `pascal_case`, `camel_case` | `pascal_case` |
 | `stylesharp.union_member_naming` | [SST1315](rules/SST1315.md) | `pascal_case`, `camel_case` | `pascal_case` |
@@ -110,6 +111,27 @@ stylesharp.SST1315.union_member_naming = pascal_case
 
 Values are case-insensitive. An unset or unrecognized value falls back to the
 default in the table above.
+
+### Empty-string style
+
+`performancesharp.empty_string_style` chooses what [PSH1204](rules/PSH1204.md) rewrites
+`s == ""` into. The three replacements are **not** interchangeable on null, which is why this
+is a setting and not a preference:
+
+- `pattern` (default) — `s is { Length: 0 }`. The only form that answers exactly what `s == ""`
+  answers for every input, null included. Needs C# 9.
+- `length` — `s.Length == 0`. **Throws** on a null string.
+- `is_null_or_empty` — `string.IsNullOrEmpty(s)`. Answers `true` for a null string.
+
+The last two are only ever offered where the compiler's own flow analysis has already proven the
+operand is not null. Everywhere else — including every file with nullable analysis switched off —
+the fix silently emits the pattern instead. Turning this option on can never change what a fixed
+file does when a string is null. See the rule's page for the full truth table.
+
+```ini
+[*.cs]
+performancesharp.empty_string_style = is_null_or_empty
+```
 
 ### Instance member qualification
 

@@ -157,6 +157,59 @@ internal static class LayoutRules
         "Add braces to all clauses of the statement",
         "Every clause of an if/else chain uses braces, or none does.");
 
+    /// <summary>SST1521 — a line is longer than the configured maximum.</summary>
+    public static readonly DiagnosticDescriptor LineTooLong = Create(
+        "SST1521",
+        "Lines should not be too long",
+        "This line is {0} characters, over the maximum of {1}",
+        LineTooLongDescription);
+
+    /// <summary>SST1522 — a file declares more lines than the configured maximum.</summary>
+    public static readonly DiagnosticDescriptor FileTooLong = Create(
+        "SST1522",
+        "Files should not be too long",
+        "This file is {0} lines, over the maximum of {1}",
+        FileTooLongDescription);
+
+    /// <summary>SST1523 — a member's body is longer than the configured maximum.</summary>
+    public static readonly DiagnosticDescriptor MethodTooLong = Create(
+        "SST1523",
+        "Members should not be too long",
+        "'{0}' is {1} lines, over the maximum of {2}",
+        MethodTooLongDescription);
+
+    /// <summary>SST1524 — a switch section is longer than the configured maximum.</summary>
+    public static readonly DiagnosticDescriptor SwitchSectionTooLong = Create(
+        "SST1524",
+        "Switch sections should not be too long",
+        "This case is {0} lines, over the maximum of {1}",
+        SwitchSectionTooLongDescription);
+
+    /// <summary>The LineTooLong rule description.</summary>
+    private const string LineTooLongDescription =
+        "A line that runs past the edge of the window is read by scrolling, and a line read by scrolling is read badly — the end of it "
+        + "disappears while the reader looks at the start. It also defeats side-by-side diffs, which is where most code is actually read. "
+        + "Configure the maximum with 'stylesharp.SST1521.max_line_length'; it defaults to 120.";
+
+    /// <summary>The FileTooLong rule description.</summary>
+    private const string FileTooLongDescription =
+        "A file nobody can hold in their head is a file that grows by accretion, because finding the right place to add something is harder "
+        + "than appending. The limit is a prompt to split, not a law of nature. Blank lines and comments are not counted — only lines that "
+        + "carry code. Configure the maximum with 'stylesharp.SST1522.max_file_lines'; it defaults to 500.";
+
+    /// <summary>The MethodTooLong rule description.</summary>
+    private const string MethodTooLongDescription =
+        "Length is a cruder measure than complexity — a long method of straight-line assignments is easier to read than a short one with "
+        + "four nested loops, and the complexity rules already catch the second. What length catches is the method that is long because it "
+        + "does several things, and would read better as several methods. Blank lines and comments are not counted. Configure the maximum "
+        + "with 'stylesharp.SST1523.max_member_lines'; it defaults to 60.";
+
+    /// <summary>The SwitchSectionTooLong rule description.</summary>
+    private const string SwitchSectionTooLongDescription =
+        "A switch reads as a table: one row per case, each saying what happens. A case that runs to dozens of lines stops being a row and "
+        + "becomes a method that has not been extracted yet, and the shape of the switch — the thing the reader came for — is lost between "
+        + "them. Configure the maximum with 'stylesharp.SST1524.max_switch_section_lines'; it defaults to 20.";
+
     /// <summary>Creates a Warning-severity Layout descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

@@ -166,6 +166,34 @@ internal static class CollectionRules
         "'{0}' scans the whole set; '{1}' reads the {2} element directly",
         UseSortedSetExtremePropertyDescription);
 
+    /// <summary>PSH1124 — a linked list's end is fetched by walking it.</summary>
+    public static readonly DiagnosticDescriptor UseLinkedListEndProperty = Create(
+        "PSH1124",
+        "Use a linked list's First and Last properties",
+        "'{0}' walks the list; '{1}' reads the node directly",
+        UseLinkedListEndPropertyDescription);
+
+    /// <summary>PSH1125 — do not enumerate the same sequence twice.</summary>
+    public static readonly DiagnosticDescriptor MultipleEnumeration = Create(
+        "PSH1125",
+        "Do not enumerate the same sequence twice",
+        "'{0}' is enumerated more than once; materialize it or take a collection",
+        MultipleEnumerationDescription);
+
+    /// <summary>PSH1126 — ask whether an async sequence has elements without counting them.</summary>
+    public static readonly DiagnosticDescriptor UseAnyAsyncOverCountAsync = Create(
+        "PSH1126",
+        "Ask whether an async sequence has elements without counting them",
+        "'{0}' counts every element to answer a question '{1}' answers at the first one",
+        UseAnyAsyncOverCountAsyncDescription);
+
+    /// <summary>PSH1127 — clear an array instead of filling it with its default.</summary>
+    public static readonly DiagnosticDescriptor ClearOverFillDefault = Create(
+        "PSH1127",
+        "Clear an array instead of filling it with its default",
+        "Use '{0}' instead of filling with the default value",
+        ClearOverFillDefaultDescription);
+
     /// <summary>The PSH1117 rule description.</summary>
     private const string UseIsEmptyDescription =
         "Comparing Count or Length to zero answers emptiness indirectly — on some collections counting is O(n) or synchronizes, while "
@@ -224,6 +252,29 @@ internal static class CollectionRules
         + "'Min' and 'Max' properties return them in constant time. The 'Enumerable.Min' and 'Enumerable.Max' extensions know nothing about the "
         + "receiver and walk every element to rediscover what the set already knows. Only a receiver whose static type is a sorted set is "
         + "reported, and only for the parameterless extensions — one that takes a selector or a comparer is asking a different question.";
+
+    /// <summary>The UseLinkedListEndProperty rule description.</summary>
+    private const string UseLinkedListEndPropertyDescription =
+        "'LinkedList<T>' holds a reference to both of its ends, so 'First' and 'Last' are constant-time property reads. The 'Enumerable' "
+        + "extensions of the same name know nothing about the receiver: 'Last()' walks every node to arrive where the list could have "
+        + "pointed straight away. Note the property returns the node and the extension returns the value, so the fix reads '.Value' from it.";
+
+    /// <summary>The PSH1125 rule description.</summary>
+    private const string MultipleEnumerationDescription =
+        "A parameter typed 'IEnumerable<T>' is a promise to walk the sequence, not a collection you hold. Walking it twice runs whatever "
+        + "produced it twice — a database query, a file read, a LINQ chain — and if the source is a one-shot iterator the second walk yields "
+        + "nothing at all. The bug is invisible at the call site, because the same code is correct when a List is passed and wrong when a "
+        + "lazy sequence is. Materialize once, or take the collection type you actually need.";
+
+    /// <summary>The PSH1126 rule description.</summary>
+    private const string UseAnyAsyncOverCountAsyncDescription =
+        "'CountAsync() > 0' asks the provider to count the whole result set — which, against a database, is a full scan — to learn something "
+        + "'AnyAsync()' establishes from the first row and then stops.";
+
+    /// <summary>The PSH1127 rule description.</summary>
+    private const string ClearOverFillDefaultDescription =
+        "'Array.Fill(buffer, default)' writes the default into every element one at a time. 'Array.Clear' hands the whole block to the "
+        + "runtime, which zeroes it with a single memset the JIT can vectorize.";
 
     /// <summary>Creates a Warning-severity Collections descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

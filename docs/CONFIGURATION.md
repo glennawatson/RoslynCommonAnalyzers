@@ -87,6 +87,8 @@ Some rules expose options. Current options:
 | `stylesharp.additional_members` | [SST1485](rules/SST1485.md) | comma-separated member names | built-ins only |
 | `stylesharp.duplicate_string_threshold` | [SST1486](rules/SST1486.md) | integer `>= 2` | `3` |
 | `stylesharp.minimum_string_length` | [SST1486](rules/SST1486.md) | positive integer | `5` |
+| `stylesharp.require_parameterless` | [SST1488](rules/SST1488.md) | `true`, `false` | `true` |
+| `stylesharp.include_non_public_types` | [SST1488](rules/SST1488.md) | `true`, `false` | `true` |
 | `stylesharp.SST1431.additional_per_owner_types` | [SST1431](rules/SST1431.md) | comma-separated fully-qualified type names | built-in list only |
 | `stylesharp.document_exposed_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_internal_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |

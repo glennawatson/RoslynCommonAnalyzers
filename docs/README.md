@@ -316,6 +316,8 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST1485](rules/SST1485.md) | A member callers cannot defend against — `Equals`, `Dispose`, an operator — throws. |
 | [SST1486](rules/SST1486.md) | The same string literal is repeated instead of being named once. |
 | [SST1487](rules/SST1487.md) | A collection element is assigned twice with nothing reading it in between. |
+| [SST1488](rules/SST1488.md) | An exception type does not declare the standard constructors. Code fix adds them, documented. |
+| [SST1489](rules/SST1489.md) | An exception type carries formatter-based serialization members the target framework has obsoleted. Code fix removes them. |
 
 ## Modernization
 

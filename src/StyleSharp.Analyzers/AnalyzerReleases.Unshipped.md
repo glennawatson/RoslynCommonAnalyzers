@@ -50,6 +50,8 @@ SST1484 | Maintainability | Warning | Sst1484ShadowedDeclarationAnalyzer
 SST1485 | Maintainability | Warning | Sst1485UnexpectedThrowAnalyzer
 SST1486 | Maintainability | Warning | Sst1486DuplicatedStringLiteralAnalyzer
 SST1487 | Maintainability | Warning | Sst1487OverwrittenCollectionElementAnalyzer
+SST1488 | Maintainability | Warning | ExceptionConstructorAnalyzer
+SST1489 | Maintainability | Warning | ExceptionConstructorAnalyzer
 SST1658 | Documentation | Warning | Sst1658NoRepeatedWordsAnalyzer
 SST2008 | Modernization | Warning | Sst2008IsNotPatternAnalyzer
 SST2009 | Modernization | Warning | Sst2009UseExceptionFilterAnalyzer

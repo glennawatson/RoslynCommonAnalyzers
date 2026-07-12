@@ -611,6 +611,20 @@ internal static class MaintainabilityRules
         "'{0}' is assigned again with nothing reading it in between, so the first value is lost",
         OverwrittenCollectionElementDescription);
 
+    /// <summary>SST1488 — an exception type does not declare the constructors callers expect.</summary>
+    public static readonly DiagnosticDescriptor ExceptionStandardConstructors = Create(
+        "SST1488",
+        "Exception types should declare the standard constructors",
+        "'{0}' does not declare {1}",
+        ExceptionStandardConstructorsDescription);
+
+    /// <summary>SST1489 — an exception type carries the formatter-based serialization members, obsolete on this target.</summary>
+    public static readonly DiagnosticDescriptor ObsoleteSerializationMember = Create(
+        "SST1489",
+        "Exception types should not carry formatter-based serialization members",
+        "'{0}' is obsolete on this target framework and can be removed",
+        ObsoleteSerializationMemberDescription);
+
     /// <summary>The SST1472 rule description.</summary>
     private const string TooManyParametersDescription =
         "A long parameter list is easy to call wrongly — adjacent arguments of the same type are silently swappable — and usually means a "
@@ -735,6 +749,24 @@ internal static class MaintainabilityRules
         + "the loop that was supposed to advance it does not. Only a literal repeat is reported: the two assignments must be adjacent, the "
         + "receiver and the index must be the same side-effect-free expression, and nothing between them may read the element or touch the "
         + "collection. A compound assignment ('sum[i] += x') reads before it writes and is never reported.";
+
+    /// <summary>The SST1488 rule description.</summary>
+    private const string ExceptionStandardConstructorsDescription =
+        "Callers expect to be able to construct an exception the three ways every exception in the framework supports: with no argument, "
+        + "with a message, and with a message plus the inner exception that caused it. The last one matters most — an exception type that "
+        + "cannot wrap an inner exception forces the code catching it to either lose the original cause or give up on rethrowing at all. "
+        + "The constructors are matched on the type they take, not on their parameter names. This rule deliberately does NOT ask for the "
+        + "'(SerializationInfo, StreamingContext)' constructor: formatter-based serialization is obsolete on modern .NET, and adding it "
+        + "back is a step in the wrong direction — see SST1489. Configure with 'stylesharp.SST1488.require_parameterless' and "
+        + "'stylesharp.SST1488.include_non_public_types'.";
+
+    /// <summary>The SST1489 rule description.</summary>
+    private const string ObsoleteSerializationMemberDescription =
+        "The 'protected T(SerializationInfo, StreamingContext)' constructor and the 'GetObjectData' override exist to support "
+        + "BinaryFormatter, which modern .NET has obsoleted and removed: the runtime never calls either member, so they are dead code that "
+        + "still has to be read, maintained, and kept in step with every new field. The rule is gated on the target framework actually "
+        + "having obsoleted them — it probes whether 'Exception.GetObjectData' carries an [Obsolete] attribute — so a project still "
+        + "targeting .NET Framework or netstandard2.0, where the members are live, is never reported.";
 
     /// <summary>Creates a Warning-severity Maintainability descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

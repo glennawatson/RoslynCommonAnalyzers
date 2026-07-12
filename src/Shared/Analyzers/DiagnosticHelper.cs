@@ -37,6 +37,21 @@ internal static class DiagnosticHelper
     public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, string firstMessageArg, string secondMessageArg)
         => Diagnostic.Create(descriptor, location, firstMessageArg, secondMessageArg);
 
+    /// <summary>Creates a diagnostic with three message arguments.</summary>
+    /// <param name="descriptor">The rule descriptor.</param>
+    /// <param name="location">The diagnostic location.</param>
+    /// <param name="firstMessageArg">The first message argument.</param>
+    /// <param name="secondMessageArg">The second message argument.</param>
+    /// <param name="thirdMessageArg">The third message argument.</param>
+    /// <returns>The created diagnostic.</returns>
+    public static Diagnostic Create(
+        DiagnosticDescriptor descriptor,
+        Location location,
+        string firstMessageArg,
+        string secondMessageArg,
+        string thirdMessageArg)
+        => Diagnostic.Create(descriptor, location, firstMessageArg, secondMessageArg, thirdMessageArg);
+
     /// <summary>Creates a diagnostic with cached custom properties but no message arguments.</summary>
     /// <param name="descriptor">The rule descriptor.</param>
     /// <param name="location">The diagnostic location.</param>

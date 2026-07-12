@@ -8,12 +8,16 @@ namespace TraceFocus;
 internal sealed class FrameFilters
 {
     /// <summary>Substring that identifies frames in the StyleSharp analyzer codebase.</summary>
-    private const string AnalyzerNamespace = "StyleSharp.Analyzers.";
+    private const string StyleSharpNamespace = "StyleSharp.Analyzers.";
 
-    /// <summary>The default analyzer-visible include terms.</summary>
+    /// <summary>Substring that identifies frames in the PerformanceSharp analyzer codebase.</summary>
+    private const string PerformanceSharpNamespace = "PerformanceSharp.Analyzers.";
+
+    /// <summary>The default analyzer-visible include terms, one per shipped analyzer package.</summary>
     private static readonly string[] DefaultIncludeTerms =
     [
-        "StyleSharp.Analyzers!StyleSharp.Analyzers."
+        "StyleSharp.Analyzers!StyleSharp.Analyzers.",
+        "PerformanceSharp.Analyzers!PerformanceSharp.Analyzers."
     ];
 
     /// <summary>The default infrastructure frames that are filtered from reports.</summary>
@@ -96,9 +100,10 @@ internal sealed class FrameFilters
 
     /// <summary>Returns whether a normalized or raw frame name is analyzer-owned.</summary>
     /// <param name="frameName">The frame name to test.</param>
-    /// <returns><see langword="true"/> when the frame belongs to the StyleSharp analyzer codebase.</returns>
+    /// <returns><see langword="true"/> when the frame belongs to either analyzer codebase.</returns>
     public static bool IsAnalyzerFrame(string frameName)
-        => frameName.Contains(AnalyzerNamespace, StringComparison.Ordinal);
+        => frameName.Contains(StyleSharpNamespace, StringComparison.Ordinal)
+            || frameName.Contains(PerformanceSharpNamespace, StringComparison.Ordinal);
 
     /// <summary>Updates the effective profile kind from a resolved trace path when auto mode was requested.</summary>
     /// <param name="tracePath">The resolved trace path.</param>

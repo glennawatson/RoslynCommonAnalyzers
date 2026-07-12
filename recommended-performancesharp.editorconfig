@@ -13,7 +13,8 @@
 # performancesharp.avoid_linq_on_hot_path = true            # PSH1100 (opt-in hot-path projects)
 # performancesharp.prefer_collection_expressions = true     # PSH1001/PSH1112 (default; set false for Array.Empty<T>() / seeded constructors)
 # performancesharp.in_parameter_minimum_size = 32           # PSH1007 (estimated struct bytes before 'in' is suggested)
-# performancesharp.in_parameter_excluded_types = My.Type    # PSH1007 (comma-separated; added to the built-in span/memory/CancellationToken exclusions)
+# performancesharp.in_parameter_excluded_types = My.Type    # PSH1007 (comma-separated; added to the built-in span/memory/CancellationToken/SIMD exclusions)
+# performancesharp.in_parameter_include_public_api = false  # PSH1007 (set true to also report public members; adding 'in' is a binary break)
 
 [*.cs]
 
@@ -34,6 +35,7 @@ dotnet_diagnostic.PSH1012.severity = warning # Compare type parameter values wit
 dotnet_diagnostic.PSH1013.severity = warning # Expose constant UTF-8 data as a ReadOnlySpan<byte> property
 dotnet_diagnostic.PSH1014.severity = warning # Declare immutable structs as readonly
 dotnet_diagnostic.PSH1015.severity = warning # Avoid casting value types through object
+dotnet_diagnostic.PSH1016.severity = warning # Test enum flags with bitwise operators instead of boxing
 
 # Collections
 # dotnet_diagnostic.PSH1100.severity = warning # Avoid LINQ calls on hot paths (opt-in; also set performancesharp.avoid_linq_on_hot_path = true)
@@ -54,6 +56,9 @@ dotnet_diagnostic.PSH1113.severity = warning # Sort naturally instead of orderin
 dotnet_diagnostic.PSH1115.severity = warning # Insert-if-absent should probe the dictionary once
 dotnet_diagnostic.PSH1116.severity = warning # Probe string-keyed collections with a span through GetAlternateLookup
 dotnet_diagnostic.PSH1117.severity = warning # Ask the collection whether it is empty
+dotnet_diagnostic.PSH1118.severity = warning # Take the extreme element without sorting the whole sequence
+dotnet_diagnostic.PSH1119.severity = warning # Check for elements without counting them all
+dotnet_diagnostic.PSH1120.severity = warning # Do not materialize a sequence just to enumerate it
 
 # Strings
 dotnet_diagnostic.PSH1200.severity = warning # Compare strings without allocating case-converted copies
@@ -70,6 +75,9 @@ dotnet_diagnostic.PSH1210.severity = warning # Compare UTF-8 bytes without decod
 dotnet_diagnostic.PSH1211.severity = warning # Pass values directly instead of ToString results
 dotnet_diagnostic.PSH1212.severity = warning # Slice with AsSpan when the call accepts a span
 dotnet_diagnostic.PSH1213.severity = warning # Probe repeated character sets through SearchValues
+dotnet_diagnostic.PSH1214.severity = warning # Append the parts, not a concatenated whole
+dotnet_diagnostic.PSH1215.severity = warning # Concatenate when there is no separator to join on
+dotnet_diagnostic.PSH1216.severity = warning # Ask for equality, not ordering, when only equality matters
 
 # Concurrency
 dotnet_diagnostic.PSH1300.severity = warning # Use System.Threading.Lock for a dedicated lock object
@@ -82,6 +90,9 @@ dotnet_diagnostic.PSH1305.severity = warning # Enumerate a ConcurrentDictionary 
 dotnet_diagnostic.PSH1307.severity = warning # Access interlocked fields with Volatile
 dotnet_diagnostic.PSH1308.severity = warning # Return the completed task instead of Task.FromResult
 # dotnet_diagnostic.PSH1309.severity = warning # Register cancellation callbacks without flowing the execution context (opt-in; changes AsyncLocal visibility)
+dotnet_diagnostic.PSH1310.severity = warning # Dispose asynchronously in async code
+dotnet_diagnostic.PSH1311.severity = warning # Remove a pass-through async state machine
+dotnet_diagnostic.PSH1312.severity = warning # Return a completed task, never null
 
 # ApiSelection
 dotnet_diagnostic.PSH1400.severity = warning # Use the static HashData method for one-shot hashing

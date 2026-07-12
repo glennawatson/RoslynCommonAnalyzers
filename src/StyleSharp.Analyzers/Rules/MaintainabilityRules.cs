@@ -499,6 +499,21 @@ internal static class MaintainabilityRules
         "Replace the magic number '{0}' with a named constant",
         MagicNumberDescription);
 
+    /// <summary>SST1472 — a signature declares more parameters than the configured maximum.</summary>
+    public static readonly DiagnosticDescriptor TooManyParameters = Create(
+        "SST1472",
+        "Signatures should not declare too many parameters",
+        "'{0}' declares {1} parameters, which exceeds the maximum of {2}; group the related ones into a type",
+        TooManyParametersDescription);
+
+    /// <summary>The SST1472 rule description.</summary>
+    private const string TooManyParametersDescription =
+        "A long parameter list is easy to call wrongly — adjacent arguments of the same type are silently swappable — and usually means a "
+        + "type is missing. A signature that cannot be changed is excluded: an override, an interface implementation, a P/Invoke, a "
+        + "'Deconstruct', and a lambda whose shape its delegate dictates. A positional record is the parameter object this rule asks for, "
+        + "so it is excluded by default. Parameters the caller never writes — an extension receiver, a caller-info parameter — are not "
+        + "counted. Configure the maximum with 'stylesharp.SST1472.max_parameters'.";
+
     /// <summary>The SST1468 rule description.</summary>
     private const string UseShortCircuitOperatorDescription =
         "The bitwise '&' and '|' operators on booleans always evaluate both operands; the conditional forms stop as soon as the answer "

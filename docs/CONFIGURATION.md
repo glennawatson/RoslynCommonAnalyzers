@@ -55,8 +55,9 @@ Some rules expose options. Current options:
 | --- | --- | --- | --- |
 | `performancesharp.avoid_linq_on_hot_path` | [PSH1100](rules/PSH1100.md) | `true`, `false` | `false` |
 | `performancesharp.prefer_collection_expressions` | [PSH1001](rules/PSH1001.md), [PSH1112](rules/PSH1112.md) | `true`, `false` | `true` |
-| `performancesharp.in_parameter_minimum_size` | [PSH1007](rules/PSH1007.md) | positive integer (estimated bytes) | `32` |
-| `performancesharp.in_parameter_excluded_types` | [PSH1007](rules/PSH1007.md) | comma-separated type names | built-ins only (spans, memory, `CancellationToken`) |
+| `performancesharp.in_parameter_minimum_size` | [PSH1007](rules/PSH1007.md) | positive integer (estimated bytes); values below `17` are raised to it | `32` |
+| `performancesharp.in_parameter_excluded_types` | [PSH1007](rules/PSH1007.md) | comma-separated type names | built-ins only (spans, memory, `CancellationToken`, the SIMD types) |
+| `performancesharp.in_parameter_include_public_api` | [PSH1007](rules/PSH1007.md) | `true`, `false` | `false` |
 | `stylesharp.tuple_element_naming` | [SST1316](rules/SST1316.md) | `pascal_case`, `camel_case` | `pascal_case` |
 | `stylesharp.union_member_naming` | [SST1315](rules/SST1315.md) | `pascal_case`, `camel_case` | `pascal_case` |
 | `stylesharp.record_parameter_naming` | [SST1801](rules/SST1801.md) | `pascal_case`, `camel_case` | `pascal_case` |
@@ -74,6 +75,9 @@ Some rules expose options. Current options:
 | `stylesharp.max_property_cognitive_complexity` | [SST1443](rules/SST1443.md) | positive integer | `3` |
 | `stylesharp.allowed_hungarian_prefixes` | [SST1305](rules/SST1305.md) | comma-separated prefixes | built-in list only |
 | `stylesharp.magic_number_allowed_values` | [SST1471](rules/SST1471.md) | comma-separated numbers | `-1, 0, 1` |
+| `stylesharp.max_parameters` | [SST1472](rules/SST1472.md) | positive integer | `7` |
+| `stylesharp.check_positional_records` | [SST1472](rules/SST1472.md) | `true`, `false` | `false` |
+| `stylesharp.count_optional_parameters` | [SST1472](rules/SST1472.md) | `true`, `false` | `true` |
 | `stylesharp.SST1431.additional_per_owner_types` | [SST1431](rules/SST1431.md) | comma-separated fully-qualified type names | built-in list only |
 | `stylesharp.document_exposed_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_internal_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |

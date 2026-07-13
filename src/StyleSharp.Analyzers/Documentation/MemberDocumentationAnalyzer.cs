@@ -258,7 +258,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
 
         CheckSummary(context, summary, shape.NameToken, shape.SummaryRequirement);
         CheckParameters(context, documentation, shape.Parameters);
-        CheckTypeParameters(context, documentation, shape.TypeParameters);
+        CheckTypeParameters(context, documentation, shape.TypeParameters, shape.SkipCoverage);
         CheckReturns(context, returns, shape.NameToken, shape.ReturnType);
     }
 
@@ -465,7 +465,18 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="documentation">The documentation comment.</param>
     /// <param name="typeParameters">The member's type parameters.</param>
-    private static void CheckTypeParameters(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation, in SeparatedSyntaxList<TypeParameterSyntax> typeParameters)
+    /// <param name="isPartial">Whether the declaration is one part of a partial type.</param>
+    /// <remarks>
+    /// A type parameter of a partial type is documented once, on whichever part carries it, because the
+    /// compiler rejects a second <c>&lt;typeparam&gt;</c> for the same name (CS1710). Asking every part
+    /// for its own copy would therefore be asking for code that does not build, so a part is satisfied by
+    /// a sibling's documentation.
+    /// </remarks>
+    private static void CheckTypeParameters(
+        SyntaxNodeAnalysisContext context,
+        DocumentationCommentTriviaSyntax documentation,
+        in SeparatedSyntaxList<TypeParameterSyntax> typeParameters,
+        bool isPartial)
     {
         foreach (var typeParameter in typeParameters)
         {
@@ -478,7 +489,11 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             var element = XmlDocumentationHelper.FindTypeParameterElement(documentation, name);
             if (element is null)
             {
-                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParametersMustBeDocumented, typeParameter.Identifier.GetLocation(), name));
+                if (!isPartial || !IsTypeParameterDocumentedOnAnotherPart(context, name))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParametersMustBeDocumented, typeParameter.Identifier.GetLocation(), name));
+                }
+
                 continue;
             }
 
@@ -487,6 +502,36 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
                 context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParameterDocumentationMustHaveText, typeParameter.Identifier.GetLocation(), name));
             }
         }
+    }
+
+    /// <summary>Returns whether another part of a partial type already documents a type parameter.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="name">The type parameter's name.</param>
+    /// <returns><see langword="true"/> when a sibling declaration carries the <c>&lt;typeparam&gt;</c>.</returns>
+    private static bool IsTypeParameterDocumentedOnAnotherPart(SyntaxNodeAnalysisContext context, string name)
+    {
+        if (context.SemanticModel.GetDeclaredSymbol(context.Node, context.CancellationToken) is not { } symbol)
+        {
+            return false;
+        }
+
+        var declarations = symbol.DeclaringSyntaxReferences;
+        for (var i = 0; i < declarations.Length; i++)
+        {
+            var declaration = declarations[i].GetSyntax(context.CancellationToken);
+            if (declaration == context.Node)
+            {
+                continue;
+            }
+
+            if (XmlDocumentationHelper.GetDocumentationComment(declaration) is { } sibling
+                && XmlDocumentationHelper.FindTypeParameterElement(sibling, name) is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reports a single <c>&lt;typeparam&gt;</c> element that lacks a name (SST1621) or names a non-existent type parameter (SST1620).</summary>

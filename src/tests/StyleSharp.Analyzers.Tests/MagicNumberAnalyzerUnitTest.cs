@@ -344,4 +344,56 @@ public class MagicNumberAnalyzerUnitTest
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies an index into an element access is not reported.</summary>
+    /// <remarks>
+    /// The literal is a slot, the same positional shape as an array rank, which is already exempt. Naming it
+    /// can only produce a constant that restates the number it holds.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ElementAccessIndexIsNotReportedAsync()
+        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int M(int[] values) => values[3] + values[7];
+            }
+            """);
+
+    /// <summary>Verifies the elements of a collection that is a declaration's whole value are not reported.</summary>
+    /// <remarks>
+    /// <c>var timeout = 500;</c> is exempt because the name explains the number, and this is that statement
+    /// three times over — the name explains the whole list. Reporting some of the elements was the odd part:
+    /// it pointed at the 2 and the 3 and left the 1 alone, because 1 is allowlisted.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CollectionThatIsAWholeInitializerIsNotReportedAsync()
+        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private static readonly int[] Offsets = [0, 4, 8];
+
+                private static readonly int[] Legacy = new[] { 2, 3 };
+
+                public int M() => Offsets.Length + Legacy.Length;
+            }
+            """);
+
+    /// <summary>Verifies a literal inside a collection passed straight to a call is still reported.</summary>
+    /// <remarks>The exemption is the declaration's name explaining the list; an argument has no such name.</remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CollectionPassedAsAnArgumentIsStillReportedAsync()
+        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int M() => Sum([{|SST1471:4|}, {|SST1471:8|}]);
+
+                private static int Sum(int[] values) => values.Length;
+            }
+            """);
 }

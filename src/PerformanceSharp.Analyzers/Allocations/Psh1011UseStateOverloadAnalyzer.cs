@@ -175,23 +175,40 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
     /// <param name="siblingInvoke">The candidate callback delegate's Invoke method.</param>
     /// <param name="callbackInvoke">The original callback delegate's Invoke method.</param>
     /// <returns><see langword="true"/> when the candidate preserves the original callback shape and can receive state.</returns>
+    /// <remarks>
+    /// The extra parameter has to be the state and nothing else. Matching on arity alone made any overload
+    /// that happened to take one more argument look like a state overload: a recursive scheduling call whose
+    /// callback receives the continuation to recurse through was answered with an overload whose callback
+    /// receives a scheduler instead, so the suggestion silently dropped the one argument the call was about.
+    /// The original callback's parameters must survive the move, either before the state slot or after it.
+    /// </remarks>
     private static bool IsStateCallbackShape(IMethodSymbol siblingInvoke, IMethodSymbol callbackInvoke)
     {
         var siblingParameters = siblingInvoke.Parameters;
         var callbackParameters = callbackInvoke.Parameters;
         if (siblingParameters.Length == callbackParameters.Length + 1)
         {
-            return true;
+            return PreservesCallbackParameters(siblingParameters, callbackParameters, stateOffset: 0)
+                || PreservesCallbackParameters(siblingParameters, callbackParameters, stateOffset: 1);
         }
 
-        if (siblingParameters.Length != callbackParameters.Length)
-        {
-            return false;
-        }
+        return siblingParameters.Length == callbackParameters.Length
+            && PreservesCallbackParameters(siblingParameters, callbackParameters, stateOffset: 0);
+    }
 
+    /// <summary>Returns whether the original callback's parameters survive alongside the state slot.</summary>
+    /// <param name="siblingParameters">The candidate callback's parameters.</param>
+    /// <param name="callbackParameters">The original callback's parameters.</param>
+    /// <param name="stateOffset">1 when the state comes first, 0 when it comes last.</param>
+    /// <returns><see langword="true"/> when every original parameter is still there, in order, by type.</returns>
+    private static bool PreservesCallbackParameters(
+        ImmutableArray<IParameterSymbol> siblingParameters,
+        ImmutableArray<IParameterSymbol> callbackParameters,
+        int stateOffset)
+    {
         for (var i = 0; i < callbackParameters.Length; i++)
         {
-            if (!SymbolEqualityComparer.Default.Equals(siblingParameters[i].Type, callbackParameters[i].Type))
+            if (!SymbolEqualityComparer.Default.Equals(siblingParameters[i + stateOffset].Type, callbackParameters[i].Type))
             {
                 return false;
             }

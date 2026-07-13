@@ -262,17 +262,62 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the position explains the value.</returns>
     private static bool IsPositionExempt(ExpressionSyntax node) => node.Parent switch
     {
-        // `capacity: 4` — the caller has already labelled the value.
-        ArgumentSyntax { NameColon: not null } => true,
+        ArgumentSyntax argument => IsLabelledOrIndexArgument(argument),
 
         // `new byte[16]`, `stackalloc char[32]` — the literal is a buffer length.
         ArrayRankSpecifierSyntax => true,
 
         EqualsValueClauseSyntax initializer => IsNamedStorageInitializer(initializer, node),
+        ExpressionElementSyntax or InitializerExpressionSyntax => IsNamedStorageCollectionElement(node),
         BinaryExpressionSyntax binary => IsShiftDistance(binary, node) || IsCardinalityComparison(binary, node),
         AssignmentExpressionSyntax assignment => IsShiftAssignmentDistance(assignment, node),
         _ => false,
     };
+
+    /// <summary>Returns whether an argument's position already carries the literal's meaning.</summary>
+    /// <param name="argument">The argument the literal sits in.</param>
+    /// <returns><see langword="true"/> for a named argument and for an index.</returns>
+    /// <remarks>
+    /// <c>capacity: 4</c> is already labelled by the caller. <c>sources[3]</c> is a slot — the same
+    /// positional shape as an array rank, which is exempt for the same reason: naming it can only produce a
+    /// constant that restates the number it holds.
+    /// </remarks>
+    private static bool IsLabelledOrIndexArgument(ArgumentSyntax argument)
+        => argument.NameColon is not null || argument.Parent is BracketedArgumentListSyntax;
+
+    /// <summary>Returns whether the literal is an element of a collection that is itself a named declaration's whole value.</summary>
+    /// <param name="node">The unwrapped literal.</param>
+    /// <returns><see langword="true"/> when the declaration's identifier names the collection the literal sits in.</returns>
+    /// <remarks>
+    /// <c>var timeout = 500;</c> is exempt because the name explains the number, and
+    /// <c>int[] offsets = [0, 4, 8];</c> is the same statement written three times over — the name explains
+    /// the whole list. Reporting only some of the elements was the odd part: <c>[1, 2, 3]</c> pointed at the
+    /// 2 and the 3 while leaving the 1 alone, because 1 is allowlisted, so the reader was asked to name two
+    /// thirds of one literal.
+    /// </remarks>
+    private static bool IsNamedStorageCollectionElement(ExpressionSyntax node)
+    {
+        SyntaxNode? collection = node.Parent switch
+        {
+            ExpressionElementSyntax { Parent: CollectionExpressionSyntax expression } => expression,
+            InitializerExpressionSyntax initializer when initializer.IsKind(SyntaxKind.ArrayInitializerExpression) => initializer,
+            _ => null,
+        };
+
+        if (collection is null)
+        {
+            return false;
+        }
+
+        // An array initializer hangs off the creation expression that owns it.
+        if (collection.Parent is ArrayCreationExpressionSyntax or ImplicitArrayCreationExpressionSyntax)
+        {
+            collection = collection.Parent;
+        }
+
+        return collection.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax or PropertyDeclarationSyntax } clause
+            && ReferenceEquals(clause.Value, collection);
+    }
 
     /// <summary>Returns whether the literal is the whole initializer of a named field, local or property.</summary>
     /// <param name="initializer">The initializer clause.</param>

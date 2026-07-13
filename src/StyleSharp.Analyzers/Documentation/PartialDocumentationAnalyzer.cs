@@ -96,6 +96,11 @@ public sealed class PartialDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="node">The declaration node.</param>
     /// <param name="documentation">The documentation comment.</param>
+    /// <remarks>
+    /// A type parameter is documented once, on whichever part carries it, because the compiler rejects a
+    /// second <c>&lt;typeparam&gt;</c> for the same name (CS1710). Asking every part for its own copy
+    /// would be asking for code that does not build, so a part is satisfied by a sibling's documentation.
+    /// </remarks>
     private static void CheckTypeParameters(SyntaxNodeAnalysisContext context, SyntaxNode node, DocumentationCommentTriviaSyntax documentation)
     {
         if (node is not TypeDeclarationSyntax { TypeParameterList: { } typeParameters })
@@ -105,10 +110,43 @@ public sealed class PartialDocumentationAnalyzer : DiagnosticAnalyzer
 
         foreach (var parameter in typeParameters.Parameters)
         {
-            if (XmlDocumentationHelper.FindTypeParameterElement(documentation, parameter.Identifier.ValueText) is null)
+            var name = parameter.Identifier.ValueText;
+            if (XmlDocumentationHelper.FindTypeParameterElement(documentation, name) is null
+                && !IsDocumentedOnAnotherPart(context, node, name))
             {
-                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.PartialTypeParametersDocumented, parameter.Identifier.GetLocation(), parameter.Identifier.ValueText));
+                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.PartialTypeParametersDocumented, parameter.Identifier.GetLocation(), name));
             }
         }
+    }
+
+    /// <summary>Returns whether another part of the partial type already documents a type parameter.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="node">The declaration node.</param>
+    /// <param name="name">The type parameter's name.</param>
+    /// <returns><see langword="true"/> when a sibling declaration carries the <c>&lt;typeparam&gt;</c>.</returns>
+    private static bool IsDocumentedOnAnotherPart(SyntaxNodeAnalysisContext context, SyntaxNode node, string name)
+    {
+        if (context.SemanticModel.GetDeclaredSymbol(node, context.CancellationToken) is not { } symbol)
+        {
+            return false;
+        }
+
+        var declarations = symbol.DeclaringSyntaxReferences;
+        for (var i = 0; i < declarations.Length; i++)
+        {
+            var declaration = declarations[i].GetSyntax(context.CancellationToken);
+            if (declaration == node)
+            {
+                continue;
+            }
+
+            if (XmlDocumentationHelper.GetDocumentationComment(declaration) is { } sibling
+                && XmlDocumentationHelper.FindTypeParameterElement(sibling, name) is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

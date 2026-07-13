@@ -165,12 +165,23 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether a symbol is an instance member of the analyzed type or one of its bases.</summary>
+    /// <summary>Returns whether a symbol is instance state of the analyzed type or one of its bases.</summary>
     /// <param name="symbol">The referenced symbol.</param>
     /// <param name="containingType">The analyzed member's containing type.</param>
     /// <returns><see langword="true"/> when reading the symbol requires a receiver.</returns>
+    /// <remarks>
+    /// A primary constructor parameter counts. Naming one from a member body captures it into a
+    /// synthesized instance field, so the member does depend on its receiver — and the compiler says so:
+    /// a static member that names a primary constructor parameter does not compile. Missing this would
+    /// leave the reader a diagnostic whose only stated remedy is a build error.
+    /// </remarks>
     private static bool IsInstanceMemberOfHierarchy(ISymbol symbol, INamedTypeSymbol containingType)
     {
+        if (symbol is IParameterSymbol { ContainingSymbol: IMethodSymbol { MethodKind: MethodKind.Constructor } primaryConstructor })
+        {
+            return SymbolEqualityComparer.Default.Equals(primaryConstructor.ContainingType, containingType);
+        }
+
         if (symbol.Kind is not (SymbolKind.Field or SymbolKind.Property or SymbolKind.Method or SymbolKind.Event))
         {
             return false;

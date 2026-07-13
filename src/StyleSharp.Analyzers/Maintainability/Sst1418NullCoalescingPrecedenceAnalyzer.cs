@@ -10,6 +10,13 @@ namespace StyleSharp.Analyzers;
 /// ambiguity is always an un-parenthesized binary <em>operand</em> of the <c>??</c>; reporting
 /// that operand mirrors how SST1407/SST1408 report the inner sub-expression.
 /// </summary>
+/// <remarks>
+/// The type-testing operators are excluded. Roslyn models <c>x as T</c> as a binary expression, but
+/// <c>x as T ?? fallback</c> is the idiom <c>as</c> exists for: <c>as</c> is the only thing the
+/// <c>??</c> could bind to, there is no reading a parenthesis would settle, and the bracketed form is
+/// the harder one to read. This rule is about the operators whose precedence against <c>??</c> a
+/// reader could genuinely get wrong — the arithmetic, shift, comparison, and logical ones.
+/// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1418NullCoalescingPrecedenceAnalyzer : DiagnosticAnalyzer
 {
@@ -39,7 +46,10 @@ public sealed class Sst1418NullCoalescingPrecedenceAnalyzer : DiagnosticAnalyzer
     /// <param name="operand">A <c>??</c> operand.</param>
     private static void ReportOperand(SyntaxNodeAnalysisContext context, ExpressionSyntax operand)
     {
-        if (operand is not BinaryExpressionSyntax binary || binary.IsKind(SyntaxKind.CoalesceExpression))
+        if (operand is not BinaryExpressionSyntax binary
+            || binary.IsKind(SyntaxKind.CoalesceExpression)
+            || binary.IsKind(SyntaxKind.AsExpression)
+            || binary.IsKind(SyntaxKind.IsExpression))
         {
             return;
         }

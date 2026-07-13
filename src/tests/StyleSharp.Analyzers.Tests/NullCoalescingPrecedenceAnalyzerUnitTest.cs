@@ -68,4 +68,21 @@ public class NullCoalescingPrecedenceAnalyzerUnitTest
                 public int N(int? a, int? d, int e) => a ?? d ?? e;
             }
             """);
+
+    /// <summary>Verifies the 'as' operand of a '??' is not reported.</summary>
+    /// <remarks>
+    /// Roslyn models <c>x as T</c> as a binary expression, but <c>x as T ?? fallback</c> is the idiom
+    /// <c>as</c> exists for: the <c>as</c> is the only thing the <c>??</c> could bind to, so there is no
+    /// reading a parenthesis would settle, and the bracketed form is the harder one to read.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AsOperandOfCoalesceIsCleanAsync()
+        => await VerifyCoalesce.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public string M(object value, string fallback) => value as string ?? fallback;
+            }
+            """);
 }

@@ -206,6 +206,29 @@ public class MarkMembersStaticAnalyzerUnitTest
         await VerifyNet90Async(Source, FixedSource);
     }
 
+    /// <summary>Verifies a member that names a captured primary constructor parameter is not reported.</summary>
+    /// <remarks>
+    /// Naming the parameter captures it into a synthesized instance field, so the member does depend on
+    /// its receiver — and the compiler agrees: adding <c>static</c> here is CS9105, a build error. The
+    /// rule must not hand out a diagnostic whose only remedy does not compile.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task MemberUsingCapturedPrimaryConstructorParameterIsNotReportedAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C(Action callback)
+                              {
+                                  private void Fire() => callback();
+
+                                  public void Run() => Fire();
+                              }
+                              """;
+        await VerifyNet90Async(Source, Source);
+    }
+
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected fixed source.</param>

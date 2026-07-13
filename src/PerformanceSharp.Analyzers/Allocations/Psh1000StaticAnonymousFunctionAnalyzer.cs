@@ -97,9 +97,16 @@ public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="function">The anonymous function to inspect.</param>
     /// <returns><see langword="true"/> when the captured-variable sets are provably empty.</returns>
+    /// <remarks>
+    /// Only <see cref="DataFlowAnalysis.CapturedInside"/> answers the question. <c>Captured</c> is
+    /// <c>CapturedInside</c> together with <c>CapturedOutside</c>, and <c>CapturedOutside</c> holds what the
+    /// <em>other</em> lambdas in the enclosing method captured. Reading it made one capturing lambda hide
+    /// every capture-free sibling in the same statement: the rule went quiet on exactly the lambdas it
+    /// exists to find, and only where a neighbour happened to close over something.
+    /// </remarks>
     private static bool HasNoCaptures(SemanticModel model, AnonymousFunctionExpressionSyntax function)
     {
         var dataFlow = model.AnalyzeDataFlow(function);
-        return dataFlow is { Succeeded: true, Captured.IsEmpty: true, CapturedInside.IsEmpty: true };
+        return dataFlow is { Succeeded: true, CapturedInside.IsEmpty: true };
     }
 }

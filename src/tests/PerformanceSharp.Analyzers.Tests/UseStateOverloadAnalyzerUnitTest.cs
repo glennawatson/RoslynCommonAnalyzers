@@ -164,6 +164,32 @@ public class UseStateOverloadAnalyzerUnitTest
             """);
 
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
+    /// <summary>Verifies a capture-free callback is not reported when a sibling lambda captures.</summary>
+    /// <remarks>
+    /// A neighbour's capture is not this lambda's. Reading <c>Captured</c> — which folds in what the other
+    /// lambdas in the method closed over — charged this callback with its neighbour's state and told it to
+    /// move something it never had.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CaptureFreeCallbackBesideACapturingSiblingIsNotReportedAsync()
+        => await VerifyAsync(
+            """
+            using System;
+            using System.Threading;
+
+            public class C
+            {
+                public void M(CancellationToken token, IDisposable resource)
+                {
+                    Action capturing = () => resource.Dispose();
+                    token.Register(static () => Console.WriteLine("done"));
+                    capturing();
+                }
+            }
+            """);
+
+    /// <summary>Runs an analyzer verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)

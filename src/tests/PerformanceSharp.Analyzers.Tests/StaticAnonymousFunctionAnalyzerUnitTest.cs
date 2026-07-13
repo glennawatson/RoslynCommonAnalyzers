@@ -278,6 +278,49 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a capture-free lambda is still reported when a sibling lambda captures.</summary>
+    /// <remarks>
+    /// A neighbour's capture is not this lambda's. Reading <c>Captured</c> — which folds in what the other
+    /// lambdas in the method closed over — made one capturing lambda hide every capture-free sibling beside
+    /// it, so the rule went quiet on exactly the lambdas it exists to find.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CaptureFreeLambdaBesideACapturingSiblingIsReportedAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public static class C
+                              {
+                                  public static void M(out int total)
+                                  {
+                                      var count = 0;
+                                      Action capturing = () => count++;
+                                      Func<int, int> free = {|PSH1000:x|} => x * 2;
+                                      capturing();
+                                      total = free(count);
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public static class C
+                                   {
+                                       public static void M(out int total)
+                                       {
+                                           var count = 0;
+                                           Action capturing = () => count++;
+                                           Func<int, int> free = static x => x * 2;
+                                           capturing();
+                                           total = free(count);
+                                       }
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected fixed source.</param>

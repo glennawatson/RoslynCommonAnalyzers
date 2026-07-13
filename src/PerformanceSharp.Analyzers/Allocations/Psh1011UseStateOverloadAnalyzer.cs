@@ -204,6 +204,13 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="lambda">The lambda to analyze.</param>
     /// <returns><see langword="true"/> when at least one outer symbol is captured.</returns>
+    /// <remarks>
+    /// Only <see cref="DataFlowAnalysis.CapturedInside"/> answers the question. <c>Captured</c> is
+    /// <c>CapturedInside</c> together with <c>CapturedOutside</c>, and <c>CapturedOutside</c> holds what the
+    /// <em>other</em> lambdas in the enclosing method captured. Reading it charged this lambda with its
+    /// neighbours' captures: a lambda that closed over nothing was told to move state it never had, purely
+    /// because something else nearby closed over something.
+    /// </remarks>
     private static bool CapturesOuterState(SemanticModel model, AnonymousFunctionExpressionSyntax lambda)
     {
         var dataFlow = model.AnalyzeDataFlow(lambda);
@@ -212,7 +219,7 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        foreach (var symbol in dataFlow.Captured)
+        foreach (var symbol in dataFlow.CapturedInside)
         {
             if (symbol.Locations.Length == 0 || !lambda.Span.Contains(symbol.Locations[0].SourceSpan))
             {

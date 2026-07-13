@@ -40,7 +40,7 @@ public sealed class Sst1404SuppressionJustificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (HasJustification(attribute))
+        if (HasJustification(attribute, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -66,8 +66,16 @@ public sealed class Sst1404SuppressionJustificationAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether the attribute sets a non-empty, non-placeholder justification.</summary>
     /// <param name="attribute">The suppression attribute.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when a real justification is present.</returns>
-    private static bool HasJustification(AttributeSyntax attribute)
+    /// <remarks>
+    /// The justification is read as a constant rather than matched as a literal. An attribute argument is
+    /// always a compile-time constant, but it need not be written as one token: a justification worth
+    /// reading is usually several lines of concatenated string, and matching only a bare literal would
+    /// report the well-documented suppressions and let the terse ones through — exactly backwards.
+    /// </remarks>
+    private static bool HasJustification(AttributeSyntax attribute, SemanticModel model, CancellationToken cancellationToken)
     {
         if (attribute.ArgumentList is not { } arguments)
         {
@@ -81,9 +89,9 @@ public sealed class Sst1404SuppressionJustificationAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            return argument.Expression is LiteralExpressionSyntax literal
-                && !string.IsNullOrWhiteSpace(literal.Token.ValueText)
-                && !string.Equals(literal.Token.ValueText, PendingPlaceholder, StringComparison.Ordinal);
+            return model.GetConstantValue(argument.Expression, cancellationToken) is { HasValue: true, Value: string justification }
+                && !string.IsNullOrWhiteSpace(justification)
+                && !string.Equals(justification, PendingPlaceholder, StringComparison.Ordinal);
         }
 
         return false;

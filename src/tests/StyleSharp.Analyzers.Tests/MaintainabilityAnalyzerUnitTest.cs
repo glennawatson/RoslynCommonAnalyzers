@@ -127,6 +127,30 @@ public class MaintainabilityAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a justification written as a concatenation is not reported.</summary>
+    /// <remarks>
+    /// A justification worth reading rarely fits on one line, so the reason is usually several strings
+    /// joined with <c>+</c>. Matching only a bare literal would report the well-documented suppressions
+    /// and wave the terse ones through — exactly backwards.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConcatenatedJustificationAllowedAsync()
+        => await VerifySuppress.VerifyAnalyzerAsync(
+            """
+            using System.Diagnostics.CodeAnalysis;
+            internal class C
+            {
+                [SuppressMessage(
+                    "Cat",
+                    "Rule",
+                    Justification =
+                        "The witnesses are this type's own private sinks, and nothing can notify them "
+                        + "until Run subscribes.")]
+                public void M() { }
+            }
+            """);
+
     /// <summary>Verifies a justified suppression is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

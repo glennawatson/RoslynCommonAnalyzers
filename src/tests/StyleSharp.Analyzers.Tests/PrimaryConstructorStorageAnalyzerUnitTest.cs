@@ -392,6 +392,32 @@ public class PrimaryConstructorStorageAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a constructor a primary constructor would have to widen is not reported.</summary>
+    /// <remarks>
+    /// A primary constructor is <c>public</c> on a concrete class — the language does not let it be
+    /// anything else. Rewriting a non-public constructor into one therefore adds a new way to construct
+    /// the type from outside, which is an API change rather than a formatting one.
+    /// </remarks>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ConstructorThatWouldBeWidenedIsNotReportedAsync()
+    {
+        const string Source = """
+                              internal sealed class C
+                              {
+                                  private readonly int _value;
+
+                                  internal C(int value)
+                                  {
+                                      _value = value;
+                                  }
+
+                                  public int Value => _value;
+                              }
+                              """;
+        await VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Runs the code-fix verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze and fix.</param>
     /// <param name="fixedSource">The expected source after the fix.</param>

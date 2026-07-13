@@ -49,6 +49,11 @@ public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyze
             return;
         }
 
+        if (!KeepsItsAccessibility(constructor, context.SemanticModel, context.CancellationToken))
+        {
+            return;
+        }
+
         if (!StoresEveryParameterOnce(constructor, body, context.SemanticModel, context.CancellationToken))
         {
             return;
@@ -58,6 +63,33 @@ public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyze
             ModernSyntaxRules.UsePrimaryConstructorStorage,
             constructor.Identifier.GetLocation(),
             constructor.Identifier.ValueText));
+    }
+
+    /// <summary>Returns whether the rewrite would leave the constructor as reachable as it is now.</summary>
+    /// <param name="constructor">The constructor declaration.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when a primary constructor would carry the same accessibility.</returns>
+    /// <remarks>
+    /// A primary constructor does not get to choose how visible it is: the language fixes it at
+    /// <c>protected</c> on an abstract class and <c>public</c> on any other. So a <c>private</c>,
+    /// <c>internal</c>, or <c>protected</c> constructor on a concrete type cannot become a primary one
+    /// without being widened — which is not a formatting change but a new way to construct the type,
+    /// added to whatever surface the type already has. A rule that asks for that silently grows the
+    /// caller's API, so it asks only where the accessibility survives the move.
+    /// </remarks>
+    private static bool KeepsItsAccessibility(
+        ConstructorDeclarationSyntax constructor,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        if (model.GetDeclaredSymbol(constructor, cancellationToken) is not { } symbol)
+        {
+            return false;
+        }
+
+        var expected = symbol.ContainingType.IsAbstract ? Accessibility.Protected : Accessibility.Public;
+        return symbol.DeclaredAccessibility == expected;
     }
 
     /// <summary>Extracts a constructor body that is eligible for primary-constructor storage analysis.</summary>

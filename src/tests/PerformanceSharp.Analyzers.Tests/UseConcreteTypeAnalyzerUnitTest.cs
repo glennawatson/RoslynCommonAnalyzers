@@ -190,6 +190,77 @@ public class UseConcreteTypeAnalyzerUnitTest
         await VerifyNet90Async(Source, Source);
     }
 
+    /// <summary>Verifies a sentinel — only ever compared, never called through — is not reported.</summary>
+    /// <remarks>
+    /// The concrete type earns its keep by turning a virtual call direct. A sentinel carries no call
+    /// at all: it is swapped in and compared by reference, so naming its concrete type would speed up
+    /// nothing and only churn the declaration.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SentinelThatIsOnlyComparedIsNotReportedAsync()
+    {
+        const string Source = """
+                              #nullable enable
+                              using System;
+                              using System.Threading;
+
+                              public sealed class C
+                              {
+                                  private static readonly IDisposable DisposedSentinel = new Marker();
+                                  private IDisposable? _current;
+
+                                  public bool IsDisposed => ReferenceEquals(Volatile.Read(ref _current), DisposedSentinel);
+
+                                  public void Dispose()
+                                  {
+                                      var previous = Interlocked.Exchange(ref _current, DisposedSentinel);
+                                      previous?.Dispose();
+                                  }
+
+                                  private sealed class Marker : IDisposable
+                                  {
+                                      public void Dispose()
+                                      {
+                                      }
+                                  }
+                              }
+                              """;
+        await VerifyNet90Async(Source, Source);
+    }
+
+    /// <summary>Verifies a candidate reached only through its indexer is still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task IndexerOnlyUseIsReportedAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+
+                              public class C
+                              {
+                                  public int M()
+                                  {
+                                      {|PSH1415:IList<int>|} items = new List<int>();
+                                      return items[0];
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+
+                                   public class C
+                                   {
+                                       public int M()
+                                       {
+                                           List<int> items = new List<int>();
+                                           return items[0];
+                                       }
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
     /// <summary>Verifies a local that is already a concrete type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -26,6 +26,14 @@ namespace PerformanceSharp.Analyzers;
 /// field in a type declared across several files is skipped as well, since an assignment in
 /// another file cannot be seen from here.
 /// </para>
+/// <para>
+/// A candidate nothing is ever dispatched through is left alone, because there is no call to make
+/// direct and therefore nothing to win. The archetype is a sentinel: a value that exists only to be
+/// compared by reference and swapped in by <c>Interlocked.Exchange</c> never has a member invoked on
+/// it, so naming its concrete type would be churn rather than a speed-up. The rule therefore reports
+/// only where the symbol actually carries a dispatch — a member access, an indexer, or a
+/// <c>foreach</c>.
+/// </para>
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1415UseConcreteTypeAnalyzer : DiagnosticAnalyzer
@@ -103,7 +111,7 @@ public sealed class Psh1415UseConcreteTypeAnalyzer : DiagnosticAnalyzer
     {
         if (declaredType is not INamedTypeSymbol { TypeKind: TypeKind.Interface } interfaceType
             || TryGetCreatedType(context, declaration.Variables[0]) is not { } concrete
-            || !OnlyEverHolds(context, scope, symbol, concrete))
+            || !CanNarrowProfitably(context, scope, symbol, concrete))
         {
             return;
         }
@@ -127,20 +135,20 @@ public sealed class Psh1415UseConcreteTypeAnalyzer : DiagnosticAnalyzer
             ? concrete
             : null;
 
-    /// <summary>Returns whether every value the symbol is ever given is a <c>new</c> of the same concrete type.</summary>
+    /// <summary>Returns whether the declaration can be narrowed safely, and is worth narrowing at all.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="scope">The syntax to scan.</param>
     /// <param name="symbol">The declared local or field.</param>
     /// <param name="concrete">The concrete type the initializer constructed.</param>
-    /// <returns><see langword="true"/> when narrowing the declaration is safe.</returns>
-    private static bool OnlyEverHolds(SyntaxNodeAnalysisContext context, SyntaxNode scope, ISymbol symbol, INamedTypeSymbol concrete)
+    /// <returns><see langword="true"/> when narrowing is safe and turns at least one call direct.</returns>
+    private static bool CanNarrowProfitably(SyntaxNodeAnalysisContext context, SyntaxNode scope, ISymbol symbol, INamedTypeSymbol concrete)
     {
         var state = new HolderScanState(symbol, concrete, context.SemanticModel, context.CancellationToken);
         DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HolderScanState>(scope, ref state, VisitUsage);
-        return !state.Disqualified;
+        return !state.Disqualified && state.Dispatched;
     }
 
-    /// <summary>Classifies one usage of the candidate: a rebinding to something else, or a ref/out escape.</summary>
+    /// <summary>Classifies one usage of the candidate: a rebinding to something else, a ref/out escape, or a dispatch.</summary>
     /// <param name="identifier">The visited identifier.</param>
     /// <param name="state">The current scan state.</param>
     /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once disqualified.</returns>
@@ -154,6 +162,11 @@ public sealed class Psh1415UseConcreteTypeAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
+        if (IsDispatchReceiver(identifier))
+        {
+            state.Dispatched = true;
+        }
+
         if (!IsRefOrOutArgument(identifier)
             && !IsAssignedSomethingElse(identifier, ref state)
             && !ReachesExplicitImplementation(identifier, ref state))
@@ -164,6 +177,23 @@ public sealed class Psh1415UseConcreteTypeAnalyzer : DiagnosticAnalyzer
         state.Disqualified = true;
         return false;
     }
+
+    /// <summary>Returns whether a usage dispatches through the candidate's declared interface.</summary>
+    /// <param name="identifier">The identifier usage.</param>
+    /// <returns><see langword="true"/> when the usage is a member access, an indexer, or a <c>foreach</c> source.</returns>
+    /// <remarks>
+    /// These are the three ways a call can go through the interface, and so the only three that a
+    /// concrete declaration could turn direct. Every other use — comparing the symbol, passing it,
+    /// returning it, assigning it — dispatches nothing and gains nothing.
+    /// </remarks>
+    private static bool IsDispatchReceiver(IdentifierNameSyntax identifier)
+        => identifier.Parent switch
+        {
+            MemberAccessExpressionSyntax access => access.Expression == identifier,
+            ElementAccessExpressionSyntax element => element.Expression == identifier,
+            ForEachStatementSyntax forEach => forEach.Expression == identifier,
+            _ => false,
+        };
 
     /// <summary>Returns whether a usage calls a member the concrete type implements explicitly.</summary>
     /// <param name="identifier">The identifier usage.</param>
@@ -248,5 +278,8 @@ public sealed class Psh1415UseConcreteTypeAnalyzer : DiagnosticAnalyzer
     {
         /// <summary>Gets or sets a value indicating whether the candidate cannot be narrowed after all.</summary>
         public bool Disqualified { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether at least one call goes through the candidate.</summary>
+        public bool Dispatched { get; set; }
     }
 }

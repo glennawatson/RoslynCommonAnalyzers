@@ -293,6 +293,28 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
             """);
 
     /// <summary>Runs one analyzer or code-fix case against the modern reference assemblies.</summary>
+    /// <summary>Verifies the abstract on a re-abstracted explicit interface member is not reported.</summary>
+    /// <remarks>
+    /// Nothing about that declaration is implied. Re-abstracting an inherited member requires the
+    /// <c>abstract</c>, and taking it away is CS0501 — the declaration then has to carry a body.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AbstractOnReAbstractedExplicitInterfaceMemberIsNotReportedAsync()
+        => await RunAsync(
+            """
+            public interface IFoo
+            {
+                int Bar();
+            }
+
+            public interface IBar : IFoo
+            {
+                abstract int IFoo.Bar();
+            }
+            """);
+
+    /// <summary>Runs the analyzer, and its fix when one is expected.</summary>
     /// <param name="source">The test source, with its expected diagnostics marked up.</param>
     /// <param name="fixedSource">The expected fixed source, when a fix is expected.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

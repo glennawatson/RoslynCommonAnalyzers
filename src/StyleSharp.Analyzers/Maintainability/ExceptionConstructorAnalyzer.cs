@@ -96,6 +96,11 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        if (!BaseOffersAConstructorToChainTo(type))
+        {
+            return;
+        }
+
         var missing = FindMissingConstructors(type, options.RequireParameterless);
         if (missing == StandardExceptionConstructors.None)
         {
@@ -111,6 +116,40 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
             properties,
             type.Name,
             Describe(missing)));
+    }
+
+    /// <summary>Returns whether the base exception offers a constructor the standard ones can chain to.</summary>
+    /// <param name="type">The exception type.</param>
+    /// <returns><see langword="true"/> when the base declares a reachable parameterless, message, or message-and-inner constructor.</returns>
+    /// <remarks>
+    /// A derived type cannot conjure a base it does not have. Where the base exposes only a constructor of
+    /// its own shape — one taking a request, a status code, a response — there is no <c>: base(message)</c>
+    /// to write, and the standard constructors cannot be declared at all. Asking for them would be asking
+    /// for code that does not compile, so the rule keeps quiet and leaves the design alone.
+    /// </remarks>
+    private static bool BaseOffersAConstructorToChainTo(INamedTypeSymbol type)
+    {
+        if (type.BaseType is not { } baseType)
+        {
+            return false;
+        }
+
+        var constructors = baseType.InstanceConstructors;
+        for (var i = 0; i < constructors.Length; i++)
+        {
+            var constructor = constructors[i];
+            if (constructor.DeclaredAccessibility == Accessibility.Private)
+            {
+                continue;
+            }
+
+            if (Classify(constructor) != StandardExceptionConstructors.None)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Works out which of the expected constructors the type does not declare.</summary>

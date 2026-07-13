@@ -390,6 +390,36 @@ public class ExceptionConstructorAnalyzerUnitTest
         await VerifySerializationAsync(Source, ReferenceAssemblies.NetStandard.NetStandard20);
     }
 
+    /// <summary>Verifies an exception whose base offers nothing to chain to is not reported.</summary>
+    /// <remarks>
+    /// A derived type cannot conjure a base it does not have. <c>ApiException</c> is reported because its
+    /// own base is <see cref="Exception"/>, which offers the standard constructors to chain to. The fixture
+    /// beneath it is not: <c>ApiException</c> takes only a status code and a request, so there is no
+    /// <c>: base(message)</c> to write and the standard constructors cannot be declared at all.
+    /// </remarks>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ExceptionWhoseBaseHasNoChainableConstructorIsNotReportedAsync()
+        => await VerifyAsync(
+            """
+            using System;
+
+            public class {|SST1488:ApiException|} : Exception
+            {
+                public ApiException(int statusCode, Uri uri) => StatusCode = statusCode;
+
+                public int StatusCode { get; }
+            }
+
+            public class FixtureException : ApiException
+            {
+                public FixtureException(int statusCode, Uri uri)
+                    : base(statusCode, uri)
+                {
+                }
+            }
+            """);
+
     /// <summary>Runs an analyzer-and-fix verification against a modern target.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected fixed source, when the fix is exercised.</param>

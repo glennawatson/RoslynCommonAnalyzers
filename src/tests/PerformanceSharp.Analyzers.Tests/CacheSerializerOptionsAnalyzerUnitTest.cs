@@ -94,6 +94,27 @@ public class CacheSerializerOptionsAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies options shaped by a parameter are not reported.</summary>
+    /// <remarks>
+    /// The suggestion is a <c>static readonly</c> field, and these options cannot live in one: a shared
+    /// instance would hand every caller the first caller's resolver. They are built per call because they
+    /// are built per caller, and the rule has nothing to offer.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task OptionsBuiltAroundAParameterAreNotReportedAsync()
+        => await VerifyAsync(
+            """
+            using System.Text.Json;
+            using System.Text.Json.Serialization.Metadata;
+
+            public static class C
+            {
+                public static JsonSerializerOptions Make(IJsonTypeInfoResolver resolver) =>
+                    new() { TypeInfoResolver = resolver };
+            }
+            """);
+
     /// <summary>Runs an analyzer verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

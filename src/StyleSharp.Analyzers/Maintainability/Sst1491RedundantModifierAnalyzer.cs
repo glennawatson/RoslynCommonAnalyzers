@@ -132,16 +132,25 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <param name="modifiers">The member's full modifier list.</param>
     /// <returns><see langword="true"/> when the interface already guarantees the modifier.</returns>
     /// <remarks>
+    /// <para>
     /// Interface members are public, are abstract when they have no body, and are virtual when they do — but
     /// only while they are instance members. A static interface member is none of those things by default:
     /// <c>static abstract</c> and <c>static virtual</c> both say something a bare <c>static</c> does not, so
     /// a static member keeps every modifier it declares.
+    /// </para>
+    /// <para>
+    /// A member written against an explicit interface keeps its modifiers too. Re-abstracting an inherited
+    /// member — <c>abstract int IFoo.Bar();</c> in a derived interface — reads like an abstract member with
+    /// no body, and it is not: nothing there is implied, and taking the <c>abstract</c> away is CS0501,
+    /// because the declaration then has to carry a body.
+    /// </para>
     /// </remarks>
     private static bool IsRedundantOnInterfaceMember(MemberDeclarationSyntax member, SyntaxKind kind, SyntaxTokenList modifiers)
     {
         if (member.Parent is not InterfaceDeclarationSyntax
             || member.SyntaxTree.Options is not CSharpParseOptions options
-            || (int)options.LanguageVersion < CSharp8)
+            || (int)options.LanguageVersion < CSharp8
+            || HasExplicitInterfaceSpecifier(member))
         {
             return false;
         }
@@ -159,6 +168,18 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
         var hasBody = HasBody(member);
         return kind is SyntaxKind.AbstractKeyword ? !hasBody : hasBody;
     }
+
+    /// <summary>Returns whether a member names the interface it belongs to.</summary>
+    /// <param name="member">The member declaration.</param>
+    /// <returns><see langword="true"/> for a member written as <c>IFoo.Bar</c>.</returns>
+    private static bool HasExplicitInterfaceSpecifier(MemberDeclarationSyntax member) => member switch
+    {
+        MethodDeclarationSyntax method => method.ExplicitInterfaceSpecifier is not null,
+        PropertyDeclarationSyntax property => property.ExplicitInterfaceSpecifier is not null,
+        IndexerDeclarationSyntax indexer => indexer.ExplicitInterfaceSpecifier is not null,
+        EventDeclarationSyntax @event => @event.ExplicitInterfaceSpecifier is not null,
+        _ => false,
+    };
 
     /// <summary>Returns whether a member's <c>readonly</c> restates the <c>readonly</c> of its struct.</summary>
     /// <param name="member">The member declaration.</param>

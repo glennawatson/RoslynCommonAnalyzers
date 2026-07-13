@@ -80,6 +80,68 @@ public sealed class Psh1416CacheSerializerOptionsAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
+    /// <summary>Returns whether the construction is built out of state a static field could not hold.</summary>
+    /// <param name="creation">The object creation.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when the options are shaped by a parameter, a local, or instance state.</returns>
+    /// <remarks>
+    /// The suggestion is to hoist the options into a <c>static readonly</c> field, and that is only possible
+    /// when the options do not depend on anything the caller brought with them. Options built around a
+    /// parameter — <c>new() { TypeInfoResolver = resolver }</c> — cannot be shared: one static instance would
+    /// hand every caller the first caller's resolver. The options are per-call because they are per-caller,
+    /// and the rule has nothing to offer.
+    /// <para>
+    /// The names on the left of an object initializer are the options' own properties, not captured state, so
+    /// they are stepped over — otherwise every initializer would look like a capture.
+    /// </para>
+    /// </remarks>
+    private static bool DependsOnStateAStaticFieldCannotHold(
+        BaseObjectCreationExpressionSyntax creation,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        foreach (var node in creation.DescendantNodes())
+        {
+            if (node is ThisExpressionSyntax or BaseExpressionSyntax)
+            {
+                return true;
+            }
+
+            if (node is not IdentifierNameSyntax identifier || IsPropertyBeingSet(identifier) || IsMemberName(identifier))
+            {
+                continue;
+            }
+
+            switch (model.GetSymbolInfo(identifier, cancellationToken).Symbol)
+            {
+                case ILocalSymbol:
+                case IParameterSymbol:
+                case IFieldSymbol { IsStatic: false }:
+                case IPropertySymbol { IsStatic: false }:
+                    return true;
+
+                default:
+                    continue;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether an identifier names a property the initializer is setting.</summary>
+    /// <param name="identifier">The identifier.</param>
+    /// <returns><see langword="true"/> for the <c>Foo</c> in <c>new() { Foo = value }</c>.</returns>
+    private static bool IsPropertyBeingSet(IdentifierNameSyntax identifier)
+        => identifier.Parent is AssignmentExpressionSyntax { Parent: InitializerExpressionSyntax } assignment
+            && assignment.Left == identifier;
+
+    /// <summary>Returns whether an identifier is the member half of an access rather than the receiver.</summary>
+    /// <param name="identifier">The identifier.</param>
+    /// <returns><see langword="true"/> for the <c>CamelCase</c> in <c>JsonNamingPolicy.CamelCase</c>.</returns>
+    private static bool IsMemberName(IdentifierNameSyntax identifier)
+        => identifier.Parent is MemberAccessExpressionSyntax access && access.Name == identifier;
+
     /// <summary>Reports PSH1416 for a serializer options instance built on every call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="optionsType">The <c>JsonSerializerOptions</c> type in the current compilation.</param>
@@ -88,7 +150,8 @@ public sealed class Psh1416CacheSerializerOptionsAnalyzer : DiagnosticAnalyzer
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (!IsConstructedPerCall(creation)
             || context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type is not { } created
-            || !SymbolEqualityComparer.Default.Equals(created, optionsType))
+            || !SymbolEqualityComparer.Default.Equals(created, optionsType)
+            || DependsOnStateAStaticFieldCannotHold(creation, context.SemanticModel, context.CancellationToken))
         {
             return;
         }

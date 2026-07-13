@@ -76,4 +76,29 @@ public class NameofLiteralAnalyzerUnitTest
         });
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies a name matching only a generic type is not reported.</summary>
+    /// <remarks>
+    /// The bare name of a generic type is not a name the language will take: where the only
+    /// <c>Holder</c> in scope is <c>Holder&lt;T&gt;</c>, <c>nameof(Holder)</c> is CS0305, so suggesting it
+    /// would trade a working string for a build error.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NameMatchingOnlyAGenericTypeIsNotReportedAsync()
+        => await VerifyNameofLiteral.VerifyAnalyzerAsync(
+            """
+            public sealed class Holder<T>
+            {
+            }
+
+            public sealed class C
+            {
+                public void Row(string name)
+                {
+                }
+
+                public void M() => Row("Holder");
+            }
+            """);
 }

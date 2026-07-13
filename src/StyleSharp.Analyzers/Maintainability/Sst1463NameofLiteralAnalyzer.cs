@@ -62,11 +62,22 @@ public sealed class Sst1463NameofLiteralAnalyzer : DiagnosticAnalyzer
     /// <param name="position">The source position.</param>
     /// <param name="name">The symbol name.</param>
     /// <returns><see langword="true"/> when <c>nameof(name)</c> can bind.</returns>
+    /// <remarks>
+    /// A generic type does not count, because its bare name is not a name the language will take: where the
+    /// only <c>TimeInterval</c> in scope is <c>TimeInterval&lt;T&gt;</c>, <c>nameof(TimeInterval)</c> is
+    /// CS0305 and not a fix at all. The rule suggests <c>nameof</c> only where the name written in the
+    /// string is a name that compiles as written.
+    /// </remarks>
     private static bool HasVisibleSymbolNamed(SemanticModel model, int position, string name)
     {
         var symbols = model.LookupSymbols(position, name: name);
         for (var i = 0; i < symbols.Length; i++)
         {
+            if (symbols[i] is INamedTypeSymbol { Arity: > 0 })
+            {
+                continue;
+            }
+
             if (symbols[i].Kind != SymbolKind.Namespace)
             {
                 return true;

@@ -1088,6 +1088,23 @@ public class SpacingAnalyzerUnitTest
             """,
             null);
 
+    /// <summary>Verifies the comma before an interpolation's alignment is not required to carry a space.</summary>
+    /// <remarks>
+    /// That comma separates a value from its width, not one list item from the next. <c>{value,-34}</c> is
+    /// how the format is written everywhere and what the compiler's own formatter produces; asking for a
+    /// space after it would set this rule against every other formatter in the toolchain.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InterpolationAlignmentCommaIsNotReportedAsync()
+        => await VerifySpacing.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public string M(string label, int count) => $"{label,-34}{count,8}";
+            }
+            """);
+
     /// <summary>Runs the spacing code-fix verifier with unsafe compilation enabled.</summary>
     /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
     /// <param name="fixedSource">The expected source after the code fix, or <see langword="null"/> to only verify the analyzer.</param>

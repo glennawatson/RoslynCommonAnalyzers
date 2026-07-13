@@ -573,6 +573,11 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        if (IsInterpolationAlignmentComma(previous))
+        {
+            return;
+        }
+
         if (separation != Separation.Adjacent || IsClosing(current))
         {
             return;
@@ -580,6 +585,18 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
 
         ReportTrailingPunctuation(context, previous, current);
     }
+
+    /// <summary>Returns whether a comma separates an interpolation from its alignment.</summary>
+    /// <param name="token">The token to test.</param>
+    /// <returns><see langword="true"/> for the comma in <c>{value,-34}</c>.</returns>
+    /// <remarks>
+    /// The comma in an alignment clause does not separate a list, and the language does not read it as one:
+    /// <c>{value,-34}</c> is how the format is written everywhere, and it is what the compiler's own
+    /// formatter produces. Demanding a space after it would put this rule against every other formatter in
+    /// the toolchain, on a comma that has nothing to line up with.
+    /// </remarks>
+    private static bool IsInterpolationAlignmentComma(SyntaxToken token)
+        => token.IsKind(SyntaxKind.CommaToken) && token.Parent is InterpolationAlignmentClauseSyntax;
 
     /// <summary>Reports a space adjacent to a member-access dot (SST1019).</summary>
     /// <param name="context">The syntax tree analysis context.</param>

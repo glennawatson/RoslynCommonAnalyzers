@@ -33,7 +33,8 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
         var arguments = invocation.ArgumentList.Arguments;
         if (arguments.Count != 1
             || !IsPlainIdentifierArgument(arguments[0], lambda.Parameter.Identifier.ValueText)
-            || !IsMethodGroupConvertible(invocation, lambda, arguments, context.SemanticModel, context.CancellationToken))
+            || !IsMethodGroupConvertible(invocation, lambda, arguments, context.SemanticModel, context.CancellationToken)
+            || !TheRewriteStillBindsTheSameWay(lambda, invocation, context))
         {
             return;
         }
@@ -54,12 +55,54 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
 
         var arguments = invocation.ArgumentList.Arguments;
         if (!ArgumentsMatchParameters(arguments, parameters)
-            || !IsMethodGroupConvertible(invocation, lambda, arguments, context.SemanticModel, context.CancellationToken))
+            || !IsMethodGroupConvertible(invocation, lambda, arguments, context.SemanticModel, context.CancellationToken)
+            || !TheRewriteStillBindsTheSameWay(lambda, invocation, context))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.UseMethodGroup, lambda.GetLocation()));
+    }
+
+    /// <summary>Returns whether the call around the lambda still resolves the same way once the lambda is gone.</summary>
+    /// <param name="lambda">The lambda being replaced.</param>
+    /// <param name="invocation">The forwarding invocation in the lambda body.</param>
+    /// <param name="context">The syntax node context.</param>
+    /// <returns><see langword="true"/> when the rewritten call binds to the method it binds to now.</returns>
+    /// <remarks>
+    /// A lambda states its own shape, and that shape can be what picks the overload around it. A method
+    /// group does not: it carries every overload of its name, and any of them the enclosing call could take
+    /// makes the call ambiguous. <c>value =&gt; regex.IsMatch(value)</c> passed to Rx's <c>Where</c> is the
+    /// case in point — <c>Regex.IsMatch</c> has a <c>(string)</c> and a <c>(string, int)</c> overload, which
+    /// fit <c>Where</c>'s predicate and indexed-predicate overloads respectively, so the method group is
+    /// CS0121 where the lambda was fine.
+    /// <para>
+    /// There is no way to see that from the target method alone, so the rewrite is bound before it is
+    /// offered: put the method group where the lambda was, ask the compiler what the enclosing call means
+    /// now, and only report when the answer has not changed.
+    /// </para>
+    /// </remarks>
+    private static bool TheRewriteStillBindsTheSameWay(
+        ExpressionSyntax lambda,
+        InvocationExpressionSyntax invocation,
+        SyntaxNodeAnalysisContext context)
+    {
+        if (lambda.Parent is not ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax enclosing })
+        {
+            return true;
+        }
+
+        var model = context.SemanticModel;
+        var cancellationToken = context.CancellationToken;
+        if (model.GetSymbolInfo(enclosing, cancellationToken).Symbol is not { } before)
+        {
+            return true;
+        }
+
+        var rewritten = enclosing.ReplaceNode(lambda, invocation.Expression.WithoutTrivia());
+        var after = model.GetSpeculativeSymbolInfo(enclosing.SpanStart, rewritten, SpeculativeBindingOption.BindAsExpression).Symbol;
+
+        return after is not null && SymbolEqualityComparer.Default.Equals(after, before);
     }
 
     /// <summary>Returns whether the lambda can be replaced by the invoked method group.</summary>

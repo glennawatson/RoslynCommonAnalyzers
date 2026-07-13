@@ -166,6 +166,43 @@ public class MethodGroupAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a lambda whose method group would make the enclosing call ambiguous is not reported.</summary>
+    /// <remarks>
+    /// A lambda states its own shape, and that shape can be what picks the overload around it. A method
+    /// group carries every overload of its name, so where more than one of them fits the enclosing call,
+    /// the rewrite is CS0121 and the lambda is the only form that compiles.
+    /// </remarks>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task LambdaWhoseMethodGroupWouldBeAmbiguousIsNotReportedAsync()
+        => await RunAsync(
+            """
+            using System;
+
+            public class Matcher
+            {
+                public bool IsMatch(string value) => true;
+
+                public bool IsMatch(string value, int start) => true;
+            }
+
+            public static class Pipe
+            {
+                public static void Where(Func<string, bool> predicate)
+                {
+                }
+
+                public static void Where(Func<string, int, bool> predicate)
+                {
+                }
+            }
+
+            public class C
+            {
+                public void M(Matcher matcher) => Pipe.Where(value => matcher.IsMatch(value));
+            }
+            """);
+
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>
     /// <returns>A task representing the asynchronous operation.</returns>

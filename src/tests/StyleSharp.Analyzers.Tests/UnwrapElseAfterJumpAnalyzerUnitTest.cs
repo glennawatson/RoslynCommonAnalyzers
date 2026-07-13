@@ -395,4 +395,43 @@ public class UnwrapElseAfterJumpAnalyzerUnitTest
                                    """;
         await VerifyUnwrapElse.VerifyCodeFixAsync(Source, FixedSource);
     }
+
+    /// <summary>Verifies the trailing else of a chain whose first arm falls through is not reported.</summary>
+    /// <remarks>
+    /// The else belongs to an if that is itself an else clause, so its statements have nowhere to hoist
+    /// to: moving the <c>continue</c> out would put it on the path the first arm takes as well, and the
+    /// loop would continue where it used to fall through. The else is carrying the chain, not nesting it.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TrailingElseOfChainWhoseFirstArmFallsThroughIsNotReportedAsync()
+        => await VerifyUnwrapElse.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int M(int[] values)
+                {
+                    var total = 0;
+                    foreach (var value in values)
+                    {
+                        if (value > 10)
+                        {
+                            total += value;
+                        }
+                        else if (value < 0)
+                        {
+                            return -1;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+
+                        total++;
+                    }
+
+                    return total;
+                }
+            }
+            """);
 }

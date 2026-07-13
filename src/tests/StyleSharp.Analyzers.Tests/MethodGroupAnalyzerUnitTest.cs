@@ -146,6 +146,26 @@ public class MethodGroupAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a lambda whose argument must widen on the way through is not reported.</summary>
+    /// <remarks>
+    /// A method group may only take an identity or implicit reference conversion on each parameter.
+    /// <c>List&lt;object&gt;.Add</c> bound to an <c>Action&lt;int&gt;</c> needs <c>int</c> to box, so the
+    /// method group is CS0123 and the lambda is the only form that compiles.
+    /// </remarks>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task LambdaWhoseArgumentMustBoxIsNotReportedAsync()
+        => await RunAsync(
+            """
+            using System;
+            using System.Collections.Generic;
+
+            public class C
+            {
+                public Action<int> M(List<object> values) => value => values.Add(value);
+            }
+            """);
+
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>
     /// <returns>A task representing the asynchronous operation.</returns>

@@ -85,7 +85,53 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
             && method.Parameters.Length == arguments.Count
             && !IsExpandedParamsCall(method, arguments, model, cancellationToken)
             && model.GetTypeInfo(lambda, cancellationToken).ConvertedType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } target
-            && ReturnTypeSurvivesTheConversion(method, target, model.Compilation);
+            && ReturnTypeSurvivesTheConversion(method, target, model.Compilation)
+            && ParametersSurviveTheConversion(method, target, model.Compilation);
+
+    /// <summary>Returns whether the delegate's parameters reach the method's without a widening step.</summary>
+    /// <param name="method">The method the lambda forwards to.</param>
+    /// <param name="target">The delegate type the lambda converts to.</param>
+    /// <param name="compilation">The compilation, used to classify the conversion.</param>
+    /// <returns><see langword="true"/> when a method group would bind to the delegate.</returns>
+    /// <remarks>
+    /// A lambda may convert its arguments on the way through; a method group may not. Method-group
+    /// compatibility allows only an identity or an implicit <em>reference</em> conversion from each
+    /// delegate parameter to the method's. So <c>value =&gt; list.Add(value)</c>, where the list is a
+    /// <c>List&lt;object&gt;</c> and the delegate an <c>Action&lt;int&gt;</c>, cannot become
+    /// <c>list.Add</c> — <c>int</c> to <c>object</c> is a boxing conversion, and the method group is
+    /// CS0123. The lambda is the only form that compiles, so the rule stays quiet.
+    /// </remarks>
+    private static bool ParametersSurviveTheConversion(IMethodSymbol method, INamedTypeSymbol target, Compilation compilation)
+    {
+        if (target.DelegateInvokeMethod is not { } invoke
+            || invoke.Parameters.Length != method.Parameters.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < method.Parameters.Length; i++)
+        {
+            var source = invoke.Parameters[i];
+            var destination = method.Parameters[i];
+            if (source.RefKind != destination.RefKind)
+            {
+                return false;
+            }
+
+            if (SymbolEqualityComparer.Default.Equals(source.Type, destination.Type))
+            {
+                continue;
+            }
+
+            var conversion = compilation.ClassifyConversion(source.Type, destination.Type);
+            if (!conversion.IsIdentity && !conversion.IsReference)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>Returns whether the method's return type is one the delegate can actually hold.</summary>
     /// <param name="method">The method the lambda forwards to.</param>

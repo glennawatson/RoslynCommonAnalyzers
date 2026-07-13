@@ -76,6 +76,32 @@ public class StaticLocalFunctionAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a local function whose nested lambda captures an outer local is not reported.</summary>
+    /// <remarks>
+    /// The capture does not have to be written in the body itself. A lambda created there that touches an
+    /// enclosing local captures it just the same, and the local function that builds the lambda cannot then
+    /// be static — the compiler says CS8421.
+    /// </remarks>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task LocalFunctionCapturingThroughANestedLambdaIsNotReportedAsync()
+        => await RunAsync(
+            """
+            using System;
+
+            public class C
+            {
+                public Action M()
+                {
+                    var count = 0;
+
+                    Action Build() => () => count++;
+
+                    return Build();
+                }
+            }
+            """);
+
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>
     /// <returns>A task representing the asynchronous operation.</returns>

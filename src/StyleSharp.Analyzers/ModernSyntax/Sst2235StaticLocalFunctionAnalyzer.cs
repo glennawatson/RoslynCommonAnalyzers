@@ -56,7 +56,12 @@ public sealed class Sst2235StaticLocalFunctionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        foreach (var node in body.DescendantNodesAndSelf(static node => node is not AnonymousFunctionExpressionSyntax and not LocalFunctionStatementSyntax))
+        // Nested lambdas and local functions are walked too. A capture does not have to be written in the
+        // body itself: a lambda created there that touches an enclosing local captures it just the same,
+        // and the local function that builds the lambda cannot then be static (CS8421). Their own
+        // parameters and locals are declared inside this function, so IsCapturedReference already tells
+        // them apart from the outer state.
+        foreach (var node in body.DescendantNodesAndSelf())
         {
             cancellationToken.ThrowIfCancellationRequested();
             switch (node)

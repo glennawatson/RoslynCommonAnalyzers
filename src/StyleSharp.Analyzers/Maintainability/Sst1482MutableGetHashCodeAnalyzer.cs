@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -63,7 +65,8 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        Walk(body, in context);
+        var scan = new HashScanState(context);
+        Walk(body, ref scan);
     }
 
     /// <summary>Returns whether a declaration is the parameterless <c>GetHashCode()</c> override.</summary>
@@ -86,14 +89,14 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Visits a hash override's body, binding only the names that could name this object's state.</summary>
     /// <param name="node">The node to visit.</param>
-    /// <param name="context">The syntax node context.</param>
+    /// <param name="scan">The running scan state.</param>
     /// <remarks>
     /// A hand-written preorder walk rather than <c>DescendantNodes()</c>, both to avoid the iterator and
     /// because the decision to descend is what keeps the binds down: the member half of an access on another
     /// object, the operand of a <c>nameof</c> and the member names of an object initializer all name something
     /// other than this instance's state, and none of them is bound.
     /// </remarks>
-    private static void Walk(SyntaxNode node, in SyntaxNodeAnalysisContext context)
+    private static void Walk(SyntaxNode node, ref HashScanState scan)
     {
         switch (node)
         {
@@ -105,7 +108,7 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
             // state that belongs elsewhere, so only the receiver is followed and the member half is dropped.
             case MemberAccessExpressionSyntax memberAccess:
             {
-                WalkMemberAccess(memberAccess, in context);
+                WalkMemberAccess(memberAccess, ref scan);
                 return;
             }
 
@@ -117,7 +120,7 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
             // so only the values are followed.
             case InitializerExpressionSyntax initializer when IsMemberInitializer(initializer):
             {
-                WalkInitializerValues(initializer, in context);
+                WalkInitializerValues(initializer, ref scan);
                 return;
             }
 
@@ -125,7 +128,7 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
             // belongs to the callee.
             case SubpatternSyntax subpattern:
             {
-                Walk(subpattern.Pattern, in context);
+                Walk(subpattern.Pattern, ref scan);
                 return;
             }
 
@@ -137,7 +140,7 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
 
             case SimpleNameSyntax name:
             {
-                Inspect(name, in context);
+                Inspect(name, ref scan);
                 return;
             }
         }
@@ -147,52 +150,59 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
         {
             if (children[i].AsNode() is { } child)
             {
-                Walk(child, in context);
+                Walk(child, ref scan);
             }
         }
     }
 
     /// <summary>Follows a member access, binding its member half only when it names this object's state.</summary>
     /// <param name="memberAccess">The member access.</param>
-    /// <param name="context">The syntax node context.</param>
-    private static void WalkMemberAccess(MemberAccessExpressionSyntax memberAccess, in SyntaxNodeAnalysisContext context)
+    /// <param name="scan">The running scan state.</param>
+    private static void WalkMemberAccess(MemberAccessExpressionSyntax memberAccess, ref HashScanState scan)
     {
         if (memberAccess.Expression is ThisExpressionSyntax or BaseExpressionSyntax)
         {
-            Inspect(memberAccess.Name, in context);
+            Inspect(memberAccess.Name, ref scan);
             return;
         }
 
-        Walk(memberAccess.Expression, in context);
+        Walk(memberAccess.Expression, ref scan);
     }
 
     /// <summary>Follows only the assigned values of an object or <c>with</c> initializer.</summary>
     /// <param name="initializer">The initializer.</param>
-    /// <param name="context">The syntax node context.</param>
-    private static void WalkInitializerValues(InitializerExpressionSyntax initializer, in SyntaxNodeAnalysisContext context)
+    /// <param name="scan">The running scan state.</param>
+    private static void WalkInitializerValues(InitializerExpressionSyntax initializer, ref HashScanState scan)
     {
         var expressions = initializer.Expressions;
         for (var i = 0; i < expressions.Count; i++)
         {
             var expression = expressions[i];
-            Walk(expression is AssignmentExpressionSyntax assignment ? assignment.Right : expression, in context);
+            Walk(expression is AssignmentExpressionSyntax assignment ? assignment.Right : expression, ref scan);
         }
     }
 
     /// <summary>Reports a name that reads state which can change after the object is hashed.</summary>
     /// <param name="name">The name to bind.</param>
-    /// <param name="context">The syntax node context.</param>
-    private static void Inspect(SimpleNameSyntax name, in SyntaxNodeAnalysisContext context)
+    /// <param name="scan">The running scan state.</param>
+    /// <remarks>
+    /// One mutable member is one defect however many times the hash happens to read it: a member named
+    /// twice in the same expression — once in a null test, once in the value — would otherwise put two
+    /// squiggles on one line for a single thing to fix. The first read is reported and the rest are
+    /// skipped.
+    /// </remarks>
+    private static void Inspect(SimpleNameSyntax name, ref HashScanState scan)
     {
+        var context = scan.Context;
         var symbol = context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol;
-        var mutableName = symbol switch
+        var mutable = symbol switch
         {
-            IFieldSymbol field when IsMutable(field) => field.Name,
-            IPropertySymbol property when IsMutable(property) => property.Name,
+            IFieldSymbol field when IsMutable(field) => symbol,
+            IPropertySymbol property when IsMutable(property) => symbol,
             _ => null,
         };
 
-        if (mutableName is null)
+        if (mutable is null || !scan.TryMarkReported(mutable))
         {
             return;
         }
@@ -200,7 +210,7 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(DiagnosticHelper.Create(
             MaintainabilityRules.MutableGetHashCode,
             name.GetLocation(),
-            mutableName));
+            mutable.Name));
     }
 
     /// <summary>Returns whether a field can hold a different value later than it did when it was hashed.</summary>
@@ -233,4 +243,41 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
     private static bool IsMemberInitializer(InitializerExpressionSyntax initializer)
         => initializer.IsKind(SyntaxKind.ObjectInitializerExpression)
             || initializer.IsKind(SyntaxKind.WithInitializerExpression);
+
+    /// <summary>Carries the context through the walk and remembers which members have been reported.</summary>
+    /// <param name="Context">The syntax node context.</param>
+    /// <remarks>
+    /// The list is created on the first report, so a hash override with nothing wrong with it — which is
+    /// almost all of them — walks its body without allocating.
+    /// </remarks>
+    private record struct HashScanState(SyntaxNodeAnalysisContext Context)
+    {
+        /// <summary>Gets or sets the members already reported, created on first use.</summary>
+        private List<ISymbol>? Reported { get; set; }
+
+        /// <summary>Records a member as reported, and says whether it is the first time.</summary>
+        /// <param name="symbol">The mutable member.</param>
+        /// <returns><see langword="true"/> when the member has not been reported yet.</returns>
+        public bool TryMarkReported(ISymbol symbol)
+        {
+            if (Reported is { } reported)
+            {
+                for (var i = 0; i < reported.Count; i++)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(reported[i], symbol))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else
+            {
+                reported = new List<ISymbol>(2);
+                Reported = reported;
+            }
+
+            reported.Add(symbol);
+            return true;
+        }
+    }
 }

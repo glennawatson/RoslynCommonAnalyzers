@@ -263,6 +263,25 @@ public class MutableGetHashCodeAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a member the hash reads more than once is reported once, not once per read.</summary>
+    /// <remarks>
+    /// One mutable member is one defect however often the hash names it. A null test followed by a use is
+    /// the ordinary shape, and it must not put two squiggles on one line for a single thing to fix.
+    /// </remarks>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MemberReadTwiceIsReportedOnceAsync()
+        => await VerifyHash.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int[] _items = new int[1];
+
+                public override int GetHashCode() =>
+                    {|SST1482:_items|} is null ? 0 : _items.Length;
+            }
+            """);
+
     /// <summary>Builds a test that runs against the .NET 8 reference assemblies, where <c>System.HashCode</c> exists.</summary>
     /// <param name="source">The source to analyze.</param>
     /// <returns>The configured test.</returns>

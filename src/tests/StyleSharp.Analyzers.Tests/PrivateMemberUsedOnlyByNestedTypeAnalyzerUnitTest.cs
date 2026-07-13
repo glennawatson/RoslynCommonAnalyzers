@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using VerifyNestedOnly = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1498PrivateMemberUsedOnlyByNestedTypeAnalyzer,
     StyleSharp.Analyzers.Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider>;
@@ -337,4 +339,41 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies a member an extension block uses is not reported, because an extension block is not a nested type.</summary>
+    /// <remarks>
+    /// An extension block parses as a type declaration but declares no type — its identifier is empty, and
+    /// nothing can move into it. Code written there is the enclosing static class's own code, so a private
+    /// member it uses is used by the type itself.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task MemberUsedByAnExtensionBlockIsNotReportedAsync()
+    {
+        var test = new VerifyNestedOnly.Test
+        {
+            TestCode = """
+                       #nullable enable
+                       using System;
+
+                       public static class SampleExtensions
+                       {
+                           private static readonly Action<Exception> Rethrow = static e => throw e;
+
+                           extension(Exception? exception)
+                           {
+                               public void Raise() => Rethrow(exception!);
+                           }
+                       }
+                       """,
+        };
+
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Preview));
+        });
+
+        await test.RunAsync(CancellationToken.None);
+    }
 }

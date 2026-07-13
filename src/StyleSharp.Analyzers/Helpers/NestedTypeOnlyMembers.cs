@@ -63,12 +63,25 @@ internal static class NestedTypeOnlyMembers
         for (var i = 0; i < members.Count && !(nested && candidate); i++)
         {
             var member = members[i];
-            nested |= member is BaseTypeDeclarationSyntax;
+            nested |= IsNestedType(member);
             candidate |= IsPossibleCandidate(member);
         }
 
         return nested && candidate;
     }
+
+    /// <summary>Returns whether a member is a nested type a member could actually move into.</summary>
+    /// <param name="member">The member declaration.</param>
+    /// <returns><see langword="true"/> for a nested type that has a name.</returns>
+    /// <remarks>
+    /// An extension block parses as a type declaration but names no type: it is a grouping inside the
+    /// static class that declares it, and its identifier is empty. Nothing can move "into" it — code
+    /// written there is the enclosing type's own code — so it is not a nested type for this rule's
+    /// purposes. Testing the identifier rather than the node kind keeps this working on the Roslyn
+    /// floor, which cannot name the extension-block syntax at all.
+    /// </remarks>
+    private static bool IsNestedType(SyntaxNode member)
+        => member is BaseTypeDeclarationSyntax { Identifier.ValueText.Length: > 0 };
 
     /// <summary>Returns whether a member could be one a nested type has taken over, judged on syntax alone.</summary>
     /// <param name="member">The member declaration.</param>
@@ -196,8 +209,8 @@ internal static class NestedTypeOnlyMembers
                 continue;
             }
 
-            var scan = child is BaseTypeDeclarationSyntax nested
-                ? new ReferenceScan(model, candidates, Owner: null, nested, cancellationToken)
+            var scan = IsNestedType(child)
+                ? new ReferenceScan(model, candidates, Owner: null, (BaseTypeDeclarationSyntax)child, cancellationToken)
                 : new ReferenceScan(model, candidates, child as MemberDeclarationSyntax, Nested: null, cancellationToken);
             DescendantTraversalHelper.VisitDescendants(child, ref scan, ReferenceVisitor);
         }

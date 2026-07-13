@@ -155,8 +155,16 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
         }
 
         if (state.Model.GetSymbolInfo(identifier, state.CancellationToken).Symbol is not { IsStatic: false } referenced
-            || SymbolEqualityComparer.Default.Equals(referenced, state.Symbol)
-            || !IsInstanceMemberOfHierarchy(referenced, state.ContainingType))
+            || SymbolEqualityComparer.Default.Equals(referenced, state.Symbol))
+        {
+            return true;
+        }
+
+        var usesInstance = referenced is IParameterSymbol parameter
+            ? IsCapturedFromEnclosingDeclaration(parameter, state.Symbol)
+            : IsInstanceMemberOfHierarchy(referenced, state.ContainingType);
+
+        if (!usesInstance)
         {
             return true;
         }
@@ -165,23 +173,42 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether a symbol is instance state of the analyzed type or one of its bases.</summary>
+    /// <summary>Returns whether a parameter belongs to a declaration that encloses the analyzed member.</summary>
+    /// <param name="parameter">The referenced parameter.</param>
+    /// <param name="member">The member being analyzed.</param>
+    /// <returns><see langword="true"/> when naming the parameter binds the member to its receiver.</returns>
+    /// <remarks>
+    /// A parameter the member owns — its own, or one belonging to a lambda or local function written
+    /// inside it — is just a value in scope. A parameter owned by something <em>outside</em> the member
+    /// is not: it is the enclosing declaration's, captured into the object so the member can read it.
+    /// Both shapes that produce one make <c>static</c> a compiler error rather than a cleanup — a primary
+    /// constructor parameter gives CS9105, and an extension block's receiver gives CS9347 — so a member
+    /// that names either is left alone.
+    /// </remarks>
+    private static bool IsCapturedFromEnclosingDeclaration(IParameterSymbol parameter, ISymbol member)
+    {
+        for (var owner = parameter.ContainingSymbol; owner is not null; owner = owner.ContainingSymbol)
+        {
+            if (SymbolEqualityComparer.Default.Equals(owner, member))
+            {
+                return false;
+            }
+
+            if (owner is INamedTypeSymbol)
+            {
+                break;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Returns whether a symbol is an instance member of the analyzed type or one of its bases.</summary>
     /// <param name="symbol">The referenced symbol.</param>
     /// <param name="containingType">The analyzed member's containing type.</param>
     /// <returns><see langword="true"/> when reading the symbol requires a receiver.</returns>
-    /// <remarks>
-    /// A primary constructor parameter counts. Naming one from a member body captures it into a
-    /// synthesized instance field, so the member does depend on its receiver — and the compiler says so:
-    /// a static member that names a primary constructor parameter does not compile. Missing this would
-    /// leave the reader a diagnostic whose only stated remedy is a build error.
-    /// </remarks>
     private static bool IsInstanceMemberOfHierarchy(ISymbol symbol, INamedTypeSymbol containingType)
     {
-        if (symbol is IParameterSymbol { ContainingSymbol: IMethodSymbol { MethodKind: MethodKind.Constructor } primaryConstructor })
-        {
-            return SymbolEqualityComparer.Default.Equals(primaryConstructor.ContainingType, containingType);
-        }
-
         if (symbol.Kind is not (SymbolKind.Field or SymbolKind.Property or SymbolKind.Method or SymbolKind.Event))
         {
             return false;

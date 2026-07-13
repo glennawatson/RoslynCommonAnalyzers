@@ -29,7 +29,11 @@ public sealed class Sst1148CommentedOutCodeAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxTreeAnalysisContext context)
     {
         var root = context.Tree.GetRoot(context.CancellationToken);
-        var firstTokenStart = root.GetFirstToken().SpanStart;
+
+        // Zero-width tokens count: a file whose whole body sits inside an inactive '#if' has no token but the
+        // end-of-file one, and skipping it hands back a default token starting at 0 — which would place the
+        // file header after the first token and lose the exemption that keeps the header out of this rule.
+        var firstTokenStart = root.GetFirstToken(includeZeroWidth: true).SpanStart;
         var text = context.Tree.GetText(context.CancellationToken);
         foreach (var trivia in root.DescendantTrivia())
         {

@@ -57,7 +57,12 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
     {
         var text = context.Tree.GetText(context.CancellationToken);
         var root = context.Tree.GetRoot(context.CancellationToken);
-        var firstTokenStart = root.GetFirstToken().SpanStart;
+
+        // Zero-width tokens count, because the end-of-file token may be the only one there is. A file whose
+        // whole body sits inside an inactive '#if' has no other, and the default GetFirstToken() skips it and
+        // hands back a default token starting at 0 — which puts the file header *after* the first token and
+        // collapses the header exemption, reporting the copyright banner of every file compiled out.
+        var firstTokenStart = root.GetFirstToken(includeZeroWidth: true).SpanStart;
 
         var start = -1;
         var end = -1;

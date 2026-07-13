@@ -125,6 +125,27 @@ public class MethodGroupAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a lambda that throws away a return value the delegate cannot hold is not reported.</summary>
+    /// <remarks>
+    /// A lambda body may discard a result; a method group may not. Offering the method group for
+    /// <c>error =&gt; source.TrySetException(error)</c> against an <c>Action&lt;Exception&gt;</c> would hand
+    /// the reader CS0407, because <c>TrySetException</c> returns <see langword="bool"/>.
+    /// </remarks>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task LambdaDiscardingAReturnValueIsNotReportedAsync()
+        => await RunAsync(
+            """
+            using System;
+            using System.Threading.Tasks;
+
+            public class C
+            {
+                public Action<Exception> M(TaskCompletionSource<int> completion)
+                    => error => completion.TrySetException(error);
+            }
+            """);
+
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>
     /// <returns>A task representing the asynchronous operation.</returns>

@@ -84,7 +84,42 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
         => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { MethodKind: MethodKind.Ordinary } method
             && method.Parameters.Length == arguments.Count
             && !IsExpandedParamsCall(method, arguments, model, cancellationToken)
-            && model.GetTypeInfo(lambda, cancellationToken).ConvertedType is { TypeKind: TypeKind.Delegate };
+            && model.GetTypeInfo(lambda, cancellationToken).ConvertedType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } target
+            && ReturnTypeSurvivesTheConversion(method, target, model.Compilation);
+
+    /// <summary>Returns whether the method's return type is one the delegate can actually hold.</summary>
+    /// <param name="method">The method the lambda forwards to.</param>
+    /// <param name="target">The delegate type the lambda converts to.</param>
+    /// <param name="compilation">The compilation, used to classify the conversion.</param>
+    /// <returns><see langword="true"/> when a method group would bind to the delegate.</returns>
+    /// <remarks>
+    /// A lambda body is free to throw a return value away — <c>error =&gt; source.TrySetException(error)</c>
+    /// converts to <c>Action&lt;Exception&gt;</c> even though <c>TrySetException</c> returns
+    /// <see langword="bool"/>. A method group has no such licence: it must match the delegate's return
+    /// type, and offering one here would hand the reader CS0407. The lambda is the only form that
+    /// compiles, so the rule stays quiet.
+    /// </remarks>
+    private static bool ReturnTypeSurvivesTheConversion(IMethodSymbol method, INamedTypeSymbol target, Compilation compilation)
+    {
+        if (target.DelegateInvokeMethod is not { } invoke)
+        {
+            return false;
+        }
+
+        var expected = invoke.ReturnType;
+        if (SymbolEqualityComparer.Default.Equals(method.ReturnType, expected))
+        {
+            return true;
+        }
+
+        if (expected.SpecialType == SpecialType.System_Void)
+        {
+            return false;
+        }
+
+        var conversion = compilation.ClassifyConversion(method.ReturnType, expected);
+        return conversion.IsIdentity || conversion.IsReference;
+    }
 
     /// <summary>Returns whether a call to a <see langword="params"/> method uses its expanded form.</summary>
     /// <param name="method">The resolved target method, with one parameter per argument.</param>

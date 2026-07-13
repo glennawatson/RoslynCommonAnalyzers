@@ -225,6 +225,26 @@ public class LayoutCommentUnitTest
             }
             """);
 
+    /// <summary>Verifies the file header is still exempt when the whole body is compiled out.</summary>
+    /// <remarks>
+    /// Under a target framework where the condition is false, the file has no token but the end-of-file
+    /// one. Skipping that zero-width token would put the header after the "first" token at position 0 and
+    /// collapse the header exemption, reporting the copyright banner of every file compiled out.
+    /// </remarks>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task FileHeaderIsExemptWhenTheWholeBodyIsCompiledOutAsync()
+        => await VerifyComment.VerifyAnalyzerAsync(
+            """
+            // Copyright (c) Contributors. All rights reserved.
+            // Licensed under the MIT license.
+            #if SOME_UNDEFINED_SYMBOL
+            public class C
+            {
+            }
+            #endif
+            """);
+
     /// <summary>Parses the first single-line comment trivia from the supplied source.</summary>
     /// <param name="source">The source containing the target comment.</param>
     /// <returns>The parsed single-line comment trivia.</returns>

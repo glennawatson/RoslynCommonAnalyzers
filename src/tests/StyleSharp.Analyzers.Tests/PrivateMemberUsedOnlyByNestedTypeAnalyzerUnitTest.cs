@@ -148,16 +148,20 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
         await VerifyNestedOnly.VerifyCodeFixAsync(Source, Source);
     }
 
-    /// <summary>Verifies an instance member the nested type reaches through the outer instance is reported, not moved.</summary>
+    /// <summary>Verifies an instance member the nested type reaches through the outer instance is not reported.</summary>
+    /// <remarks>
+    /// An instance member belongs to an instance of the outer type, and the nested type reaches it through
+    /// a reference it holds. Moving it would hand each nested instance its own copy — a different program —
+    /// so there is nowhere for it to go.
+    /// </remarks>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    /// <remarks>Whose state it becomes after the move is a design question, so the fix declines it.</remarks>
     [Test]
-    public async Task InstanceFieldReachedThroughTheOwnerIsReportedWithoutAFixAsync()
+    public async Task InstanceFieldReachedThroughTheOwnerIsNotReportedAsync()
     {
         const string Source = """
                               internal class Outer
                               {
-                                  private int {|SST1498:_factor|} = 2;
+                                  private int _factor = 2;
 
                                   internal sealed class Inner
                                   {
@@ -166,6 +170,49 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
                                       public Inner(Outer owner) => _owner = owner;
 
                                       public int Run(int value) => value * _owner._factor;
+                                  }
+                              }
+                              """;
+        await VerifyNestedOnly.VerifyCodeFixAsync(Source, Source);
+    }
+
+    /// <summary>Verifies an instance method a nested type calls back into is not reported.</summary>
+    /// <remarks>
+    /// This is the ordinary shape of a subscription that unsubscribes itself: the nested type holds its
+    /// owner and calls one private method on it. Reporting that method does not terminate — move it, and
+    /// the private helpers it called become nested-only in turn, then the fields those touch, until the
+    /// outer type's whole state has been asked to move into the nested one.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InstanceMethodANestedTypeCallsBackIntoIsNotReportedAsync()
+    {
+        const string Source = """
+                              #nullable enable
+                              internal class Outer
+                              {
+                                  private readonly object _gate = new();
+
+                                  private void Remove(Inner subscription)
+                                  {
+                                      lock (_gate)
+                                      {
+                                          _ = subscription;
+                                      }
+                                  }
+
+                                  internal sealed class Inner
+                                  {
+                                      private Outer? _owner;
+
+                                      public Inner(Outer owner) => _owner = owner;
+
+                                      public void Dispose()
+                                      {
+                                          var owner = _owner;
+                                          _owner = null;
+                                          owner?.Remove(this);
+                                      }
                                   }
                               }
                               """;

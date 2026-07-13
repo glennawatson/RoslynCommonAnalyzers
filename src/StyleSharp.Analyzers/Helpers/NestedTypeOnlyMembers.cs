@@ -161,13 +161,26 @@ internal static class NestedTypeOnlyMembers
     /// <param name="declaration">The declaration that would move.</param>
     /// <param name="identifier">The identifier the diagnostic is reported on.</param>
     /// <param name="candidates">The candidate list, created on first use.</param>
+    /// <remarks>
+    /// Only a <c>static</c> member is a candidate, because only a static member can actually move. An
+    /// instance member belongs to an instance of the outer type, and the nested type reaches it through
+    /// a reference it holds — <c>_owner._factor</c>. Moving it would hand each nested instance its own
+    /// copy, which is a different program, so the member cannot go anywhere and the fix has nothing to
+    /// offer.
+    /// <para>
+    /// Reporting it anyway does not merely produce a diagnostic no one can act on: it does not
+    /// terminate. Move the one method a nested type calls and the private helpers <em>it</em> called
+    /// become nested-only in turn, then the fields those touch, until the rule has asked for the outer
+    /// type's whole state to be poured into the nested one.
+    /// </para>
+    /// </remarks>
     private static void AddCandidate(
         ISymbol? symbol,
         MemberDeclarationSyntax declaration,
         SyntaxToken identifier,
         ref List<NestedTypeOnlyMember>? candidates)
     {
-        if (symbol is null || symbol.DeclaredAccessibility != Accessibility.Private)
+        if (symbol is not { IsStatic: true, DeclaredAccessibility: Accessibility.Private })
         {
             return;
         }

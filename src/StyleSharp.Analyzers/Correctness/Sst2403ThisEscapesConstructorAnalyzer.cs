@@ -109,12 +109,55 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the expression is passed as an argument or stored externally.</returns>
     private static bool IsHandedOver(ExpressionSyntax escaping, SyntaxNodeAnalysisContext context) => escaping.Parent switch
     {
-        ArgumentSyntax argument => argument.Expression == escaping,
+        ArgumentSyntax argument => argument.Expression == escaping
+            && !FlowsIntoOwnValueTypeField(argument, context),
         AssignmentExpressionSyntax assignment => assignment.Right == escaping
             && IsStoringAssignment(assignment)
             && IsExternalTarget(assignment.Left, context),
         _ => false,
     };
+
+    /// <summary>Returns whether a <c>this</c> argument is being built into a value stored inside this object.</summary>
+    /// <param name="argument">The argument carrying <c>this</c>.</param>
+    /// <param name="context">The syntax node context.</param>
+    /// <returns><see langword="true"/> when the constructed value is a struct assigned straight to a field of this object.</returns>
+    /// <remarks>
+    /// <c>_state = new(this, Post, Drain);</c> where <c>_state</c> is a struct field reads like an escape and
+    /// is not one. A struct field's storage <em>is</em> part of the object: the copy holding the reference
+    /// lives inside the very object it points at, and there is no second reference for anything else to
+    /// reach it through. Nothing observes the half-built object, because nothing can get to the struct
+    /// without already holding the object.
+    /// <para>
+    /// Both halves are load bearing. A <em>class</em> assigned to the same field is a separate object that
+    /// the constructor could have published elsewhere first, so it is still reported. And the value must
+    /// land directly in a field of this object — passed anywhere else, the struct is a copy someone else
+    /// now holds.
+    /// </para>
+    /// </remarks>
+    private static bool FlowsIntoOwnValueTypeField(ArgumentSyntax argument, SyntaxNodeAnalysisContext context)
+    {
+        if (argument.Parent?.Parent is not BaseObjectCreationExpressionSyntax creation
+            || context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type is not { IsValueType: true })
+        {
+            return false;
+        }
+
+        if (creation.Parent is not AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment
+            || assignment.Right != creation)
+        {
+            return false;
+        }
+
+        var target = assignment.Left switch
+        {
+            MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } member => member.Name,
+            IdentifierNameSyntax identifier => identifier,
+            _ => null,
+        };
+
+        return target is not null
+            && context.SemanticModel.GetSymbolInfo(target, context.CancellationToken).Symbol is IFieldSymbol { IsStatic: false };
+    }
 
     /// <summary>Returns whether an assignment stores its right-hand side rather than computing with it.</summary>
     /// <param name="assignment">The assignment.</param>

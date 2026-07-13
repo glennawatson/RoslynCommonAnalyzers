@@ -224,4 +224,59 @@ public class ThisEscapesConstructorAnalyzerUnitTest
                 public void Publish() => Registry.Add(this);
             }
             """);
+
+    /// <summary>Verifies a struct built around <c>this</c> and stored in this object's own field is not reported.</summary>
+    /// <remarks>
+    /// A struct field's storage is part of the object, so the copy holding the reference lives inside the
+    /// very object it points at. There is no second reference for anything else to reach it through, and
+    /// nothing can get to the struct without already holding the object.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task StructStoredInThisObjectsOwnFieldIsNotReportedAsync()
+        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public readonly struct Pump(object owner, Action drain)
+            {
+                public object Owner => owner;
+
+                public void Run() => drain();
+            }
+
+            public sealed class C
+            {
+                private Pump _pump;
+
+                public C() => _pump = new(this, Drain);
+
+                private void Drain()
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies a class built around <c>this</c> and stored in this object's own field is still reported.</summary>
+    /// <remarks>
+    /// A class is a separate object the constructor could have handed somewhere else first, so storing it
+    /// in a field proves nothing about who else can already see it.
+    /// </remarks>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ClassStoredInThisObjectsOwnFieldIsStillReportedAsync()
+        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+            """
+            public sealed class Sink(object owner)
+            {
+                public object Owner => owner;
+            }
+
+            public sealed class C
+            {
+                private readonly Sink _sink;
+
+                public C() => _sink = new({|SST2403:this|});
+            }
+            """);
 }

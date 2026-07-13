@@ -90,6 +90,11 @@ Some rules expose options. Current options:
 | `stylesharp.minimum_string_length` | [SST1486](rules/SST1486.md) | positive integer | `5` |
 | `stylesharp.require_parameterless` | [SST1488](rules/SST1488.md) | `true`, `false` | `true` |
 | `stylesharp.include_non_public_types` | [SST1488](rules/SST1488.md) | `true`, `false` | `true` |
+| `stylesharp.include_internal` | [SST1499](rules/SST1499.md) | `true`, `false` | `true` |
+| `stylesharp.max_line_length` | [SST1521](rules/SST1521.md) | positive integer (characters) | `120` |
+| `stylesharp.max_file_lines` | [SST1522](rules/SST1522.md) | positive integer (code lines) | `500` |
+| `stylesharp.max_member_lines` | [SST1523](rules/SST1523.md) | positive integer (code lines) | `60` |
+| `stylesharp.max_switch_section_lines` | [SST1524](rules/SST1524.md) | positive integer (code lines) | `20` |
 | `stylesharp.SST1431.additional_per_owner_types` | [SST1431](rules/SST1431.md) | comma-separated fully-qualified type names | built-in list only |
 | `stylesharp.document_exposed_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_internal_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |

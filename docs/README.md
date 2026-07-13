@@ -41,6 +41,8 @@ async, `PSH14xx` API selection.
 | [PSH1016](rules/PSH1016.md) | Test enum flags with bitwise operators instead of `Enum.HasFlag`. |
 | [PSH1017](rules/PSH1017.md) | A property allocates a copy of a collection on every read. |
 | [PSH1018](rules/PSH1018.md) | A hand-written array is passed to a `params` parameter. Code fix passes the elements directly. |
+| [PSH1019](rules/PSH1019.md) | The range indexer on an array allocates a copy where a view would do. Code fix slices in place with `AsSpan` or `AsMemory`. |
+| [PSH1020](rules/PSH1020.md) | A multidimensional array is chosen where a jagged array would index on the CLR's fast path. |
 
 ## Collections
 
@@ -69,6 +71,9 @@ async, `PSH14xx` API selection.
 | [PSH1120](rules/PSH1120.md) | Do not materialize a sequence just to enumerate it. |
 | [PSH1122](rules/PSH1122.md) | Read a sorted set's extreme through its `Min`/`Max` property, not the LINQ extension. Code fix uses the property. |
 | [PSH1124](rules/PSH1124.md) | Read a linked list's end through its `First`/`Last` property, not the LINQ extension. Code fix reads the node's `Value`. |
+| [PSH1125](rules/PSH1125.md) | A lazy sequence is enumerated more than once, so whatever produced it runs again. |
+| [PSH1126](rules/PSH1126.md) | An async query counts the whole result set to learn whether it has any rows. Code fix rewrites the comparison to `AnyAsync()`. |
+| [PSH1127](rules/PSH1127.md) | An array is filled with its default value one element at a time. Code fix rewrites the call to `Array.Clear`. |
 
 ## Strings
 
@@ -94,6 +99,12 @@ async, `PSH14xx` API selection.
 | [PSH1217](rules/PSH1217.md) | Do not copy a sequence to an array just to read it. Code fix drops the copy. |
 | [PSH1218](rules/PSH1218.md) | Slice with `AsSpan` instead of allocating a substring to search it. Code fix rewrites the slice. |
 | [PSH1219](rules/PSH1219.md) | Ask whether a string is blank without trimming it. Code fix uses `string.IsNullOrWhiteSpace`. |
+| [PSH1220](rules/PSH1220.md) | A length argument spells out the run that reaches the end anyway. Code fix drops the length argument. |
+| [PSH1221](rules/PSH1221.md) | An `IndexOf` result compared to `0` scans the whole string to answer a question about position zero. Code fix rewrites it to `StartsWith`. |
+| [PSH1222](rules/PSH1222.md) | A concatenation materializes its slices before copying them again into the result. Code fix concatenates the spans. |
+| [PSH1223](rules/PSH1223.md) | A reused composite format string is re-parsed on every call. Code fix hoists it into a `static readonly CompositeFormat` field. |
+| [PSH1224](rules/PSH1224.md) | Bytes are converted to hex by building the string twice. Code fix rewrites the pair to `Convert.ToHexString`. |
+| [PSH1225](rules/PSH1225.md) | Bytes are decoded through a throwaway `char[]`. Code fix rewrites the pair to `Encoding.GetString`. |
 
 ## Concurrency (PerformanceSharp)
 
@@ -109,6 +120,11 @@ async, `PSH14xx` API selection.
 | [PSH1307](rules/PSH1307.md) | Access interlocked fields with `Volatile`. Code fix wraps the access. |
 | [PSH1308](rules/PSH1308.md) | Return the completed task instead of `Task.FromResult`. Code fix rewrites the call. |
 | [PSH1309](rules/PSH1309.md) | Register cancellation callbacks without flowing the execution context. Opt-in. |
+| [PSH1310](rules/PSH1310.md) | An `IAsyncDisposable` is disposed by a synchronous `using` inside an async method. Code fix inserts the `await`. |
+| [PSH1311](rules/PSH1311.md) | An `async` method whose body is one tail-position await builds a state machine only to forward a task. Code fix drops `async` and returns the task. |
+| [PSH1312](rules/PSH1312.md) | A `null` is returned where the declared return type is `Task` or `Task<T>`. Code fix returns a completed task. |
+| [PSH1313](rules/PSH1313.md) | An `async` method blocks on a task, or calls a synchronous method that has a fitting async overload. Code fix awaits the async overload. |
+| [PSH1314](rules/PSH1314.md) | A stream is read or written through the array-based `ReadAsync`/`WriteAsync` overloads. Code fix rewrites the call via `AsMemory`. |
 
 ## ApiSelection
 
@@ -128,12 +144,24 @@ async, `PSH14xx` API selection.
 | [PSH1411](rules/PSH1411.md) | Seal non-public types nothing derives from so the JIT can devirtualize. Code fix adds `sealed`. |
 | [PSH1412](rules/PSH1412.md) | Use `Random.Shared` instead of allocating a `Random`. Code fix takes the shared instance. |
 | [PSH1413](rules/PSH1413.md) | Read the Unix epoch from `DateTime.UnixEpoch`, not a hand-built date. Code fix uses the field. |
+| [PSH1414](rules/PSH1414.md) | A member never touches instance state, so it still pays for a receiver it does not use. Code fix adds `static` and repairs `this.`-qualified call sites. |
+| [PSH1415](rules/PSH1415.md) | A local or private field is typed as an interface where only one concrete type is ever assigned. Code fix changes the declared type. |
+| [PSH1416](rules/PSH1416.md) | A fresh `JsonSerializerOptions` per call throws away the serializer's per-type metadata cache. |
+| [PSH1417](rules/PSH1417.md) | An expensive argument is computed for a `Debug.Assert` that release builds compile away. |
 
 # StyleSharp Rule Index
 
-Style, layout, naming, documentation, and readability rules. Perf-motivated rules
-that previously lived here (SST1434, SST1900, SST2229, SST2230, SST2233) moved to
-PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
+Style, layout, naming, documentation, and readability rules. Ids are grouped by
+the hundreds digit: `SST10xx` spacing, `SST11xx` readability, `SST12xx` ordering,
+`SST13xx` naming, `SST14xx` maintainability, `SST15xx` layout, `SST16xx`
+documentation, `SST17xx` extensions, `SST18xx` records, `SST19xx` concurrency,
+`SST20xx` modernization, `SST21xx` collection expressions, `SST22xx` modern
+syntax, `SST23xx` design — the shape of a type's public surface — and `SST24xx`
+correctness — code that compiles and runs but does not do what it says.
+
+Perf-motivated rules that previously lived here (SST1434, SST1900, SST2229,
+SST2230, SST2233) moved to PerformanceSharp as PSH1002, PSH1300, PSH1101,
+PSH1102, and PSH1100.
 
 ## Concurrency
 
@@ -191,6 +219,8 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST1655](rules/SST1655.md) | Extension block parameters should be documented. |
 | [SST1656](rules/SST1656.md) | Extension block type parameters should be documented. |
 | [SST1657](rules/SST1657.md) | Extension block documentation should reference a real parameter or type parameter. |
+| [SST1658](rules/SST1658.md) | Documentation prose repeats a word ("the the"). Code fix removes the repeat. |
+| [SST1659](rules/SST1659.md) | A comment has no text at all. Code fix removes it. |
 
 ## Extensions
 
@@ -230,6 +260,10 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST1518](rules/SST1518.md) | The file does not end with exactly one newline. |
 | [SST1519](rules/SST1519.md) | A multi-line child statement of a control-flow keyword omits its braces. |
 | [SST1520](rules/SST1520.md) | The clauses of an if/else chain use braces inconsistently. |
+| [SST1521](rules/SST1521.md) | A line is longer than the configured maximum, which defaults to 120 characters. |
+| [SST1522](rules/SST1522.md) | A file has more code lines than the configured maximum, which defaults to 500. |
+| [SST1523](rules/SST1523.md) | A member has more code lines than the configured maximum, which defaults to 60. |
+| [SST1524](rules/SST1524.md) | A switch section has more code lines than the configured maximum, which defaults to 20. |
 
 ## Maintainability
 
@@ -327,6 +361,12 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST1491](rules/SST1491.md) | A modifier restates the declaration's default. Code fix removes the modifier. |
 | [SST1492](rules/SST1492.md) | A value is tested against what it is then assigned, so the guard decides nothing. Code fix keeps the assignment. |
 | [SST1493](rules/SST1493.md) | A method's whole body is a constant. Code fix exposes it as a get-only property. |
+| [SST1494](rules/SST1494.md) | A trailing argument repeats the parameter's default. Code fix drops it, and the ones after it. |
+| [SST1495](rules/SST1495.md) | `==` compares references on a type that overrides `Equals`, so the two disagree. Code fix calls `object.Equals`. |
+| [SST1496](rules/SST1496.md) | An abstract type declares nothing abstract, so it asks nothing of its derived types. Code fix makes it concrete. |
+| [SST1497](rules/SST1497.md) | A local is declared and never read. Code fix removes the variable and keeps what computing it did. |
+| [SST1498](rules/SST1498.md) | Only a nested type uses a private member, so it is declared further out than it needs to be. Code fix moves a static method into the nested type. |
+| [SST1499](rules/SST1499.md) | A static field visible outside its type can still be changed — it is global mutable state. Code fix adds `readonly` when that is all it takes. |
 
 ## Modernization
 
@@ -341,6 +381,13 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST2006](rules/SST2006.md) | A negated type test (`!(x is T)`) should use the `is not` pattern. |
 | [SST2007](rules/SST2007.md) | An `is` check followed by a cast local should use a declaration pattern. |
 | [SST2008](rules/SST2008.md) | A negated pattern test should use an `is not` pattern. |
+| [SST2009](rules/SST2009.md) | A catch block tests a condition and rethrows on the losing branch, which is an exception filter written by hand. Code fix moves the condition into a `when` clause. |
+| [SST2010](rules/SST2010.md) | A type reads the machine clock directly instead of through a `TimeProvider`. Opt-in. |
+| [SST2011](rules/SST2011.md) | An instant is recorded from the local clock. Code fix rewrites `.Now` to `.UtcNow`. |
+| [SST2012](rules/SST2012.md) | A GUID is constructed with the parameterless constructor. Code fix uses `Guid.Empty`. |
+| [SST2013](rules/SST2013.md) | An `if` whose entire body is another `if`, with no `else` on either. Code fix merges the conditions. |
+| [SST2014](rules/SST2014.md) | A `goto` jumps to a label. |
+| [SST2015](rules/SST2015.md) | A `++` or `--` is buried inside a larger expression, so its side effect happens in the middle of something else. |
 
 ## Collection Expressions
 
@@ -397,8 +444,42 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST2240](rules/SST2240.md) | A delegate null check followed by invocation can use conditional invocation. |
 | [SST2241](rules/SST2241.md) | A constructor that only stores its parameters can use primary-constructor storage. Code fix moves the parameters and member initializers. |
 | [SST2242](rules/SST2242.md) | An enum switch statement mapping should name every enum value or include a catch-all. |
+| [SST2243](rules/SST2243.md) | A verbatim string literal is full of doubled-quote escapes, or spans lines. Code fix rewrites it as a raw string literal. |
 | [SST2244](rules/SST2244.md) | A numeric literal's suffix is lower case. Code fix upper-cases the suffix, leaving the digits alone. |
 | [SST2245](rules/SST2245.md) | A `for` loop with only a condition should be a `while` loop. Code fix rewrites it. |
+
+## Design
+
+The shape of a type's public surface: interface contracts, operator and event
+conventions, and what a member exposes.
+
+| Rule | Description |
+| --- | --- |
+| [SST2300](rules/SST2300.md) | A class implements `IDisposable` but builds only half of the disposal pattern. Code fix adds the two mechanical clauses. |
+| [SST2301](rules/SST2301.md) | A class implements `IEquatable<T>` for itself and can still be derived from. Code fix seals the type. |
+| [SST2302](rules/SST2302.md) | A type overloads an operator without the rest of the set that operator belongs to. |
+| [SST2303](rules/SST2303.md) | An enum is marked `[Flags]` but its members are not distinct bit values. |
+| [SST2304](rules/SST2304.md) | An event's delegate does not have the standard `void (object sender, TEventArgs e)` shape. |
+| [SST2305](rules/SST2305.md) | A property whose type is a mutable collection declares a caller-visible setter. Code fix removes the setter. |
+| [SST2306](rules/SST2306.md) | A member whose declared return type is a collection hands back `null`. Code fix returns the empty collection. |
+| [SST2308](rules/SST2308.md) | An `[Obsolete]` attribute carries no message, or one that is empty or only whitespace. |
+
+## Correctness
+
+Code that compiles and runs but does not do what it says.
+
+| Rule | Description |
+| --- | --- |
+| [SST2400](rules/SST2400.md) | Two arguments name each other's parameters, so they have been transposed. Code fix puts them back in the parameters' order. |
+| [SST2401](rules/SST2401.md) | A `catch` targets `NullReferenceException`, by naming it or by reaching it through a filter. |
+| [SST2402](rules/SST2402.md) | An instance constructor assigns a static field of its own type, so the last instance built wins. |
+| [SST2403](rules/SST2403.md) | `this` escapes a constructor — passed as an argument, stored somewhere that outlives the object, or captured in a closure handed to somebody else. |
+| [SST2404](rules/SST2404.md) | An iterator's argument guard does not run until the first `MoveNext`. Code fix splits the validating method from the private iterator. |
+| [SST2405](rules/SST2405.md) | A `[DebuggerDisplay]` string names a member the type neither declares nor inherits. |
+| [SST2406](rules/SST2406.md) | A `while` or `for` condition reads only variables that nothing in the loop ever writes. |
+| [SST2407](rules/SST2407.md) | A field-like event is declared, and nothing in the compilation ever raises it. |
+| [SST2408](rules/SST2408.md) | A local `StringBuilder` is appended to, and its contents are never read. |
+| [SST2409](rules/SST2409.md) | A `throw` constructs `Exception`, `SystemException`, or `ApplicationException`, which callers cannot catch selectively. |
 
 ## Naming
 
@@ -445,6 +526,7 @@ PerformanceSharp as PSH1002, PSH1300, PSH1101, PSH1102, and PSH1100.
 | [SST1215](rules/SST1215.md) | Instance readonly fields should appear before instance non-readonly fields. |
 | [SST1216](rules/SST1216.md) | Using static directives should be placed after regular usings and before aliases. |
 | [SST1217](rules/SST1217.md) | Using static directives should be ordered alphabetically. |
+| [SST1218](rules/SST1218.md) | Other members separate a method's overloads. Code fix moves the overload back beside its family. |
 
 ## Readability
 

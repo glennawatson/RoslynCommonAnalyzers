@@ -14,6 +14,29 @@ namespace PerformanceSharp.Analyzers;
 /// <c>System.Linq.Expressions.Expression&lt;TDelegate&gt;</c> are skipped because
 /// query providers must translate <c>== ""</c> themselves.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <b>The analyzer, not the fix, chooses the replacement.</b> <c>performancesharp.PSH1204.empty_string_style</c>
+/// selects between <c>s is { Length: 0 }</c> (the default), <c>s.Length == 0</c> and
+/// <c>string.IsNullOrEmpty(s)</c>, and the three do not agree on null: <c>s == ""</c> is
+/// <see langword="false"/> for a null string, the pattern is <see langword="false"/> too, the length test
+/// <em>throws</em>, and <c>IsNullOrEmpty</c> is <see langword="true"/>. Only the analyzer can settle that,
+/// because only it holds the semantic model that knows the operand's nullable flow state — so it resolves the
+/// configured style against that flow state here and hands the fix the style it may actually emit, under
+/// <see cref="EmptyStringStyleOptions.StyleKey"/>.
+/// </para>
+/// <para>
+/// A configured <c>length</c> or <c>is_null_or_empty</c> is honoured only when the operand's flow state is
+/// <c>NullableFlowState.NotNull</c> — where the two are exact equivalents of <c>== ""</c>. Everywhere
+/// else, including every file with nullable analysis switched off (whose flow state is
+/// <c>NullableFlowState.None</c>, not a proof of anything), the style silently degrades to the pattern.
+/// The rule will not trade a behavior change for a shorter expression.
+/// </para>
+/// <para>
+/// The option is read only once a violation is already certain, so a clean file never touches the
+/// per-tree option lookup.
+/// </para>
+/// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
 {
@@ -98,8 +121,15 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
         }
 
         var model = context.SemanticModel;
-        if ((!emptyIsLiteral && !IsStringEmptyField(model, empty!, context.CancellationToken))
-            || model.GetTypeInfo(value!, context.CancellationToken).Type is not { SpecialType: SpecialType.System_String }
+        if (!emptyIsLiteral && !IsStringEmptyField(model, empty!, context.CancellationToken))
+        {
+            return;
+        }
+
+        // The one type read answers both questions the report needs: that the operand is a string at all,
+        // and whether the flow state proves it is not null — which is what decides the fix's shape.
+        var valueType = model.GetTypeInfo(value!, context.CancellationToken);
+        if (valueType.Type is not { SpecialType: SpecialType.System_String }
             || !IsStringEqualityOperator(model, binary, context.CancellationToken)
             || IsInsideExpressionTree(model, binary, expressionOfTType, context.CancellationToken))
         {
@@ -109,7 +139,28 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(DiagnosticHelper.Create(
             StringRules.EmptyStringComparison,
             binary.SyntaxTree,
-            binary.OperatorToken.Span));
+            binary.OperatorToken.Span,
+            EmptyStringStyleOptions.GetProperties(ResolveStyle(context, binary, valueType))));
+    }
+
+    /// <summary>Resolves the configured replacement style against what is known about the operand's nullness.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="binary">The reported comparison.</param>
+    /// <param name="valueType">The value operand's type information, including its nullable flow state.</param>
+    /// <returns>The style the code fix may safely emit here.</returns>
+    /// <remarks>
+    /// This is the whole null-safety gate. <c>s.Length == 0</c> throws where <c>s == ""</c> answers
+    /// <see langword="false"/>, and <c>string.IsNullOrEmpty(s)</c> answers <see langword="true"/> where
+    /// <c>s == ""</c> answers <see langword="false"/> — so neither may be offered unless the compiler's own
+    /// flow analysis has already proven the operand is not null at this point. When it has not, the style
+    /// degrades to the pattern, which agrees with <c>== ""</c> on every input including null.
+    /// </remarks>
+    private static EmptyStringStyle ResolveStyle(SyntaxNodeAnalysisContext context, BinaryExpressionSyntax binary, TypeInfo valueType)
+    {
+        var configured = EmptyStringStyleOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(binary.SyntaxTree)).Style;
+        return configured == EmptyStringStyle.Pattern || valueType.Nullability.FlowState == NullableFlowState.NotNull
+            ? configured
+            : EmptyStringStyle.Pattern;
     }
 
     /// <summary>Returns whether an expression is the literal <c>""</c>.</summary>

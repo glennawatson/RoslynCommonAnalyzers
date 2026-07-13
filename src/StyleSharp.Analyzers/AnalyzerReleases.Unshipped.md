@@ -96,7 +96,6 @@ SST2303 | Design | Warning | Sst2303MisusedFlagsAttributeAnalyzer
 SST2304 | Design | Warning | Sst2304EventHandlerSignatureAnalyzer
 SST2305 | Design | Warning | Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer
 SST2306 | Design | Warning | Sst2306ReturnEmptyCollectionNotNullAnalyzer
-SST2307 | Design | Warning | Sst2307WriteOnlyPropertyAnalyzer
 SST2308 | Design | Warning | Sst2308ObsoleteWithoutExplanationAnalyzer
 SST2400 | Correctness | Warning | Sst2400SwappedArgumentsAnalyzer
 SST2401 | Correctness | Warning | Sst2401CatchNullReferenceAnalyzer

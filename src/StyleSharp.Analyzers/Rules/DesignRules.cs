@@ -60,13 +60,6 @@ internal static class DesignRules
         "'{0}' returns null instead of an empty collection; every caller must now guard",
         ReturnEmptyCollectionNotNullDescription);
 
-    /// <summary>SST2307 — a property can be written but never read.</summary>
-    public static readonly DiagnosticDescriptor WriteOnlyProperty = Create(
-        "SST2307",
-        "Properties should not be write-only",
-        "'{0}' can be written but not read; use a method if it is an action",
-        WriteOnlyPropertyDescription);
-
     /// <summary>SST2308 — an obsolete member does not say what to use instead.</summary>
     public static readonly DiagnosticDescriptor ObsoleteWithoutExplanation = Create(
         "SST2308",
@@ -118,11 +111,6 @@ internal static class DesignRules
         "Returning null for 'there is nothing' forces a null check into every caller, and the one that forgets gets a "
         + "NullReferenceException instead of an empty loop. An empty collection reads the same way at every call site — foreach over it, "
         + "count it, chain from it — and 'Array.Empty<T>()' and the empty collection expression cost no allocation at all.";
-
-    /// <summary>The WriteOnlyProperty rule description.</summary>
-    private const string WriteOnlyPropertyDescription =
-        "A property is a value the type has. One that can only be set is not a value — it is an instruction, and callers cannot verify "
-        + "what they told it, log it, or round-trip it. If setting it does something, say so with a method name.";
 
     /// <summary>The ObsoleteWithoutExplanation rule description.</summary>
     private const string ObsoleteWithoutExplanationDescription =

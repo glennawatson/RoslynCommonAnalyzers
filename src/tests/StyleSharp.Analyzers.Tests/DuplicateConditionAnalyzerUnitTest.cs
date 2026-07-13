@@ -6,9 +6,253 @@ using VerifyDuplicateCondition = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifi
 
 namespace StyleSharp.Analyzers.Tests;
 
-/// <summary>Unit tests for SST1475 (a condition should not be repeated in an if/else-if chain).</summary>
+/// <summary>Unit tests for SST1475 (a condition should not be repeated).</summary>
 public class DuplicateConditionAnalyzerUnitTest
 {
+    /// <summary>Verifies two adjacent if statements testing the same condition are reported on the second.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RepeatedConditionInAdjacentIfStatementsIsReportedAsync()
+        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int Total(bool ready)
+                {
+                    var total = 0;
+                    if (ready)
+                    {
+                        total = 1;
+                    }
+
+                    if ({|SST1475:ready|})
+                    {
+                        total = 2;
+                    }
+
+                    return total;
+                }
+            }
+            """);
+
+    /// <summary>Verifies an adjacent pair whose first branch only returns is reported: a return cannot move the condition.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RepeatedConditionWithReturningBranchIsReportedAsync()
+        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int Classify(int value)
+                {
+                    if (value < 0)
+                    {
+                        return -1;
+                    }
+
+                    if ({|SST1475:value < 0|})
+                    {
+                        return 0;
+                    }
+
+                    return 1;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a compound condition repeated in an adjacent if is reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RepeatedCompoundConditionInAdjacentIfStatementsIsReportedAsync()
+        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int Total(int value, bool flag)
+                {
+                    var total = 0;
+                    if (value > 0 && flag)
+                    {
+                        total = 1;
+                    }
+
+                    if ({|SST1475:value > 0 && flag|})
+                    {
+                        total += 2;
+                    }
+
+                    return total;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a call in the first branch silences the pair: the call may write anything the condition reads.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task AdjacentIfStatementsWithCallInFirstBranchAreCleanAsync()
+        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private bool _ready;
+
+                public void Run()
+                {
+                    if (_ready)
+                    {
+                        Reset();
+                    }
+
+                    if (_ready)
+                    {
+                        Finish();
+                    }
+                }
+
+                private void Reset() => _ready = false;
+
+                private void Finish()
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies writing a variable the condition reads silences the pair.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task AdjacentIfStatementsWritingTheConditionAreCleanAsync()
+        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int Total(bool ready)
+                {
+                    var total = 0;
+                    if (ready)
+                    {
+                        ready = false;
+                        total = 1;
+                    }
+
+                    if (ready)
+                    {
+                        total = 2;
+                    }
+
+                    return total;
+                }
+            }
+            """);
+
+    /// <summary>Verifies writing anything that is not a plain local silences the pair, because a setter can run code.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task AdjacentIfStatementsWritingAMemberAreCleanAsync()
+        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public bool Ready { get; set; }
+
+                public int Level { get; set; }
+
+                public void Run(bool flag)
+                {
+                    if (flag)
+                    {
+                        Level = 1;
+                    }
+
+                    if (flag)
+                    {
+                        Level = 2;
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a statement between the two if statements silences the pair.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NonAdjacentIfStatementsAreCleanAsync()
+        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int Total(bool ready)
+                {
+                    var total = 0;
+                    if (ready)
+                    {
+                        total = 1;
+                    }
+
+                    ready = !ready;
+
+                    if (ready)
+                    {
+                        total = 2;
+                    }
+
+                    return total;
+                }
+            }
+            """);
+
+    /// <summary>Verifies an impure condition is not reported in the adjacent shape either.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task AdjacentIfStatementsWithImpureConditionAreCleanAsync()
+        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int Total()
+                {
+                    var total = 0;
+                    if (Check())
+                    {
+                        total = 1;
+                    }
+
+                    if (Check())
+                    {
+                        total = 2;
+                    }
+
+                    return total;
+                }
+
+                private static bool Check() => true;
+            }
+            """);
+
+    /// <summary>Verifies two adjacent if statements with different conditions are clean.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task AdjacentIfStatementsWithDistinctConditionsAreCleanAsync()
+        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int Total(bool ready, bool done)
+                {
+                    var total = 0;
+                    if (ready)
+                    {
+                        total = 1;
+                    }
+
+                    if (done)
+                    {
+                        total = 2;
+                    }
+
+                    return total;
+                }
+            }
+            """);
+
     /// <summary>Verifies a condition repeated later in the same chain is reported on the unreachable branch.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

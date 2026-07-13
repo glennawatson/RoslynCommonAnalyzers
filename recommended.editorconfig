@@ -37,6 +37,11 @@
 # stylesharp.minimum_string_length = 5                     # SST1486 (shorter literals are never reported)
 # stylesharp.require_parameterless = true                  # SST1488 (set false where every exception must carry a message)
 # stylesharp.include_non_public_types = true               # SST1488 (set false to check only externally visible exceptions)
+# stylesharp.include_internal = true                       # SST1499 (set false to report only fields visible outside the assembly)
+# stylesharp.max_line_length = 120                         # SST1521 (characters)
+# stylesharp.max_file_lines = 500                          # SST1522 (code lines; blank lines and comments do not count)
+# stylesharp.max_member_lines = 60                         # SST1523 (code lines)
+# stylesharp.max_switch_section_lines = 20                 # SST1524 (code lines)
 # stylesharp.allowed_hungarian_prefixes = db, ui           # SST1305 (comma-separated; added to the built-in list)
 # stylesharp.extension_container_preferred_suffix = Extensions # SST1704 (Extensions | Mixins)
 # stylesharp.file_naming_convention = braces               # SST1402/SST1649 code fixes (braces 'Widget{T}.cs' | metadata 'Widget`1.cs')
@@ -100,6 +105,7 @@ dotnet_diagnostic.SST1655.severity = warning # Extension block parameters should
 dotnet_diagnostic.SST1656.severity = warning # Extension block type parameters should be documented
 dotnet_diagnostic.SST1657.severity = warning # Extension block documentation should reference a real parameter or type parameter
 dotnet_diagnostic.SST1658.severity = warning # Documentation repeats a word
+dotnet_diagnostic.SST1659.severity = warning # A comment has no text at all
 
 # Extensions
 dotnet_diagnostic.SST1700.severity = warning # An extension block declares no members
@@ -133,6 +139,10 @@ dotnet_diagnostic.SST1517.severity = warning # The file begins with one or more 
 dotnet_diagnostic.SST1518.severity = warning # The file does not end with exactly one newline
 dotnet_diagnostic.SST1519.severity = warning # A multi-line child statement of a control-flow keyword omits its braces
 dotnet_diagnostic.SST1520.severity = warning # The clauses of an if/else chain use braces inconsistently
+dotnet_diagnostic.SST1521.severity = warning # A line is longer than the configured maximum (default 120 characters)
+dotnet_diagnostic.SST1522.severity = warning # A file has more code lines than the configured maximum (default 500)
+dotnet_diagnostic.SST1523.severity = warning # A member has more code lines than the configured maximum (default 60)
+dotnet_diagnostic.SST1524.severity = warning # A switch section has more code lines than the configured maximum (default 20)
 
 # Maintainability
 dotnet_diagnostic.SST1400.severity = warning # An element does not declare an access modifier
@@ -223,6 +233,16 @@ dotnet_diagnostic.SST1486.severity = warning # The same string literal is repeat
 dotnet_diagnostic.SST1487.severity = warning # A collection element is assigned twice with nothing reading it in between
 dotnet_diagnostic.SST1488.severity = warning # An exception type does not declare the standard constructors (parameterless waivable)
 dotnet_diagnostic.SST1489.severity = warning # An exception type carries serialization members the target framework has obsoleted
+dotnet_diagnostic.SST1490.severity = warning # A base list names an interface the rest of the list already implies
+dotnet_diagnostic.SST1491.severity = warning # A modifier restates the declaration's default
+dotnet_diagnostic.SST1492.severity = warning # A value is tested against what it is then assigned, so the guard decides nothing
+dotnet_diagnostic.SST1493.severity = warning # A method's whole body is a constant
+dotnet_diagnostic.SST1494.severity = warning # A trailing argument repeats the parameter's default
+dotnet_diagnostic.SST1495.severity = warning # '==' compares references on a type that overrides Equals, so the two disagree
+dotnet_diagnostic.SST1496.severity = warning # An abstract type declares nothing abstract
+dotnet_diagnostic.SST1497.severity = warning # A local is declared and never read
+dotnet_diagnostic.SST1498.severity = warning # Only a nested type uses a private member
+dotnet_diagnostic.SST1499.severity = warning # A static field visible outside its type can still be changed (internal fields included by default)
 
 # Modernization
 dotnet_diagnostic.SST2000.severity = warning # A null check + throw should use ArgumentNullException.ThrowIfNull
@@ -235,6 +255,12 @@ dotnet_diagnostic.SST2006.severity = warning # A negated type test '!(x is T)' s
 dotnet_diagnostic.SST2007.severity = warning # An 'is' check followed by a cast local should use a declaration pattern
 dotnet_diagnostic.SST2008.severity = warning # Negated pattern tests should use is-not patterns
 dotnet_diagnostic.SST2009.severity = warning # A catch that rethrows unless a condition holds should use a when filter
+# dotnet_diagnostic.SST2010.severity = warning # A type reads the machine clock directly instead of through a TimeProvider (opt-in)
+dotnet_diagnostic.SST2011.severity = warning # An instant is recorded from the local clock rather than in UTC
+dotnet_diagnostic.SST2012.severity = warning # A GUID is constructed with the parameterless constructor instead of Guid.Empty
+dotnet_diagnostic.SST2013.severity = warning # An if whose entire body is another if should be merged
+dotnet_diagnostic.SST2014.severity = warning # A goto jumps to a label
+dotnet_diagnostic.SST2015.severity = warning # A ++ or -- is buried inside a larger expression
 
 # Collection expressions
 dotnet_diagnostic.SST2100.severity = warning # An empty collection creation can use []
@@ -286,6 +312,30 @@ dotnet_diagnostic.SST2240.severity = warning # Delegate null checks can use cond
 dotnet_diagnostic.SST2241.severity = warning # Constructors that only store parameters can use primary-constructor storage
 dotnet_diagnostic.SST2242.severity = warning # Enum switch statement mappings should name every enum value or include a catch-all
 dotnet_diagnostic.SST2243.severity = warning # A string literal escaping quotes or backslashes should be a raw string literal
+dotnet_diagnostic.SST2244.severity = warning # A numeric literal's suffix is lower case
+dotnet_diagnostic.SST2245.severity = warning # A for loop with only a condition should be a while loop
+
+# Design
+dotnet_diagnostic.SST2300.severity = warning # A class implements IDisposable but builds only half of the disposal pattern
+dotnet_diagnostic.SST2301.severity = warning # A class implementing IEquatable<T> for itself can still be derived from
+dotnet_diagnostic.SST2302.severity = warning # A type overloads an operator without the rest of the set it belongs to
+dotnet_diagnostic.SST2303.severity = warning # A [Flags] enum's members are not distinct bit values
+dotnet_diagnostic.SST2304.severity = warning # An event's delegate does not have the standard (object sender, TEventArgs e) shape
+dotnet_diagnostic.SST2305.severity = warning # A mutable collection property declares a caller-visible setter
+dotnet_diagnostic.SST2306.severity = warning # A collection-returning member hands back null
+dotnet_diagnostic.SST2308.severity = warning # An [Obsolete] attribute carries no message
+
+# Correctness
+dotnet_diagnostic.SST2400.severity = warning # Two arguments name each other's parameters and have been transposed
+dotnet_diagnostic.SST2401.severity = warning # A catch targets NullReferenceException
+dotnet_diagnostic.SST2402.severity = warning # An instance constructor assigns a static field of its own type
+dotnet_diagnostic.SST2403.severity = warning # 'this' escapes from a constructor before the object is fully built
+dotnet_diagnostic.SST2404.severity = warning # An iterator's argument guard does not run until the first MoveNext
+dotnet_diagnostic.SST2405.severity = warning # A [DebuggerDisplay] string names a member the type does not have
+dotnet_diagnostic.SST2406.severity = warning # A loop's stop condition reads only variables the loop never writes
+dotnet_diagnostic.SST2407.severity = warning # A declared event is never raised
+dotnet_diagnostic.SST2408.severity = warning # A StringBuilder is filled and never read
+dotnet_diagnostic.SST2409.severity = warning # A throw constructs a general exception type (Exception/SystemException/ApplicationException)
 
 # Naming
 dotnet_diagnostic.SST1300.severity = warning # Types and members should be PascalCase
@@ -326,6 +376,7 @@ dotnet_diagnostic.SST1214.severity = warning # Static readonly fields should app
 dotnet_diagnostic.SST1215.severity = warning # Instance readonly fields should appear before instance non-readonly fields
 dotnet_diagnostic.SST1216.severity = warning # Using static directives should be placed after regular usings and before aliases
 dotnet_diagnostic.SST1217.severity = warning # Using static directives should be ordered alphabetically
+dotnet_diagnostic.SST1218.severity = warning # Other members separate a method's overloads
 
 # Readability
 dotnet_diagnostic.SST1100.severity = warning # A base. prefix is used where the type does not override the member

@@ -40,6 +40,9 @@ dotnet_diagnostic.PSH1014.severity = warning # Declare immutable structs as read
 dotnet_diagnostic.PSH1015.severity = warning # Avoid casting value types through object
 dotnet_diagnostic.PSH1016.severity = warning # Test enum flags with bitwise operators instead of boxing
 dotnet_diagnostic.PSH1017.severity = warning # A property allocates a copy of a collection on every read (properties excludable)
+dotnet_diagnostic.PSH1018.severity = warning # A hand-written array is passed to a params parameter
+dotnet_diagnostic.PSH1019.severity = warning # The range indexer on an array allocates a copy; slice with AsSpan/AsMemory
+dotnet_diagnostic.PSH1020.severity = warning # Prefer a jagged array over a multidimensional one
 
 # Collections
 # dotnet_diagnostic.PSH1100.severity = warning # Avoid LINQ calls on hot paths (opt-in; also set performancesharp.avoid_linq_on_hot_path = true)
@@ -64,6 +67,10 @@ dotnet_diagnostic.PSH1118.severity = warning # Take the extreme element without 
 dotnet_diagnostic.PSH1119.severity = warning # Check for elements without counting them all
 dotnet_diagnostic.PSH1120.severity = warning # Do not materialize a sequence just to enumerate it
 dotnet_diagnostic.PSH1122.severity = warning # Read a sorted set's extreme through its Min/Max property, not the LINQ extension
+dotnet_diagnostic.PSH1124.severity = warning # Read a linked list's end through its First/Last property, not the LINQ extension
+dotnet_diagnostic.PSH1125.severity = warning # Do not enumerate the same lazy sequence twice
+dotnet_diagnostic.PSH1126.severity = warning # Ask whether an async sequence has elements instead of counting them
+dotnet_diagnostic.PSH1127.severity = warning # Clear an array instead of filling it with its default
 
 # Strings
 dotnet_diagnostic.PSH1200.severity = warning # Compare strings without allocating case-converted copies
@@ -86,6 +93,12 @@ dotnet_diagnostic.PSH1216.severity = warning # Ask for equality, not ordering, w
 dotnet_diagnostic.PSH1217.severity = warning # A sequence is copied to an array just to be read straight back
 dotnet_diagnostic.PSH1218.severity = warning # A substring is allocated only to search it; slice with AsSpan instead
 dotnet_diagnostic.PSH1219.severity = warning # Ask whether a string is blank without trimming it
+dotnet_diagnostic.PSH1220.severity = warning # A length argument spells out the run that reaches the end anyway
+dotnet_diagnostic.PSH1221.severity = warning # An IndexOf compared to 0 scans the whole string to answer a prefix test
+dotnet_diagnostic.PSH1222.severity = warning # Concatenate slices without materializing them
+dotnet_diagnostic.PSH1223.severity = warning # A reused composite format string is re-parsed on every call
+dotnet_diagnostic.PSH1224.severity = warning # Convert bytes to hex in one call, not by building the string twice
+dotnet_diagnostic.PSH1225.severity = warning # Decode bytes to a string in one call, without a throwaway char[]
 
 # Concurrency
 dotnet_diagnostic.PSH1300.severity = warning # Use System.Threading.Lock for a dedicated lock object
@@ -101,6 +114,8 @@ dotnet_diagnostic.PSH1308.severity = warning # Return the completed task instead
 dotnet_diagnostic.PSH1310.severity = warning # Dispose asynchronously in async code
 dotnet_diagnostic.PSH1311.severity = warning # Remove a pass-through async state machine
 dotnet_diagnostic.PSH1312.severity = warning # Return a completed task, never null
+dotnet_diagnostic.PSH1313.severity = warning # Call the async overload from an async method instead of blocking
+dotnet_diagnostic.PSH1314.severity = warning # Read and write streams through the memory-based overloads
 
 # ApiSelection
 dotnet_diagnostic.PSH1400.severity = warning # Use the static HashData method for one-shot hashing
@@ -117,3 +132,7 @@ dotnet_diagnostic.PSH1409.severity = warning # Use the built-in throw helpers fo
 dotnet_diagnostic.PSH1411.severity = warning # Seal non-public types nothing derives from so the JIT can devirtualize (public opt-in)
 dotnet_diagnostic.PSH1412.severity = warning # Use Random.Shared instead of allocating a Random
 dotnet_diagnostic.PSH1413.severity = warning # Read the Unix epoch from the framework, not a hand-built DateTime
+dotnet_diagnostic.PSH1414.severity = warning # Mark members that do not touch instance state as static
+dotnet_diagnostic.PSH1415.severity = warning # Hold the concrete type when the concrete type is what you have
+dotnet_diagnostic.PSH1416.severity = warning # Cache the serializer options instead of building them per call
+dotnet_diagnostic.PSH1417.severity = warning # Do not compute an expensive argument for an assertion

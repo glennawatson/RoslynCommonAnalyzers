@@ -296,20 +296,32 @@ public class ArgumentGuardAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent where ThrowIfNull does not exist (pre-.NET 6 reference assemblies).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The reference set is named rather than left to the verifier's default. <c>ArgumentNullException.ThrowIfNull</c>
+    /// arrived in .NET 6, so the framework this runs against is the whole subject of the test; a default that moves
+    /// with the testing package would turn it into an assertion about nothing.
+    /// </remarks>
     [Test]
     public async Task SilentWhenHelperUnavailableAsync()
-        => await VerifyGuard.VerifyAnalyzerAsync(
-            """
-            using System;
+    {
+        var test = new VerifyGuard.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
+            TestCode = """
+                       using System;
 
-            public class C
-            {
-                public void M(object value)
-                {
-                    if (value is null) throw new ArgumentNullException(nameof(value));
-                }
-            }
-            """);
+                       public class C
+                       {
+                           public void M(object value)
+                           {
+                               if (value is null) throw new ArgumentNullException(nameof(value));
+                           }
+                       }
+                       """,
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Verifies helper availability can be resolved from a compilation in one place.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

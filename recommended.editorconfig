@@ -28,6 +28,7 @@
 # stylesharp.max_inheritance_depth = 5                     # SST1446
 # stylesharp.count_external_types = false                  # SST1446 (set true to count ancestors from other assemblies)
 # stylesharp.magic_number_allowed_values = -1, 0, 1        # SST1471 (comma-separated; the values that need no name)
+# stylesharp.allowed_enum_storage = int                     # SST2313 (comma-separated; add uint, long, ulong to match SonarAnalyzer's S4022)
 # stylesharp.allow_zero_comparison = true                  # SST1473 (set false to also report '== 0.0' on a float/double)
 # stylesharp.minimum_statements = 1                        # SST1476 (the smallest identical branch body that counts)
 # stylesharp.allow_zero_shift = false                      # SST1478 (set true to allow a shift by 0 in a regular table of shifts)
@@ -261,6 +262,8 @@ dotnet_diagnostic.SST2012.severity = warning # A GUID is constructed with the pa
 dotnet_diagnostic.SST2013.severity = warning # An if whose entire body is another if should be merged
 dotnet_diagnostic.SST2014.severity = warning # A goto jumps to a label
 dotnet_diagnostic.SST2015.severity = warning # A ++ or -- is buried inside a larger expression
+dotnet_diagnostic.SST2016.severity = warning # A DateTime on a visible signature loses its offset at the boundary
+dotnet_diagnostic.SST2017.severity = warning # A .Date or .TimeOfDay read proves the value is only a date, or only a time of day
 
 # Collection expressions
 dotnet_diagnostic.SST2100.severity = warning # An empty collection creation can use []
@@ -323,7 +326,14 @@ dotnet_diagnostic.SST2303.severity = warning # A [Flags] enum's members are not 
 dotnet_diagnostic.SST2304.severity = warning # An event's delegate does not have the standard (object sender, TEventArgs e) shape
 dotnet_diagnostic.SST2305.severity = warning # A mutable collection property declares a caller-visible setter
 dotnet_diagnostic.SST2306.severity = warning # A collection-returning member hands back null
+dotnet_diagnostic.SST2307.severity = warning # A generic method's type parameter appears in no parameter, so no caller can infer it
 dotnet_diagnostic.SST2308.severity = warning # An [Obsolete] attribute carries no message
+dotnet_diagnostic.SST2309.severity = warning # An externally visible member declares an optional parameter, so callers bake in the default
+dotnet_diagnostic.SST2310.severity = warning # Deprecated code is still here; remove it once its last caller is gone
+dotnet_diagnostic.SST2311.severity = warning # A visible const is copied into every assembly that reads it
+dotnet_diagnostic.SST2312.severity = warning # A type is declared outside any namespace
+dotnet_diagnostic.SST2313.severity = warning # An enum is stored as a type the project does not allow (see stylesharp.allowed_enum_storage)
+dotnet_diagnostic.SST2314.severity = warning # An [Obsolete] has a message but no DiagnosticId. .NET 5+ only; turn off if your source is shared with an older target
 
 # Correctness
 dotnet_diagnostic.SST2400.severity = warning # Two arguments name each other's parameters and have been transposed
@@ -336,6 +346,7 @@ dotnet_diagnostic.SST2406.severity = warning # A loop's stop condition reads onl
 dotnet_diagnostic.SST2407.severity = warning # A declared event is never raised
 dotnet_diagnostic.SST2408.severity = warning # A StringBuilder is filled and never read
 dotnet_diagnostic.SST2409.severity = warning # A throw constructs a general exception type (Exception/SystemException/ApplicationException)
+dotnet_diagnostic.SST2410.severity = warning # A created disposable is never disposed and never leaves the method
 
 # Naming
 dotnet_diagnostic.SST1300.severity = warning # Types and members should be PascalCase
@@ -356,6 +367,7 @@ dotnet_diagnostic.SST1315.severity = warning # Union member names should use the
 dotnet_diagnostic.SST1316.severity = warning # Tuple element names should use the configured casing (default PascalCase)
 dotnet_diagnostic.SST1317.severity = warning # Task-returning method names should end with 'Async'
 dotnet_diagnostic.SST1318.severity = warning # Overriding/implementing parameter names should match the base member
+dotnet_diagnostic.SST1319.severity = warning # An enumeration's type name is not PascalCase
 
 # Ordering
 dotnet_diagnostic.SST1200.severity = warning # Using directives should be placed outside the namespace

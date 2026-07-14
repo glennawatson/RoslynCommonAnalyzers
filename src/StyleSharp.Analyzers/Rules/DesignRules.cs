@@ -60,6 +60,13 @@ internal static class DesignRules
         "'{0}' returns null instead of an empty collection; every caller must now guard",
         ReturnEmptyCollectionNotNullDescription);
 
+    /// <summary>SST2307 — a generic method has a type parameter no argument can pin down.</summary>
+    public static readonly DiagnosticDescriptor InferableTypeParameter = Create(
+        "SST2307",
+        "Generic method type parameters should be inferable from the parameters",
+        "'{0}' on '{1}' appears in no parameter, so every caller has to name it",
+        InferableTypeParameterDescription);
+
     /// <summary>SST2308 — an obsolete member does not say what to use instead.</summary>
     public static readonly DiagnosticDescriptor ObsoleteWithoutExplanation = Create(
         "SST2308",
@@ -111,6 +118,12 @@ internal static class DesignRules
         "Returning null for 'there is nothing' forces a null check into every caller, and the one that forgets gets a "
         + "NullReferenceException instead of an empty loop. An empty collection reads the same way at every call site — foreach over it, "
         + "count it, chain from it — and 'Array.Empty<T>()' and the empty collection expression cost no allocation at all.";
+
+    /// <summary>The InferableTypeParameter rule description.</summary>
+    private const string InferableTypeParameterDescription =
+        "C# infers a method's type arguments from the arguments it is given, and from nothing else — not the return type, not the "
+        + "constraints. A type parameter that appears in no parameter therefore cannot be inferred, and every single call site has to spell "
+        + "the type out. Take the type parameter as a parameter, or drop it and let the caller pass the value it describes.";
 
     /// <summary>The ObsoleteWithoutExplanation rule description.</summary>
     private const string ObsoleteWithoutExplanationDescription =

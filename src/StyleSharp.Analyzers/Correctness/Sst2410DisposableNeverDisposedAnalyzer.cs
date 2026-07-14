@@ -106,7 +106,7 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var usage = new UsageScan(context, local, scope);
+        var usage = new UsageScan(context, types, local, scope);
         DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, UsageScan>(scope, ref usage, VisitReference);
         if (usage.Disposed || usage.Escaped)
         {
@@ -140,11 +140,40 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
         // function outlives this scan, and anything else hands the value somewhere that may own it.
         if (IsMemberAccessOnLocal(reference) && !IsCaptured(reference, state.Scope))
         {
+            if (HandsBackAnOwner(reference, ref state))
+            {
+                state.Escaped = true;
+                return false;
+            }
+
             return true;
         }
 
         state.Escaped = true;
         return false;
+    }
+
+    /// <summary>Returns whether a call on the local can be handing the local itself back.</summary>
+    /// <param name="reference">The reference, known to be the receiver of a member access.</param>
+    /// <param name="state">The scan state.</param>
+    /// <returns><see langword="true"/> when the call's result is disposable, so ownership may have moved.</returns>
+    /// <remarks>
+    /// <c>coordinator.Run(source)</c> looks like a read of the local, but a method is free to
+    /// <c>return this</c> — the fluent shape every Rx-style coordinator uses — and then the caller owns the
+    /// value and the local was never the owner at all. The rule cannot see inside the callee, so a call that
+    /// hands back <i>something disposable</i> is treated as a possible transfer and the rule goes quiet.
+    /// A call that hands back anything else (<c>stream.ReadByte()</c>) cannot be passing the local on, so it
+    /// still counts as a plain read.
+    /// </remarks>
+    private static bool HandsBackAnOwner(IdentifierNameSyntax reference, ref UsageScan state)
+    {
+        if (reference.Parent?.Parent is not InvocationExpressionSyntax invocation)
+        {
+            return false;
+        }
+
+        var returned = state.Context.SemanticModel.GetTypeInfo(invocation, state.Context.CancellationToken).Type;
+        return returned is not null && state.Types.IsOwnedDisposable(returned);
     }
 
     /// <summary>Returns whether a reference disposes the local.</summary>
@@ -247,9 +276,10 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The state threaded through a local's reference scan.</summary>
     /// <param name="Context">The syntax node context.</param>
+    /// <param name="Types">The disposal types of this compilation.</param>
     /// <param name="Local">The declared local.</param>
     /// <param name="Scope">The block the local lives in.</param>
-    private record struct UsageScan(SyntaxNodeAnalysisContext Context, ILocalSymbol Local, SyntaxNode Scope)
+    private record struct UsageScan(SyntaxNodeAnalysisContext Context, DisposableTypes Types, ILocalSymbol Local, SyntaxNode Scope)
     {
         /// <summary>Gets or sets a value indicating whether the local is disposed.</summary>
         public bool Disposed { get; set; }

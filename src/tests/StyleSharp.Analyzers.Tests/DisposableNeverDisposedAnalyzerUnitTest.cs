@@ -632,4 +632,70 @@ public class DisposableNeverDisposedAnalyzerUnitTest
     [Test]
     public async Task NoCodeFixForAsyncDisposableInSyncBodyAsync()
         => await VerifyDisposableFix.VerifyCodeFixAsync(AsyncDisposableInSyncBodySource, AsyncDisposableInSyncBodySource);
+
+    /// <summary>Verifies a local whose own method hands it back to the caller is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The fluent shape every Rx-style coordinator uses: <c>Run</c> returns <c>this</c>, so the caller of
+    /// <c>Subscribe</c> owns the coordinator and this method never did. The local is not written into a
+    /// <c>return</c> statement, so a scan that only looks for <c>return local;</c> calls it a leak — which it
+    /// is not.
+    /// </remarks>
+    [Test]
+    public async Task LocalHandedBackByItsOwnCallIsNotReportedAsync()
+        => await VerifyDisposable.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public sealed class Coordinator : IDisposable
+            {
+                public Coordinator Run(int source) => this;
+
+                public int Read() => 0;
+
+                public void Dispose()
+                {
+                }
+            }
+
+            public sealed class C
+            {
+                public IDisposable Subscribe(int source)
+                {
+                    Coordinator coordinator = new();
+                    return coordinator.Run(source);
+                }
+            }
+            """);
+
+    /// <summary>Verifies a call on the local that hands back something undisposable is still just a read.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The counterpart to the test above: <c>Read()</c> returns an <c>int</c>, so it cannot be passing the
+    /// coordinator on, and the local really is dropped undisposed.
+    /// </remarks>
+    [Test]
+    public async Task LocalWhoseCallHandsBackANonDisposableIsReportedAsync()
+        => await VerifyDisposable.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public sealed class Coordinator : IDisposable
+            {
+                public int Read() => 0;
+
+                public void Dispose()
+                {
+                }
+            }
+
+            public sealed class C
+            {
+                public int Subscribe()
+                {
+                    Coordinator {|SST2410:coordinator|} = new();
+                    return coordinator.Read();
+                }
+            }
+            """);
 }

@@ -6,7 +6,7 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Reports a control-flow statement whose embedded child spans multiple lines but omits its
-/// braces (SST1519). A single-line child is left to the analyzer's the rule; an <c>else if</c> chain is
+/// braces (SST1519). A single-line child is not reported; an <c>else if</c> chain is
 /// not treated as an unbraced child, and neither is a stacked scope statement
 /// (<c>using</c> / <c>lock</c> / <c>fixed</c>) whose own braced body already groups the block.
 /// </summary>

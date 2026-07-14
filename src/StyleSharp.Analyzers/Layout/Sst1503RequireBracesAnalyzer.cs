@@ -8,7 +8,7 @@ namespace StyleSharp.Analyzers;
 /// Reports a control-flow statement whose child statement is not wrapped in braces (SST1503),
 /// whether the child is on one line or many. An <c>else if</c> chain is not treated as an
 /// unbraced child. This is the strict always-braces rule; the repository disables it by
-/// default in favour of SST1519/SST1520 plus the analyzer's the rule.
+/// default in favour of SST1519/SST1520.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1503RequireBracesAnalyzer : DiagnosticAnalyzer

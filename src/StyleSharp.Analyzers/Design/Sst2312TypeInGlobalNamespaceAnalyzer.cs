@@ -21,8 +21,7 @@ namespace StyleSharp.Analyzers;
 /// back at a whole compilation unit.
 /// </para>
 /// <para>
-/// A delegate is not reported, which keeps the rule's firing set identical to the analyzer's the rule that it
-/// replaces.
+/// A delegate is not reported.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]

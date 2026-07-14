@@ -7,9 +7,9 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Requires every file to begin with the header configured by the
 /// <c>file_header_template</c> editorconfig option (SST1633). When the option is
-/// <c>unset</c> or empty the rule does nothing. Unlike the SDK's the rule, this is
-/// a normal analyzer, so a configured header is enforced in ordinary builds
-/// without turning on <c>EnforceCodeStyleInBuild</c>.
+/// <c>unset</c> or empty the rule does nothing. Unlike the SDK's own file-header
+/// style rule, this is a normal analyzer, so a configured header is enforced in
+/// ordinary builds without turning on <c>EnforceCodeStyleInBuild</c>.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1633FileHeaderAnalyzer : DiagnosticAnalyzer

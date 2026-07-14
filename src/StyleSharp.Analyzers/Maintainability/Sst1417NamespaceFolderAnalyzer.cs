@@ -9,7 +9,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Reports a top-level namespace whose name does not mirror the file's folder path under the
 /// project root (SST1417, opt-in). The expected namespace is the root namespace followed by the
-/// folders between the project directory and the file, matching the SDK's the rule behaviour. The
+/// folders between the project directory and the file, matching the SDK's own behaviour. The
 /// project directory and root namespace come from the compiler-provided <c>build_property.*</c>
 /// options, so the rule does nothing unless those are available; the root namespace can be
 /// overridden with <c>stylesharp.namespace_root</c> in <c>.editorconfig</c>.

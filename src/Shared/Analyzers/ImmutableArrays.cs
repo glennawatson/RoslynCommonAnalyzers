@@ -12,7 +12,7 @@ namespace RoslynCommon.Analyzers;
 /// This exists to bridge a multi-Roslyn split: the roslyn4.8 floor ships an
 /// <see cref="ImmutableArray{T}"/> that predates collection-expression support
 /// (CS9210), so a literal <c>[item]</c> will not compile there; on roslyn4.14+
-/// the the rule style rule conversely requires the collection expression over
+/// the SDK's own style rules conversely require the collection expression over
 /// <c>ImmutableArray.Create</c>. Funnelling every site through this one helper
 /// keeps the <c>#if</c> in a single place and leaves call sites as plain method
 /// calls that neither rule objects to.

@@ -11,9 +11,8 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// This is deliberately a nag rule, and it is the wrong rule for a library that must keep its obsolete
-/// members for compatibility — there, <c>severity = none</c> is the right answer. It is the replacement for
-/// the analyzer's the rule and matches its firing set: any <c>[Obsolete]</c>, on any declaration, message or
-/// no message.
+/// members for compatibility — there, <c>severity = none</c> is the right answer. It reports any
+/// <c>[Obsolete]</c>, on any declaration, with or without a message.
 /// <para>
 /// It overlaps its siblings by design, because they ask for different things: SST2308 wants the attribute to
 /// carry a message at all, SST2314 wants that message to carry a <c>DiagnosticId</c>, and this rule wants the

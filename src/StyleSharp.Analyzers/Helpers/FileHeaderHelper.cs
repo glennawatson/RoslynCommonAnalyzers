@@ -8,8 +8,8 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Renders and reads the file header from the <c>file_header_template</c>
-/// editorconfig option — the same key the .NET SDK's the rule uses — so StyleSharp
-/// enforces it as a normal analyzer (which runs by default, unlike the IDE rule).
+/// editorconfig option — the same key the .NET SDK's own file-header rule uses — so
+/// StyleSharp enforces it as a normal analyzer, which runs by default.
 /// The template's literal <c>\n</c> sequences separate lines and <c>{fileName}</c>
 /// is substituted; each line renders as a <c>//</c> comment.
 /// </summary>

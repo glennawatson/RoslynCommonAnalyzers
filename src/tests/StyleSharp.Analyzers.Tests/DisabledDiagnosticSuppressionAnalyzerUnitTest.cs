@@ -63,7 +63,7 @@ public class DisabledDiagnosticSuppressionAnalyzerUnitTest
                     """
                     using System.Diagnostics.CodeAnalysis;
 
-                    [{|SST1462:SuppressMessage("Major Code Smell", "the rule:Use a testable date/time provider", Justification = "Test.")|}]
+                    [{|SST1462:SuppressMessage("Custom", "XYZ1000:Use a testable date/time provider", Justification = "Test.")|}]
                     public sealed class C
                     {
                     }
@@ -75,7 +75,7 @@ public class DisabledDiagnosticSuppressionAnalyzerUnitTest
                                        root = true
 
                                        [*.cs]
-                                       dotnet_diagnostic.the rule.severity = none
+                                       dotnet_diagnostic.XYZ1000.severity = none
                                        """),
                 },
             },

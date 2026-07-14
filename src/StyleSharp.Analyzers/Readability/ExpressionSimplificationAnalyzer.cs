@@ -86,7 +86,7 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
     /// <param name="tokenKind">The opposite operator token kind.</param>
     /// <param name="text">The opposite operator text (for the diagnostic message).</param>
     /// <returns><see langword="true"/> when <paramref name="kind"/> is an invertible comparison.</returns>
-    [SuppressMessage("Critical Code Smell", "the rule:Methods and properties should not be too complex", Justification = "A flat comparison-kind switch is a zero-allocation jump table.")]
+    [SuppressMessage("Critical Code Smell", "S1541:Methods and properties should not be too complex", Justification = "A flat comparison-kind switch is a zero-allocation jump table.")]
     internal static bool TryGetOpposite(SyntaxKind kind, out SyntaxKind expressionKind, out SyntaxKind tokenKind, out string text)
     {
         (expressionKind, tokenKind, text) = kind switch

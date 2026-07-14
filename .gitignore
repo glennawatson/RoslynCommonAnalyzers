@@ -402,3 +402,6 @@ FodyWeavers.xsd
 
 # Local implementation planning notes (not for check-in)
 todo_docs/
+
+# Local agent configuration, hooks, and worktrees
+.claude/

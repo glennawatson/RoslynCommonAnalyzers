@@ -16,7 +16,7 @@ internal static class CompoundAssignmentOperators
     /// <param name="operatorToken">The matching compound assignment operator token kind.</param>
     /// <param name="text">The compound operator text (for the diagnostic message).</param>
     /// <returns><see langword="true"/> when the binary kind has a compound-assignment form.</returns>
-    [SuppressMessage("Critical Code Smell", "the rule:Methods and properties should not be too complex", Justification = "A flat operator-kind switch is a zero-allocation jump table.")]
+    [SuppressMessage("Critical Code Smell", "S1541:Methods and properties should not be too complex", Justification = "A flat operator-kind switch is a zero-allocation jump table.")]
     public static bool TryMap(SyntaxKind binaryKind, out SyntaxKind assignmentKind, out SyntaxKind operatorToken, out string text)
     {
         (assignmentKind, operatorToken, text) = binaryKind switch

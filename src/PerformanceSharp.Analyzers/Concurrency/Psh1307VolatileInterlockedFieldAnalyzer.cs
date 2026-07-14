@@ -254,7 +254,7 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for the primitive overload set and reference types.</returns>
     [SuppressMessage(
         "Critical Code Smell",
-        "the rule:Methods and properties should not be too complex",
+        "S1541:Methods and properties should not be too complex",
         Justification = "A flat SpecialType list mirrors the Volatile overload set explicitly instead of relying on enum-value adjacency.")]
     private static bool HasVolatileOverload(ITypeSymbol type)
         => type.IsReferenceType || type.SpecialType is SpecialType.System_Boolean

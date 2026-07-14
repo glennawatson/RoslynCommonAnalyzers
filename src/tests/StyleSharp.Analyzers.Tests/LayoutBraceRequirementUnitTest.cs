@@ -88,7 +88,7 @@ public class LayoutBraceRequirementUnitTest
         await VerifyMultiLine.VerifyCodeFixAsync(Source, FixedSource);
     }
 
-    /// <summary>Verifies a single-line unbraced child is not flagged (left to the rule).</summary>
+    /// <summary>Verifies a single-line unbraced child is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task SingleLineChildIsCleanAsync()

@@ -68,7 +68,7 @@ public class TypeInGlobalNamespaceAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies a delegate is left alone, which keeps the firing set identical to the the rule it replaces.</summary>
+    /// <summary>Verifies a delegate is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task GlobalDelegateIsCleanAsync()

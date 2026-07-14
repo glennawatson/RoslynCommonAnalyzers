@@ -288,7 +288,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <returns>The kind rank.</returns>
     [SuppressMessage(
         "Major Code Smell",
-        "the rule:Cyclomatic Complexity of methods should not be too high",
+        "S1541:Cyclomatic Complexity of methods should not be too high",
         Justification = "A direct switch-based kind map benchmarked better than the dictionary-backed alternatives on the MemberOrdering hot path.")]
     internal static int KindRank(SyntaxKind kind, bool isUnion) =>
         isUnion

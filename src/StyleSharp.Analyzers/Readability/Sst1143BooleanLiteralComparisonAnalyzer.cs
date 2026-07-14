@@ -41,7 +41,7 @@ public sealed class Sst1143BooleanLiteralComparisonAnalyzer : DiagnosticAnalyzer
     /// </summary>
     /// <param name="expression">The expression to test.</param>
     /// <returns><see langword="true"/> when the result is certainly a non-nullable boolean.</returns>
-    [SuppressMessage("Critical Code Smell", "the rule:Methods and properties should not be too complex", Justification = "A flat operator-kind switch here is a zero-allocation jump table.")]
+    [SuppressMessage("Critical Code Smell", "S1541:Methods and properties should not be too complex", Justification = "A flat operator-kind switch here is a zero-allocation jump table.")]
     internal static bool IsCertainlyBoolean(ExpressionSyntax expression) => expression switch
     {
         ParenthesizedExpressionSyntax parenthesized => IsCertainlyBoolean(parenthesized.Expression),

@@ -355,7 +355,7 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <returns>The helper name, or <see langword="null"/>.</returns>
     [SuppressMessage(
         "Critical Code Smell",
-        "the rule:Methods and properties should not be too complex",
+        "S1541:Methods and properties should not be too complex",
         Justification = "A flat operator-to-helper switch is the whole mapping; splitting it would hide the table.")]
     private static string? MapComparisonHelper(SyntaxKind kind, bool comparesToZero)
         => kind switch
@@ -546,7 +546,7 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for the primitive numeric set and decimal.</returns>
     [SuppressMessage(
         "Critical Code Smell",
-        "the rule:Methods and properties should not be too complex",
+        "S1541:Methods and properties should not be too complex",
         Justification = "A flat SpecialType list mirrors the helper constraints explicitly instead of relying on enum-value adjacency.")]
     private static bool IsNumericType(ITypeSymbol? type)
         => type?.SpecialType is SpecialType.System_SByte or SpecialType.System_Byte

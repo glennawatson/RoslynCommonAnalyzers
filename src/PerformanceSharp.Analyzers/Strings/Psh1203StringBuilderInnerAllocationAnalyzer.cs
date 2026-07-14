@@ -370,7 +370,7 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
         /// <summary>Returns whether a special type has a dedicated typed <c>Append</c> overload worth probing for.</summary>
         /// <param name="specialType">The candidate parameter special type.</param>
         /// <returns><see langword="true"/> for the bool, char, and numeric primitives.</returns>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Minor Code Smell", "the rule", Justification = "Explicit primitive list is clearer than a range check over SpecialType ordering.")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Minor Code Smell", "S1541", Justification = "Explicit primitive list is clearer than a range check over SpecialType ordering.")]
         private static bool IsTypedAppendParameter(SpecialType specialType)
             => specialType is SpecialType.System_Boolean
                 or SpecialType.System_Char

@@ -235,7 +235,7 @@ public sealed class LinqUsageAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the method name is a common <see cref="System.Linq.Enumerable"/> operator worth screening semantically.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> when the method can be a LINQ iterator or terminal call.</returns>
-    [SuppressMessage("Critical Code Smell", "the rule:Methods and properties should not be too complex", Justification = "A flat name switch avoids an allocation-heavy lookup on every invocation.")]
+    [SuppressMessage("Critical Code Smell", "S1541:Methods and properties should not be too complex", Justification = "A flat name switch avoids an allocation-heavy lookup on every invocation.")]
     private static bool IsHotPathLinqMethodName(string name)
         => name switch
         {

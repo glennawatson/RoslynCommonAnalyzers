@@ -265,7 +265,7 @@ public sealed class RedundantCodeAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a boxed numeric literal value is zero.</summary>
     /// <param name="value">The literal token value.</param>
     /// <returns><see langword="true"/> when the value is a numeric zero.</returns>
-    [SuppressMessage("Critical Code Smell", "the rule:Methods and properties should not be too complex", Justification = "A flat numeric-type switch is a zero-allocation jump table.")]
+    [SuppressMessage("Critical Code Smell", "S1541:Methods and properties should not be too complex", Justification = "A flat numeric-type switch is a zero-allocation jump table.")]
     private static bool IsNumericZero(object? value) => value switch
     {
         int i => i == 0,

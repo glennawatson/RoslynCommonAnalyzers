@@ -91,7 +91,7 @@ public sealed class PrecedenceAnalyzer : DiagnosticAnalyzer
     /// <returns>The category id used for cheap precedence comparisons.</returns>
     [SuppressMessage(
         "Major Code Smell",
-        "the rule:Cyclomatic Complexity of methods should not be too high",
+        "S1541:Cyclomatic Complexity of methods should not be too high",
         Justification = "A direct switch-based operator map is the lowest-overhead classification shape on the PrecedenceAnalyzer hot path.")]
     internal static int ClassifyOperator(SyntaxKind kind) => kind switch
     {

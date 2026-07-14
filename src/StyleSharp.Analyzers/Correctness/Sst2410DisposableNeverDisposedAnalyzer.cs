@@ -233,11 +233,22 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
         public bool IsOwnedDisposable(ITypeSymbol created)
             => !created.IsValueType && Implements(created) && !IsTask(created);
 
-        /// <summary>Returns whether a type implements either disposal interface.</summary>
+        /// <summary>Returns whether a type implements either disposal interface, or is one.</summary>
         /// <param name="created">The created type.</param>
         /// <returns><see langword="true"/> when the type is disposable.</returns>
+        /// <remarks>
+        /// A type's <c>AllInterfaces</c> does not include the type itself, so the interface has to be matched
+        /// directly as well. It matters where a method is declared to hand back the interface rather than a
+        /// concrete type — <c>IDisposable Start()</c> — which is the usual shape for a subscription.
+        /// </remarks>
         private bool Implements(ITypeSymbol created)
         {
+            if (SymbolEqualityComparer.Default.Equals(created, Disposable)
+                || (AsyncDisposable is not null && SymbolEqualityComparer.Default.Equals(created, AsyncDisposable)))
+            {
+                return true;
+            }
+
             var interfaces = created.AllInterfaces;
             for (var i = 0; i < interfaces.Length; i++)
             {

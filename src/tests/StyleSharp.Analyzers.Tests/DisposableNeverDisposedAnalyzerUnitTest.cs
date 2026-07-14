@@ -668,6 +668,38 @@ public class DisposableNeverDisposedAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a local is not reported when its own call hands back the disposal interface itself.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The usual shape for a subscription: <c>IDisposable Start()</c> declares the interface rather than the
+    /// concrete type. A type's interface list does not contain the type itself, so matching only against
+    /// <c>AllInterfaces</c> misses this and calls a handed-off subscription a leak.
+    /// </remarks>
+    [Test]
+    public async Task LocalHandedBackAsTheInterfaceIsNotReportedAsync()
+        => await VerifyDisposable.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public sealed class Subscription : IDisposable
+            {
+                public IDisposable Start() => this;
+
+                public void Dispose()
+                {
+                }
+            }
+
+            public sealed class C
+            {
+                public IDisposable Subscribe()
+                {
+                    Subscription subscription = new();
+                    return subscription.Start();
+                }
+            }
+            """);
+
     /// <summary>Verifies a call on the local that hands back something undisposable is still just a read.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

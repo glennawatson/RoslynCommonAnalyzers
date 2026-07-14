@@ -81,6 +81,13 @@ internal static class CorrectnessRules
         "Throwing '{0}' gives callers nothing to catch selectively",
         ThrowsGeneralExceptionDescription);
 
+    /// <summary>SST2410 — a disposable is created into a local and never disposed.</summary>
+    public static readonly DiagnosticDescriptor DisposableNeverDisposed = Create(
+        "SST2410",
+        "A created disposable should be disposed",
+        "'{0}' is never disposed",
+        DisposableNeverDisposedDescription);
+
     /// <summary>The SwappedArguments rule description.</summary>
     private const string SwappedArgumentsDescription =
         "When the arguments at a call site have the same names as the parameters but in a different order, the call compiles and does the "
@@ -138,6 +145,15 @@ internal static class CorrectnessRules
         "'Exception', 'SystemException' and 'ApplicationException' say only that something went wrong. A caller who wants to handle one "
         + "failure has to catch all of them, including the ones it has no idea about — so the code that handles a missing file also "
         + "swallows the bug three frames down. Throw the type that names the failure.";
+
+    /// <summary>The DisposableNeverDisposed rule description.</summary>
+    private const string DisposableNeverDisposedDescription =
+        "The local holds the only reference to something the method built and owns — a handle, a socket, a timer — and the method "
+        + "returns without releasing it. Nothing fails at the point of the leak; the cost arrives later, as a file that stays locked or "
+        + "a connection that is never given back. This is an ownership check, not a dataflow one: it reports only a local that is "
+        + "created with 'new', used where it stands, and dropped. The moment the value is handed anywhere else — returned, stored, "
+        + "passed to a method or a constructor, added to a collection, captured — the rule says nothing, because whoever received it "
+        + "may be the one that disposes it.";
 
     /// <summary>Creates a Warning-severity Correctness descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

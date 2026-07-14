@@ -125,6 +125,20 @@ internal static class ModernizationRules
         "'{0}' both reads and writes '{1}' inside a larger expression; give it its own statement",
         IsolateIncrementDescription);
 
+    /// <summary>SST2016 — a DateTime crosses an externally visible boundary, so the offset is lost.</summary>
+    public static readonly DiagnosticDescriptor PreferDateTimeOffset = Create(
+        "SST2016",
+        "Expose DateTimeOffset rather than DateTime",
+        "'{0}' crosses a public boundary as a DateTime, which carries no offset; use DateTimeOffset",
+        PreferDateTimeOffsetDescription);
+
+    /// <summary>SST2017 — a DateTime is reduced to a date or a time of day but stays a DateTime.</summary>
+    public static readonly DiagnosticDescriptor UseDateOnlyOrTimeOnly = Create(
+        "SST2017",
+        "Use DateOnly or TimeOnly when only a date or a time of day is meant",
+        "Use '{0}.FromDateTime(...)' instead of '.{1}'",
+        UseDateOnlyOrTimeOnlyDescription);
+
     /// <summary>The SST2009 rule description.</summary>
     private const string UseExceptionFilterDescription =
         "A catch block that immediately tests a condition and rethrows on the losing branch is an exception filter written by hand; "
@@ -165,6 +179,21 @@ internal static class ModernizationRules
         "'array[i++] = Compute(i)' has a value that depends on which side the compiler evaluates first, and readers reliably guess wrong. "
         + "The increment is doing two jobs — producing a value and advancing a variable — and only one of them is visible where it is "
         + "written. Put it on its own line; the cost is a line and the gain is that the code means one thing.";
+
+    /// <summary>The PreferDateTimeOffset rule description.</summary>
+    private const string PreferDateTimeOffsetDescription =
+        "A 'DateTime' says what the clock read and not where the clock was standing. While the value stays inside one process on one "
+        + "machine that is survivable; the moment it crosses a boundary — a wire, a database, a caller in another time zone — the reader "
+        + "has to guess an offset, and the guess is the reader's own local zone rather than the writer's. 'DateTimeOffset' carries the "
+        + "offset with the value, so the instant it names is the same instant everywhere. Only the boundary is reported: a field, a "
+        + "property, a parameter or a return type that is visible outside the assembly. A local is nobody else's problem.";
+
+    /// <summary>The UseDateOnlyOrTimeOnly rule description.</summary>
+    private const string UseDateOnlyOrTimeOnlyDescription =
+        "'.Date' hands back another 'DateTime' — one whose time component happens to be midnight and whose 'Kind' still travels with it — "
+        + "and '.TimeOfDay' hands back a 'TimeSpan', a duration standing in for a clock face. Nothing in either type says the missing half "
+        + "is meaningless, so the next comparison, serialization or time-zone conversion treats it as real. 'DateOnly' and 'TimeOnly' "
+        + "(.NET 6) are the types that say what the value actually is.";
 
     /// <summary>Creates a Warning-severity Modernization descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

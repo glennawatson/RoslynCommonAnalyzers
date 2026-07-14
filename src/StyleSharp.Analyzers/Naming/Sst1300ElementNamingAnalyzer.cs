@@ -10,6 +10,11 @@ namespace StyleSharp.Analyzers;
 /// enum members. Overrides and explicit interface implementations are skipped
 /// because their names are dictated elsewhere. Interfaces are handled by SST1302.
 /// </summary>
+/// <remarks>
+/// This rule owns the first character of a name. SST1319 picks up the rest of an
+/// enumeration's type name — an underscore, or an acronym written all in capitals —
+/// which is why the two never report the same name twice.
+/// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1300ElementNamingAnalyzer : DiagnosticAnalyzer
 {

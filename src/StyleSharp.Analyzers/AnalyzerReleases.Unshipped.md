@@ -6,6 +6,7 @@
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 SST1218 | Ordering | Warning | Sst1218OverloadsGroupedAnalyzer
+SST1319 | Naming | Warning | Sst1319EnumNamingAnalyzer
 SST1521 | Layout | Warning | Sst1521LineTooLongAnalyzer
 SST1522 | Layout | Warning | Sst1522FileTooLongAnalyzer
 SST1523 | Layout | Warning | Sst1523MethodTooLongAnalyzer
@@ -77,6 +78,8 @@ SST2012 | Modernization | Warning | Sst2012UseGuidEmptyAnalyzer
 SST2013 | Modernization | Warning | Sst2013MergeNestedIfAnalyzer
 SST2014 | Modernization | Warning | Sst2014AvoidGotoAnalyzer
 SST2015 | Modernization | Warning | Sst2015IsolateIncrementAnalyzer
+SST2016 | Modernization | Warning | Sst2016PreferDateTimeOffsetAnalyzer
+SST2017 | Modernization | Warning | Sst2017UseDateOnlyOrTimeOnlyAnalyzer
 SST2234 | ModernSyntax | Warning | Sst2234NullableShorthandAnalyzer
 SST2235 | ModernSyntax | Warning | Sst2235StaticLocalFunctionAnalyzer
 SST2236 | ModernSyntax | Warning | Sst2236UsingDeclarationAnalyzer
@@ -99,6 +102,11 @@ SST2306 | Design | Warning | Sst2306ReturnEmptyCollectionNotNullAnalyzer
 SST2307 | Design | Warning | Sst2307InferableTypeParameterAnalyzer
 SST2308 | Design | Warning | Sst2308ObsoleteWithoutExplanationAnalyzer
 SST2309 | Design | Warning | Sst2309OptionalParameterAnalyzer
+SST2310 | Design | Warning | Sst2310ObsoleteCodeShouldBeRemovedAnalyzer
+SST2311 | Design | Warning | Sst2311PublicConstantFieldAnalyzer
+SST2312 | Design | Warning | Sst2312TypeInGlobalNamespaceAnalyzer
+SST2313 | Design | Warning | Sst2313EnumStorageAnalyzer
+SST2314 | Design | Warning | Sst2314ObsoleteWithoutDiagnosticIdAnalyzer
 SST2400 | Correctness | Warning | Sst2400SwappedArgumentsAnalyzer
 SST2401 | Correctness | Warning | Sst2401CatchNullReferenceAnalyzer
 SST2402 | Correctness | Warning | Sst2402StaticFieldWrittenInConstructorAnalyzer
@@ -109,6 +117,7 @@ SST2406 | Correctness | Warning | Sst2406InvariantLoopConditionAnalyzer
 SST2407 | Correctness | Warning | Sst2407EventNeverRaisedAnalyzer
 SST2408 | Correctness | Warning | Sst2408StringBuilderNeverReadAnalyzer
 SST2409 | Correctness | Warning | Sst2409ThrowsGeneralExceptionAnalyzer
+SST2410 | Correctness | Warning | Sst2410DisposableNeverDisposedAnalyzer
 
 ### Removed Rules
 

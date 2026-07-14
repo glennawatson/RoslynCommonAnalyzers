@@ -137,6 +137,13 @@ internal static class NamingRules
         "Rename parameter '{0}' to match the base member",
         "When a method overrides or implements another, its parameter names match the base declaration so call-site argument names and documentation stay consistent.");
 
+    /// <summary>SST1319 — enumeration type names should be PascalCase.</summary>
+    public static readonly DiagnosticDescriptor EnumPascalCase = Create(
+        "SST1319",
+        "Enumeration names should be PascalCase",
+        "Enumeration '{0}' should be PascalCase",
+        "An enum's type name is PascalCase: no underscore, and an acronym over two letters written as a word ('HttpStatus', not 'HTTPStatus'). SST1300 owns the upper-case start.");
+
     /// <summary>Every fixable naming id, for the shared rename code fix.</summary>
     public static readonly ImmutableArray<string> AllFixableIds = ImmutableArrays.Of(
         "SST1300",
@@ -151,7 +158,8 @@ internal static class NamingRules
         "SST1314",
         "SST1315",
         "SST1317",
-        "SST1318");
+        "SST1318",
+        "SST1319");
 
     /// <summary>Creates a Warning-severity Naming descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

@@ -388,6 +388,8 @@ PSH1102, and PSH1100.
 | [SST2013](rules/SST2013.md) | An `if` whose entire body is another `if`, with no `else` on either. Code fix merges the conditions. |
 | [SST2014](rules/SST2014.md) | A `goto` jumps to a label. |
 | [SST2015](rules/SST2015.md) | A `++` or `--` is buried inside a larger expression, so its side effect happens in the middle of something else. |
+| [SST2016](rules/SST2016.md) | A `DateTime` is the type of an externally visible field, property, parameter or return type, so the offset is lost at the boundary. |
+| [SST2017](rules/SST2017.md) | A `.Date` or `.TimeOfDay` read proves the value is only a date, or only a time of day: use `DateOnly` / `TimeOnly`. |
 
 ## Collection Expressions
 
@@ -462,7 +464,14 @@ conventions, and what a member exposes.
 | [SST2304](rules/SST2304.md) | An event's delegate does not have the standard `void (object sender, TEventArgs e)` shape. |
 | [SST2305](rules/SST2305.md) | A property whose type is a mutable collection declares a caller-visible setter. Code fix removes the setter. |
 | [SST2306](rules/SST2306.md) | A member whose declared return type is a collection hands back `null`. Code fix returns the empty collection. |
+| [SST2307](rules/SST2307.md) | A generic method's type parameter appears in no parameter, so no caller can infer it and every call site names it. |
 | [SST2308](rules/SST2308.md) | An `[Obsolete]` attribute carries no message, or one that is empty or only whitespace. |
+| [SST2309](rules/SST2309.md) | An externally visible member declares an optional parameter, so every caller that omits it compiles the default into itself. |
+| [SST2310](rules/SST2310.md) | Deprecated code is still here. A standing reminder to remove it once its last caller is gone. |
+| [SST2311](rules/SST2311.md) | A visible `const` is copied into every assembly that reads it, so changing its value never reaches an already-compiled caller. |
+| [SST2312](rules/SST2312.md) | A type is declared outside any namespace. |
+| [SST2313](rules/SST2313.md) | An enum is stored as a type the project does not allow. Configurable; defaults to `int`. |
+| [SST2314](rules/SST2314.md) | An `[Obsolete]` explains itself but carries no `DiagnosticId`, so every caller gets the same CS0618. .NET 5+ only. |
 
 ## Correctness
 
@@ -480,6 +489,7 @@ Code that compiles and runs but does not do what it says.
 | [SST2407](rules/SST2407.md) | A field-like event is declared, and nothing in the compilation ever raises it. |
 | [SST2408](rules/SST2408.md) | A local `StringBuilder` is appended to, and its contents are never read. |
 | [SST2409](rules/SST2409.md) | A `throw` constructs `Exception`, `SystemException`, or `ApplicationException`, which callers cannot catch selectively. |
+| [SST2410](rules/SST2410.md) | A local is handed a newly created `IDisposable` and never disposes it, and the value never leaves the method. |
 
 ## Naming
 
@@ -503,6 +513,7 @@ Code that compiles and runs but does not do what it says.
 | [SST1316](rules/SST1316.md) | Tuple element names should use the configured casing. |
 | [SST1317](rules/SST1317.md) | Task-returning method names should end with `Async`. |
 | [SST1318](rules/SST1318.md) | Overriding or implementing parameter names should match the base member. |
+| [SST1319](rules/SST1319.md) | An enumeration's type name holds an underscore or an all-capitals acronym. SST1300 owns its first character. |
 
 ## Ordering
 

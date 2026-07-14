@@ -62,6 +62,161 @@ public class RecordInstantsInUtcAnalyzerUnitTest
         await VerifyUtc.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a recorded DateTime.Today — local midnight — is reported and rewritten to the UTC date.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RecordedTodayIsRewrittenToTheUtcDateAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  private DateTime _initialized = {|SST2011:DateTime.Today|};
+
+                                  private DateTime _assigned;
+
+                                  public DateTime Started { get; set; } = {|SST2011:DateTime.Today|};
+
+                                  public DateTime Day => {|SST2011:DateTime.Today|};
+
+                                  public void Touch() => _assigned = {|SST2011:DateTime.Today|};
+
+                                  public DateTime Read()
+                                  {
+                                      return {|SST2011:DateTime.Today|};
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       private DateTime _initialized = DateTime.UtcNow.Date;
+
+                                       private DateTime _assigned;
+
+                                       public DateTime Started { get; set; } = DateTime.UtcNow.Date;
+
+                                       public DateTime Day => DateTime.UtcNow.Date;
+
+                                       public void Touch() => _assigned = DateTime.UtcNow.Date;
+
+                                       public DateTime Read()
+                                       {
+                                           return DateTime.UtcNow.Date;
+                                       }
+                                   }
+                                   """;
+
+        await VerifyUtc.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a recorded DateTimeOffset.Now.DateTime — the local time with the offset thrown away — is reported and rewritten to the UTC one.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>UtcDateTime, not DateTime: the ticks agree once the clock is UtcNow, but only UtcDateTime carries DateTimeKind.Utc.</remarks>
+    [Test]
+    public async Task RecordedLocalDateTimeOffOfAnOffsetIsRewrittenToUtcDateTimeAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  private DateTime _initialized = {|SST2011:DateTimeOffset.Now.DateTime|};
+
+                                  public DateTime Stamp => {|SST2011:DateTimeOffset.Now.DateTime|};
+
+                                  public DateTime Read()
+                                  {
+                                      return {|SST2011:DateTimeOffset.Now.DateTime|};
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       private DateTime _initialized = DateTimeOffset.UtcNow.UtcDateTime;
+
+                                       public DateTime Stamp => DateTimeOffset.UtcNow.UtcDateTime;
+
+                                       public DateTime Read()
+                                       {
+                                           return DateTimeOffset.UtcNow.UtcDateTime;
+                                       }
+                                   }
+                                   """;
+
+        await VerifyUtc.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies the reads off an offset that already carry the UTC instant are never reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UtcReadsOffAnOffsetAreCleanAsync()
+        => await VerifyUtc.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public class C
+            {
+                private DateTime _fromLocalClock = DateTimeOffset.Now.UtcDateTime;
+
+                private DateTime _fromUtcClock = DateTimeOffset.UtcNow.DateTime;
+
+                private DateTime _utcDate = DateTime.UtcNow.Date;
+
+                public DateTime Read() => _fromLocalClock;
+            }
+            """);
+
+    /// <summary>Verifies a Today that is consulted rather than recorded is left alone, as a consulted Now is.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConsultingTodayIsCleanAsync()
+        => await VerifyUtc.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public class C
+            {
+                public string Display() => DateTime.Today.ToString("d");
+
+                public DayOfWeek Weekday() => DateTime.Today.DayOfWeek;
+
+                public void Local()
+                {
+                    var today = DateTime.Today;
+                    System.Console.WriteLine(today);
+                }
+            }
+            """);
+
+    /// <summary>Verifies a Today of the user's own is not mistaken for the framework clock.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TodayOnAnotherTypeIsCleanAsync()
+        => await VerifyUtc.VerifyAnalyzerAsync(
+            """
+            namespace Fakes
+            {
+                public static class DateTime
+                {
+                    public static int Today => 1;
+                }
+            }
+
+            public class C
+            {
+                private int _value = Fakes.DateTime.Today;
+
+                public int Read() => _value;
+            }
+            """);
+
     /// <summary>Verifies a local clock read that never escapes the expression is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

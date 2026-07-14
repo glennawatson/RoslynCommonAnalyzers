@@ -5,9 +5,9 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Reports an instant recorded from the local clock (SST2011): a <c>DateTime.Now</c> or
-/// <c>DateTimeOffset.Now</c> read that is stored in a field or property, or returned, where the value
-/// outlives the moment and UTC is what was meant.
+/// Reports an instant recorded from the local clock (SST2011): a <c>DateTime.Now</c>,
+/// <c>DateTimeOffset.Now</c>, <c>DateTime.Today</c> or <c>DateTimeOffset.Now.DateTime</c> read that is stored
+/// in a field or property, or returned, where the value outlives the moment and UTC is what was meant.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -16,6 +16,13 @@ namespace StyleSharp.Analyzers;
 /// A local clock read that is immediately formatted or compared (<c>DateTime.Now.ToString(...)</c>,
 /// <c>DateTime.Now.Hour</c>) is left alone, because a value that never escapes the expression cannot be
 /// misread later.
+/// </para>
+/// <para>
+/// <c>Today</c> is local midnight and discards the offset exactly as <c>Now</c> discards it, and
+/// <c>DateTimeOffset.Now.DateTime</c> takes the local <c>DateTime</c> back out of a value that was carrying
+/// the offset — throwing away the one part that made the instant unambiguous. Both are the same defect
+/// written differently. <c>DateTimeOffset.Now.UtcDateTime</c> and <c>DateTimeOffset.UtcNow.DateTime</c> are
+/// not: they already carry the UTC instant.
 /// </para>
 /// <para>
 /// This is a different question from SST1451, which asks whether a <c>DateTime</c> being <em>constructed</em>
@@ -70,7 +77,8 @@ public sealed class Sst2011RecordInstantsInUtcAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context, in ClockPropertyAccess.ClockTypes clockTypes)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
-        if (!ClockPropertyAccess.MatchesSpelling(access, localOnly: true))
+        var shape = ClockPropertyAccess.MatchLocalInstantSpelling(access);
+        if (shape == ClockPropertyAccess.LocalInstant.None)
         {
             return;
         }
@@ -80,7 +88,7 @@ public sealed class Sst2011RecordInstantsInUtcAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!ClockPropertyAccess.BindsToClock(context.SemanticModel, access, clockTypes, context.CancellationToken))
+        if (!ClockPropertyAccess.BindsToLocalInstant(context.SemanticModel, access, shape, clockTypes, context.CancellationToken))
         {
             return;
         }

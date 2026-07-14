@@ -6,21 +6,30 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Rewrites a recorded local-clock read to the UTC clock (SST2011): <c>DateTime.Now</c> becomes
-/// <c>DateTime.UtcNow</c>, <c>DateTimeOffset.Now</c> becomes <c>DateTimeOffset.UtcNow</c>.
+/// <c>DateTime.UtcNow</c>, <c>DateTimeOffset.Now</c> becomes <c>DateTimeOffset.UtcNow</c>,
+/// <c>DateTime.Today</c> becomes <c>DateTime.UtcNow.Date</c>, and <c>DateTimeOffset.Now.DateTime</c> becomes
+/// <c>DateTimeOffset.UtcNow.UtcDateTime</c>.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The fix changes the recorded value — that is what the rule is asking for — but not the type of the
-/// expression, so nothing downstream stops compiling. The rewritten member access is bound speculatively
-/// before the fix is offered, so a <c>Now</c> on some other type is never rewritten into a <c>UtcNow</c> that
-/// does not exist.
+/// expression, so nothing downstream stops compiling. Both halves of that are proved rather than assumed:
+/// the rewritten access is bound speculatively and its type compared with the type of the read it replaces,
+/// so a <c>Now</c> on some other type is never rewritten into a <c>UtcNow</c> that does not exist, and a
+/// rewrite that would hand back a different type is never offered.
+/// </para>
+/// <para>
+/// <c>DateTimeOffset.Now.DateTime</c> becomes <c>UtcDateTime</c>, not <c>DateTime</c>. The two agree on the
+/// ticks once the clock is <c>UtcNow</c> — its offset is zero — but they disagree on the
+/// <c>DateTimeKind</c> they carry: <c>DateTime</c> hands back <c>Unspecified</c>, which is the very
+/// ambiguity the rule exists to remove, and <c>UtcDateTime</c> hands back <c>Utc</c>, so every later
+/// conversion knows what it is holding.
+/// </para>
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2011RecordInstantsInUtcCodeFixProvider))]
 [Shared]
 public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
-    /// <summary>The UTC clock property name.</summary>
-    private const string UtcNowName = "UtcNow";
-
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernizationRules.RecordInstantsInUtc.Id);
 
@@ -98,9 +107,14 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
             return false;
         }
 
-        var candidate = access.WithName(SyntaxFactory.IdentifierName(UtcNowName).WithTriviaFrom(access.Name));
-        var speculative = model.GetSpeculativeSymbolInfo(access.SpanStart, candidate, SpeculativeBindingOption.BindAsExpression);
-        if (speculative.Symbol is not IPropertySymbol { IsStatic: true })
+        var shape = ClockPropertyAccess.MatchLocalInstantSpelling(access);
+        if (shape == ClockPropertyAccess.LocalInstant.None)
+        {
+            return false;
+        }
+
+        var candidate = BuildUtcRead(access, shape);
+        if (candidate is null || !PreservesTheRead(model, access, candidate))
         {
             return false;
         }
@@ -108,4 +122,79 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
         replacement = candidate;
         return true;
     }
+
+    /// <summary>Builds the UTC read that replaces one local-instant read.</summary>
+    /// <param name="access">The reported member access.</param>
+    /// <param name="shape">The local-instant shape it matched.</param>
+    /// <returns>The UTC read, or <see langword="null"/> when the reported shape is not one this fix rewrites.</returns>
+    private static MemberAccessExpressionSyntax? BuildUtcRead(MemberAccessExpressionSyntax access, ClockPropertyAccess.LocalInstant shape)
+    {
+        switch (shape)
+        {
+            case ClockPropertyAccess.LocalInstant.Now:
+            {
+                return WithName(access, ClockPropertyAccess.UtcNowName);
+            }
+
+            case ClockPropertyAccess.LocalInstant.Today:
+            {
+                // Local midnight becomes the UTC instant truncated to its date: DateTime.UtcNow.Date.
+                var utcNow = access.WithName(SyntaxFactory.IdentifierName(ClockPropertyAccess.UtcNowName));
+                return SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        utcNow,
+                        SyntaxFactory.IdentifierName(ClockPropertyAccess.DatePropertyName))
+                    .WithTriviaFrom(access);
+            }
+
+            case ClockPropertyAccess.LocalInstant.OffsetLocalDateTime:
+            {
+                // The clock moves to UtcNow and the projection moves with it: taking '.DateTime' off
+                // 'UtcNow' would hand back the right ticks with DateTimeKind.Unspecified, which is the
+                // ambiguity being fixed. '.UtcDateTime' carries DateTimeKind.Utc.
+                if (access.Expression is not MemberAccessExpressionSyntax clock)
+                {
+                    return null;
+                }
+
+                return access
+                    .WithExpression(WithName(clock, ClockPropertyAccess.UtcNowName))
+                    .WithName(SyntaxFactory.IdentifierName(ClockPropertyAccess.UtcDateTimePropertyName).WithTriviaFrom(access.Name));
+            }
+
+            default:
+            {
+                return null;
+            }
+        }
+    }
+
+    /// <summary>Returns whether the rewritten read binds, and binds to the very type the read it replaces had.</summary>
+    /// <param name="model">The semantic model for the document.</param>
+    /// <param name="access">The reported member access.</param>
+    /// <param name="candidate">The UTC read built for it.</param>
+    /// <returns><see langword="true"/> when the rewrite compiles and changes nothing but the clock.</returns>
+    /// <remarks>
+    /// The type check is what makes the fix safe to offer: a rewrite that bound to a property of some other
+    /// type would compile here and break at the next line that consumed it.
+    /// </remarks>
+    private static bool PreservesTheRead(SemanticModel model, MemberAccessExpressionSyntax access, MemberAccessExpressionSyntax candidate)
+    {
+        var speculative = model.GetSpeculativeSymbolInfo(access.SpanStart, candidate, SpeculativeBindingOption.BindAsExpression);
+        if (speculative.Symbol is not IPropertySymbol)
+        {
+            return false;
+        }
+
+        var rewritten = model.GetSpeculativeTypeInfo(access.SpanStart, candidate, SpeculativeBindingOption.BindAsExpression).Type;
+        return rewritten is not null
+            && SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(access).Type, rewritten);
+    }
+
+    /// <summary>Renames the member a clock read names, keeping the receiver and the trivia as they were written.</summary>
+    /// <param name="access">The member access to rename.</param>
+    /// <param name="name">The member to read instead.</param>
+    /// <returns>The renamed member access.</returns>
+    private static MemberAccessExpressionSyntax WithName(MemberAccessExpressionSyntax access, string name)
+        => access.WithName(SyntaxFactory.IdentifierName(name).WithTriviaFrom(access.Name));
 }

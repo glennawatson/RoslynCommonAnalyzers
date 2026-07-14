@@ -6,11 +6,12 @@ namespace PerformanceSharp.Analyzers;
 
 /// <summary>
 /// Flags a thread parked on a task that is not provably complete (PSH1315): <c>t.Result</c>,
-/// <c>t.Wait()</c>, <c>t.Wait(timeout)</c>, <c>t.Wait(cancellationToken)</c>, and
+/// <c>t.Wait()</c>, <c>t.Wait(timeout)</c>, <c>t.Wait(cancellationToken)</c>,
 /// <c>t.GetAwaiter().GetResult()</c> — with or without a <c>ConfigureAwait</c> in front of the
-/// awaiter — on a <c>Task</c>, <c>Task&lt;T&gt;</c>, <c>ValueTask</c>, or <c>ValueTask&lt;T&gt;</c>.
-/// Under a SynchronizationContext the continuation needs the very thread the wait is holding and
-/// deadlocks; on the thread pool the wait burns a worker that could have been completing the task.
+/// awaiter — <c>t.RunSynchronously()</c>, <c>Task.WaitAll(…)</c>, and <c>Task.WaitAny(…)</c>, on a
+/// <c>Task</c>, <c>Task&lt;T&gt;</c>, <c>ValueTask</c>, or <c>ValueTask&lt;T&gt;</c>. Under a
+/// SynchronizationContext the continuation needs the very thread the wait is holding and deadlocks;
+/// on the thread pool the wait burns a worker that could have been completing the task.
 /// Synchronous callers are reported too — that is where the deadlock lives — but only where an
 /// author could act on it.
 /// <para>
@@ -20,7 +21,9 @@ namespace PerformanceSharp.Analyzers;
 /// awaiter's own <c>GetResult</c> is required by the awaiter pattern to be synchronous. And a
 /// member that overrides or implements a signature its author does not own — including
 /// <c>IDisposable.Dispose</c> — cannot be made async at all. Those last two, plus <c>Main</c>,
-/// live in <see cref="BlockingWaitExemption"/>.
+/// live in <see cref="BlockingWaitExemption"/>, and they exempt the enclosing *member* rather than
+/// a blocking shape, so they apply to every shape alike: a member that cannot be made <c>async</c>
+/// cannot await a <c>WaitAll</c> either.
 /// </para>
 /// <para>
 /// Blocking on a task is reported here and nowhere else: PSH1313 covers the different mistake of
@@ -76,7 +79,7 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
     {
         var node = context.Node;
         if (BlockingWait.TryMatch(node, context.SemanticModel, tasks, context.CancellationToken) is not { } site
-            || CompletionGuard.IsProvablyComplete(node, site.GuardTarget)
+            || IsProvablyComplete(node, site)
             || IsUnactionable(context, node, notifyCompletion, entryPoint))
         {
             return;
@@ -87,8 +90,53 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
             node.SyntaxTree,
             node.Span,
             site.BlockingMember,
-            site.GuardTarget.ToString()));
+            DescribeBlockedOn(node, site)));
     }
+
+    /// <summary>Returns whether a completion check already proved the wait cannot block.</summary>
+    /// <param name="node">The blocking expression.</param>
+    /// <param name="site">The matched blocking wait.</param>
+    /// <returns><see langword="true"/> when control only reaches the wait with nothing left to wait for.</returns>
+    /// <remarks>
+    /// A completion check proves one task complete, and a wait on one task is silenced by a check on
+    /// that task. The combinators need the same proof for what they actually block on:
+    /// <c>Task.WaitAll</c> parks the thread until every task it was handed has finished, so it is
+    /// harmless only when every one of them was proved complete — a check on one of five says
+    /// nothing about the other four. <c>Task.WaitAny</c> returns the moment any one of them
+    /// finishes, so a proof about any single argument is enough to make it a no-op.
+    /// </remarks>
+    private static bool IsProvablyComplete(SyntaxNode node, in BlockingWait.Site site)
+    {
+        if (site.Kind == BlockingWait.Kind.SingleTask)
+        {
+            return CompletionGuard.IsProvablyComplete(node, site.GuardTarget);
+        }
+
+        var requireAll = site.Kind == BlockingWait.Kind.WaitAll;
+        var arguments = ((InvocationExpressionSyntax)node).ArgumentList.Arguments;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            // WaitAll: the first argument nothing proves settles it, and the wait is reported.
+            // WaitAny: the first argument something proves settles it, and the wait is silent.
+            var proved = CompletionGuard.IsProvablyComplete(node, arguments[i].Expression);
+            if (proved != requireAll)
+            {
+                return proved;
+            }
+        }
+
+        return requireAll;
+    }
+
+    /// <summary>Names what the thread is parked on, for the message.</summary>
+    /// <param name="node">The blocking expression.</param>
+    /// <param name="site">The matched blocking wait.</param>
+    /// <returns>The task, or the tasks a combinator was handed, as the source spells them.</returns>
+    /// <remarks>Only reached once a diagnostic is being reported, so the rendering never costs a clean file.</remarks>
+    private static string DescribeBlockedOn(SyntaxNode node, in BlockingWait.Site site)
+        => site.Kind == BlockingWait.Kind.SingleTask
+            ? site.GuardTarget.ToString()
+            : ((InvocationExpressionSyntax)node).ArgumentList.Arguments.ToString();
 
     /// <summary>Returns whether the author could not act on the wait even if it were reported.</summary>
     /// <param name="context">The syntax node analysis context.</param>

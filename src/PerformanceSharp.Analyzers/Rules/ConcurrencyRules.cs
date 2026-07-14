@@ -121,7 +121,7 @@ internal static class ConcurrencyRules
     public static readonly DiagnosticDescriptor NoBlockingWait = Create(
         "PSH1315",
         "Do not block on a task that may not be complete",
-        "'{0}' parks this thread until '{1}' completes; await it instead",
+        "'{0}' parks this thread on '{1}'; await instead of blocking",
         NoBlockingWaitDescription);
 
     /// <summary>The PSH1302 rule description.</summary>
@@ -200,10 +200,12 @@ internal static class ConcurrencyRules
 
     /// <summary>The PSH1315 rule description.</summary>
     private const string NoBlockingWaitDescription =
-        "'Result', 'Wait', and 'GetAwaiter().GetResult()' park the calling thread until the task finishes: under a SynchronizationContext the "
-        + "continuation needs that same thread and cannot have it, which deadlocks, and on the thread pool the blocked worker is one fewer "
-        + "worker able to complete the very task being waited on. A wait that a completion check has already proved cannot block — the "
-        + "'IsCompletedSuccessfully' fast path — and an awaiter's own 'GetResult', where synchronous completion is the contract, are not reported.";
+        "'Result', 'Wait', 'GetAwaiter().GetResult()', 'RunSynchronously', 'Task.WaitAll' and 'Task.WaitAny' all park the calling thread until "
+        + "the task finishes: under a SynchronizationContext the continuation needs that same thread and cannot have it, which deadlocks, and on "
+        + "the thread pool the blocked worker is one fewer worker able to complete the very task being waited on. 'await Task.WhenAll' and "
+        + "'await Task.WhenAny' wait for the same thing without holding a thread. A wait that a completion check has already proved cannot block "
+        + "— the 'IsCompletedSuccessfully' fast path — and an awaiter's own 'GetResult', where synchronous completion is the contract, are not "
+        + "reported.";
 
     /// <summary>Creates a Warning-severity Concurrency descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

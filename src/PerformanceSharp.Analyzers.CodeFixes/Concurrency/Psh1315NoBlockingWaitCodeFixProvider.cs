@@ -11,9 +11,12 @@ namespace PerformanceSharp.Analyzers;
 /// <c>task.Wait()</c>, and <c>task.GetAwaiter().GetResult()</c> all become <c>await task</c>, and a
 /// <c>ConfigureAwait</c> in front of the awaiter is carried across so
 /// <c>t.ConfigureAwait(false).GetAwaiter().GetResult()</c> becomes
-/// <c>await t.ConfigureAwait(false)</c>. The result is parenthesized wherever the surrounding
-/// expression binds tighter than <c>await</c> — <c>task.Result.Length</c> becomes
-/// <c>(await task).Length</c>, not <c>await task.Length</c>.
+/// <c>await t.ConfigureAwait(false)</c>. <c>Task.WaitAll(a, b)</c> becomes
+/// <c>await Task.WhenAll(a, b)</c> and <c>Task.WaitAny(a, b)</c> becomes
+/// <c>await Task.WhenAny(a, b)</c>, with the rewritten call bound speculatively first so an
+/// overload that does not exist in the analyzed framework is never offered. The result is
+/// parenthesized wherever the surrounding expression binds tighter than <c>await</c> —
+/// <c>task.Result.Length</c> becomes <c>(await task).Length</c>, not <c>await task.Length</c>.
 /// <para>
 /// The fix is offered only where the <c>await</c> would compile: the enclosing function must
 /// already be <c>async</c>, and the position must not be one C# forbids awaiting in (see
@@ -22,14 +25,24 @@ namespace PerformanceSharp.Analyzers;
 /// call chain <c>async</c> goes, and no code action can decide that for them.
 /// </para>
 /// <para>
-/// <c>Wait(timeout)</c> and <c>Wait(cancellationToken)</c> are reported but never rewritten:
-/// awaiting drops the timeout and the token, so the "fix" would change what the code means.
+/// Four shapes are reported and never rewritten, because no rewrite means the same thing.
+/// <c>Wait(timeout)</c> and <c>Wait(cancellationToken)</c>, and the <c>WaitAll</c> overloads that
+/// take one of those, give up on the wait in a way <c>await</c> does not. A <c>WaitAny</c> whose
+/// result is used returns the *index* of the task that finished, where <c>WhenAny</c> returns the
+/// task itself. And <c>RunSynchronously</c> starts a cold task on this thread: awaiting a task
+/// nothing ever started waits forever, so only its author can say what it should have been.
 /// </para>
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1315NoBlockingWaitCodeFixProvider))]
 [Shared]
 public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
+    /// <summary>The awaitable that completes when every task does.</summary>
+    private const string WhenAllMethodName = "WhenAll";
+
+    /// <summary>The awaitable that completes when one task does.</summary>
+    private const string WhenAnyMethodName = "WhenAny";
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ConcurrencyRules.NoBlockingWait.Id);
 
@@ -80,15 +93,56 @@ public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBat
             return null;
         }
 
-        ExpressionSyntax awaited = SyntaxFactory.AwaitExpression(
-            SyntaxFactory.Token(SyntaxKind.AwaitKeyword).WithTrailingTrivia(SyntaxFactory.Space),
-            site.Awaited.WithoutTrivia());
-        if (NeedsParentheses(blocking))
+        if (site.Kind == BlockingWait.Kind.SingleTask)
         {
-            awaited = SyntaxFactory.ParenthesizedExpression(awaited);
+            return AwaitOf(site.Awaited, blocking);
         }
 
-        return awaited.WithTriviaFrom(blocking).WithAdditionalAnnotations(Formatter.Annotation);
+        return TryGetCombinatorReplacement(model, (InvocationExpressionSyntax)blocking, site.Kind);
+    }
+
+    /// <summary>Builds <c>await Task.WhenAll(…)</c> or <c>await Task.WhenAny(…)</c> for a reported combinator.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="blocking">The <c>Task.WaitAll</c> or <c>Task.WaitAny</c> invocation.</param>
+    /// <param name="kind">Which combinator was reported.</param>
+    /// <returns>The awaited replacement, or <see langword="null"/> when the rewritten call does not bind.</returns>
+    /// <remarks>
+    /// The receiver is left exactly as it was written — a qualified or aliased <c>Task</c> stays
+    /// qualified or aliased — and only the method name moves. The rewritten call is then bound
+    /// speculatively: a framework whose <c>WhenAll</c> has no overload for the arguments already
+    /// written gets no fix rather than one that does not compile.
+    /// </remarks>
+    private static ExpressionSyntax? TryGetCombinatorReplacement(SemanticModel model, InvocationExpressionSyntax blocking, BlockingWait.Kind kind)
+    {
+        var access = (MemberAccessExpressionSyntax)blocking.Expression;
+        var whenName = kind == BlockingWait.Kind.WaitAll ? WhenAllMethodName : WhenAnyMethodName;
+        var candidate = blocking.WithExpression(
+            access.WithName(SyntaxFactory.IdentifierName(whenName).WithTriviaFrom(access.Name)));
+
+        var speculative = model.GetSpeculativeSymbolInfo(blocking.SpanStart, candidate, SpeculativeBindingOption.BindAsExpression);
+        if (speculative.Symbol is not IMethodSymbol)
+        {
+            return null;
+        }
+
+        return AwaitOf(candidate, blocking);
+    }
+
+    /// <summary>Wraps an expression in an <c>await</c>, parenthesized where the surrounding expression needs it.</summary>
+    /// <param name="awaited">The expression to await.</param>
+    /// <param name="blocking">The blocking expression being replaced, whose trivia and position the result takes on.</param>
+    /// <returns>The awaited expression.</returns>
+    private static ExpressionSyntax AwaitOf(ExpressionSyntax awaited, ExpressionSyntax blocking)
+    {
+        ExpressionSyntax result = SyntaxFactory.AwaitExpression(
+            SyntaxFactory.Token(SyntaxKind.AwaitKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+            awaited.WithoutTrivia());
+        if (NeedsParentheses(blocking))
+        {
+            result = SyntaxFactory.ParenthesizedExpression(result);
+        }
+
+        return result.WithTriviaFrom(blocking).WithAdditionalAnnotations(Formatter.Annotation);
     }
 
     /// <summary>Returns whether the surrounding expression binds tighter than <c>await</c>, so the result needs parentheses.</summary>

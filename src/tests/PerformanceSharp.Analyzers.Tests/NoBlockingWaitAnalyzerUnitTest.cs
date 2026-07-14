@@ -254,6 +254,280 @@ public class NoBlockingWaitAnalyzerUnitTest
         await VerifyFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies Task.WaitAll — a static wait on many tasks — is reported and rewritten to await Task.WhenAll.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WaitAllIsRewrittenToWhenAllAsync()
+    {
+        const string Source = """
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public async Task M(Task first, Task second)
+                                  {
+                                      await Task.Yield();
+                                      {|PSH1315:Task.WaitAll(first, second)|};
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Threading.Tasks;
+
+                                   public class C
+                                   {
+                                       public async Task M(Task first, Task second)
+                                       {
+                                           await Task.Yield();
+                                           await Task.WhenAll(first, second);
+                                       }
+                                   }
+                                   """;
+        await VerifyFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies Task.WaitAny is reported and rewritten to await Task.WhenAny when its result is discarded.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WaitAnyWithDiscardedResultIsRewrittenToWhenAnyAsync()
+    {
+        const string Source = """
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public async Task M(Task first, Task second)
+                                  {
+                                      await Task.Yield();
+                                      {|PSH1315:Task.WaitAny(first, second)|};
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Threading.Tasks;
+
+                                   public class C
+                                   {
+                                       public async Task M(Task first, Task second)
+                                       {
+                                           await Task.Yield();
+                                           await Task.WhenAny(first, second);
+                                       }
+                                   }
+                                   """;
+        await VerifyFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a WaitAny whose index is used is reported but never rewritten: WhenAny hands back the task, not the index.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WaitAnyWithUsedResultIsReportedWithoutFixAsync()
+    {
+        const string Source = """
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public async Task<int> M(Task first, Task second)
+                                  {
+                                      await Task.Yield();
+                                      return {|PSH1315:Task.WaitAny(first, second)|};
+                                  }
+                              }
+                              """;
+        await VerifyNoFixOfferedAsync(Source);
+    }
+
+    /// <summary>Verifies the WaitAll overloads that take a timeout or a token are reported but never rewritten.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>Awaiting WhenAll drops both, so the rewrite would mean something the code did not say.</remarks>
+    [Test]
+    public async Task WaitAllWithTimeoutOrTokenIsReportedWithoutFixAsync()
+    {
+        const string Source = """
+                              using System.Threading;
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public async Task M(Task[] pending, CancellationToken cancellationToken)
+                                  {
+                                      await Task.Yield();
+                                      {|PSH1315:Task.WaitAll(pending, 1000)|};
+                                      {|PSH1315:Task.WaitAll(pending, cancellationToken)|};
+                                  }
+                              }
+                              """;
+        await VerifyNoFixOfferedAsync(Source);
+    }
+
+    /// <summary>Verifies RunSynchronously — which runs the task on the calling thread — is reported, with no fix.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RunSynchronouslyIsReportedWithoutFixAsync()
+    {
+        const string Source = """
+                              using System;
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public async Task M()
+                                  {
+                                      await Task.Yield();
+                                      var cold = new Task(() => Console.WriteLine("work"));
+                                      {|PSH1315:cold.RunSynchronously()|};
+                                  }
+                              }
+                              """;
+        await VerifyNoFixOfferedAsync(Source);
+    }
+
+    /// <summary>Verifies WaitAsync is never reported: it is the non-blocking API, and the fix rather than the defect.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WaitAsyncIsNotReportedAsync()
+    {
+        const string Source = """
+                              using System.Threading;
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public async Task M(Task pending, CancellationToken cancellationToken)
+                                      => await pending.WaitAsync(cancellationToken);
+                              }
+                              """;
+        await VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies a WaitAll of the caller's own is not mistaken for the framework's.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WaitAllOfAnotherTypeIsNotReportedAsync()
+    {
+        const string Source = """
+                              using System.Threading.Tasks;
+
+                              public static class Batches
+                              {
+                                  public static void WaitAll(params Task[] batch)
+                                  {
+                                  }
+
+                                  public static int WaitAny(params Task[] batch) => 0;
+                              }
+
+                              public class C
+                              {
+                                  public async Task M(Task first, Task second)
+                                  {
+                                      await Task.Yield();
+                                      Batches.WaitAll(first, second);
+                                      Batches.WaitAny(first, second);
+                                  }
+                              }
+                              """;
+        await VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies a WaitAll whose every task a completion check has already proved is silent, while one unproved task is enough to report.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>WaitAll parks the thread until every task is done, so a check on one of them proves nothing about the rest.</remarks>
+    [Test]
+    public async Task WaitAllIsSilentOnlyWhenEveryTaskIsGuardedAsync()
+    {
+        const string Source = """
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public async Task Guarded(Task first, Task second)
+                                  {
+                                      await Task.Yield();
+                                      if (first.IsCompleted && second.IsCompleted)
+                                      {
+                                          Task.WaitAll(first, second);
+                                      }
+                                  }
+
+                                  public async Task HalfGuarded(Task first, Task second)
+                                  {
+                                      await Task.Yield();
+                                      if (first.IsCompleted)
+                                      {
+                                          {|PSH1315:Task.WaitAll(first, second)|};
+                                      }
+                                  }
+                              }
+                              """;
+        await VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies a WaitAny is silent once any one of its tasks is proved complete: the wait returns on the first one that is.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WaitAnyIsSilentWhenOneTaskIsGuardedAsync()
+    {
+        const string Source = """
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public async Task M(Task first, Task second)
+                                  {
+                                      await Task.Yield();
+                                      if (first.IsCompleted)
+                                      {
+                                          Task.WaitAny(first, second);
+                                      }
+                                  }
+                              }
+                              """;
+        await VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies the member exemptions cover every blocking shape: an interface implementation cannot await a WaitAll either.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WaitAllInAnInterfaceImplementationIsNotReportedAsync()
+    {
+        const string Source = """
+                              using System.Threading.Tasks;
+
+                              public interface IHandler
+                              {
+                                  void Handle();
+                              }
+
+                              public sealed class C : IHandler
+                              {
+                                  private readonly Task _first = Task.CompletedTask;
+
+                                  private readonly Task _second = Task.CompletedTask;
+
+                                  public void Handle() => Task.WaitAll(_first, _second);
+                              }
+                              """;
+        await VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies a WaitAll in a synchronous method the author owns is reported, with no fix offered.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WaitAllInSyncMethodIsReportedWithoutFixAsync()
+    {
+        const string Source = """
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public void M(Task first, Task second) => {|PSH1315:Task.WaitAll(first, second)|};
+                              }
+                              """;
+        await VerifyNoFixOfferedAsync(Source);
+    }
+
     /// <summary>Verifies a blocking wait in a synchronous method the author owns is reported, with no fix offered.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

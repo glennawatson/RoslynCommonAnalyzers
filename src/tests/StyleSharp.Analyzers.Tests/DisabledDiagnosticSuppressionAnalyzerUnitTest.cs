@@ -41,6 +41,49 @@ public class DisabledDiagnosticSuppressionAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a suppression is reported when an <c>.editorconfig</c> is what turned the diagnostic off.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// This is the way severity is actually configured — the sibling test above goes through
+    /// <c>SpecificDiagnosticOptions</c>, which is the ruleset and <c>NoWarn</c> path. The two arrive at the
+    /// analyzer by different routes: a <c>dotnet_diagnostic.&lt;id&gt;.severity</c> entry is a severity
+    /// configuration, so the compiler routes it to the per-tree diagnostic options and never hands it back
+    /// through <c>AnalyzerConfigOptionsProvider</c>. Reading it from there found nothing and reported
+    /// nothing, and no test noticed, because every test configured the rule the other way.
+    /// </remarks>
+    [Test]
+    public async Task DiagnosticDisabledByAnalyzerConfigIsReportedAsync()
+    {
+        var test = new VerifyDisabledDiagnosticSuppression.Test
+        {
+            TestState =
+            {
+                Sources =
+                {
+                    """
+                    using System.Diagnostics.CodeAnalysis;
+
+                    [{|SST1462:SuppressMessage("Major Code Smell", "the rule:Use a testable date/time provider", Justification = "Test.")|}]
+                    public sealed class C
+                    {
+                    }
+                    """,
+                },
+                AnalyzerConfigFiles =
+                {
+                    ("/.editorconfig", """
+                                       root = true
+
+                                       [*.cs]
+                                       dotnet_diagnostic.the rule.severity = none
+                                       """),
+                },
+            },
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a suppression for an enabled diagnostic is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

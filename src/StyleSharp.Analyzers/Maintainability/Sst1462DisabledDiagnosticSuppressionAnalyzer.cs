@@ -47,7 +47,7 @@ public sealed class Sst1462DisabledDiagnosticSuppressionAnalyzer : DiagnosticAna
         if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol { ContainingType: var attributeType }
             || !SymbolEqualityComparer.Default.Equals(attributeType, suppressMessageAttribute)
             || TryGetCheckId(attribute.ArgumentList, context.SemanticModel, context.CancellationToken) is not { } diagnosticId
-            || !IsConfiguredOff(diagnosticId, attribute.SyntaxTree, context.Options, context.Compilation))
+            || !IsConfiguredOff(diagnosticId, attribute.SyntaxTree, context.Options, context.Compilation, context.CancellationToken))
         {
             return;
         }
@@ -94,11 +94,33 @@ public sealed class Sst1462DisabledDiagnosticSuppressionAnalyzer : DiagnosticAna
     /// <param name="tree">The syntax tree.</param>
     /// <param name="options">The analyzer options.</param>
     /// <param name="compilation">The active compilation.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> when severity is configured to none or silent.</returns>
-    private static bool IsConfiguredOff(string diagnosticId, SyntaxTree tree, AnalyzerOptions options, Compilation compilation)
+    /// <remarks>
+    /// The severity has to be read through the <see cref="SyntaxTreeOptionsProvider"/>, because that is
+    /// where the compiler puts it. A <c>dotnet_diagnostic.&lt;id&gt;.severity</c> entry is a severity
+    /// configuration rather than an analyzer option, so it is routed to the per-tree diagnostic options and
+    /// is <b>not</b> handed back by <c>AnalyzerConfigOptionsProvider.GetOptions</c> — asking there finds
+    /// nothing and silently reports nothing, which is exactly what this rule did before. The command-line
+    /// and ruleset path (<see cref="CompilationOptions.SpecificDiagnosticOptions"/>) is still checked, since
+    /// a <c>NoWarn</c> disables a diagnostic just as completely.
+    /// </remarks>
+    private static bool IsConfiguredOff(
+        string diagnosticId,
+        SyntaxTree tree,
+        AnalyzerOptions options,
+        Compilation compilation,
+        CancellationToken cancellationToken)
     {
         if (compilation.Options.SpecificDiagnosticOptions.TryGetValue(diagnosticId, out var reportDiagnostic)
-            && reportDiagnostic == ReportDiagnostic.Suppress)
+            && IsOff(reportDiagnostic))
+        {
+            return true;
+        }
+
+        if (compilation.Options.SyntaxTreeOptionsProvider is { } treeOptions
+            && treeOptions.TryGetDiagnosticValue(tree, diagnosticId, cancellationToken, out var configured)
+            && IsOff(configured))
         {
             return true;
         }
@@ -108,4 +130,10 @@ public sealed class Sst1462DisabledDiagnosticSuppressionAnalyzer : DiagnosticAna
             && (StringComparer.OrdinalIgnoreCase.Equals(severity, "none")
                 || StringComparer.OrdinalIgnoreCase.Equals(severity, "silent"));
     }
+
+    /// <summary>Returns whether a configured severity means the diagnostic can never be reported.</summary>
+    /// <param name="report">The configured severity.</param>
+    /// <returns><see langword="true"/> for <c>none</c> and <c>silent</c>.</returns>
+    private static bool IsOff(ReportDiagnostic report)
+        => report is ReportDiagnostic.Suppress or ReportDiagnostic.Hidden;
 }

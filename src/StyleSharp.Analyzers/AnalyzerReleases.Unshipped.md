@@ -98,6 +98,7 @@ SST2305 | Design | Warning | Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer
 SST2306 | Design | Warning | Sst2306ReturnEmptyCollectionNotNullAnalyzer
 SST2307 | Design | Warning | Sst2307InferableTypeParameterAnalyzer
 SST2308 | Design | Warning | Sst2308ObsoleteWithoutExplanationAnalyzer
+SST2309 | Design | Warning | Sst2309OptionalParameterAnalyzer
 SST2400 | Correctness | Warning | Sst2400SwappedArgumentsAnalyzer
 SST2401 | Correctness | Warning | Sst2401CatchNullReferenceAnalyzer
 SST2402 | Correctness | Warning | Sst2402StaticFieldWrittenInConstructorAnalyzer

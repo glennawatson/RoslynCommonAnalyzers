@@ -74,6 +74,13 @@ internal static class DesignRules
         "The [Obsolete] on '{0}' has no message; say why and what replaces it",
         ObsoleteWithoutExplanationDescription);
 
+    /// <summary>SST2309 — an externally visible member hands a caller a default value to bake in.</summary>
+    public static readonly DiagnosticDescriptor OptionalParameter = Create(
+        "SST2309",
+        "Use an overload instead of an optional parameter",
+        "'{0}' on '{1}' is optional, so every caller that omits it compiles the default into itself",
+        OptionalParameterDescription);
+
     /// <summary>The DisposePattern rule description.</summary>
     private const string DisposePatternDescription =
         "The disposal pattern exists because two different callers reach a type's cleanup: the code that owns it, and — if it holds "
@@ -118,6 +125,12 @@ internal static class DesignRules
         "Returning null for 'there is nothing' forces a null check into every caller, and the one that forgets gets a "
         + "NullReferenceException instead of an empty loop. An empty collection reads the same way at every call site — foreach over it, "
         + "count it, chain from it — and 'Array.Empty<T>()' and the empty collection expression cost no allocation at all.";
+
+    /// <summary>The OptionalParameter rule description.</summary>
+    private const string OptionalParameterDescription =
+        "A default value is not stored in the method — it is copied into every call site that omits the argument, at the moment that "
+        + "caller is compiled. Change the default in a later version and every assembly already built against the old one keeps passing the "
+        + "old value, silently. An overload puts the default in one place, inside the method, where changing it reaches everybody.";
 
     /// <summary>The InferableTypeParameter rule description.</summary>
     private const string InferableTypeParameterDescription =

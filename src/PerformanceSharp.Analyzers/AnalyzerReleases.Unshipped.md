@@ -93,6 +93,7 @@ PSH1311 | Concurrency | Warning | Psh1311RemovePassThroughStateMachineAnalyzer
 PSH1312 | Concurrency | Warning | Psh1312ReturnCompletedTaskOverNullAnalyzer
 PSH1313 | Concurrency | Warning | Psh1313CallAsyncInAsyncContextAnalyzer
 PSH1314 | Concurrency | Warning | Psh1314UseMemoryBasedStreamOverloadsAnalyzer
+PSH1315 | Concurrency | Warning | Psh1315NoBlockingWaitAnalyzer
 PSH1400 | ApiSelection | Warning | Psh1400PreferStaticHashDataAnalyzer
 PSH1401 | ApiSelection | Warning | Psh1401SealAttributeTypesAnalyzer
 PSH1402 | ApiSelection | Warning | Psh1402PreferConstOverStaticReadonlyAnalyzer

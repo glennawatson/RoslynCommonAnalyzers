@@ -117,6 +117,13 @@ internal static class ConcurrencyRules
         "Use the '{0}' overload that takes a Memory or ReadOnlyMemory",
         UseMemoryBasedStreamOverloadsDescription);
 
+    /// <summary>PSH1315 — a thread is parked on a task that is not provably complete.</summary>
+    public static readonly DiagnosticDescriptor NoBlockingWait = Create(
+        "PSH1315",
+        "Do not block on a task that may not be complete",
+        "'{0}' parks this thread until '{1}' completes; await it instead",
+        NoBlockingWaitDescription);
+
     /// <summary>The PSH1302 rule description.</summary>
     private const string RunContinuationsAsynchronouslyDescription =
         "Completing a TaskCompletionSource without TaskCreationOptions.RunContinuationsAsynchronously runs every waiter's continuation inline "
@@ -190,6 +197,13 @@ internal static class ConcurrencyRules
         "The array-based 'ReadAsync'/'WriteAsync' overloads have to allocate state to carry the array, offset and count across the await. "
         + "The 'Memory<byte>' overloads carry all three in the value itself and return a 'ValueTask', so a call that completes synchronously "
         + "— which, on a buffered stream, is most of them — allocates nothing at all.";
+
+    /// <summary>The PSH1315 rule description.</summary>
+    private const string NoBlockingWaitDescription =
+        "'Result', 'Wait', and 'GetAwaiter().GetResult()' park the calling thread until the task finishes: under a SynchronizationContext the "
+        + "continuation needs that same thread and cannot have it, which deadlocks, and on the thread pool the blocked worker is one fewer "
+        + "worker able to complete the very task being waited on. A wait that a completion check has already proved cannot block — the "
+        + "'IsCompletedSuccessfully' fast path — and an awaiter's own 'GetResult', where synchronous completion is the contract, are not reported.";
 
     /// <summary>Creates a Warning-severity Concurrency descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

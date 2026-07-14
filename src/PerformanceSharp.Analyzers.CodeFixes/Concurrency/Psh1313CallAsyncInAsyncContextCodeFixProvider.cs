@@ -7,12 +7,11 @@ using Microsoft.CodeAnalysis.Formatting;
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
-/// Rewrites a reported blocking call to an awaited one (PSH1313). <c>task.Result</c>,
-/// <c>task.Wait()</c>, and <c>task.GetAwaiter().GetResult()</c> all become <c>await task</c>,
-/// while a synchronous call with an async sibling becomes <c>await x.FooAsync(...)</c> carrying
-/// its arguments over unchanged. The result is parenthesized wherever the surrounding expression
-/// binds tighter than <c>await</c> — <c>task.Result.Length</c> becomes
-/// <c>(await task).Length</c>, not <c>await task.Length</c>.
+/// Rewrites a reported synchronous call to its awaited async sibling (PSH1313):
+/// <c>x.Foo(args)</c> becomes <c>await x.FooAsync(args)</c>, carrying the arguments over
+/// unchanged. The result is parenthesized wherever the surrounding expression binds tighter than
+/// <c>await</c> — <c>File.ReadAllText(path).Length</c> becomes
+/// <c>(await File.ReadAllTextAsync(path)).Length</c>.
 /// <para>
 /// The rewritten sibling call is speculatively bound before the fix is offered, so a replacement
 /// that would not compile is never suggested; the enclosing function is re-checked for
@@ -31,85 +30,56 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Await instead of blocking", nameof(Psh1313CallAsyncInAsyncContextCodeFixProvider), TryRewrite);
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Await the async overload", nameof(Psh1313CallAsyncInAsyncContextCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
         => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-    /// <summary>Replaces a reported blocking call with its awaited form.</summary>
+    /// <summary>Replaces a reported synchronous call with its awaited async sibling.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model.</param>
-    /// <param name="blocking">The blocking expression to rewrite.</param>
+    /// <param name="blocking">The synchronous call to rewrite.</param>
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, ExpressionSyntax blocking)
-        => TryGetReplacement(model, blocking, out var replacement)
-            ? document.WithSyntaxRoot(root.ReplaceNode(blocking, replacement!))
+        => TryGetReplacement(model, blocking) is { } replacement
+            ? document.WithSyntaxRoot(root.ReplaceNode(blocking, replacement))
             : document;
 
-    /// <summary>Resolves the reported blocking call and builds its awaited replacement.</summary>
+    /// <summary>Resolves the reported synchronous call and builds its awaited replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
         => root.FindNode(diagnostic.Location.SourceSpan) is ExpressionSyntax blocking
-            && TryGetReplacement(model, blocking, out var replacement)
-            ? new NodeReplacement(blocking, replacement!)
+            && TryGetReplacement(model, blocking) is { } replacement
+            ? new NodeReplacement(blocking, replacement)
             : null;
 
-    /// <summary>Builds the awaited replacement for a reported blocking call.</summary>
+    /// <summary>Builds the awaited sibling call for a reported synchronous invocation.</summary>
     /// <param name="model">The semantic model.</param>
-    /// <param name="blocking">The blocking expression to rewrite.</param>
-    /// <param name="replacement">The replacement expression when one could be built.</param>
-    /// <returns><see langword="true"/> when a replacement was built.</returns>
-    private static bool TryGetReplacement(SemanticModel model, ExpressionSyntax blocking, out ExpressionSyntax? replacement)
+    /// <param name="blocking">The synchronous call to rewrite.</param>
+    /// <returns>The replacement expression, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static ExpressionSyntax? TryGetReplacement(SemanticModel model, ExpressionSyntax blocking)
     {
-        replacement = null;
         if (!Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(blocking)
-            || TryGetAwaitedOperand(model, blocking) is not { } operand)
-        {
-            return false;
-        }
-
-        ExpressionSyntax result = SyntaxFactory.AwaitExpression(
-            SyntaxFactory.Token(SyntaxKind.AwaitKeyword).WithTrailingTrivia(SyntaxFactory.Space),
-            operand.WithoutTrivia());
-        if (NeedsParentheses(blocking))
-        {
-            result = SyntaxFactory.ParenthesizedExpression(result);
-        }
-
-        replacement = result.WithTriviaFrom(blocking).WithAdditionalAnnotations(Formatter.Annotation);
-        return true;
-    }
-
-    /// <summary>Resolves what the awaited replacement should await: the blocked task, or the async sibling call.</summary>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="blocking">The blocking expression.</param>
-    /// <returns>The expression to await, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static ExpressionSyntax? TryGetAwaitedOperand(SemanticModel model, ExpressionSyntax blocking)
-    {
-        if (blocking is MemberAccessExpressionSyntax { Name.Identifier.ValueText: Psh1313CallAsyncInAsyncContextAnalyzer.ResultPropertyName } result)
-        {
-            return result.Expression;
-        }
-
-        if (blocking is not InvocationExpressionSyntax invocation)
+            || blocking is not InvocationExpressionSyntax invocation
+            || TryBuildSiblingCall(model, invocation) is not { } sibling)
         {
             return null;
         }
 
-        if (Psh1313CallAsyncInAsyncContextAnalyzer.TryGetAwaiterChainReceiver(invocation) is { } awaited)
+        ExpressionSyntax awaited = SyntaxFactory.AwaitExpression(
+            SyntaxFactory.Token(SyntaxKind.AwaitKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+            sibling);
+        if (NeedsParentheses(blocking))
         {
-            return awaited;
+            awaited = SyntaxFactory.ParenthesizedExpression(awaited);
         }
 
-        return invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: Psh1313CallAsyncInAsyncContextAnalyzer.WaitMethodName } wait
-            && invocation.ArgumentList.Arguments.Count == 0
-            ? wait.Expression
-            : TryBuildSiblingCall(model, invocation);
+        return awaited.WithTriviaFrom(blocking).WithAdditionalAnnotations(Formatter.Annotation);
     }
 
     /// <summary>Builds the async sibling call for a reported synchronous invocation, and proves it binds.</summary>

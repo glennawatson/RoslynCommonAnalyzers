@@ -4,12 +4,12 @@
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
-/// <summary>Builds synthetic source for call-async-in-async-context analyzer benchmarks.</summary>
-internal static class CallAsyncInAsyncContextBenchmarkSource
+/// <summary>Builds synthetic source for blocking-wait analyzer benchmarks.</summary>
+internal static class NoBlockingWaitBenchmarkSource
 {
-    /// <summary>Builds a compilation unit that exercises clean or violating blocking-call patterns.</summary>
+    /// <summary>Builds a compilation unit that exercises clean or violating task-waiting patterns.</summary>
     /// <param name="types">The number of synthetic types to emit.</param>
-    /// <param name="violating">Whether to emit call-async-in-async-context rule violations.</param>
+    /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
     public static string Generate(int types, bool violating)
         => $$"""
@@ -20,40 +20,50 @@ internal static class CallAsyncInAsyncContextBenchmarkSource
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
            """;
 
-    /// <summary>Builds one clean or violating blocking-call type.</summary>
+    /// <summary>Builds one clean or violating type.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
     private static string GenerateType(int index, bool violating)
         => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
-    /// <summary>Builds one clean type that calls the async sibling and awaits it.</summary>
+    /// <summary>Builds one clean type: the guarded fast path, which blocks nothing and must stay silent.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
+    /// <remarks>
+    /// The clean corpus is deliberately the shape the rule works hardest on — a wait that a
+    /// completion check has already proved safe — so the benchmark measures the guard analysis
+    /// rather than an early bail-out that never sees it.
+    /// </remarks>
     private static string GenerateCleanType(int index)
         => $$"""
            public sealed class C{{index}}
            {
-               public async Task<int> M() => await LoadAsync(1);
+               public async Task<int> M()
+               {
+                   var pending = LoadAsync();
+                   if (pending.IsCompletedSuccessfully)
+                   {
+                       return pending.Result;
+                   }
 
-               public static int Load(int value) => value;
+                   return await pending;
+               }
 
-               public static Task<int> LoadAsync(int value) => Task.FromResult(value);
+               private static ValueTask<int> LoadAsync() => new(1);
            }
            """;
 
-    /// <summary>Builds one violating type that calls the synchronous method inside an async one, with a sibling that fits.</summary>
+    /// <summary>Builds one violating type: an unguarded blocking read of a task's result.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     private static string GenerateViolatingType(int index)
         => $$"""
            public sealed class C{{index}}
            {
-               public async Task<int> M() => Load(1);
+               public async Task<int> M() => LoadAsync().Result;
 
-               public static int Load(int value) => value;
-
-               public static Task<int> LoadAsync(int value) => Task.FromResult(value);
+               private static ValueTask<int> LoadAsync() => new(1);
            }
            """;
 }

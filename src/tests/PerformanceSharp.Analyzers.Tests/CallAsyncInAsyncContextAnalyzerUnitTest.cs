@@ -13,108 +13,6 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Unit tests for PSH1313 (call the async overload from an async method) and its code fix.</summary>
 public class CallAsyncInAsyncContextAnalyzerUnitTest
 {
-    /// <summary>Verifies a blocking Result read in an async method is reported and awaited instead.</summary>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
-    [Test]
-    public async Task BlockingResultIsAwaitedAsync()
-    {
-        const string Source = """
-                              using System.Threading.Tasks;
-
-                              public class C
-                              {
-                                  public async Task<int> M()
-                                  {
-                                      return {|PSH1313:LoadAsync().Result|};
-                                  }
-
-                                  private static Task<int> LoadAsync() => Task.FromResult(1);
-                              }
-                              """;
-        const string FixedSource = """
-                                   using System.Threading.Tasks;
-
-                                   public class C
-                                   {
-                                       public async Task<int> M()
-                                       {
-                                           return await LoadAsync();
-                                       }
-
-                                       private static Task<int> LoadAsync() => Task.FromResult(1);
-                                   }
-                                   """;
-        await VerifyNet90Async(Source, FixedSource);
-    }
-
-    /// <summary>Verifies a blocking Wait() in an async method is reported and awaited instead.</summary>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
-    [Test]
-    public async Task BlockingWaitIsAwaitedAsync()
-    {
-        const string Source = """
-                              using System.Threading.Tasks;
-
-                              public class C
-                              {
-                                  public async Task M()
-                                  {
-                                      {|PSH1313:RunAsync().Wait()|};
-                                  }
-
-                                  private static Task RunAsync() => Task.CompletedTask;
-                              }
-                              """;
-        const string FixedSource = """
-                                   using System.Threading.Tasks;
-
-                                   public class C
-                                   {
-                                       public async Task M()
-                                       {
-                                           await RunAsync();
-                                       }
-
-                                       private static Task RunAsync() => Task.CompletedTask;
-                                   }
-                                   """;
-        await VerifyNet90Async(Source, FixedSource);
-    }
-
-    /// <summary>Verifies a blocking GetAwaiter().GetResult() chain is reported and awaited instead.</summary>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
-    [Test]
-    public async Task BlockingGetResultIsAwaitedAsync()
-    {
-        const string Source = """
-                              using System.Threading.Tasks;
-
-                              public class C
-                              {
-                                  public async Task<int> M()
-                                  {
-                                      return {|PSH1313:LoadAsync().GetAwaiter().GetResult()|};
-                                  }
-
-                                  private static Task<int> LoadAsync() => Task.FromResult(1);
-                              }
-                              """;
-        const string FixedSource = """
-                                   using System.Threading.Tasks;
-
-                                   public class C
-                                   {
-                                       public async Task<int> M()
-                                       {
-                                           return await LoadAsync();
-                                       }
-
-                                       private static Task<int> LoadAsync() => Task.FromResult(1);
-                                   }
-                                   """;
-        await VerifyNet90Async(Source, FixedSource);
-    }
-
     /// <summary>Verifies a synchronous call with a matching async sibling is reported and rewritten.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -147,56 +45,109 @@ public class CallAsyncInAsyncContextAnalyzerUnitTest
         await VerifyNet90Async(Source, FixedSource);
     }
 
+    /// <summary>Verifies a blocking synchronous instance call with a matching async sibling is reported and rewritten.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SyncInstanceCallWithAsyncSiblingIsRewrittenAsync()
+    {
+        const string Source = """
+                              using System.Threading;
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public async Task M(SemaphoreSlim gate)
+                                  {
+                                      {|PSH1313:gate.Wait()|};
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Threading;
+                                   using System.Threading.Tasks;
+
+                                   public class C
+                                   {
+                                       public async Task M(SemaphoreSlim gate)
+                                       {
+                                           await gate.WaitAsync();
+                                       }
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
     /// <summary>Verifies the awaited replacement is parenthesized when the surrounding expression binds tighter.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task AwaitIsParenthesizedWhenChainedAsync()
     {
         const string Source = """
+                              using System.IO;
                               using System.Threading.Tasks;
 
                               public class C
                               {
-                                  public async Task<int> M()
+                                  public async Task<int> M(string path)
                                   {
-                                      return {|PSH1313:LoadAsync().Result|}.Length;
+                                      return {|PSH1313:File.ReadAllText(path)|}.Length;
                                   }
-
-                                  private static Task<string> LoadAsync() => Task.FromResult("x");
                               }
                               """;
         const string FixedSource = """
+                                   using System.IO;
                                    using System.Threading.Tasks;
 
                                    public class C
                                    {
-                                       public async Task<int> M()
+                                       public async Task<int> M(string path)
                                        {
-                                           return (await LoadAsync()).Length;
+                                           return (await File.ReadAllTextAsync(path)).Length;
                                        }
-
-                                       private static Task<string> LoadAsync() => Task.FromResult("x");
                                    }
                                    """;
         await VerifyNet90Async(Source, FixedSource);
     }
 
-    /// <summary>Verifies a blocking call in a synchronous method is not reported.</summary>
+    /// <summary>Verifies a blocking wait on a task belongs to PSH1315 alone, so this rule stays quiet on it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task BlockingInSyncMethodIsNotReportedAsync()
+    public async Task BlockingWaitOnATaskIsNotReportedAsync()
     {
         const string Source = """
+                              using System.Threading;
                               using System.Threading.Tasks;
 
                               public class C
                               {
-                                  public int M()
+                                  public async Task<int> M(Task<int> pending, CancellationToken token)
                                   {
-                                      return LoadAsync().Result;
+                                      await Task.Yield();
+                                      pending.Wait(token);
+                                      RunAsync().GetAwaiter().GetResult();
+                                      return pending.Result;
                                   }
 
-                                  private static Task<int> LoadAsync() => Task.FromResult(1);
+                                  private static Task RunAsync() => Task.CompletedTask;
+                              }
+                              """;
+        await VerifyNet90Async(Source, Source);
+    }
+
+    /// <summary>Verifies a synchronous call in a synchronous method is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SyncCallInSyncMethodIsNotReportedAsync()
+    {
+        const string Source = """
+                              using System.IO;
+
+                              public class C
+                              {
+                                  public string M(string path)
+                                  {
+                                      return File.ReadAllText(path);
+                                  }
                               }
                               """;
         await VerifyNet90Async(Source, Source);
@@ -208,19 +159,18 @@ public class CallAsyncInAsyncContextAnalyzerUnitTest
     public async Task SyncLocalFunctionInsideAsyncMethodIsNotReportedAsync()
     {
         const string Source = """
+                              using System.IO;
                               using System.Threading.Tasks;
 
                               public class C
                               {
-                                  public async Task M()
+                                  public async Task M(string path)
                                   {
                                       await Task.Yield();
 
-                                      int Local() => LoadAsync().Result;
+                                      string Local() => File.ReadAllText(path);
                                       Local();
                                   }
-
-                                  private static Task<int> LoadAsync() => Task.FromResult(1);
                               }
                               """;
         await VerifyNet90Async(Source, Source);

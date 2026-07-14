@@ -123,8 +123,9 @@ async, `PSH14xx` API selection.
 | [PSH1310](rules/PSH1310.md) | An `IAsyncDisposable` is disposed by a synchronous `using` inside an async method. Code fix inserts the `await`. |
 | [PSH1311](rules/PSH1311.md) | An `async` method whose body is one tail-position await builds a state machine only to forward a task. Code fix drops `async` and returns the task. |
 | [PSH1312](rules/PSH1312.md) | A `null` is returned where the declared return type is `Task` or `Task<T>`. Code fix returns a completed task. |
-| [PSH1313](rules/PSH1313.md) | An `async` method blocks on a task, or calls a synchronous method that has a fitting async overload. Code fix awaits the async overload. |
+| [PSH1313](rules/PSH1313.md) | An `async` method calls a synchronous method that has a fitting async overload. Code fix awaits the async overload. |
 | [PSH1314](rules/PSH1314.md) | A stream is read or written through the array-based `ReadAsync`/`WriteAsync` overloads. Code fix rewrites the call via `AsMemory`. |
+| [PSH1315](rules/PSH1315.md) | A thread is parked on a task that is not provably complete — `Result`, `Wait()`, `GetAwaiter().GetResult()` on a `Task` or `ValueTask`. The guarded fast path and an awaiter's own `GetResult` are silent. Code fix awaits, where an `await` compiles. |
 
 ## ApiSelection
 

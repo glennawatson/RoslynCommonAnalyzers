@@ -8,10 +8,10 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
-/// <summary>Memory benchmarks for the call-async-in-async-context code-fix path.</summary>
+/// <summary>Memory benchmarks for the blocking-wait code-fix path.</summary>
 [MemoryDiagnoser]
 [ShortRunJob]
-public class CallAsyncInAsyncContextCodeFixBenchmarks : IDisposable
+public class NoBlockingWaitCodeFixBenchmarks : IDisposable
 {
     /// <summary>The divisor used to select the middle benchmark node.</summary>
     private const int MiddleNodeDivisor = 2;
@@ -25,11 +25,11 @@ public class CallAsyncInAsyncContextCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The semantic model used to resolve the representative blocking call.</summary>
+    /// <summary>The semantic model used to resolve the representative blocking wait.</summary>
     private SemanticModel _model = null!;
 
-    /// <summary>The representative synchronous call passed to the code fix.</summary>
-    private InvocationExpressionSyntax _blocking = null!;
+    /// <summary>The representative blocking expression passed to the code fix.</summary>
+    private MemberAccessExpressionSyntax _blocking = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -38,20 +38,17 @@ public class CallAsyncInAsyncContextCodeFixBenchmarks : IDisposable
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
     public int Nodes { get; set; }
 
-    /// <summary>Builds the benchmark document and selects one representative synchronous call.</summary>
+    /// <summary>Builds the benchmark document and selects one representative blocking wait.</summary>
     /// <returns>A task that represents the asynchronous setup operation.</returns>
     [GlobalSetup]
     public async Task SetupAsync()
     {
         _workspace = new AdhocWorkspace();
-        _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, CallAsyncInAsyncContextBenchmarkSource.Generate(Nodes, violating: true));
+        _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, NoBlockingWaitBenchmarkSource.Generate(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         _model = (await _document.GetSemanticModelAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _blocking = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<InvocationExpressionSyntax>(
-            type,
-            0,
-            static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "Load" });
+        _blocking = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<MemberAccessExpressionSyntax>(type, 0, static access => access.Name.Identifier.ValueText == "Result");
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -65,12 +62,12 @@ public class CallAsyncInAsyncContextCodeFixBenchmarks : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>Benchmarks applying the call-async-in-async-context code fix to one representative synchronous call.</summary>
+    /// <summary>Benchmarks applying the blocking-wait code fix to one representative blocking wait.</summary>
     /// <returns>The updated document text length.</returns>
     [Benchmark]
-    public async Task<int> CallAsyncInAsyncContext_ApplyFixAsync()
+    public async Task<int> NoBlockingWait_ApplyFixAsync()
     {
-        var updated = Psh1313CallAsyncInAsyncContextCodeFixProvider.Apply(_document, _root, _model, _blocking);
+        var updated = Psh1315NoBlockingWaitCodeFixProvider.Apply(_document, _root, _model, _blocking);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

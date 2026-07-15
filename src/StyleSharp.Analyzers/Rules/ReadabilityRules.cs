@@ -86,12 +86,12 @@ internal static class ReadabilityRules
         "Remove the region",
         "Regions hide code; well-organised types do not need them.");
 
-    /// <summary>SST1132 — several fields are declared in a single statement.</summary>
+    /// <summary>SST1132 — several fields or locals are declared in a single statement.</summary>
     public static readonly DiagnosticDescriptor DoNotCombineFields = Create(
         "SST1132",
-        "Do not combine fields",
-        "Declare each field in its own statement",
-        "Each field is declared on its own so its modifiers and initializer are unambiguous.");
+        "Do not combine declarations",
+        "Declare each variable in its own statement",
+        "Each field or local is declared on its own so its modifiers and initializer are unambiguous.");
 
     /// <summary>SST1133 — several attributes share one bracket list.</summary>
     public static readonly DiagnosticDescriptor DoNotCombineAttributes = Create(

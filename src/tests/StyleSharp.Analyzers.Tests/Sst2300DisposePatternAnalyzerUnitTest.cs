@@ -204,6 +204,64 @@ public class Sst2300DisposePatternAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a derived type that hides the base's <c>Dispose()</c> with a new one is reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>A <c>using</c> on a base-typed variable dispatches statically to the base's <c>Dispose()</c>, not the hidden one.</remarks>
+    [Test]
+    public async Task DerivedTypeHidingBaseDisposeIsReportedAsync()
+        => await VerifyDispose.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public class Connection : IDisposable
+            {
+                public void Dispose()
+                {
+                    Dispose(true);
+                }
+
+                protected virtual void Dispose(bool disposing)
+                {
+                }
+            }
+
+            public class PooledConnection : Connection
+            {
+                public new void {|SST2300:Dispose|}()
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies a derived type that overrides a virtual base <c>Dispose()</c> is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task DerivedTypeOverridingVirtualDisposeIsCleanAsync()
+        => await VerifyDispose.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public class Connection : IDisposable
+            {
+                public virtual void Dispose()
+                {
+                    Dispose(true);
+                }
+
+                protected virtual void Dispose(bool disposing)
+                {
+                }
+            }
+
+            public class PooledConnection : Connection
+            {
+                public override void Dispose()
+                {
+                    base.Dispose();
+                }
+            }
+            """);
+
     /// <summary>Verifies an explicit <c>IDisposable.Dispose</c> implementation is read like any other.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

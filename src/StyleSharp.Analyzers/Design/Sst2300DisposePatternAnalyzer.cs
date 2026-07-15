@@ -10,9 +10,9 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Four things are checked, in this order, and the first one that fails is the one reported — the
-/// clauses overlap enough that stacking four squiggles on one type would say the same thing four
-/// times:
+/// On the type that first signs the contract, four things are checked, in this order, and the first one
+/// that fails is the one reported — the clauses overlap enough that stacking four squiggles on one type
+/// would say the same thing four times:
 /// </para>
 /// <list type="number">
 /// <item><description>an unsealed type that declares no <c>Dispose(bool)</c> for a derived type to override;</description></item>
@@ -21,11 +21,16 @@ namespace StyleSharp.Analyzers;
 /// <item><description>a finalizable type whose <c>Dispose()</c> forgets <c>GC.SuppressFinalize(this)</c>, which costs every instance a trip through the finalizer queue.</description></item>
 /// </list>
 /// <para>
+/// A type whose base class already implements <c>IDisposable</c> inherits the pattern and is checked for
+/// one thing only: a new parameterless <c>Dispose()</c> that <b>hides</b> the base's. That hidden method
+/// never runs from a <c>using</c> on a base-typed variable, which dispatches statically to the base's
+/// <c>Dispose()</c> — so the derived cleanup silently does not happen. An <c>override</c> of a virtual base
+/// <c>Dispose()</c> is correct and not reported.
+/// </para>
+/// <para>
 /// A <b>sealed class with no finalizer</b> is deliberately never reported. Nothing can derive from it
 /// and nothing else will call its cleanup, so a plain <c>Dispose()</c> is the whole correct pattern and
-/// demanding the ceremony would be noise. A type whose base class already implements
-/// <c>IDisposable</c> is not reported either: the pattern belongs to the base, and the derived type's
-/// job is to override <c>Dispose(bool)</c>. Records are skipped, and so is a type that implements only
+/// demanding the ceremony would be noise. Records are skipped, and so is a type that implements only
 /// <c>IAsyncDisposable</c> — asynchronous disposal is a different pattern and out of this rule's scope.
 /// </para>
 /// <para>
@@ -100,10 +105,17 @@ public sealed class Sst2300DisposePatternAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // The pattern is owned by the type that first signs the contract. A type whose base is already
-        // disposable inherits the pattern and only overrides Dispose(bool), so it is not measured here.
-        if (!ImplementsDisposable(type) || ImplementsDisposable(type.BaseType))
+        if (!ImplementsDisposable(type))
         {
+            return;
+        }
+
+        // The pattern is owned by the type that first signs the contract. A type whose base is already
+        // disposable inherits it and only overrides Dispose(bool) — unless it re-declares a parameterless
+        // Dispose() that hides the base's, in which case a `using` on a base-typed variable calls the wrong one.
+        if (ImplementsDisposable(type.BaseType))
+        {
+            ReportHiddenDispose(context, type);
             return;
         }
 
@@ -122,6 +134,43 @@ public sealed class Sst2300DisposePatternAnalyzer : DiagnosticAnalyzer
 
         AnalyzeDisposeBody(context, type, members);
     }
+
+    /// <summary>Reports a derived type that hides the base's <c>Dispose()</c> with a new parameterless one.</summary>
+    /// <param name="context">The symbol analysis context.</param>
+    /// <param name="type">The disposable type whose base already owns the pattern.</param>
+    /// <remarks>
+    /// The base is disposable, so it has a <c>Dispose()</c>. A public, non-override, non-explicit
+    /// parameterless <c>Dispose()</c> on the derived type therefore hides it: static dispatch on a
+    /// base-typed variable — the <c>using</c> case — never reaches this one. An <c>override</c> (of a
+    /// virtual base <c>Dispose()</c>) is correct and not reported; nor is an explicit
+    /// <c>IDisposable.Dispose</c>, which does not shadow the public member.
+    /// </remarks>
+    private static void ReportHiddenDispose(SymbolAnalysisContext context, INamedTypeSymbol type)
+    {
+        var members = type.GetMembers(DisposeName);
+        for (var i = 0; i < members.Length; i++)
+        {
+            if (members[i] is IMethodSymbol method && HidesBaseDispose(method))
+            {
+                Report(
+                    context,
+                    method.Locations[0],
+                    type,
+                    "hides the base type's 'Dispose()' with a new one; a 'using' on the base type calls the base's, not this one",
+                    null);
+                return;
+            }
+        }
+    }
+
+    /// <summary>Returns whether a method is a new parameterless <c>Dispose()</c> that hides the base's.</summary>
+    /// <param name="method">A member named <c>Dispose</c>.</param>
+    /// <returns><see langword="true"/> for a public, non-override, non-explicit, parameterless <c>Dispose()</c> declared in source.</returns>
+    private static bool HidesBaseDispose(IMethodSymbol method)
+        => method is { IsOverride: false, IsStatic: false, ReturnsVoid: true, DeclaredAccessibility: Accessibility.Public, Parameters.Length: 0 }
+            && method.ExplicitInterfaceImplementations.Length == 0
+            && method.Locations.Length > 0
+            && method.Locations[0].IsInSource;
 
     /// <summary>Reads what the type's <c>Dispose()</c> body does and reports the first thing it omits.</summary>
     /// <param name="context">The symbol analysis context.</param>

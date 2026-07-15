@@ -197,9 +197,104 @@ public class Sst2302InconsistentOperatorOverloadsAnalyzerUnitTest
     public async Task UnrelatedOperatorIsCleanAsync()
         => await VerifyOperators.VerifyAnalyzerAsync(
             """
+            public class Flags
+            {
+                public static Flags operator &(Flags left, Flags right) => left;
+            }
+            """);
+
+    /// <summary>Verifies a public class overloading arithmetic with no value equality is reported once, on the operator.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ArithmeticOperatorWithoutValueEqualityIsReportedAsync()
+        => await VerifyOperators.VerifyAnalyzerAsync(
+            """
+            public class Money
+            {
+                public static Money operator {|SST2302:+|}(Money left, Money right) => left;
+            }
+            """);
+
+    /// <summary>Verifies a class overloading several arithmetic operators is reported once, from the first in the set.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task SeveralArithmeticOperatorsAreReportedOnceAsync()
+        => await VerifyOperators.VerifyAnalyzerAsync(
+            """
+            public class Money
+            {
+                public static Money operator {|SST2302:+|}(Money left, Money right) => left;
+
+                public static Money operator -(Money left, Money right) => left;
+
+                public static Money operator *(Money left, int right) => left;
+            }
+            """);
+
+    /// <summary>Verifies an arithmetic type that reports its multiply operator when it declares no addition.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ArithmeticSetWithoutAdditionReportsFromMultiplyAsync()
+        => await VerifyOperators.VerifyAnalyzerAsync(
+            """
+            public class Vector
+            {
+                public static Vector operator {|SST2302:*|}(Vector left, int right) => left;
+
+                public static Vector operator /(Vector left, int right) => left;
+            }
+            """);
+
+    /// <summary>Verifies a public class with arithmetic and value equality is clean.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ArithmeticOperatorWithValueEqualityIsCleanAsync()
+        => await VerifyOperators.VerifyAnalyzerAsync(
+            """
             public class Money
             {
                 public static Money operator +(Money left, Money right) => left;
+
+                public override bool Equals(object obj) => true;
+
+                public override int GetHashCode() => 0;
+            }
+            """);
+
+    /// <summary>Verifies a struct overloading arithmetic without an equality override is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>A struct has value equality, so reference-equality surprise cannot occur.</remarks>
+    [Test]
+    public async Task ArithmeticStructWithoutEqualityIsCleanAsync()
+        => await VerifyOperators.VerifyAnalyzerAsync(
+            """
+            public struct Money
+            {
+                public static Money operator +(Money left, Money right) => left;
+            }
+            """);
+
+    /// <summary>Verifies a non-public class overloading arithmetic without equality is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ArithmeticInternalClassWithoutEqualityIsCleanAsync()
+        => await VerifyOperators.VerifyAnalyzerAsync(
+            """
+            internal class Money
+            {
+                public static Money operator +(Money left, Money right) => left;
+            }
+            """);
+
+    /// <summary>Verifies a unary operator does not make a type an arithmetic type for this rule.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task UnaryOperatorWithoutEqualityIsCleanAsync()
+        => await VerifyOperators.VerifyAnalyzerAsync(
+            """
+            public class Money
+            {
+                public static Money operator -(Money value) => value;
             }
             """);
 }

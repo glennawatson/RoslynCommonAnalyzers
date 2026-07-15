@@ -40,7 +40,7 @@ internal static class GeneralExceptionThrowBenchmarkSource
            }
            """;
 
-    /// <summary>Builds one type that throws a general exception type.</summary>
+    /// <summary>Builds one type that throws a general and a runtime-reserved exception type.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     private static string GenerateViolatingType(int index)
@@ -54,7 +54,7 @@ internal static class GeneralExceptionThrowBenchmarkSource
                        throw new Exception("empty");
                    }
 
-                   return value;
+                   return value ?? throw new NullReferenceException();
                }
            }
            """;

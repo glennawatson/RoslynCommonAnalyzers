@@ -30,8 +30,11 @@ public sealed class RemoveModifierCodeFixProvider : CodeFixProvider, IBatchFixab
         {
             var diagnostic = context.Diagnostics[i];
             var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
-            if (token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } declaration)
+            if (token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } declaration
+                || declaration.Modifiers.IndexOf(token) < 0)
             {
+                // A redundant 'checked'/'unchecked' context (SST1419) is not a member modifier; removing it
+                // is a structural rewrite, not a token deletion, so no fix is offered for that shape.
                 continue;
             }
 

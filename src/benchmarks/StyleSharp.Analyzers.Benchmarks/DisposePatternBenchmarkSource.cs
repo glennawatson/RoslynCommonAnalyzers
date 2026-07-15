@@ -70,13 +70,14 @@ internal static class DisposePatternBenchmarkSource
            }
            """;
 
-    /// <summary>Builds one type that reaches the report.</summary>
+    /// <summary>Builds the types that reach a report.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     /// <remarks>
-    /// One diagnostic per type, and one the code fix can repair: a finalizable type whose <c>Dispose()</c>
-    /// chains correctly but never takes the instance off the finalizer queue. This is also the corpus the
-    /// code-fix benchmark applies the fix to.
+    /// The finalizable <c>Leaky</c> type chains correctly but never takes the instance off the finalizer
+    /// queue — the repairable clause the code-fix benchmark applies its fix to. The derived <c>Hidden</c>
+    /// type re-declares a parameterless <c>Dispose()</c> that hides the base's, exercising the derived-type
+    /// report, which has no fix.
     /// </remarks>
     private static string GenerateViolatingType(int index)
         => $$"""
@@ -92,6 +93,13 @@ internal static class DisposePatternBenchmarkSource
                }
 
                protected virtual void Dispose(bool disposing) => _disposed = disposing;
+           }
+
+           public class Hidden{{index}} : Leaky{{index}}
+           {
+               public new void Dispose()
+               {
+               }
            }
            """;
 }

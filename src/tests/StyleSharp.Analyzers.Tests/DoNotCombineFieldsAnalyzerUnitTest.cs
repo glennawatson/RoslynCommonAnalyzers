@@ -34,4 +34,53 @@ public class DoNotCombineFieldsAnalyzerUnitTest
                 private int b;
             }
             """);
+
+    /// <summary>Verifies each local beyond the first in a combined local declaration is reported (SST1132).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CombinedLocalsReportedAsync()
+        => await VerifyCombineFields.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                internal void M()
+                {
+                    int a = 0, {|SST1132:b|} = 1, {|SST1132:c|} = 2;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a single local declaration is not flagged.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SeparateLocalsAreCleanAsync()
+        => await VerifyCombineFields.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                internal void M()
+                {
+                    int a = 0;
+                    int b = 1;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a <c>for</c> initializer that declares several loop variables is not flagged.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>A single declaration statement is the only way to declare more than one loop variable there.</remarks>
+    [Test]
+    public async Task ForInitializerWithSeveralVariablesIsCleanAsync()
+        => await VerifyCombineFields.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                internal void M()
+                {
+                    for (int i = 0, j = 10; i < j; i++, j--)
+                    {
+                    }
+                }
+            }
+            """);
 }

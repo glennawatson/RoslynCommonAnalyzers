@@ -156,12 +156,12 @@ internal static class MaintainabilityRules
         "Reduce this switch statement from {0} sections to at most {1}",
         "Large switch statements are split into smaller abstractions. The maximum section count is configurable and defaults to 30.");
 
-    /// <summary>SST1419 — a modifier has no effect in its declaration context.</summary>
+    /// <summary>SST1419 — a modifier or overflow-check context has no effect in its context.</summary>
     public static readonly DiagnosticDescriptor NoRedundantModifier = Create(
         "SST1419",
         "Remove redundant modifiers",
-        "Remove the redundant '{0}' modifier",
-        "Modifiers are omitted when the declaration context already guarantees the same behavior.");
+        "Remove the redundant '{0}'",
+        "A modifier the declaration context already guarantees, or a 'checked'/'unchecked' context with no operation whose result it could change, has no effect and is removed.");
 
     /// <summary>SST1420 — a property trivially wraps a private backing field.</summary>
     public static readonly DiagnosticDescriptor PreferAutoProperty = Create(

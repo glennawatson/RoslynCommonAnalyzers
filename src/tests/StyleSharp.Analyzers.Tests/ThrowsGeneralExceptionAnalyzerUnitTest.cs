@@ -27,6 +27,44 @@ public class ThrowsGeneralExceptionAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies each runtime-reserved type the runtime raises to signal a bug is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RuntimeReservedExceptionTypesAreReportedAsync()
+        => await VerifyGeneralException.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public sealed class C
+            {
+                public void Deref() => throw new {|SST2409:NullReferenceException|}();
+
+                public void Bounds() => throw new {|SST2409:IndexOutOfRangeException|}();
+
+                public void Memory() => throw new {|SST2409:OutOfMemoryException|}();
+            }
+            """);
+
+    /// <summary>Verifies a project type that merely shares a runtime-reserved name is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>The bind confirms the framework's type; a same-named type of the project's own is a different symbol.</remarks>
+    [Test]
+    public async Task ProjectTypeSharingRuntimeReservedNameIsCleanAsync()
+        => await VerifyGeneralException.VerifyAnalyzerAsync(
+            """
+            namespace Contoso
+            {
+                public sealed class OutOfMemoryException : System.Exception
+                {
+                }
+
+                public sealed class C
+                {
+                    public void M() => throw new OutOfMemoryException();
+                }
+            }
+            """);
+
     /// <summary>Verifies a throw expression is reported like a throw statement.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

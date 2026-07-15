@@ -35,6 +35,13 @@ namespace StyleSharp.Analyzers;
 /// sorting, <c>Max</c>, and every ordered collection actually ask for.
 /// </description>
 /// </item>
+/// <item>
+/// <description>
+/// a public class overloading an arithmetic operator (<c>+ - * / %</c>) with no <c>==</c>, no
+/// <c>Equals(object)</c> override and no <c>GetHashCode()</c> override — an arithmetic type that cannot be
+/// compared, cannot be a dictionary key, and hands callers reference equality without saying so.
+/// </description>
+/// </item>
 /// </list>
 /// <para>
 /// Each gap is reported once and in one place: the equality gap on the <c>==</c> declaration, and the
@@ -55,6 +62,9 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
 
     /// <summary>The metadata name of the less-than-or-equal operator.</summary>
     private const string LessThanOrEqualName = "op_LessThanOrEqual";
+
+    /// <summary>The metadata name of the equality operator.</summary>
+    private const string EqualityOperatorName = "op_Equality";
 
     /// <summary>The unqualified name of the ordering contract.</summary>
     private const string ComparableName = "IComparable";
@@ -79,7 +89,8 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     {
         var declaration = (OperatorDeclarationSyntax)context.Node;
         var kind = declaration.OperatorToken.Kind();
-        if (kind is not (SyntaxKind.EqualsEqualsToken or SyntaxKind.LessThanToken or SyntaxKind.LessThanEqualsToken))
+        var isArithmetic = IsArithmeticToken(kind);
+        if (!isArithmetic && kind is not (SyntaxKind.EqualsEqualsToken or SyntaxKind.LessThanToken or SyntaxKind.LessThanEqualsToken))
         {
             return;
         }
@@ -90,6 +101,12 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
         }
 
         var location = declaration.OperatorToken.GetLocation();
+        if (isArithmetic)
+        {
+            AnalyzeArithmeticOperator(context, declaration, type, location, kind);
+            return;
+        }
+
         if (kind == SyntaxKind.EqualsEqualsToken)
         {
             AnalyzeEqualityOperator(context, type, location);
@@ -97,6 +114,37 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
         }
 
         AnalyzeRelationalOperator(context, type, location, kind);
+    }
+
+    /// <summary>Reports a public class with arithmetic operators but no value equality.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="declaration">The arithmetic operator declaration.</param>
+    /// <param name="type">The type that declares the operator.</param>
+    /// <param name="location">The operator token's location.</param>
+    /// <param name="kind">The declared arithmetic operator token.</param>
+    /// <remarks>
+    /// Only a public class is at risk: a struct already has value equality, and a non-public type is not a
+    /// surface callers depend on. A record declares its own equality, so it never reaches the report. When a
+    /// class overloads several arithmetic operators the report is made once, from the first in the order
+    /// <c>+ - * / %</c>, so the type is not squiggled per operator.
+    /// </remarks>
+    private static void AnalyzeArithmeticOperator(
+        SyntaxNodeAnalysisContext context,
+        OperatorDeclarationSyntax declaration,
+        INamedTypeSymbol type,
+        Location location,
+        SyntaxKind kind)
+    {
+        if (type.TypeKind != TypeKind.Class
+            || type.DeclaredAccessibility != Accessibility.Public
+            || declaration.ParameterList.Parameters.Count != 2
+            || !IsPrimaryArithmeticOperator(type, kind)
+            || DeclaresValueEquality(type))
+        {
+            return;
+        }
+
+        Report(context, location, type, GetArithmeticOperatorText(kind), "==, Equals(object) or GetHashCode()");
     }
 
     /// <summary>Reports an <c>==</c> whose type does not also decide equality the way the framework asks.</summary>
@@ -223,6 +271,83 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     /// <returns><see langword="true"/> when <c>IComparable&lt;T&gt;</c> can be implemented.</returns>
     private static bool CanImplementComparable(Compilation compilation)
         => compilation.GetTypeByMetadataName(ComparableMetadataName) is not null;
+
+    /// <summary>Returns whether an operator token is one of the binary arithmetic operators.</summary>
+    /// <param name="kind">The operator token kind.</param>
+    /// <returns><see langword="true"/> for <c>+ - * / %</c>.</returns>
+    private static bool IsArithmeticToken(SyntaxKind kind)
+        => kind is SyntaxKind.PlusToken
+            or SyntaxKind.MinusToken
+            or SyntaxKind.AsteriskToken
+            or SyntaxKind.SlashToken
+            or SyntaxKind.PercentToken;
+
+    /// <summary>Returns whether an arithmetic operator is the first of its type's set, so the type is reported once.</summary>
+    /// <param name="type">The type that declares the operator.</param>
+    /// <param name="kind">The declared arithmetic operator token.</param>
+    /// <returns><see langword="true"/> when no earlier arithmetic operator in the <c>+ - * / %</c> order is also declared.</returns>
+    /// <remarks>Only the first operator the type declares in that order does the reporting, so a type with several is not squiggled per operator.</remarks>
+    private static bool IsPrimaryArithmeticOperator(INamedTypeSymbol type, SyntaxKind kind)
+    {
+        if (kind == SyntaxKind.PlusToken)
+        {
+            return true;
+        }
+
+        if (HasOperator(type, "op_Addition"))
+        {
+            return false;
+        }
+
+        if (kind == SyntaxKind.MinusToken)
+        {
+            return true;
+        }
+
+        if (HasOperator(type, "op_Subtraction"))
+        {
+            return false;
+        }
+
+        if (kind == SyntaxKind.AsteriskToken)
+        {
+            return true;
+        }
+
+        if (HasOperator(type, "op_Multiply"))
+        {
+            return false;
+        }
+
+        return kind == SyntaxKind.SlashToken || !HasOperator(type, "op_Division");
+    }
+
+    /// <summary>Returns whether a type declares a named operator itself.</summary>
+    /// <param name="type">The type that declares the operator.</param>
+    /// <param name="metadataName">The operator's metadata name.</param>
+    /// <returns><see langword="true"/> when the type has a member with that metadata name.</returns>
+    private static bool HasOperator(INamedTypeSymbol type, string metadataName) => type.GetMembers(metadataName).Length > 0;
+
+    /// <summary>Gets the text of an arithmetic operator for the diagnostic message.</summary>
+    /// <param name="kind">The declared arithmetic operator token.</param>
+    /// <returns>The operator's source text.</returns>
+    private static string GetArithmeticOperatorText(SyntaxKind kind) => kind switch
+    {
+        SyntaxKind.PlusToken => "+",
+        SyntaxKind.MinusToken => "-",
+        SyntaxKind.AsteriskToken => "*",
+        SyntaxKind.SlashToken => "/",
+        _ => "%",
+    };
+
+    /// <summary>Returns whether a type declares any part of value equality itself.</summary>
+    /// <param name="type">The type that declares the operator.</param>
+    /// <returns><see langword="true"/> when the type declares <c>==</c>, or overrides <c>Equals(object)</c> or <c>GetHashCode()</c>.</returns>
+    /// <remarks>A type with any one of these is trying; the equality checks own the shape of what remains.</remarks>
+    private static bool DeclaresValueEquality(INamedTypeSymbol type)
+        => type.GetMembers(EqualityOperatorName).Length > 0
+            || OverridesObjectMethod(type, nameof(Equals), parameterCount: 1)
+            || OverridesObjectMethod(type, nameof(GetHashCode), parameterCount: 0);
 
     /// <summary>Reports one gap in an operator set.</summary>
     /// <param name="context">The syntax node context.</param>

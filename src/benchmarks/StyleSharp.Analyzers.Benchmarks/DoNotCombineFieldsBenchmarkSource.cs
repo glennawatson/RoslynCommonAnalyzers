@@ -25,7 +25,7 @@ internal static class DoNotCombineFieldsBenchmarkSource
     private static string GenerateType(int index, bool violating)
         => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
-    /// <summary>Builds one clean type whose fields are declared separately.</summary>
+    /// <summary>Builds one clean type whose fields and locals are declared separately.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     private static string GenerateCleanType(int index)
@@ -35,10 +35,17 @@ internal static class DoNotCombineFieldsBenchmarkSource
                private int a;
                private int b;
                private int c;
+
+               internal int Sum()
+               {
+                   int x = a;
+                   int y = b;
+                   return x + y + c;
+               }
            }
            """;
 
-    /// <summary>Builds one violating type whose fields are combined in a single declaration.</summary>
+    /// <summary>Builds one violating type whose fields and locals are combined in single declarations.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     private static string GenerateViolatingType(int index)
@@ -46,6 +53,12 @@ internal static class DoNotCombineFieldsBenchmarkSource
            internal class C{{index}}
            {
                private int a, b, c;
+
+               internal int Sum()
+               {
+                   int x = a, y = b;
+                   return x + y + c;
+               }
            }
            """;
 }

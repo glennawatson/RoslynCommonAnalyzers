@@ -159,4 +159,95 @@ public class RedundantModifierAnalyzerUnitTest
                                    """;
         await VerifyModifier.VerifyCodeFixAsync(Source, FixedSource);
     }
+
+    /// <summary>Verifies a <c>checked</c> block that guards no arithmetic is reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RedundantCheckedStatementIsReportedAsync()
+        => await VerifyModifier.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public void M(int a)
+                {
+                    {|SST1419:checked|}
+                    {
+                        System.Console.WriteLine(a);
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies an <c>unchecked</c> block that guards no arithmetic is reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RedundantUncheckedStatementIsReportedAsync()
+        => await VerifyModifier.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public void M(string s)
+                {
+                    {|SST1419:unchecked|}
+                    {
+                        System.Console.WriteLine(s);
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a <c>checked</c> expression that wraps no arithmetic is reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RedundantCheckedExpressionIsReportedAsync()
+        => await VerifyModifier.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int M(int a) => {|SST1419:checked|}(a);
+            }
+            """);
+
+    /// <summary>Verifies a <c>checked</c> block whose arithmetic could overflow is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task CheckedBlockGuardingArithmeticIsCleanAsync()
+        => await VerifyModifier.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int M(int a, int b)
+                {
+                    checked
+                    {
+                        return a + b;
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a <c>checked</c> expression over a multiplication is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task CheckedExpressionOverMultiplicationIsCleanAsync()
+        => await VerifyModifier.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int M(int a) => checked(a * 2);
+            }
+            """);
+
+    /// <summary>Verifies an <c>unchecked</c> expression over a narrowing cast is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>A narrowing numeric conversion is exactly what an overflow-check context changes.</remarks>
+    [Test]
+    public async Task UncheckedExpressionOverCastIsCleanAsync()
+        => await VerifyModifier.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public ulong M(long n) => unchecked((ulong)n);
+            }
+            """);
 }

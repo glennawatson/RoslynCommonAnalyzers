@@ -191,18 +191,37 @@ internal static class SemanticTypeBenchmarkSource
 
     /// <summary>Builds one clean or violating declaration for redundant-modifier analysis.</summary>
     /// <param name="index">The synthetic declaration index.</param>
-    /// <param name="violating">Whether to emit a redundant partial modifier.</param>
+    /// <param name="violating">Whether to emit a redundant partial modifier and an empty overflow-check context.</param>
     /// <returns>The generated declaration block.</returns>
+    /// <remarks>
+    /// The violating block pairs a single-part <c>partial</c> with a <c>checked</c> context that guards no
+    /// arithmetic; the clean block pairs a meaningful <c>sealed</c> with a <c>checked</c> context whose
+    /// addition can overflow, so the context is kept.
+    /// </remarks>
     private static string GenerateRedundantModifierMember(int index, bool violating)
         => violating
             ? $$"""
                internal partial class C{{index}}
                {
+                   internal int M(int a)
+                   {
+                       checked
+                       {
+                           return a;
+                       }
+                   }
                }
                """
             : $$"""
                internal sealed class C{{index}}
                {
+                   internal int M(int a, int b)
+                   {
+                       checked
+                       {
+                           return a + b;
+                       }
+                   }
                }
                """;
 

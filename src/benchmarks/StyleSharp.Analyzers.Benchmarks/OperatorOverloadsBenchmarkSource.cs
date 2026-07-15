@@ -33,7 +33,8 @@ internal static class OperatorOverloadsBenchmarkSource
     /// <remarks>
     /// The type with no operators is the common case and never reaches a check: the analyzer is driven from
     /// the operator declaration. The complete type pays for every lookup the rule can make — both equality
-    /// overrides, both relational pairs, and the ordering contract — and is still not reported.
+    /// overrides, both relational pairs, the ordering contract, and an arithmetic operator whose value
+    /// equality is already present — and is still not reported.
     /// </remarks>
     private static string GenerateCleanType(int index)
         => $$"""
@@ -52,6 +53,8 @@ internal static class OperatorOverloadsBenchmarkSource
 
                public override int GetHashCode() => Rank;
 
+               public static Level{{index}} operator +(Level{{index}} left, Level{{index}} right) => left;
+
                public static bool operator ==(Level{{index}} left, Level{{index}} right) => Equals(left, right);
 
                public static bool operator !=(Level{{index}} left, Level{{index}} right) => !Equals(left, right);
@@ -66,13 +69,14 @@ internal static class OperatorOverloadsBenchmarkSource
            }
            """;
 
-    /// <summary>Builds one type that reaches both reports.</summary>
+    /// <summary>Builds the types that reach a report.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     /// <remarks>
-    /// Two diagnostics per type: the equality gap on <c>==</c>, and the two ordering gaps together on
+    /// Two diagnostics on <c>Money</c>: the equality gap on <c>==</c>, and the two ordering gaps together on
     /// <c>&lt;</c>. The mirror operators are declared because the language will not compile the type
-    /// without them, and they are silent — which is the point of the rule.
+    /// without them, and they are silent — which is the point of the rule. <c>Vector</c> adds the arithmetic
+    /// gap: a public class with <c>+</c> and <c>*</c> and no value equality, reported once on <c>+</c>.
     /// </remarks>
     private static string GenerateViolatingType(int index)
         => $$"""
@@ -87,6 +91,15 @@ internal static class OperatorOverloadsBenchmarkSource
                public static bool operator <(Money{{index}} left, Money{{index}} right) => left?.Cents < right?.Cents;
 
                public static bool operator >(Money{{index}} left, Money{{index}} right) => left?.Cents > right?.Cents;
+           }
+
+           public sealed class Vector{{index}}
+           {
+               public int X { get; set; }
+
+               public static Vector{{index}} operator +(Vector{{index}} left, Vector{{index}} right) => left;
+
+               public static Vector{{index}} operator *(Vector{{index}} left, int right) => left;
            }
            """;
 }

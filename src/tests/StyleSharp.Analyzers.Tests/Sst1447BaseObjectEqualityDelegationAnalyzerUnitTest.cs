@@ -88,4 +88,28 @@ public class Sst1447BaseObjectEqualityDelegationAnalyzerUnitTest
                 public int Identity() => base.GetHashCode();
             }
             """);
+
+    /// <summary>Verifies a guarded reference-equality fast path against an object base is left alone.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task GuardedFastPathAgainstObjectBaseIsCleanAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int X { get; set; }
+
+                public override bool Equals(object obj)
+                {
+                    if (base.Equals(obj))
+                    {
+                        return true;
+                    }
+
+                    return obj is C c && c.X == X;
+                }
+
+                public override int GetHashCode() => X;
+            }
+            """);
 }

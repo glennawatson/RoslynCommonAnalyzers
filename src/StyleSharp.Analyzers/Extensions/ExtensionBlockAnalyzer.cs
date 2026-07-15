@@ -11,8 +11,11 @@ namespace StyleSharp.Analyzers;
 /// (SST1700), a second extension block that repeats an earlier block's receiver type (SST1701),
 /// extension blocks separated by other members (SST1702), a container class not named with an
 /// accepted extension-container suffix (SST1704), and classic extension methods mixed in with extension blocks
-/// (SST1705). A class with no extension block bails after a single membership scan, so the common
-/// case is cheap; on the Roslyn 4.8 floor the syntax cannot occur, so nothing is reported.
+/// (SST1705). It also reports a broad extension receiver (SST1706) on either style: an extension block whose
+/// receiver is <c>object</c>/<c>dynamic</c>, and a classic <c>this</c>-parameter extension method whose
+/// receiver is <c>object</c>, <c>dynamic</c>, or an unconstrained type parameter (<c>this T</c>) — each
+/// attaches the member to every type in the solution. A class with no extension block bails after a single
+/// membership scan, so the common case is cheap; on the Roslyn 4.8 floor the block syntax cannot occur.
 /// </summary>
 /// <remarks>
 /// Diagnostics: SST1700, SST1701, SST1702, SST1704, SST1705, SST1706, SST1707.
@@ -40,6 +43,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ClassDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzeClassicExtensionMethod, SyntaxKind.MethodDeclaration);
     }
 
     /// <summary>Returns whether the current receiver sorts before the previous receiver.</summary>
@@ -55,6 +59,98 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when both receivers are ordinally equal.</returns>
     internal static bool IsDuplicateImmediateReceiver(string receiver, string previousReceiver)
         => string.Equals(receiver, previousReceiver, StringComparison.Ordinal);
+
+    /// <summary>Reports SST1706 for a classic <c>this</c>-parameter extension method on a broad receiver.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <remarks>
+    /// This is the classic-method half of SST1706. Extension-block receivers are handled in the class walk;
+    /// a classic method carries its receiver on the first parameter, so it is matched here on the parameter's
+    /// <c>this</c> modifier. The check stays syntactic: <c>object</c>/<c>dynamic</c>/<c>System.Object</c> by
+    /// text, and an unconstrained type parameter by the absence of a matching constraint clause.
+    /// </remarks>
+    private static void AnalyzeClassicExtensionMethod(SyntaxNodeAnalysisContext context)
+    {
+        var method = (MethodDeclarationSyntax)context.Node;
+        if (!ExtensionBlockHelper.IsClassicExtensionMethod(method))
+        {
+            return;
+        }
+
+        var receiverType = method.ParameterList.Parameters[0].Type;
+        if (!TryGetBroadReceiverText(method, receiverType, out var receiverText))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(DiagnosticHelper.Create(ExtensionRules.BroadExtensionReceiver, receiverType!.GetLocation(), receiverText));
+    }
+
+    /// <summary>Returns the broad-receiver display text for a classic extension method, when the receiver is broad.</summary>
+    /// <param name="method">The classic extension method.</param>
+    /// <param name="receiverType">The receiver parameter's type syntax.</param>
+    /// <param name="text">The broad receiver text when matched.</param>
+    /// <returns><see langword="true"/> for <c>object</c>, <c>dynamic</c>, or an unconstrained type parameter.</returns>
+    private static bool TryGetBroadReceiverText(MethodDeclarationSyntax method, TypeSyntax? receiverType, out string text)
+        => ExtensionBlockHelper.IsBroadReceiver(receiverType, out text)
+            || IsUnconstrainedTypeParameterReceiver(method, receiverType, out text);
+
+    /// <summary>Returns whether a classic extension receiver is one of the method's unconstrained type parameters.</summary>
+    /// <param name="method">The classic extension method.</param>
+    /// <param name="receiverType">The receiver parameter's type syntax.</param>
+    /// <param name="text">The type parameter name when matched.</param>
+    /// <returns><see langword="true"/> for <c>this T</c> where <c>T</c> is a type parameter with no constraint.</returns>
+    private static bool IsUnconstrainedTypeParameterReceiver(MethodDeclarationSyntax method, TypeSyntax? receiverType, out string text)
+    {
+        text = string.Empty;
+        if (receiverType is not IdentifierNameSyntax identifier || method.TypeParameterList is not { } typeParameters)
+        {
+            return false;
+        }
+
+        var name = identifier.Identifier.ValueText;
+        if (!NamesTypeParameter(typeParameters, name) || HasConstraintClause(method.ConstraintClauses, name))
+        {
+            return false;
+        }
+
+        text = name;
+        return true;
+    }
+
+    /// <summary>Returns whether a type-parameter list declares a parameter of the given name.</summary>
+    /// <param name="typeParameters">The method's type parameter list.</param>
+    /// <param name="name">The candidate type parameter name.</param>
+    /// <returns><see langword="true"/> when the name is a declared type parameter.</returns>
+    private static bool NamesTypeParameter(TypeParameterListSyntax typeParameters, string name)
+    {
+        var parameters = typeParameters.Parameters;
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            if (parameters[i].Identifier.ValueText == name)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a constraint clause narrows the given type parameter.</summary>
+    /// <param name="constraintClauses">The method's constraint clauses.</param>
+    /// <param name="name">The type parameter name.</param>
+    /// <returns><see langword="true"/> when a <c>where</c> clause targets the name.</returns>
+    private static bool HasConstraintClause(SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses, string name)
+    {
+        for (var i = 0; i < constraintClauses.Count; i++)
+        {
+            if (constraintClauses[i].Name.Identifier.ValueText == name)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Reports extension-block issues among a class's direct members.</summary>
     /// <param name="context">The syntax node analysis context.</param>

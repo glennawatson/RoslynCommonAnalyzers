@@ -263,6 +263,58 @@ public class ExtensionBlockAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a classic extension method on <c>object</c> is reported (SST1706).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>A classic method also draws SST1705, which is unrelated to the broad-receiver check under test.</remarks>
+    [Test]
+    public async Task ClassicObjectReceiverReportedAsync()
+        => await RunAnalyzerAsync(
+            """
+            public static class BroadExtensions
+            {
+                public static string {|SST1705:Describe|}(this {|SST1706:object|} value) => value.ToString();
+            }
+            """);
+
+    /// <summary>Verifies a classic extension method on an unconstrained type parameter is reported (SST1706).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ClassicUnconstrainedTypeParameterReportedAsync()
+        => await RunAnalyzerAsync(
+            """
+            public static class IdentityExtensions
+            {
+                public static T {|SST1705:Identity|}<T>(this {|SST1706:T|} value) => value;
+            }
+            """);
+
+    /// <summary>Verifies a classic extension method on a constrained type parameter draws no broad-receiver report.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ClassicConstrainedTypeParameterDrawsNoBroadReceiverAsync()
+        => await RunAnalyzerAsync(
+            """
+            using System;
+
+            public static class ComparableExtensions
+            {
+                public static int {|SST1705:RankOf|}<T>(this T value)
+                    where T : IComparable<T> => value.CompareTo(value);
+            }
+            """);
+
+    /// <summary>Verifies a classic extension method on a specific type draws no broad-receiver report.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ClassicSpecificReceiverDrawsNoBroadReceiverAsync()
+        => await RunAnalyzerAsync(
+            """
+            public static class TextExtensions
+            {
+                public static bool {|SST1705:IsBlank|}(this string text) => text.Length == 0;
+            }
+            """);
+
     /// <summary>Verifies non-empty blocks with distinct receiver types are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

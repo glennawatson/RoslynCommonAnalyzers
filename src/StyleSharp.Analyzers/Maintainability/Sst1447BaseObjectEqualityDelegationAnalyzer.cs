@@ -7,10 +7,14 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Flags <c>base.Equals(obj)</c> and <c>base.GetHashCode()</c> calls that bind to
 /// <see cref="object"/>'s implementation from inside an <c>Equals</c> or <c>GetHashCode</c>
-/// member (SST1447). Those base calls compare by reference identity, silently defeating the value
-/// semantics the override exists to provide. A base call that binds to a real base-class override
-/// is fine and never reported. The whole check is syntax-gated: only a <c>base.</c> receiver with
-/// the right member name and argument count inside a matching member triggers a semantic bind.
+/// member (SST1447), but only when the base call is the whole result of the member — its expression
+/// body or a returned expression. Delegating the entire result to <see cref="object"/>'s reference
+/// identity silently defeats the value semantics the override exists to provide. A guarded fast path
+/// such as <c>if (base.Equals(obj)) { return true; }</c> is a legitimate reference-equality shortcut
+/// against an <see cref="object"/> base and is left alone; a base call that binds to a real base-class
+/// override is fine and never reported here. The whole check is syntax-gated: only a <c>base.</c>
+/// receiver with the right member name and argument count inside a matching member triggers a semantic
+/// bind.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1447BaseObjectEqualityDelegationAnalyzer : DiagnosticAnalyzer
@@ -58,11 +62,38 @@ public sealed class Sst1447BaseObjectEqualityDelegationAnalyzer : DiagnosticAnal
             return;
         }
 
+        // Only report when the base call is the whole result of the member. A guarded fast path
+        // (the base call sits in an 'if' condition or an '&&'/'||' operand while the member does more)
+        // is a valid reference-equality shortcut against an object base, so it is left alone.
+        if (!IsWholeResult(invocation))
+        {
+            return;
+        }
+
         context.ReportDiagnostic(DiagnosticHelper.Create(
             MaintainabilityRules.BaseObjectEqualityDelegation,
             invocation.GetLocation(),
             enclosingName,
             memberName));
+    }
+
+    /// <summary>Returns whether the base call is the entire value the member yields.</summary>
+    /// <param name="invocation">The base equality invocation.</param>
+    /// <returns><see langword="true"/> when the call is the member's expression body or a returned expression.</returns>
+    private static bool IsWholeResult(InvocationExpressionSyntax invocation)
+    {
+        SyntaxNode node = invocation;
+        while (node.Parent is ParenthesizedExpressionSyntax parenthesized)
+        {
+            node = parenthesized;
+        }
+
+        return node.Parent switch
+        {
+            ArrowExpressionClauseSyntax arrow => arrow.Expression == node,
+            ReturnStatementSyntax returnStatement => returnStatement.Expression == node,
+            _ => false,
+        };
     }
 
     /// <summary>Returns whether an invocation is <c>base.Equals(x)</c> or <c>base.GetHashCode()</c>.</summary>

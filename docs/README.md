@@ -474,6 +474,10 @@ conventions, and what a member exposes.
 | [SST2312](rules/SST2312.md) | A type is declared outside any namespace. |
 | [SST2313](rules/SST2313.md) | An enum is stored as a type the project does not allow. Configurable; defaults to `int`. |
 | [SST2314](rules/SST2314.md) | An `[Obsolete]` explains itself but carries no `DiagnosticId`, so every caller gets the same CS0618. .NET 5+ only. |
+| [SST2318](rules/SST2318.md) | Two methods in one type have token-identical, non-trivial bodies, usually a copy-paste that was meant to differ. Off by default. |
+| [SST2319](rules/SST2319.md) | An optional parameter's default can never bind because a same-named overload already takes exactly its required prefix. |
+| [SST2320](rules/SST2320.md) | An interface inherits the same member from two unrelated base interfaces, so every consumer that accesses it gets an ambiguity error. |
+| [SST2321](rules/SST2321.md) | A class library calls `Environment.Exit` or `Environment.FailFast`, ending the whole host process instead of throwing. |
 
 ## Correctness
 
@@ -492,6 +496,20 @@ Code that compiles and runs but does not do what it says.
 | [SST2408](rules/SST2408.md) | A local `StringBuilder` is appended to, and its contents are never read. |
 | [SST2409](rules/SST2409.md) | A `throw` constructs `Exception`, `SystemException`, or `ApplicationException`, which callers cannot catch selectively. |
 | [SST2410](rules/SST2410.md) | A local is handed a newly created `IDisposable` and never disposes it, and the value never leaves the method. |
+| [SST2424](rules/SST2424.md) | An override declares a different parameter default than the base, so the same call means different things through the base and derived types. |
+| [SST2425](rules/SST2425.md) | An override forwards to the base but drops one of its own optional arguments, so the base substitutes its default and the caller's value is lost. |
+| [SST2426](rules/SST2426.md) | An override's `params` modifier disagrees with the base and is ignored, so it only misleads readers. Code fix matches the base. |
+| [SST2427](rules/SST2427.md) | A derived overload takes a base type of a same-named base overload's parameter, so calls through the derived type never reach the base overload. |
+| [SST2428](rules/SST2428.md) | A static field initializer reads a static field declared later, so it sees that field's default and keeps it. |
+| [SST2429](rules/SST2429.md) | A `set`, `init`, `add`, or `remove` accessor never reads `value`, so the assignment or subscription is discarded. |
+| [SST2430](rules/SST2430.md) | A serialization callback's signature does not match the shape the serializer invokes, so it never runs. |
+| [SST2431](rules/SST2431.md) | An overridden `ToString` can return null, which breaks interpolation, concatenation, and debugger display. Code fix returns `string.Empty`. |
+| [SST2432](rules/SST2432.md) | `GetType()` is called on a value that is already a `Type`, returning the reflection object's runtime type. Code fix removes the call. |
+| [SST2433](rules/SST2433.md) | A caller-info parameter is followed by an ordinary parameter, so a positional argument lands in the wrong one, or it has no default. |
+| [SST2434](rules/SST2434.md) | A reference-type array is widened to an array of its base type, making every element write a runtime-checked store that can throw. |
+| [SST2435](rules/SST2435.md) | A base class's value-equality `Equals` is used as an early-out fast path, so a derived override skips comparing its own fields. |
+| [SST2436](rules/SST2436.md) | An instance event is raised with a null sender or null args, so every subscriber that reads them throws. Code fix passes `this` or `EventArgs.Empty`. |
+| [SST2437](rules/SST2437.md) | A generic type is nested inside its own base's type arguments, which expands without end and throws `TypeLoadException` at load. |
 | [SST2438](rules/SST2438.md) | A catch logs at error or critical level but never passes the caught exception, so the stack trace is lost. Code fix passes it. Level floor configurable. |
 | [SST2439](rules/SST2439.md) | An exception is passed as a log message value instead of the exception argument. Code fix hoists it into the exception argument. |
 | [SST2440](rules/SST2440.md) | Two log values named after the template placeholders sit in each other's slots. Code fix swaps them back. |

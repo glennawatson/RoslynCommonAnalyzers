@@ -339,7 +339,7 @@ SST1439 | Maintainability | Warning | EmptyCodeAnalyzer
 SST1440 | Maintainability | Warning | Sst1440PrivateMemberUsageAnalyzer
 SST1441 | Maintainability | Warning | Sst1440PrivateMemberUsageAnalyzer
 
-## Release 3.27.0
+## Release 3.28.0
 
 ### New Rules
 

@@ -155,8 +155,19 @@ internal static class FieldReferenceAnalysis
     /// <param name="expression">The already-unwrapped expression to inspect.</param>
     /// <returns><see langword="true"/> when the expression safely names a private object field.</returns>
     internal static bool IsPrivateObjectFieldLockTarget(TypeDeclarationSyntax type, ExpressionSyntax expression) =>
-        expression is IdentifierNameSyntax identifier && !IsShadowed(identifier)
-            && TryFindPrivateObjectField(type, identifier.Identifier.ValueText);
+        TryGetPrivateObjectFieldLockTarget(type, expression, out _);
+
+    /// <summary>Returns whether an expression names a private object field declared in the same type, handing back its declaration.</summary>
+    /// <param name="type">The containing type declaration.</param>
+    /// <param name="expression">The already-unwrapped expression to inspect.</param>
+    /// <param name="declaration">The matching private object field declaration, when found.</param>
+    /// <returns><see langword="true"/> when the expression safely names a private object field.</returns>
+    internal static bool TryGetPrivateObjectFieldLockTarget(TypeDeclarationSyntax type, ExpressionSyntax expression, out FieldDeclarationSyntax? declaration)
+    {
+        declaration = null;
+        return expression is IdentifierNameSyntax identifier && !IsShadowed(identifier)
+            && TryFindPrivateObjectField(type, identifier.Identifier.ValueText, out declaration);
+    }
 
     /// <summary>Returns whether a reference writes to a field.</summary>
     /// <param name="identifier">The field reference.</param>
@@ -433,20 +444,23 @@ internal static class FieldReferenceAnalysis
         out VariableDeclaratorSyntax? declarator)
         => TypeFieldDeclarationIndex.GetOrCreate(type).TryGet(name, out declaration, out declarator);
 
-    /// <summary>Returns whether the type contains a matching private object field.</summary>
+    /// <summary>Finds a matching private object field declared directly in the type.</summary>
     /// <param name="type">The containing type declaration.</param>
     /// <param name="name">The expected field name.</param>
+    /// <param name="declaration">The matching field declaration, when found.</param>
     /// <returns><see langword="true"/> when the field exists.</returns>
-    private static bool TryFindPrivateObjectField(TypeDeclarationSyntax type, string name)
+    private static bool TryFindPrivateObjectField(TypeDeclarationSyntax type, string name, out FieldDeclarationSyntax? declaration)
     {
         for (var i = 0; i < type.Members.Count; i++)
         {
             if (type.Members[i] is FieldDeclarationSyntax field && IsPrivateObjectField(field, name))
             {
+                declaration = field;
                 return true;
             }
         }
 
+        declaration = null;
         return false;
     }
 

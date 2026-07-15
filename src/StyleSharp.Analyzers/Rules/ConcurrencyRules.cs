@@ -9,7 +9,7 @@ namespace StyleSharp.Analyzers;
 /// conventions around what a <c>lock</c> statement may safely target. The
 /// perf-motivated lock-type rule moved to PerformanceSharp.Analyzers as PSH1300.
 /// </summary>
-internal static class ConcurrencyRules
+internal static partial class ConcurrencyRules
 {
     /// <summary>SST1901 — a <c>lock</c> targets a field or property reachable from outside the declaring type.</summary>
     public static readonly DiagnosticDescriptor DoNotLockOnAccessibleMember = Create(

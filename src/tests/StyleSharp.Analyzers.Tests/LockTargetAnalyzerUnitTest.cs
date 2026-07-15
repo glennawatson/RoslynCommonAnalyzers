@@ -151,6 +151,127 @@ public class LockTargetAnalyzerUnitTest
         await Assert.That(LockTargetAnalyzer.IsPrivateObjectFieldLockTarget(type, lockStatement.Expression)).IsFalse();
     }
 
+    /// <summary>Verifies locking on a non-readonly private object field is reported (SST1904).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NonReadonlyPrivateObjectFieldReportedAsync()
+        => await VerifyLockTarget.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private object _gate = new();
+
+                public void M()
+                {
+                    lock ({|SST1904:_gate|})
+                    {
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies locking on a non-readonly private non-object field is reported (SST1904).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NonReadonlyPrivateFieldReportedAsync()
+        => await VerifyLockTarget.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private readonly object _other = new();
+                private Gate _gate = new();
+
+                public void M()
+                {
+                    lock ({|SST1904:_gate|})
+                    {
+                    }
+                }
+            }
+
+            public sealed class Gate
+            {
+            }
+            """);
+
+    /// <summary>Verifies a readonly private object field is clean under every lock-target rule.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReadonlyPrivateObjectFieldIsCleanForNonReadonlyRuleAsync()
+        => await VerifyLockTarget.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private readonly object _gate = new();
+
+                public void M()
+                {
+                    lock (_gate)
+                    {
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies locking on a fresh local object that never escapes is reported (SST1903).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FreshLocalObjectTargetReportedAsync()
+        => await VerifyLockTarget.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public void M()
+                {
+                    object gate = new();
+                    lock ({|SST1903:gate|})
+                    {
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a local that aliases a shared field is not reported (SST1903 stays silent).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task LocalAliasingSharedFieldIsCleanAsync()
+        => await VerifyLockTarget.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private readonly object _gate = new();
+
+                public void M()
+                {
+                    object local = _gate;
+                    lock (local)
+                    {
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a fresh local that is published to a field is not reported (SST1903 stays silent).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FreshLocalPublishedToFieldIsCleanAsync()
+        => await VerifyLockTarget.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private readonly object _gate = new();
+
+                public C()
+                {
+                    object gate = new();
+                    _gate = gate;
+                    lock (gate)
+                    {
+                    }
+                }
+            }
+            """);
+
     /// <summary>Parses the first lock statement from the supplied source.</summary>
     /// <param name="source">The source containing the lock statement.</param>
     /// <returns>The parsed lock statement.</returns>

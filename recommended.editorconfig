@@ -60,6 +60,8 @@
 dotnet_diagnostic.SST1901.severity = warning # A lock targets a field or property reachable from outside the declaring type
 # dotnet_diagnostic.SST1902.severity = warning # A lock targets this, a Type, or a string (opt-in)
 dotnet_diagnostic.SST1903.severity = warning # A lock targets a newly-created object that nothing else can observe
+dotnet_diagnostic.SST1904.severity = warning # A lock targets a non-readonly field that a later assignment can swap out
+dotnet_diagnostic.SST1905.severity = warning # An async void method, lambda, or local function that is not a genuine event handler
 
 # Documentation
 dotnet_diagnostic.SST1600.severity = warning # Externally visible members should be documented
@@ -335,6 +337,9 @@ dotnet_diagnostic.SST2311.severity = warning # A visible const is copied into ev
 dotnet_diagnostic.SST2312.severity = warning # A type is declared outside any namespace
 dotnet_diagnostic.SST2313.severity = warning # An enum is stored as a type the project does not allow (see stylesharp.allowed_enum_storage)
 dotnet_diagnostic.SST2314.severity = warning # An [Obsolete] has a message but no DiagnosticId. .NET 5+ only; turn off if your source is shared with an older target
+dotnet_diagnostic.SST2315.severity = warning # A type creates and keeps a disposable but is not IDisposable (factory field, auto-property new, or collection of disposables)
+dotnet_diagnostic.SST2316.severity = warning # A type declares Dispose/DisposeAsync but not the matching interface, so it is never disposed through it
+dotnet_diagnostic.SST2317.severity = warning # A disposable owns a raw native handle with no finalizer; promote a SafeHandle
 
 # Correctness
 dotnet_diagnostic.SST2400.severity = warning # Two arguments name each other's parameters and have been transposed
@@ -348,6 +353,7 @@ dotnet_diagnostic.SST2407.severity = warning # A declared event is never raised
 dotnet_diagnostic.SST2408.severity = warning # A StringBuilder is filled and never read
 dotnet_diagnostic.SST2409.severity = warning # A throw constructs a general exception type (Exception/SystemException/ApplicationException)
 dotnet_diagnostic.SST2410.severity = warning # A created disposable is never disposed and never leaves the method
+dotnet_diagnostic.SST2423.severity = warning # A value owned by a using is returned out of the using scope
 dotnet_diagnostic.SST2438.severity = warning # A catch logs at error level but discards the caught exception (level floor configurable)
 dotnet_diagnostic.SST2439.severity = warning # An exception is passed as a log message value instead of the exception argument
 dotnet_diagnostic.SST2440.severity = warning # Two log values named after the placeholders are transposed

@@ -117,6 +117,7 @@ dotnet_diagnostic.PSH1312.severity = warning # Return a completed task, never nu
 dotnet_diagnostic.PSH1313.severity = warning # Call the async overload from an async method
 dotnet_diagnostic.PSH1314.severity = warning # Read and write streams through the memory-based overloads
 dotnet_diagnostic.PSH1315.severity = warning # Do not block on a task that may not be complete
+dotnet_diagnostic.PSH1316.severity = warning # A ValueTask is consumed more than once (awaited in a loop, or through a copy)
 
 # ApiSelection
 dotnet_diagnostic.PSH1400.severity = warning # Use the static HashData method for one-shot hashing

@@ -68,6 +68,8 @@ SST1496 | Maintainability | Warning | Sst1496AbstractTypeWithoutAbstractMembersA
 SST1497 | Maintainability | Warning | Sst1497UnusedLocalAnalyzer
 SST1498 | Maintainability | Warning | Sst1498PrivateMemberUsedOnlyByNestedTypeAnalyzer
 SST1499 | Maintainability | Warning | Sst1499MutableStaticFieldAnalyzer
+SST1904 | Concurrency | Warning | LockTargetAnalyzer
+SST1905 | Concurrency | Warning | Sst1905AsyncVoidAnalyzer
 SST1658 | Documentation | Warning | Sst1658NoRepeatedWordsAnalyzer
 SST1659 | Documentation | Warning | Sst1659EmptyCommentAnalyzer
 SST2008 | Modernization | Warning | Sst2008IsNotPatternAnalyzer
@@ -107,6 +109,9 @@ SST2311 | Design | Warning | Sst2311PublicConstantFieldAnalyzer
 SST2312 | Design | Warning | Sst2312TypeInGlobalNamespaceAnalyzer
 SST2313 | Design | Warning | Sst2313EnumStorageAnalyzer
 SST2314 | Design | Warning | Sst2314ObsoleteWithoutDiagnosticIdAnalyzer
+SST2315 | Design | Warning | Sst2315OwnsDisposableFieldAnalyzer
+SST2316 | Design | Warning | Sst2316DisposeWithoutInterfaceAnalyzer
+SST2317 | Design | Warning | Sst2317NativeResourceWithoutSafeHandleAnalyzer
 SST2318 | Design | Disabled | Sst2318DuplicateMemberBodyAnalyzer
 SST2319 | Design | Warning | Sst2319UnreachableOptionalDefaultAnalyzer
 SST2320 | Design | Warning | Sst2320AmbiguousInheritedInterfaceMemberAnalyzer
@@ -122,6 +127,7 @@ SST2407 | Correctness | Warning | Sst2407EventNeverRaisedAnalyzer
 SST2408 | Correctness | Warning | Sst2408StringBuilderNeverReadAnalyzer
 SST2409 | Correctness | Warning | Sst2409ThrowsGeneralExceptionAnalyzer
 SST2410 | Correctness | Warning | Sst2410DisposableNeverDisposedAnalyzer
+SST2423 | Correctness | Warning | Sst2423DisposableReturnedFromUsingAnalyzer
 SST2424 | Correctness | Warning | OverrideParameterContractAnalyzer
 SST2425 | Correctness | Warning | Sst2425BaseCallDropsOptionalArgumentAnalyzer
 SST2426 | Correctness | Warning | OverrideParameterContractAnalyzer

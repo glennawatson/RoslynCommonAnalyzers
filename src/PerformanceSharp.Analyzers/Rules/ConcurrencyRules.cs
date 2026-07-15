@@ -10,7 +10,7 @@ namespace PerformanceSharp.Analyzers;
 /// relevant runtime type existing so they light up only where the replacement
 /// compiles.
 /// </summary>
-internal static class ConcurrencyRules
+internal static partial class ConcurrencyRules
 {
     /// <summary>PSH1300 — a dedicated <c>object</c> lock field should be a <c>System.Threading.Lock</c>.</summary>
     public static readonly DiagnosticDescriptor PreferLockType = Create(

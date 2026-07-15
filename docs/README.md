@@ -126,6 +126,7 @@ async, `PSH14xx` API selection.
 | [PSH1313](rules/PSH1313.md) | An `async` method calls a synchronous method that has a fitting async overload. Code fix awaits the async overload. |
 | [PSH1314](rules/PSH1314.md) | A stream is read or written through the array-based `ReadAsync`/`WriteAsync` overloads. Code fix rewrites the call via `AsMemory`. |
 | [PSH1315](rules/PSH1315.md) | A thread is parked on a task that is not provably complete — `Result`, `Wait()`, `GetAwaiter().GetResult()` on a `Task` or `ValueTask`. The guarded fast path and an awaiter's own `GetResult` are silent. Code fix awaits, where an `await` compiles. |
+| [PSH1316](rules/PSH1316.md) | A `ValueTask` is consumed more than once - awaited across loop iterations, or through a copy - so a later consume reads a recycled pooled token. Code fix hoists the producer into the loop. |
 
 ## ApiSelection
 
@@ -171,7 +172,9 @@ PSH1102, and PSH1100.
 | --- | --- |
 | [SST1901](rules/SST1901.md) | A lock targets a field or property reachable from outside the declaring type. |
 | [SST1902](rules/SST1902.md) | A lock targets `this`, a `Type`, or a string. Opt-in. |
-| [SST1903](rules/SST1903.md) | A lock targets a newly created object. |
+| [SST1903](rules/SST1903.md) | A lock targets an object that is fresh on every call - inline `new`, or a local `new` that never escapes the method. |
+| [SST1904](rules/SST1904.md) | A lock targets a non-readonly field, which a later assignment can swap out from under a caller. Code fix makes it readonly. |
+| [SST1905](rules/SST1905.md) | An `async void` method, lambda, or local function that is not a genuine event handler. Code fix returns `Task`. |
 
 ## Documentation
 
@@ -474,6 +477,9 @@ conventions, and what a member exposes.
 | [SST2312](rules/SST2312.md) | A type is declared outside any namespace. |
 | [SST2313](rules/SST2313.md) | An enum is stored as a type the project does not allow. Configurable; defaults to `int`. |
 | [SST2314](rules/SST2314.md) | An `[Obsolete]` explains itself but carries no `DiagnosticId`, so every caller gets the same CS0618. .NET 5+ only. |
+| [SST2315](rules/SST2315.md) | A type creates and keeps a disposable but is not `IDisposable` - a static factory field, an auto-property `new`, or a collection of disposables. Code fix implements it. |
+| [SST2316](rules/SST2316.md) | A type declares a public `Dispose`/`DisposeAsync` but not the matching interface, so owners that dispose through the interface never call it. `ref struct` exempt. Code fix adds the interface. |
+| [SST2317](rules/SST2317.md) | A disposable owns a raw native handle with no finalizer, so it leaks when `Dispose` is not called. The message promotes a `SafeHandle`. |
 | [SST2318](rules/SST2318.md) | Two methods in one type have token-identical, non-trivial bodies, usually a copy-paste that was meant to differ. Off by default. |
 | [SST2319](rules/SST2319.md) | An optional parameter's default can never bind because a same-named overload already takes exactly its required prefix. |
 | [SST2320](rules/SST2320.md) | An interface inherits the same member from two unrelated base interfaces, so every consumer that accesses it gets an ambiguity error. |
@@ -496,6 +502,7 @@ Code that compiles and runs but does not do what it says.
 | [SST2408](rules/SST2408.md) | A local `StringBuilder` is appended to, and its contents are never read. |
 | [SST2409](rules/SST2409.md) | A `throw` constructs `Exception`, `SystemException`, or `ApplicationException`, which callers cannot catch selectively. |
 | [SST2410](rules/SST2410.md) | A local is handed a newly created `IDisposable` and never disposes it, and the value never leaves the method. |
+| [SST2423](rules/SST2423.md) | A value owned by a `using` is returned out of the `using` scope, so the caller receives an already-disposed object. Code fix transfers ownership. |
 | [SST2424](rules/SST2424.md) | An override declares a different parameter default than the base, so the same call means different things through the base and derived types. |
 | [SST2425](rules/SST2425.md) | An override forwards to the base but drops one of its own optional arguments, so the base substitutes its default and the caller's value is lost. |
 | [SST2426](rules/SST2426.md) | An override's `params` modifier disagrees with the base and is ignored, so it only misleads readers. Code fix matches the base. |

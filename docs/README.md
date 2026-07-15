@@ -491,6 +491,12 @@ Code that compiles and runs but does not do what it says.
 | [SST2408](rules/SST2408.md) | A local `StringBuilder` is appended to, and its contents are never read. |
 | [SST2409](rules/SST2409.md) | A `throw` constructs `Exception`, `SystemException`, or `ApplicationException`, which callers cannot catch selectively. |
 | [SST2410](rules/SST2410.md) | A local is handed a newly created `IDisposable` and never disposes it, and the value never leaves the method. |
+| [SST2438](rules/SST2438.md) | A catch logs at error or critical level but never passes the caught exception, so the stack trace is lost. Code fix passes it. Level floor configurable. |
+| [SST2439](rules/SST2439.md) | An exception is passed as a log message value instead of the exception argument. Code fix hoists it into the exception argument. |
+| [SST2440](rules/SST2440.md) | Two log values named after the template placeholders sit in each other's slots. Code fix swaps them back. |
+| [SST2441](rules/SST2441.md) | A message-template placeholder is empty, whitespace, or not a property name, so its value is dropped from the payload. |
+| [SST2442](rules/SST2442.md) | A message template names the same placeholder twice, so one value silently overwrites the other in a structured sink. |
+| [SST2443](rules/SST2443.md) | A typed logger's category is a type other than the one that logs, so its level filters and sink routes do nothing. Code fix rewrites the category. |
 
 ## Naming
 

@@ -118,6 +118,12 @@ SST2407 | Correctness | Warning | Sst2407EventNeverRaisedAnalyzer
 SST2408 | Correctness | Warning | Sst2408StringBuilderNeverReadAnalyzer
 SST2409 | Correctness | Warning | Sst2409ThrowsGeneralExceptionAnalyzer
 SST2410 | Correctness | Warning | Sst2410DisposableNeverDisposedAnalyzer
+SST2438 | Correctness | Warning | LoggerCallAnalyzer
+SST2439 | Correctness | Warning | LoggerCallAnalyzer
+SST2440 | Correctness | Warning | LoggerCallAnalyzer
+SST2441 | Correctness | Warning | LoggerCallAnalyzer
+SST2442 | Correctness | Warning | LoggerCallAnalyzer
+SST2443 | Correctness | Warning | Sst2443LoggerCategoryAnalyzer
 
 ### Removed Rules
 

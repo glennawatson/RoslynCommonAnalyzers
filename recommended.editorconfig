@@ -47,6 +47,7 @@
 # stylesharp.extension_container_preferred_suffix = Extensions # SST1704 (Extensions | Mixins)
 # stylesharp.file_naming_convention = braces               # SST1402/SST1649 code fixes (braces 'Widget{T}.cs' | metadata 'Widget`1.cs')
 # stylesharp.SST1431.additional_per_owner_types = My.Lib.PropertyKey # SST1431 (comma-separated fully-qualified type names)
+# stylesharp.SST2438.minimum_level = error                  # SST2438 (trace | debug | information | warning | error | critical; the lowest level a discarded catch exception is reported at)
 # stylesharp.document_exposed_elements = true              # SST1600/1601/1602/1654 coverage scope
 # stylesharp.document_internal_elements = true             # SST1600/1601/1602/1654 (set false to require only the public API surface)
 # stylesharp.document_private_elements = false             # SST1600/1601/1602/1654 (non-field private members)
@@ -347,6 +348,12 @@ dotnet_diagnostic.SST2407.severity = warning # A declared event is never raised
 dotnet_diagnostic.SST2408.severity = warning # A StringBuilder is filled and never read
 dotnet_diagnostic.SST2409.severity = warning # A throw constructs a general exception type (Exception/SystemException/ApplicationException)
 dotnet_diagnostic.SST2410.severity = warning # A created disposable is never disposed and never leaves the method
+dotnet_diagnostic.SST2438.severity = warning # A catch logs at error level but discards the caught exception (level floor configurable)
+dotnet_diagnostic.SST2439.severity = warning # An exception is passed as a log message value instead of the exception argument
+dotnet_diagnostic.SST2440.severity = warning # Two log values named after the placeholders are transposed
+dotnet_diagnostic.SST2441.severity = warning # A message-template placeholder has no valid property name
+dotnet_diagnostic.SST2442.severity = warning # A message template repeats a placeholder name
+dotnet_diagnostic.SST2443.severity = warning # A typed logger's category is a type other than the one that logs
 
 # Naming
 dotnet_diagnostic.SST1300.severity = warning # Types and members should be PascalCase

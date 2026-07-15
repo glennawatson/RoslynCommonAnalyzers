@@ -87,9 +87,18 @@ jobs:
                 working-directory: src
                 run: dotnet build RoslynCommonAnalyzers.slnx --no-restore --configuration Release
 
-            -   name: Test with MTP coverage
+            # Run each package's tests into its own results directory. A single
+            # --solution run points every project at the same --coverage-output file,
+            # so the slower report overwrites the other and one package lands at 0%
+            # in the coverage import. Distinct results directories keep both reports;
+            # the shared sonar-coverage.xml name still matches the import glob below.
+            -   name: Test StyleSharp with MTP coverage
                 working-directory: src
-                run: dotnet test --solution RoslynCommonAnalyzers.slnx --configuration Release --no-restore -- --coverage --coverage-output-format xml --coverage-output sonar-coverage.xml
+                run: dotnet test --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj --configuration Release --no-restore -- --coverage --coverage-output-format xml --results-directory TestResults/StyleSharp --coverage-output sonar-coverage.xml
+
+            -   name: Test PerformanceSharp with MTP coverage
+                working-directory: src
+                run: dotnet test --project tests/PerformanceSharp.Analyzers.Tests/PerformanceSharp.Analyzers.Tests.csproj --configuration Release --no-restore -- --coverage --coverage-output-format xml --results-directory TestResults/PerformanceSharp --coverage-output sonar-coverage.xml
 
             -   name: End Sonar analysis
                 working-directory: src

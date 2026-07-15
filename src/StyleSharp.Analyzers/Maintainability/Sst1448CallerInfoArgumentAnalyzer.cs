@@ -60,7 +60,7 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
     /// <param name="attributes">The compilation's caller-info attribute symbols.</param>
     private static void AnalyzeArguments(SyntaxNodeAnalysisContext context, CallerInfoAttributes attributes)
     {
-        var argumentList = GetArgumentList(context.Node);
+        var argumentList = ArgumentBinding.GetArgumentList(context.Node);
         if (argumentList is null || argumentList.Arguments.Count == 0)
         {
             return;
@@ -71,7 +71,7 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!HasOptionalParameter(method))
+        if (!ArgumentBinding.HasOptionalParameter(method))
         {
             return;
         }
@@ -80,7 +80,7 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < arguments.Count; i++)
         {
             var argument = arguments[i];
-            if (FindParameter(method, arguments, i) is not { IsOptional: true } parameter)
+            if (ArgumentBinding.FindParameter(method, arguments, i) is not { IsOptional: true } parameter)
             {
                 continue;
             }
@@ -101,58 +101,6 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
                 argument.Span,
                 description));
         }
-    }
-
-    /// <summary>Returns the argument list of an invocation or object creation.</summary>
-    /// <param name="node">The reported node.</param>
-    /// <returns>The argument list, or <see langword="null"/>.</returns>
-    private static ArgumentListSyntax? GetArgumentList(SyntaxNode node)
-        => node switch
-        {
-            InvocationExpressionSyntax invocation => invocation.ArgumentList,
-            BaseObjectCreationExpressionSyntax creation => creation.ArgumentList,
-            _ => null,
-        };
-
-    /// <summary>Returns whether a method declares any optional parameter (caller-info parameters must).</summary>
-    /// <param name="method">The bound method.</param>
-    /// <returns><see langword="true"/> when an optional parameter exists.</returns>
-    private static bool HasOptionalParameter(IMethodSymbol method)
-    {
-        var parameters = method.Parameters;
-        for (var i = 0; i < parameters.Length; i++)
-        {
-            if (parameters[i].IsOptional)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Maps one argument to the parameter it supplies.</summary>
-    /// <param name="method">The bound method.</param>
-    /// <param name="arguments">The argument list.</param>
-    /// <param name="index">The argument index.</param>
-    /// <returns>The matched parameter, or <see langword="null"/>.</returns>
-    private static IParameterSymbol? FindParameter(IMethodSymbol method, SeparatedSyntaxList<ArgumentSyntax> arguments, int index)
-    {
-        var parameters = method.Parameters;
-        if (arguments[index].NameColon is { Name.Identifier.ValueText: var argumentName })
-        {
-            for (var i = 0; i < parameters.Length; i++)
-            {
-                if (parameters[i].Name == argumentName)
-                {
-                    return parameters[i];
-                }
-            }
-
-            return null;
-        }
-
-        return index < parameters.Length ? parameters[index] : null;
     }
 
     /// <summary>

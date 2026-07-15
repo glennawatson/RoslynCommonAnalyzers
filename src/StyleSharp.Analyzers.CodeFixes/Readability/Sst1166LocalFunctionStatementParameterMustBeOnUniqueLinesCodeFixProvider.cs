@@ -18,68 +18,36 @@ public sealed class Sst1166LocalFunctionStatementParameterMustBeOnUniqueLinesCod
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
-
-            if (node is LocalFunctionStatementSyntax syntaxNode)
-            {
-                // In this case there is no justification at all
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        CodeFixResources.SST1150CodeFixTitle,
-                        _ => FixAsync(context.Document, root, syntaxNode),
-                        nameof(Sst1166LocalFunctionStatementParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
-                    diagnostic);
-                return;
-            }
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, nameof(Sst1166LocalFunctionStatementParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add", TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not LocalFunctionStatementSyntax node)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(node, (current, _) =>
-        {
-            var localFunction = (LocalFunctionStatementSyntax)current;
-            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(localFunction, elastic: true);
-            return localFunction.ConvertNodeIfAble(
-                param => param.ParameterList?.Parameters,
-                (syntax, parameters) => syntax.WithParameterList(
-                    SyntaxFactory.ParameterList(parameters)
-                        .WithOpenParenToken(syntax.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                ?? localFunction;
-        });
-    }
-
-    /// <summary>Rewrites the declaration so each parameter is placed on its own line.</summary>
+    /// <summary>Rewrites the local function statement so each parameter is placed on its own line.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root of the document.</param>
-    /// <param name="node">The declaration to rewrite.</param>
+    /// <param name="node">The local function statement to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, LocalFunctionStatementSyntax node)
-    {
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-                          param => param.ParameterList?.Parameters,
-                          (syntax, parameters) => syntax.WithParameterList(
-                              SyntaxFactory.ParameterList(parameters)
-                                  .WithOpenParenToken(syntax.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                      ?? node;
-        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
-    }
+        => Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
+
+    /// <summary>Resolves the reported local function statement and builds its parameters-on-unique-lines form.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan) is LocalFunctionStatementSyntax node
+            ? new NodeReplacement(node, Rewrite(node), static current => Rewrite((LocalFunctionStatementSyntax)current))
+            : null;
+
+    /// <summary>Builds the local function statement with each parameter moved to its own line.</summary>
+    /// <param name="node">The local function statement to rewrite.</param>
+    /// <returns>The rewritten statement, or the original when it has no parameter list.</returns>
+    private static LocalFunctionStatementSyntax Rewrite(LocalFunctionStatementSyntax node)
+        => UniqueLineCodeFixerHelper.SplitParametersOntoOwnLines(
+            node,
+            static inner => inner.ParameterList,
+            static (inner, list) => inner.WithParameterList(list));
 }

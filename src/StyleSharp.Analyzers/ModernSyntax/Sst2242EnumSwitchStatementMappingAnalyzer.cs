@@ -79,41 +79,13 @@ public sealed class Sst2242EnumSwitchStatementMappingAnalyzer : DiagnosticAnalyz
         var members = enumType.GetMembers();
         for (var i = 0; i < members.Length; i++)
         {
-            if (members[i] is IFieldSymbol { HasConstantValue: true } field && !IsCovered(field, switchStatement, model, cancellationToken))
+            if (EnumSwitchCoverage.IsEnumValue(members[i], out var field)
+                && !EnumSwitchCoverage.IsCaseLabelCovered(field, switchStatement, model, cancellationToken))
             {
                 return false;
             }
         }
 
         return true;
-    }
-
-    /// <summary>Returns whether a switch statement already covers an enum value.</summary>
-    /// <param name="field">The enum field.</param>
-    /// <param name="switchStatement">The switch statement.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels analysis.</param>
-    /// <returns><see langword="true"/> when a case label names the enum field.</returns>
-    private static bool IsCovered(
-        IFieldSymbol field,
-        SwitchStatementSyntax switchStatement,
-        SemanticModel model,
-        CancellationToken cancellationToken)
-    {
-        var sections = switchStatement.Sections;
-        for (var sectionIndex = 0; sectionIndex < sections.Count; sectionIndex++)
-        {
-            var labels = sections[sectionIndex].Labels;
-            for (var labelIndex = 0; labelIndex < labels.Count; labelIndex++)
-            {
-                if (labels[labelIndex] is CaseSwitchLabelSyntax caseLabel
-                    && SymbolEqualityComparer.Default.Equals(field, model.GetSymbolInfo(caseLabel.Value, cancellationToken).Symbol))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }

@@ -110,6 +110,74 @@ internal static class UniqueLineCodeFixerHelper
         return SyntaxFactory.SeparatedList(indentedEntries, separators);
     }
 
+    /// <summary>Rewrites a node's parenthesized parameter list so each parameter sits on its own line.</summary>
+    /// <typeparam name="T">The type of syntax node owning the parameter list.</typeparam>
+    /// <param name="node">The node whose parameter list should be reformatted.</param>
+    /// <param name="getParameterList">Reads the parenthesized parameter list from the node.</param>
+    /// <param name="withParameterList">Produces a copy of the node carrying the supplied parameter list.</param>
+    /// <returns>The rewritten node, or the original when it has no parameter list or already spans one line per parameter.</returns>
+    public static T SplitParametersOntoOwnLines<T>(
+        T node,
+        Func<T, ParameterListSyntax?> getParameterList,
+        Func<T, ParameterListSyntax, T> withParameterList)
+        where T : SyntaxNode
+    {
+        var endOfLine = GetEndOfLine(node, elastic: true);
+        return node.ConvertNodeIfAble(
+                   inner => getParameterList(inner)?.Parameters,
+                   (inner, parameters) => withParameterList(
+                       inner,
+                       SyntaxFactory.ParameterList(parameters)
+                           .WithOpenParenToken(getParameterList(inner)!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+               ?? node;
+    }
+
+    /// <summary>Rewrites a node's parenthesized argument list so each argument sits on its own line.</summary>
+    /// <typeparam name="T">The type of syntax node owning the argument list.</typeparam>
+    /// <param name="node">The node whose argument list should be reformatted.</param>
+    /// <param name="getArgumentList">Reads the parenthesized argument list from the node.</param>
+    /// <param name="withArgumentList">Produces a copy of the node carrying the supplied argument list.</param>
+    /// <returns>The rewritten node, or the original when it has no argument list or already spans one line per argument.</returns>
+    public static T SplitArgumentsOntoOwnLines<T>(
+        T node,
+        Func<T, ArgumentListSyntax?> getArgumentList,
+        Func<T, ArgumentListSyntax, T> withArgumentList)
+        where T : SyntaxNode
+    {
+        var endOfLine = GetEndOfLine(node, elastic: true);
+        return node.ConvertNodeIfAble(
+                   inner => getArgumentList(inner)?.Arguments,
+                   (inner, arguments) => withArgumentList(
+                       inner,
+                       SyntaxFactory.ArgumentList(arguments)
+                           .WithOpenParenToken(getArgumentList(inner)!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+               ?? node;
+    }
+
+    /// <summary>Rewrites an angle-bracketed list node (type parameter, type argument, or function-pointer list) so each entry sits on its own line.</summary>
+    /// <typeparam name="T">The angle-bracketed list node type.</typeparam>
+    /// <typeparam name="TParam">The type of the list entries.</typeparam>
+    /// <param name="node">The angle-bracketed list node to reformat.</param>
+    /// <param name="entries">The separated list of entries the node owns.</param>
+    /// <param name="rebuild">Builds the reformatted node from the split entries and the owner's end-of-line trivia.</param>
+    /// <returns>The rewritten node, or the original when it has a single entry or already spans a single line.</returns>
+    public static T SplitAngleBracketedListOntoOwnLines<T, TParam>(
+        T node,
+        SeparatedSyntaxList<TParam> entries,
+        Func<SeparatedSyntaxList<TParam>, SyntaxTrivia, T> rebuild)
+        where T : SyntaxNode
+        where TParam : SyntaxNode
+    {
+        var newList = SplitEntriesOntoOwnLines(node, entries);
+        if (newList is null)
+        {
+            return node;
+        }
+
+        var endOfLine = GetEndOfLine(node, elastic: false);
+        return rebuild(newList.Value, endOfLine);
+    }
+
     /// <summary>Gets the number of leading whitespace characters on the line where the node begins.</summary>
     /// <param name="node">The node to inspect.</param>
     /// <returns>The count of leading whitespace characters, or zero if it cannot be determined.</returns>

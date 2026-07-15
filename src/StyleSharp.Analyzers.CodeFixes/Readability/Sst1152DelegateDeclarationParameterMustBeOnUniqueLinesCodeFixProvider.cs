@@ -18,43 +18,12 @@ public sealed class Sst1152DelegateDeclarationParameterMustBeOnUniqueLinesCodeFi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
-
-            if (node is DelegateDeclarationSyntax syntaxNode)
-            {
-                // In this case there is no justification at all
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        CodeFixResources.SST1150CodeFixTitle,
-                        _ => FixAsync(context.Document, root, syntaxNode),
-                        nameof(Sst1152DelegateDeclarationParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
-                    diagnostic);
-                return;
-            }
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, nameof(Sst1152DelegateDeclarationParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add", TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not DelegateDeclarationSyntax node)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(node, BuildNode(node));
-    }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Rewrites the delegate declaration so each parameter is placed on its own line.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -62,22 +31,23 @@ public sealed class Sst1152DelegateDeclarationParameterMustBeOnUniqueLinesCodeFi
     /// <param name="node">The delegate declaration to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, DelegateDeclarationSyntax node)
-    {
-        var newNode = BuildNode(node);
-        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
-    }
+        => Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
 
-    /// <summary>Builds the rewritten delegate declaration with each parameter on its own line.</summary>
+    /// <summary>Resolves the reported delegate declaration and builds its parameters-on-unique-lines form.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan) is DelegateDeclarationSyntax node
+            ? new NodeReplacement(node, Rewrite(node), static current => Rewrite((DelegateDeclarationSyntax)current))
+            : null;
+
+    /// <summary>Builds the delegate declaration with each parameter moved to its own line.</summary>
     /// <param name="node">The delegate declaration to rewrite.</param>
-    /// <returns>The rewritten declaration.</returns>
-    private static DelegateDeclarationSyntax BuildNode(DelegateDeclarationSyntax node)
-    {
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        return node.ConvertNodeIfAble(
-                   node => node.ParameterList?.Parameters,
-                   (node, parameters) => node.WithParameterList(
-                       SyntaxFactory.ParameterList(parameters)
-                           .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-               ?? node;
-    }
+    /// <returns>The rewritten declaration, or the original when it has no parameter list.</returns>
+    private static DelegateDeclarationSyntax Rewrite(DelegateDeclarationSyntax node)
+        => UniqueLineCodeFixerHelper.SplitParametersOntoOwnLines(
+            node,
+            static inner => inner.ParameterList,
+            static (inner, list) => inner.WithParameterList(list));
 }

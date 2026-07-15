@@ -18,68 +18,38 @@ public sealed class Sst1169TypeParameterListMustBeOnUniqueLinesCodeFixProvider :
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
-
-            if (node is TypeParameterListSyntax syntaxNode)
-            {
-                // In this case there is no justification at all
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        CodeFixResources.SST1150CodeFixTitle,
-                        _ => FixAsync(context.Document, root, syntaxNode),
-                        nameof(Sst1169TypeParameterListMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
-                    diagnostic);
-                return;
-            }
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, nameof(Sst1169TypeParameterListMustBeOnUniqueLinesCodeFixProvider) + "-Add", TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not TypeParameterListSyntax node)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: false);
-        var newList = UniqueLineCodeFixerHelper.SplitEntriesOntoOwnLines(node, node.Parameters);
-        if (newList is null)
-        {
-            return;
-        }
-
-        var newNode = SyntaxFactory.TypeParameterList(newList.Value)
-            .WithLessThanToken(node.LessThanToken.WithTrailingTrivia(endOfLine))
-            .WithGreaterThanToken(node.GreaterThanToken);
-        editor.ReplaceNode(node, newNode);
-    }
-
-    /// <summary>Rewrites the list so each type parameter is placed on its own line.</summary>
+    /// <summary>Rewrites the type parameter list so each type parameter is placed on its own line.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The type parameter list to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, TypeParameterListSyntax node)
-    {
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: false);
-        var newList = UniqueLineCodeFixerHelper.SplitEntriesOntoOwnLines(node, node.Parameters);
-        var newNode = newList is null
-            ? node
-            : SyntaxFactory.TypeParameterList(newList.Value)
+        => Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
+
+    /// <summary>Resolves the reported type parameter list and builds its entries-on-unique-lines form.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan) is TypeParameterListSyntax node
+            ? new NodeReplacement(node, Rewrite(node), static current => Rewrite((TypeParameterListSyntax)current))
+            : null;
+
+    /// <summary>Builds the type parameter list with each type parameter moved to its own line.</summary>
+    /// <param name="node">The type parameter list to rewrite.</param>
+    /// <returns>The rewritten list, or the original when it needs no change.</returns>
+    private static TypeParameterListSyntax Rewrite(TypeParameterListSyntax node)
+        => UniqueLineCodeFixerHelper.SplitAngleBracketedListOntoOwnLines(
+            node,
+            node.Parameters,
+            (list, endOfLine) => SyntaxFactory.TypeParameterList(list)
                 .WithLessThanToken(node.LessThanToken.WithTrailingTrivia(endOfLine))
-                .WithGreaterThanToken(node.GreaterThanToken);
-        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
-    }
+                .WithGreaterThanToken(node.GreaterThanToken));
 }

@@ -224,7 +224,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
         NameSyntax replacement,
         CancellationToken cancellationToken)
     {
-        var originalSymbol = GetSingleSymbol(model.GetSymbolInfo(original, cancellationToken));
+        var originalSymbol = SymbolResolution.GetSingleSymbol(model.GetSymbolInfo(original, cancellationToken));
         if (originalSymbol is null)
         {
             return false;
@@ -235,7 +235,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
             return binds;
         }
 
-        var replacementSymbol = GetSingleSymbol(model.GetSpeculativeSymbolInfo(
+        var replacementSymbol = SymbolResolution.GetSingleSymbol(model.GetSpeculativeSymbolInfo(
             original.SpanStart,
             replacement,
             SpeculativeBindingOption.BindAsTypeOrNamespace));
@@ -267,7 +267,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax replacement,
         CancellationToken cancellationToken)
     {
-        var originalSymbol = GetSingleSymbol(model.GetSymbolInfo(original, cancellationToken));
+        var originalSymbol = SymbolResolution.GetSingleSymbol(model.GetSymbolInfo(original, cancellationToken));
         if (originalSymbol is null)
         {
             return false;
@@ -292,7 +292,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
             return binds;
         }
 
-        var replacementSymbol = GetSingleSymbol(model.GetSpeculativeSymbolInfo(
+        var replacementSymbol = SymbolResolution.GetSingleSymbol(model.GetSpeculativeSymbolInfo(
             original.SpanStart,
             replacement,
             SpeculativeBindingOption.BindAsExpression));
@@ -521,10 +521,4 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
 
         return true;
     }
-
-    /// <summary>Gets the resolved symbol when the semantic info is unambiguous.</summary>
-    /// <param name="symbolInfo">The symbol info.</param>
-    /// <returns>The resolved symbol, or <see langword="null"/>.</returns>
-    private static ISymbol? GetSingleSymbol(SymbolInfo symbolInfo)
-        => symbolInfo.Symbol ?? (symbolInfo.CandidateSymbols.Length == 1 ? symbolInfo.CandidateSymbols[0] : null);
 }

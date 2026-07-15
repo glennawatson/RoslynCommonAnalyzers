@@ -13,28 +13,8 @@ public sealed class Sst1160RecordDeclarationParameterMustBeOnUniqueLinesAnalyzer
     /// <summary>The unique diagnostic identifier for this analyzer.</summary>
     internal const string DiagnosticId = "SST1160";
 
-    /// <summary>The category of the diagnostic.</summary>
-    private const string Category = "Readability";
-
-    /// <summary>The localized title of the diagnostic.</summary>
-    private static readonly LocalizableString Title = new LocalizableResourceString(nameof(Resources.ParameterAnalyzerTitle), Resources.ResourceManager, typeof(Resources));
-
-    /// <summary>The localized message format of the diagnostic.</summary>
-    private static readonly LocalizableString MessageFormat = new LocalizableResourceString(nameof(Resources.ParameterAnalyzerMessageFormat), Resources.ResourceManager, typeof(Resources));
-
-    /// <summary>The localized description of the diagnostic.</summary>
-    private static readonly LocalizableString Description = new LocalizableResourceString(nameof(Resources.ParameterAnalyzerDescription), Resources.ResourceManager, typeof(Resources));
-
     /// <summary>The diagnostic descriptor for this analyzer.</summary>
-    private static readonly DiagnosticDescriptor Rule = new(
-        DiagnosticId,
-        Title,
-        MessageFormat,
-        Category,
-        DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
-        description: Description,
-        helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{DiagnosticId}.md");
+    private static readonly DiagnosticDescriptor Rule = UniqueLineRule.ForParameters(DiagnosticId);
 
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(Rule);
@@ -44,19 +24,11 @@ public sealed class Sst1160RecordDeclarationParameterMustBeOnUniqueLinesAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.RecordDeclaration, SyntaxKind.RecordStructDeclaration);
-    }
-
-    /// <summary>Analyzes the supplied syntax node and reports the diagnostic when required.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context)
-    {
-        if (context.Node is not RecordDeclarationSyntax node)
-        {
-            return;
-        }
-
-        context.HandleParameterListSyntax(node.ParameterList, Rule);
+        UniqueLineRule.Register<RecordDeclarationSyntax>(
+            context,
+            Rule,
+            static (nodeContext, node, rule) => nodeContext.HandleParameterListSyntax(node.ParameterList, rule),
+            SyntaxKind.RecordDeclaration,
+            SyntaxKind.RecordStructDeclaration);
     }
 }

@@ -80,7 +80,8 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
         var members = enumType.GetMembers();
         for (var i = 0; i < members.Length; i++)
         {
-            if (!IsEnumValue(members[i], out var field) || IsCovered(field, switchStatement, model, cancellationToken))
+            if (!EnumSwitchCoverage.IsEnumValue(members[i], out var field)
+                || EnumSwitchCoverage.IsCaseLabelCovered(field, switchStatement, model, cancellationToken))
             {
                 continue;
             }
@@ -116,7 +117,8 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
         var members = enumType.GetMembers();
         for (var i = 0; i < members.Length; i++)
         {
-            if (!IsEnumValue(members[i], out var field) || IsCovered(field, switchExpression, model, cancellationToken))
+            if (!EnumSwitchCoverage.IsEnumValue(members[i], out var field)
+                || IsCovered(field, switchExpression, model, cancellationToken))
             {
                 continue;
             }
@@ -188,51 +190,6 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
             if (arms[i].Pattern.IsKind(SyntaxKind.DiscardPattern))
             {
                 return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a symbol is an enum value field.</summary>
-    /// <param name="symbol">The candidate member.</param>
-    /// <param name="field">The enum field.</param>
-    /// <returns><see langword="true"/> for enum value fields.</returns>
-    private static bool IsEnumValue(ISymbol symbol, out IFieldSymbol field)
-    {
-        if (symbol is IFieldSymbol { HasConstantValue: true } candidate)
-        {
-            field = candidate;
-            return true;
-        }
-
-        field = null!;
-        return false;
-    }
-
-    /// <summary>Returns whether a switch statement already covers an enum value.</summary>
-    /// <param name="field">The enum value field.</param>
-    /// <param name="switchStatement">The switch statement.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels analysis.</param>
-    /// <returns><see langword="true"/> when a case label names the field.</returns>
-    private static bool IsCovered(
-        IFieldSymbol field,
-        SwitchStatementSyntax switchStatement,
-        SemanticModel model,
-        CancellationToken cancellationToken)
-    {
-        var sections = switchStatement.Sections;
-        for (var sectionIndex = 0; sectionIndex < sections.Count; sectionIndex++)
-        {
-            var labels = sections[sectionIndex].Labels;
-            for (var labelIndex = 0; labelIndex < labels.Count; labelIndex++)
-            {
-                if (labels[labelIndex] is CaseSwitchLabelSyntax caseLabel
-                    && SymbolEqualityComparer.Default.Equals(field, model.GetSymbolInfo(caseLabel.Value, cancellationToken).Symbol))
-                {
-                    return true;
-                }
             }
         }
 

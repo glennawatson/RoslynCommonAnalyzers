@@ -18,68 +18,36 @@ public sealed class Sst1161ClassDeclarationParameterMustBeOnUniqueLinesCodeFixPr
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
-
-            if (node is ClassDeclarationSyntax syntaxNode)
-            {
-                // In this case there is no justification at all
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        CodeFixResources.SST1150CodeFixTitle,
-                        _ => FixAsync(context.Document, root, syntaxNode),
-                        nameof(Sst1161ClassDeclarationParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
-                    diagnostic);
-                return;
-            }
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, nameof(Sst1161ClassDeclarationParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add", TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ClassDeclarationSyntax node)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(node, (current, _) =>
-        {
-            var classDeclaration = (ClassDeclarationSyntax)current;
-            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(classDeclaration, elastic: true);
-            return classDeclaration.ConvertNodeIfAble(
-                       node => node.ParameterList?.Parameters,
-                       (node, parameters) => node.WithParameterList(
-                           SyntaxFactory.ParameterList(parameters)
-                               .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                   ?? classDeclaration;
-        });
-    }
-
-    /// <summary>Rewrites the declaration so each parameter is placed on its own line.</summary>
+    /// <summary>Rewrites the class declaration so each parameter is placed on its own line.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root of the document.</param>
-    /// <param name="node">The declaration to rewrite.</param>
+    /// <param name="node">The class declaration to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, ClassDeclarationSyntax node)
-    {
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-                          node => node.ParameterList?.Parameters,
-                          (node, parameters) => node.WithParameterList(
-                              SyntaxFactory.ParameterList(parameters)
-                                  .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                      ?? node;
-        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
-    }
+        => Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
+
+    /// <summary>Resolves the reported class declaration and builds its parameters-on-unique-lines form.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan) is ClassDeclarationSyntax node
+            ? new NodeReplacement(node, Rewrite(node), static current => Rewrite((ClassDeclarationSyntax)current))
+            : null;
+
+    /// <summary>Builds the class declaration with each parameter moved to its own line.</summary>
+    /// <param name="node">The class declaration to rewrite.</param>
+    /// <returns>The rewritten declaration, or the original when it has no parameter list.</returns>
+    private static ClassDeclarationSyntax Rewrite(ClassDeclarationSyntax node)
+        => UniqueLineCodeFixerHelper.SplitParametersOntoOwnLines(
+            node,
+            static inner => inner.ParameterList,
+            static (inner, list) => inner.WithParameterList(list));
 }

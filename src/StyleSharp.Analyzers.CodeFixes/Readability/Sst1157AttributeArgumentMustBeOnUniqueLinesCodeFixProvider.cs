@@ -18,66 +18,41 @@ public sealed class Sst1157AttributeArgumentMustBeOnUniqueLinesCodeFixProvider :
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
-
-            if (node is AttributeSyntax syntaxNode)
-            {
-                // In this case there is no justification at all
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        CodeFixResources.SST1150CodeFixTitle,
-                        _ => FixAsync(context.Document, root, syntaxNode),
-                        nameof(Sst1157AttributeArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
-                    diagnostic);
-                return;
-            }
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, nameof(Sst1157AttributeArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add", TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not AttributeSyntax node)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(node, BuildNode(node));
-    }
-
-    /// <summary>Rewrites the attribute so each parameter is placed on its own line.</summary>
+    /// <summary>Rewrites the attribute so each argument is placed on its own line.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The attribute to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, AttributeSyntax node)
-    {
-        var newNode = BuildNode(node);
-        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
-    }
+        => Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
 
-    /// <summary>Builds the rewritten attribute with each argument on its own line.</summary>
+    /// <summary>Resolves the reported attribute and builds its arguments-on-unique-lines form.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan) is AttributeSyntax node
+            ? new NodeReplacement(node, Rewrite(node), static current => Rewrite((AttributeSyntax)current))
+            : null;
+
+    /// <summary>Builds the attribute with each argument moved to its own line.</summary>
     /// <param name="node">The attribute to rewrite.</param>
-    /// <returns>The rewritten attribute.</returns>
-    private static AttributeSyntax BuildNode(AttributeSyntax node)
+    /// <returns>The rewritten attribute, or the original when its argument list needs no change.</returns>
+    private static AttributeSyntax Rewrite(AttributeSyntax node)
     {
         var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
         return node.ConvertNodeIfAble(
-                   node => node.ArgumentList?.Arguments,
-                   (node, parameters) => node.WithArgumentList(
-                       SyntaxFactory.AttributeArgumentList(parameters)
-                           .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                   static inner => inner.ArgumentList?.Arguments,
+                   (inner, arguments) => inner.WithArgumentList(
+                       SyntaxFactory.AttributeArgumentList(arguments)
+                           .WithOpenParenToken(inner.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
                ?? node;
     }
 }

@@ -56,14 +56,14 @@ public sealed class Sst2307InferableTypeParameterAnalyzer : DiagnosticAnalyzer
             || method.MethodKind != MethodKind.Ordinary
             || method.IsOverride
             || !method.ExplicitInterfaceImplementations.IsEmpty
-            || !IsExternallyVisible(method))
+            || !SymbolVisibility.IsExternallyVisible(method))
         {
             return;
         }
 
         var typeParameters = method.TypeParameters;
         var parameters = method.Parameters;
-        if (!HasUninferableTypeParameter(typeParameters, parameters) || ImplementsAnInterfaceMember(method))
+        if (!HasUninferableTypeParameter(typeParameters, parameters) || InterfaceImplementationLookup.ImplementsInterfaceMember(method))
         {
             return;
         }
@@ -171,74 +171,5 @@ public sealed class Sst2307InferableTypeParameterAnalyzer : DiagnosticAnalyzer
                 return false;
             }
         }
-    }
-
-    /// <summary>Returns whether a method implements an interface member, so its shape is not its own.</summary>
-    /// <param name="method">The method to test.</param>
-    /// <returns><see langword="true"/> when some interface member maps to this method.</returns>
-    /// <remarks>
-    /// Explicit implementations are already gone by the time this runs; this catches the implicit ones,
-    /// where the signature is dictated by an interface the author may not even own. Reporting there would
-    /// demand a change that cannot be made without breaking the contract.
-    /// </remarks>
-    private static bool ImplementsAnInterfaceMember(IMethodSymbol method)
-    {
-        var containingType = method.ContainingType;
-        if (containingType is null)
-        {
-            return false;
-        }
-
-        var interfaces = containingType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var members = interfaces[i].GetMembers(method.Name);
-            for (var j = 0; j < members.Length; j++)
-            {
-                if (members[j] is not IMethodSymbol interfaceMethod)
-                {
-                    continue;
-                }
-
-                var implementation = containingType.FindImplementationForInterfaceMember(interfaceMethod);
-                if (SymbolEqualityComparer.Default.Equals(implementation, method))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a symbol can be seen from outside the assembly that declares it.</summary>
-    /// <param name="symbol">The symbol to test.</param>
-    /// <returns><see langword="true"/> when the symbol and every type containing it are visible.</returns>
-    /// <remarks>
-    /// The rule is about the burden a signature puts on its callers, and an internal method's callers are
-    /// all in the assembly that can change it freely. A local function is never externally visible, whatever
-    /// the method around it says.
-    /// </remarks>
-    private static bool IsExternallyVisible(ISymbol symbol)
-    {
-        for (var current = symbol; current is not null && current.Kind != SymbolKind.Namespace; current = current.ContainingSymbol)
-        {
-            switch (current.DeclaredAccessibility)
-            {
-                case Accessibility.Public:
-                case Accessibility.Protected:
-                case Accessibility.ProtectedOrInternal:
-                {
-                    break;
-                }
-
-                default:
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
     }
 }

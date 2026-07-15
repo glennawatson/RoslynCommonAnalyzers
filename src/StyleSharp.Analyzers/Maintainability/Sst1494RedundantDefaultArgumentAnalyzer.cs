@@ -79,7 +79,7 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
     internal static bool OmissionKeepsTheSameTarget(SemanticModel model, SyntaxNode call, int index, CancellationToken cancellationToken)
     {
         if (model.GetSymbolInfo(call, cancellationToken).Symbol is not IMethodSymbol method
-            || GetArgumentList(call) is not { } list)
+            || ArgumentBinding.GetArgumentList(call) is not { } list)
         {
             return false;
         }
@@ -108,13 +108,13 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        if (GetArgumentList(context.Node) is not { } argumentList || argumentList.Arguments.Count == 0)
+        if (ArgumentBinding.GetArgumentList(context.Node) is not { } argumentList || argumentList.Arguments.Count == 0)
         {
             return;
         }
 
         if (context.SemanticModel.GetSymbolInfo(context.Node, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !HasOptionalParameter(method))
+            || !ArgumentBinding.HasOptionalParameter(method))
         {
             return;
         }
@@ -130,7 +130,7 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
 
         for (var i = firstRedundant; i < arguments.Count; i++)
         {
-            var parameter = FindParameter(method, arguments, i);
+            var parameter = ArgumentBinding.FindParameter(method, arguments, i);
             context.ReportDiagnostic(DiagnosticHelper.Create(
                 MaintainabilityRules.RedundantDefaultArgument,
                 arguments[i].GetLocation(),
@@ -162,34 +162,6 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
         return firstRedundant;
     }
 
-    /// <summary>Returns the argument list of a call, a creation, or a constructor initializer.</summary>
-    /// <param name="node">The analyzed node.</param>
-    /// <returns>The argument list, or <see langword="null"/> when the node supplies none.</returns>
-    private static ArgumentListSyntax? GetArgumentList(SyntaxNode node) => node switch
-    {
-        InvocationExpressionSyntax invocation => invocation.ArgumentList,
-        BaseObjectCreationExpressionSyntax creation => creation.ArgumentList,
-        ConstructorInitializerSyntax initializer => initializer.ArgumentList,
-        _ => null,
-    };
-
-    /// <summary>Returns whether the called method declares any optional parameter.</summary>
-    /// <param name="method">The bound method.</param>
-    /// <returns><see langword="true"/> when a default value exists to repeat.</returns>
-    private static bool HasOptionalParameter(IMethodSymbol method)
-    {
-        var parameters = method.Parameters;
-        for (var i = 0; i < parameters.Length; i++)
-        {
-            if (parameters[i].IsOptional)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns whether one argument states exactly what its parameter already defaults to.</summary>
     /// <param name="method">The bound method.</param>
     /// <param name="arguments">The argument list.</param>
@@ -207,7 +179,7 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
         int index,
         SyntaxNodeAnalysisContext context)
     {
-        if (FindParameter(method, arguments, index) is not { IsOptional: true, HasExplicitDefaultValue: true } parameter
+        if (ArgumentBinding.FindParameter(method, arguments, index) is not { IsOptional: true, HasExplicitDefaultValue: true } parameter
             || IsCallerInfoParameter(parameter))
         {
             return false;
@@ -215,30 +187,6 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
 
         var constant = context.SemanticModel.GetConstantValue(arguments[index].Expression, context.CancellationToken);
         return constant.HasValue && ConstantsMatch(constant.Value, parameter.ExplicitDefaultValue);
-    }
-
-    /// <summary>Maps one argument to the parameter it supplies.</summary>
-    /// <param name="method">The bound method.</param>
-    /// <param name="arguments">The argument list.</param>
-    /// <param name="index">The argument index.</param>
-    /// <returns>The matched parameter, or <see langword="null"/> when the call does not bind cleanly.</returns>
-    private static IParameterSymbol? FindParameter(IMethodSymbol method, SeparatedSyntaxList<ArgumentSyntax> arguments, int index)
-    {
-        var parameters = method.Parameters;
-        if (arguments[index].NameColon is { Name.Identifier.ValueText: var argumentName })
-        {
-            for (var i = 0; i < parameters.Length; i++)
-            {
-                if (parameters[i].Name == argumentName)
-                {
-                    return parameters[i];
-                }
-            }
-
-            return null;
-        }
-
-        return index < parameters.Length ? parameters[index] : null;
     }
 
     /// <summary>Returns whether the compiler, rather than the caller, is meant to supply the parameter.</summary>

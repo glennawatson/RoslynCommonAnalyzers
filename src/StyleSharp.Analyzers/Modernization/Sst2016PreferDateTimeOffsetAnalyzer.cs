@@ -83,7 +83,7 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
         }
 
         var symbol = context.SemanticModel.GetDeclaredSymbol(declarators[0], context.CancellationToken);
-        if (symbol is null || !IsExternallyVisible(symbol))
+        if (symbol is null || !SymbolVisibility.IsExternallyVisible(symbol))
         {
             return;
         }
@@ -143,7 +143,7 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
         }
 
         var symbol = context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken);
-        if (symbol is null || !IsExternallyVisible(symbol))
+        if (symbol is null || !SymbolVisibility.IsExternallyVisible(symbol))
         {
             return;
         }
@@ -200,7 +200,7 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
         var member = parameter.ContainingSymbol;
         return member is IMethodSymbol method
             ? CanChooseItsOwnType(method)
-            : IsExternallyVisible(member);
+            : SymbolVisibility.IsExternallyVisible(member);
     }
 
     /// <summary>Returns whether a member is an externally visible declaration whose type is not dictated elsewhere.</summary>
@@ -213,7 +213,7 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static bool CanChooseItsOwnType(ISymbol symbol)
         => !symbol.IsOverride
-        && IsExternallyVisible(symbol)
+        && SymbolVisibility.IsExternallyVisible(symbol)
         && !InterfaceImplementationLookup.ImplementsInterfaceMember(symbol);
 
     /// <summary>Reports one declared type once it really is <c>System.DateTime</c>.</summary>
@@ -264,31 +264,5 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
         }
 
         return SymbolEqualityComparer.Default.Equals(bound, dateTime);
-    }
-
-    /// <summary>Returns whether a symbol can be seen from outside the assembly that declares it.</summary>
-    /// <param name="symbol">The symbol to test.</param>
-    /// <returns><see langword="true"/> when the symbol and every type containing it are visible.</returns>
-    private static bool IsExternallyVisible(ISymbol symbol)
-    {
-        for (var current = symbol; current is not null && current.Kind != SymbolKind.Namespace; current = current.ContainingSymbol)
-        {
-            switch (current.DeclaredAccessibility)
-            {
-                case Accessibility.Public:
-                case Accessibility.Protected:
-                case Accessibility.ProtectedOrInternal:
-                {
-                    break;
-                }
-
-                default:
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
     }
 }

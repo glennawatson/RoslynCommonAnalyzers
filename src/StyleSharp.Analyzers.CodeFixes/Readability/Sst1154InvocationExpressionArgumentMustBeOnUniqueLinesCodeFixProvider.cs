@@ -18,68 +18,36 @@ public sealed class Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesCodeFi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
-
-            if (node is InvocationExpressionSyntax syntaxNode)
-            {
-                // In this case there is no justification at all
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        CodeFixResources.SST1150CodeFixTitle,
-                        _ => FixAsync(context.Document, root, syntaxNode),
-                        nameof(Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
-                    diagnostic);
-                return;
-            }
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, nameof(Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider) + "-Add", TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not InvocationExpressionSyntax node)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(node, (current, _) =>
-        {
-            var invocation = (InvocationExpressionSyntax)current;
-            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(invocation, elastic: true);
-            return invocation.ConvertNodeIfAble(
-                inner => inner.ArgumentList?.Arguments,
-                (inner, parameters) => inner.WithArgumentList(
-                    SyntaxFactory.ArgumentList(parameters)
-                        .WithOpenParenToken(inner.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                ?? invocation;
-        });
-    }
-
-    /// <summary>Rewrites the invocation expression so each parameter is placed on its own line.</summary>
+    /// <summary>Rewrites the invocation expression so each argument is placed on its own line.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The invocation expression to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, InvocationExpressionSyntax node)
-    {
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        var newNode = node.ConvertNodeIfAble(
-                          node => node.ArgumentList?.Arguments,
-                          (node, parameters) => node.WithArgumentList(
-                              SyntaxFactory.ArgumentList(parameters)
-                                  .WithOpenParenToken(node.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-                      ?? node;
-        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
-    }
+        => Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
+
+    /// <summary>Resolves the reported invocation expression and builds its arguments-on-unique-lines form.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax node
+            ? new NodeReplacement(node, Rewrite(node), static current => Rewrite((InvocationExpressionSyntax)current))
+            : null;
+
+    /// <summary>Builds the invocation expression with each argument moved to its own line.</summary>
+    /// <param name="node">The invocation expression to rewrite.</param>
+    /// <returns>The rewritten expression, or the original when it has no argument list.</returns>
+    private static InvocationExpressionSyntax Rewrite(InvocationExpressionSyntax node)
+        => UniqueLineCodeFixerHelper.SplitArgumentsOntoOwnLines(
+            node,
+            static inner => inner.ArgumentList,
+            static (inner, list) => inner.WithArgumentList(list));
 }

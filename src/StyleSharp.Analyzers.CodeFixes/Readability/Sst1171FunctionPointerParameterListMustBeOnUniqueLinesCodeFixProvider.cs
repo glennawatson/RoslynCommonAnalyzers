@@ -18,68 +18,38 @@ public sealed class Sst1171FunctionPointerParameterListMustBeOnUniqueLinesCodeFi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
-
-            if (node is FunctionPointerParameterListSyntax syntaxNode)
-            {
-                // In this case there is no justification at all
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        CodeFixResources.SST1150CodeFixTitle,
-                        _ => FixAsync(context.Document, root, syntaxNode),
-                        nameof(Sst1171FunctionPointerParameterListMustBeOnUniqueLinesCodeFixProvider) + "-Add"),
-                    diagnostic);
-                return;
-            }
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, nameof(Sst1171FunctionPointerParameterListMustBeOnUniqueLinesCodeFixProvider) + "-Add", TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not FunctionPointerParameterListSyntax node)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        editor.ReplaceNode(node, (current, _) =>
-        {
-            var list = (FunctionPointerParameterListSyntax)current;
-            var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(list, elastic: false);
-            var newList = UniqueLineCodeFixerHelper.SplitEntriesOntoOwnLines(list, list.Parameters);
-            return newList is null
-                ? list
-                : SyntaxFactory.FunctionPointerParameterList(newList.Value)
-                    .WithLessThanToken(list.LessThanToken.WithTrailingTrivia(endOfLine))
-                    .WithGreaterThanToken(list.GreaterThanToken);
-        });
-    }
-
-    /// <summary>Rewrites the list so each function pointer parameter is placed on its own line.</summary>
+    /// <summary>Rewrites the function pointer parameter list so each parameter is placed on its own line.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The function pointer parameter list to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, FunctionPointerParameterListSyntax node)
-    {
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: false);
-        var newList = UniqueLineCodeFixerHelper.SplitEntriesOntoOwnLines(node, node.Parameters);
-        var newNode = newList is null
-            ? node
-            : SyntaxFactory.FunctionPointerParameterList(newList.Value)
+        => Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
+
+    /// <summary>Resolves the reported function pointer parameter list and builds its entries-on-unique-lines form.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+        => root.FindNode(diagnostic.Location.SourceSpan) is FunctionPointerParameterListSyntax node
+            ? new NodeReplacement(node, Rewrite(node), static current => Rewrite((FunctionPointerParameterListSyntax)current))
+            : null;
+
+    /// <summary>Builds the function pointer parameter list with each parameter moved to its own line.</summary>
+    /// <param name="node">The function pointer parameter list to rewrite.</param>
+    /// <returns>The rewritten list, or the original when it needs no change.</returns>
+    private static FunctionPointerParameterListSyntax Rewrite(FunctionPointerParameterListSyntax node)
+        => UniqueLineCodeFixerHelper.SplitAngleBracketedListOntoOwnLines(
+            node,
+            node.Parameters,
+            (list, endOfLine) => SyntaxFactory.FunctionPointerParameterList(list)
                 .WithLessThanToken(node.LessThanToken.WithTrailingTrivia(endOfLine))
-                .WithGreaterThanToken(node.GreaterThanToken);
-        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, newNode)));
-    }
+                .WithGreaterThanToken(node.GreaterThanToken));
 }

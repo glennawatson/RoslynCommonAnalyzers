@@ -153,7 +153,7 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        var originalSymbol = GetSingleSymbol(model.GetSymbolInfo(call, cancellationToken));
+        var originalSymbol = SymbolResolution.GetSingleSymbol(model.GetSymbolInfo(call, cancellationToken));
         if (originalSymbol is not IMethodSymbol originalMethod)
         {
             return false;
@@ -166,7 +166,7 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
 
         var replacement = RemoveLambdaParameterTypes(lambda);
         var rewrittenCall = call.ReplaceNode(lambda, replacement);
-        var rewrittenSymbol = GetSingleSymbol(model.GetSpeculativeSymbolInfo(
+        var rewrittenSymbol = SymbolResolution.GetSingleSymbol(model.GetSpeculativeSymbolInfo(
             call.SpanStart,
             rewrittenCall,
             SpeculativeBindingOption.BindAsExpression));
@@ -282,10 +282,4 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
 
         return lambda.WithParameterList(lambda.ParameterList.WithParameters(SyntaxFactory.SeparatedList<ParameterSyntax>(rewritten)));
     }
-
-    /// <summary>Returns the resolved symbol when semantic binding produced exactly one symbol.</summary>
-    /// <param name="symbolInfo">The symbol information.</param>
-    /// <returns>The resolved symbol, or <see langword="null"/> when binding is missing or ambiguous.</returns>
-    private static ISymbol? GetSingleSymbol(SymbolInfo symbolInfo)
-        => symbolInfo.Symbol ?? (symbolInfo.CandidateSymbols.Length == 1 ? symbolInfo.CandidateSymbols[0] : null);
 }

@@ -39,20 +39,15 @@ public sealed class Sst1151MethodDeclarationParameterMustBeOnUniqueLinesCodeFixP
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
         => root.FindNode(diagnostic.Location.SourceSpan) is BaseMethodDeclarationSyntax node
-            ? new NodeReplacement(node, Rewrite(node))
+            ? new NodeReplacement(node, Rewrite(node), static current => Rewrite((BaseMethodDeclarationSyntax)current))
             : null;
 
     /// <summary>Builds the declaration with each parameter moved to its own line.</summary>
     /// <param name="node">The method declaration to rewrite.</param>
     /// <returns>The rewritten declaration, or the original when it has no parameter list.</returns>
     private static BaseMethodDeclarationSyntax Rewrite(BaseMethodDeclarationSyntax node)
-    {
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        return node.ConvertNodeIfAble(
-                   node => node.ParameterList?.Parameters,
-                   (node, parameters) => node.WithParameterList(
-                       SyntaxFactory.ParameterList(parameters)
-                           .WithOpenParenToken(node.ParameterList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
-               ?? node;
-    }
+        => UniqueLineCodeFixerHelper.SplitParametersOntoOwnLines(
+            node,
+            static inner => inner.ParameterList,
+            static (inner, list) => inner.WithParameterList(list));
 }

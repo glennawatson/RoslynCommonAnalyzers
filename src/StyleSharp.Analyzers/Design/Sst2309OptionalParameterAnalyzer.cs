@@ -51,7 +51,7 @@ public sealed class Sst2309OptionalParameterAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeMethod(SymbolAnalysisContext context)
     {
         var method = (IMethodSymbol)context.Symbol;
-        if (!IsCandidate(method) || ImplementsAnInterfaceMember(method))
+        if (!IsCandidate(method) || InterfaceImplementationLookup.ImplementsInterfaceMember(method))
         {
             return;
         }
@@ -85,7 +85,7 @@ public sealed class Sst2309OptionalParameterAnalyzer : DiagnosticAnalyzer
             && !method.IsOverride
             && method.ExplicitInterfaceImplementations.IsEmpty
             && !IsPrimaryConstructor(method)
-            && IsExternallyVisible(method)
+            && SymbolVisibility.IsExternallyVisible(method)
             && HasReportableOptionalParameter(method.Parameters);
 
     /// <summary>Returns whether any parameter carries a default the rule would report.</summary>
@@ -163,68 +163,5 @@ public sealed class Sst2309OptionalParameterAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
-    }
-
-    /// <summary>Returns whether a method implements an interface member, so its shape is not its own.</summary>
-    /// <param name="method">The method to test.</param>
-    /// <returns><see langword="true"/> when some interface member maps to this method.</returns>
-    private static bool ImplementsAnInterfaceMember(IMethodSymbol method)
-    {
-        var containingType = method.ContainingType;
-        if (containingType is null)
-        {
-            return false;
-        }
-
-        var interfaces = containingType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var members = interfaces[i].GetMembers(method.Name);
-            for (var j = 0; j < members.Length; j++)
-            {
-                if (members[j] is not IMethodSymbol interfaceMethod)
-                {
-                    continue;
-                }
-
-                var implementation = containingType.FindImplementationForInterfaceMember(interfaceMethod);
-                if (SymbolEqualityComparer.Default.Equals(implementation, method))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a symbol can be seen from outside the assembly that declares it.</summary>
-    /// <param name="symbol">The symbol to test.</param>
-    /// <returns><see langword="true"/> when the symbol and every type containing it are visible.</returns>
-    /// <remarks>
-    /// The hazard is a caller in another assembly, compiled at another time, holding a stale default. Inside
-    /// the assembly every caller is rebuilt together, so an internal or private default is never stale.
-    /// </remarks>
-    private static bool IsExternallyVisible(ISymbol symbol)
-    {
-        for (var current = symbol; current is not null && current.Kind != SymbolKind.Namespace; current = current.ContainingSymbol)
-        {
-            switch (current.DeclaredAccessibility)
-            {
-                case Accessibility.Public:
-                case Accessibility.Protected:
-                case Accessibility.ProtectedOrInternal:
-                {
-                    break;
-                }
-
-                default:
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
     }
 }

@@ -17,7 +17,8 @@ internal readonly record struct PropertyCopyOptions(string[] ExcludedProperties)
     /// <summary>Reads the settings for one tree, falling back to the defaults.</summary>
     /// <param name="options">The analyzer config options for the property's tree.</param>
     /// <returns>The resolved settings.</returns>
-    public static PropertyCopyOptions Read(AnalyzerConfigOptions options) => new(ReadExcludedProperties(options));
+    public static PropertyCopyOptions Read(AnalyzerConfigOptions options)
+        => new(AnalyzerOptionReader.ReadCommaSeparatedList(options, ExcludedRuleKey, ExcludedGeneralKey));
 
     /// <summary>Returns whether a property name was configured away.</summary>
     /// <param name="name">The declared property name.</param>
@@ -34,37 +35,5 @@ internal readonly record struct PropertyCopyOptions(string[] ExcludedProperties)
         }
 
         return false;
-    }
-
-    /// <summary>Reads the configured property exclusions.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <returns>The parsed property names, or an empty array.</returns>
-    private static string[] ReadExcludedProperties(AnalyzerConfigOptions options)
-    {
-        if (!options.TryGetValue(ExcludedRuleKey, out var value) && !options.TryGetValue(ExcludedGeneralKey, out value))
-        {
-            return [];
-        }
-
-        var parts = value.Split(',');
-        var parsed = new string[parts.Length];
-        var count = 0;
-        for (var i = 0; i < parts.Length; i++)
-        {
-            var trimmed = parts[i].Trim();
-            if (trimmed.Length > 0)
-            {
-                parsed[count++] = trimmed;
-            }
-        }
-
-        if (count == parts.Length)
-        {
-            return parsed;
-        }
-
-        var result = new string[count];
-        Array.Copy(parsed, result, count);
-        return result;
     }
 }

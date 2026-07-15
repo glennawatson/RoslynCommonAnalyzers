@@ -68,17 +68,8 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
     /// <returns>The awaited CountAsync invocation and whether the check means "has elements", or <see langword="null"/>.</returns>
     internal static (InvocationExpressionSyntax Invocation, bool HasElements)? TryGetComparisonShape(BinaryExpressionSyntax binary)
     {
-        if (TryGetAwaitedCount(binary.Left) is { } leftCount && TryGetLiteralValue(binary.Right) is { } rightLiteral)
-        {
-            return MapComparison(binary.Kind(), rightLiteral) is { } hasElements ? (leftCount, hasElements) : null;
-        }
-
-        if (TryGetAwaitedCount(binary.Right) is { } rightCount && TryGetLiteralValue(binary.Left) is { } leftLiteral)
-        {
-            return MapComparison(Mirror(binary.Kind()), leftLiteral) is { } hasElements ? (rightCount, hasElements) : null;
-        }
-
-        return null;
+        var shape = EmptinessComparisonClassifier.Classify(binary, TryGetAwaitedCount(binary.Left), TryGetAwaitedCount(binary.Right));
+        return shape is { } resolved ? (resolved.Count, resolved.HasElements) : null;
     }
 
     /// <summary>Resolves the <c>AnyAsync</c> sibling of a bound <c>CountAsync</c> call, proving it exists for this receiver.</summary>
@@ -153,53 +144,6 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
             ? invocation
             : null;
     }
-
-    /// <summary>Returns the integer value of a zero or one literal operand.</summary>
-    /// <param name="expression">The comparison operand.</param>
-    /// <returns>0 or 1, or <see langword="null"/>.</returns>
-    private static int? TryGetLiteralValue(ExpressionSyntax expression)
-    {
-        if (expression is not LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression } literal)
-        {
-            return null;
-        }
-
-        return literal.Token.ValueText switch
-        {
-            "0" => 0,
-            "1" => 1,
-            _ => null,
-        };
-    }
-
-    /// <summary>Mirrors a comparison kind for reversed operand order.</summary>
-    /// <param name="kind">The original comparison kind.</param>
-    /// <returns>The kind with the count on the left.</returns>
-    private static SyntaxKind Mirror(SyntaxKind kind)
-        => kind switch
-        {
-            SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-            SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-            SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-            SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-            _ => kind,
-        };
-
-    /// <summary>Maps a count-on-the-left comparison to its emptiness meaning.</summary>
-    /// <param name="kind">The comparison kind.</param>
-    /// <param name="literal">The literal operand value.</param>
-    /// <returns><see langword="true"/> for "has elements", <see langword="false"/> for "is empty", or <see langword="null"/> when the shape needs the real count.</returns>
-    private static bool? MapComparison(SyntaxKind kind, int literal)
-        => (kind, literal) switch
-        {
-            (SyntaxKind.GreaterThanExpression, 0) => true,
-            (SyntaxKind.GreaterThanOrEqualExpression, 1) => true,
-            (SyntaxKind.NotEqualsExpression, 0) => true,
-            (SyntaxKind.EqualsExpression, 0) => false,
-            (SyntaxKind.LessThanExpression, 1) => false,
-            (SyntaxKind.LessThanOrEqualExpression, 0) => false,
-            _ => null,
-        };
 
     /// <summary>Returns whether a return type is a task or value task carrying the given element type.</summary>
     /// <param name="type">The return type to classify.</param>

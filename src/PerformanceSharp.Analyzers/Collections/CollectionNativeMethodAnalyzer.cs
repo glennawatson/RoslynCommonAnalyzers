@@ -64,7 +64,7 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!IsEnumerableInvocation(invocation, context.SemanticModel, context.CancellationToken, out var method)
+        if (!EnumerableInvocationHelper.TryGetEnumerableMethod(invocation, context.SemanticModel, context.CancellationToken, out var method)
             || context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type is not { } receiverType)
         {
             return;
@@ -150,7 +150,7 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
             || invocation.Expression is not MemberAccessExpressionSyntax { Name: IdentifierNameSyntax candidateName } candidateAccess
             || !candidateAccess.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             || candidateName.Identifier.ValueText is not ("FirstOrDefault" or "Any" or "All")
-            || !TryGetPredicateLambda(invocation.ArgumentList.Arguments[0].Expression, out parameterName, out expressionBody))
+            || !LinqCallSyntax.TryGetPredicateLambda(invocation.ArgumentList.Arguments[0].Expression, out parameterName, out expressionBody))
         {
             return false;
         }
@@ -158,38 +158,6 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
         memberAccess = candidateAccess;
         name = candidateName;
         return true;
-    }
-
-    /// <summary>Gets the parameter name and expression body of a one-parameter lambda argument.</summary>
-    /// <param name="argument">The argument expression.</param>
-    /// <param name="parameterName">The lambda parameter name.</param>
-    /// <param name="expressionBody">The lambda expression body, or <see langword="null"/> for statement bodies.</param>
-    /// <returns><see langword="true"/> when the argument is a one-parameter lambda.</returns>
-    private static bool TryGetPredicateLambda(ExpressionSyntax argument, out string parameterName, out ExpressionSyntax? expressionBody)
-    {
-        switch (argument)
-        {
-            case SimpleLambdaExpressionSyntax simple:
-                {
-                    parameterName = simple.Parameter.Identifier.ValueText;
-                    expressionBody = simple.ExpressionBody;
-                    return true;
-                }
-
-            case ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 1 } parenthesized:
-                {
-                    parameterName = parenthesized.ParameterList.Parameters[0].Identifier.ValueText;
-                    expressionBody = parenthesized.ExpressionBody;
-                    return true;
-                }
-
-            default:
-                {
-                    parameterName = null!;
-                    expressionBody = null;
-                    return false;
-                }
-        }
     }
 
     /// <summary>Returns whether an Any call carries an equality-only predicate the receiver can answer with Contains.</summary>
@@ -209,7 +177,7 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
         if (methodName != "Any"
             || expressionBody is not BinaryExpressionSyntax equality
             || !equality.IsKind(SyntaxKind.EqualsExpression)
-            || !TryGetComparedValue(equality, parameterName, out var value)
+            || !LinqCallSyntax.TryGetComparedValue(equality, parameterName, out var value)
             || ReferencesParameter(value, parameterName))
         {
             return false;
@@ -218,37 +186,6 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
         return method.TypeArguments.Length == 1
             && HasAccessibleContains(receiverType, method.TypeArguments[0]);
     }
-
-    /// <summary>Gets the non-parameter side of a <c>param == expr</c> or <c>expr == param</c> equality.</summary>
-    /// <param name="equality">The equality expression.</param>
-    /// <param name="parameterName">The lambda parameter name.</param>
-    /// <param name="value">The compared value expression.</param>
-    /// <returns><see langword="true"/> when one side is exactly the lambda parameter.</returns>
-    private static bool TryGetComparedValue(BinaryExpressionSyntax equality, string parameterName, out ExpressionSyntax value)
-    {
-        if (IsParameterReference(equality.Left, parameterName))
-        {
-            value = equality.Right;
-            return true;
-        }
-
-        if (IsParameterReference(equality.Right, parameterName))
-        {
-            value = equality.Left;
-            return true;
-        }
-
-        value = null!;
-        return false;
-    }
-
-    /// <summary>Returns whether an expression is exactly the lambda parameter identifier.</summary>
-    /// <param name="expression">The expression to test.</param>
-    /// <param name="parameterName">The lambda parameter name.</param>
-    /// <returns><see langword="true"/> for a bare reference to the parameter.</returns>
-    private static bool IsParameterReference(ExpressionSyntax expression, string parameterName)
-        => expression is IdentifierNameSyntax identifier
-            && identifier.Identifier.ValueText == parameterName;
 
     /// <summary>Returns whether an expression mentions the lambda parameter anywhere.</summary>
     /// <param name="expression">The expression to scan.</param>
@@ -423,41 +360,4 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
     /// <returns>The properties dictionary.</returns>
     private static ImmutableDictionary<string, string?> CreateTargetProperties(string target)
         => ImmutableDictionary<string, string?>.Empty.Add(TargetNameKey, target);
-
-    /// <summary>Returns whether the invocation resolves to <see cref="System.Linq.Enumerable"/>.</summary>
-    /// <param name="invocation">The invocation expression.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels analysis.</param>
-    /// <param name="method">The bound method symbol.</param>
-    /// <returns><see langword="true"/> when the target is an in-memory LINQ method.</returns>
-    private static bool IsEnumerableInvocation(
-        InvocationExpressionSyntax invocation,
-        SemanticModel model,
-        CancellationToken cancellationToken,
-        out IMethodSymbol method)
-    {
-        method = null!;
-        if (model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol bound)
-        {
-            return false;
-        }
-
-        var original = bound.ReducedFrom ?? bound;
-        if (!IsSystemLinqEnumerable(original.ContainingType))
-        {
-            return false;
-        }
-
-        method = bound;
-        return true;
-    }
-
-    /// <summary>Returns whether a named type is <c>System.Linq.Enumerable</c>.</summary>
-    /// <param name="type">The type.</param>
-    /// <returns><see langword="true"/> for <c>System.Linq.Enumerable</c>.</returns>
-    private static bool IsSystemLinqEnumerable(INamedTypeSymbol? type)
-        => type?.Name == "Enumerable"
-            && type.ContainingNamespace?.Name == "Linq"
-            && type.ContainingNamespace.ContainingNamespace?.Name == "System"
-            && type.ContainingNamespace.ContainingNamespace.ContainingNamespace.IsGlobalNamespace;
 }

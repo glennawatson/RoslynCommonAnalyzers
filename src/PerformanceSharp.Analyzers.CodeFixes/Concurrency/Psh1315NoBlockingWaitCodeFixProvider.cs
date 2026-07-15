@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis.Formatting;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -95,7 +93,7 @@ public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBat
 
         if (site.Kind == BlockingWait.Kind.SingleTask)
         {
-            return AwaitOf(site.Awaited, blocking);
+            return AwaitExpressionRewrite.WrapInAwait(site.Awaited, blocking);
         }
 
         return TryGetCombinatorReplacement(model, (InvocationExpressionSyntax)blocking, site.Kind);
@@ -125,37 +123,6 @@ public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBat
             return null;
         }
 
-        return AwaitOf(candidate, blocking);
+        return AwaitExpressionRewrite.WrapInAwait(candidate, blocking);
     }
-
-    /// <summary>Wraps an expression in an <c>await</c>, parenthesized where the surrounding expression needs it.</summary>
-    /// <param name="awaited">The expression to await.</param>
-    /// <param name="blocking">The blocking expression being replaced, whose trivia and position the result takes on.</param>
-    /// <returns>The awaited expression.</returns>
-    private static ExpressionSyntax AwaitOf(ExpressionSyntax awaited, ExpressionSyntax blocking)
-    {
-        ExpressionSyntax result = SyntaxFactory.AwaitExpression(
-            SyntaxFactory.Token(SyntaxKind.AwaitKeyword).WithTrailingTrivia(SyntaxFactory.Space),
-            awaited.WithoutTrivia());
-        if (NeedsParentheses(blocking))
-        {
-            result = SyntaxFactory.ParenthesizedExpression(result);
-        }
-
-        return result.WithTriviaFrom(blocking).WithAdditionalAnnotations(Formatter.Annotation);
-    }
-
-    /// <summary>Returns whether the surrounding expression binds tighter than <c>await</c>, so the result needs parentheses.</summary>
-    /// <param name="blocking">The expression being replaced.</param>
-    /// <returns><see langword="true"/> when the replacement must be parenthesized to keep its meaning.</returns>
-    private static bool NeedsParentheses(ExpressionSyntax blocking)
-        => blocking.Parent switch
-        {
-            MemberAccessExpressionSyntax access => access.Expression == blocking,
-            ElementAccessExpressionSyntax element => element.Expression == blocking,
-            InvocationExpressionSyntax invocation => invocation.Expression == blocking,
-            ConditionalAccessExpressionSyntax conditional => conditional.Expression == blocking,
-            PostfixUnaryExpressionSyntax => true,
-            _ => false,
-        };
 }

@@ -75,12 +75,12 @@ public sealed class LinqChainAnalyzer : DiagnosticAnalyzer
         InvocationExpressionSyntax receiver,
         string receiverName)
     {
-        if (!TryGetOneParameterLambda(invocation, out var outerLambda))
+        if (!LinqCallSyntax.TryGetOneParameterLambda(invocation, out var outerLambda))
         {
             return;
         }
 
-        if (IsSortMethodName(receiverName))
+        if (LinqCallSyntax.IsSortMethodName(receiverName))
         {
             ReportFilterAfterSort(context, invocation, name, receiver);
             return;
@@ -105,7 +105,7 @@ public sealed class LinqChainAnalyzer : DiagnosticAnalyzer
         SimpleNameSyntax name,
         InvocationExpressionSyntax receiver)
     {
-        if (!TryGetOneParameterLambda(receiver, out _)
+        if (!LinqCallSyntax.TryGetOneParameterLambda(receiver, out _)
             || !AreEnumerableInvocations(invocation, receiver, context))
         {
             return;
@@ -128,7 +128,7 @@ public sealed class LinqChainAnalyzer : DiagnosticAnalyzer
         LambdaExpressionSyntax outerLambda)
     {
         if (outerLambda.ExpressionBody is null
-            || !TryGetOneParameterLambda(receiver, out var innerLambda)
+            || !LinqCallSyntax.TryGetOneParameterLambda(receiver, out var innerLambda)
             || innerLambda.ExpressionBody is null
             || !AreEnumerableInvocations(invocation, receiver, context))
         {
@@ -153,9 +153,9 @@ public sealed class LinqChainAnalyzer : DiagnosticAnalyzer
         string receiverName,
         string refiningName)
     {
-        if (!IsSortMethodName(receiverName)
-            || !TryGetOneParameterLambda(invocation, out _)
-            || !TryGetOneParameterLambda(receiver, out _)
+        if (!LinqCallSyntax.IsSortMethodName(receiverName)
+            || !LinqCallSyntax.TryGetOneParameterLambda(invocation, out _)
+            || !LinqCallSyntax.TryGetOneParameterLambda(receiver, out _)
             || !AreEnumerableInvocations(invocation, receiver, context))
         {
             return;
@@ -163,45 +163,6 @@ public sealed class LinqChainAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(DiagnosticHelper.Create(CollectionRules.UseThenBy, name.GetLocation(), refiningName));
     }
-
-    /// <summary>Gets the invocation's single one-parameter lambda argument.</summary>
-    /// <param name="invocation">The invocation expression.</param>
-    /// <param name="lambda">The lambda argument.</param>
-    /// <returns><see langword="true"/> when the only argument is a lambda with exactly one parameter.</returns>
-    private static bool TryGetOneParameterLambda(InvocationExpressionSyntax invocation, out LambdaExpressionSyntax lambda)
-    {
-        lambda = null!;
-        if (invocation.ArgumentList.Arguments.Count != 1)
-        {
-            return false;
-        }
-
-        switch (invocation.ArgumentList.Arguments[0].Expression)
-        {
-            case SimpleLambdaExpressionSyntax simple:
-                {
-                    lambda = simple;
-                    return true;
-                }
-
-            case ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 1 } parenthesized:
-                {
-                    lambda = parenthesized;
-                    return true;
-                }
-
-            default:
-                {
-                    return false;
-                }
-        }
-    }
-
-    /// <summary>Returns whether the method name is a LINQ sort operator.</summary>
-    /// <param name="name">The method name.</param>
-    /// <returns><see langword="true"/> for the four LINQ sort operators.</returns>
-    private static bool IsSortMethodName(string name)
-        => name is "OrderBy" or "OrderByDescending" or "ThenBy" or "ThenByDescending";
 
     /// <summary>Returns whether both chain links resolve to <see cref="System.Linq.Enumerable"/>.</summary>
     /// <param name="outer">The outer invocation.</param>
@@ -212,36 +173,6 @@ public sealed class LinqChainAnalyzer : DiagnosticAnalyzer
         InvocationExpressionSyntax outer,
         InvocationExpressionSyntax inner,
         SyntaxNodeAnalysisContext context)
-        => IsEnumerableInvocation(outer, context.SemanticModel, context.CancellationToken)
-            && IsEnumerableInvocation(inner, context.SemanticModel, context.CancellationToken);
-
-    /// <summary>Returns whether the invocation resolves to <see cref="System.Linq.Enumerable"/>.</summary>
-    /// <param name="invocation">The invocation expression.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels analysis.</param>
-    /// <returns><see langword="true"/> when the target is an in-memory LINQ method.</returns>
-    private static bool IsEnumerableInvocation(InvocationExpressionSyntax invocation, SemanticModel model, CancellationToken cancellationToken)
-    {
-        if (model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol method)
-        {
-            return false;
-        }
-
-        if (method.ContainingType?.SpecialType == SpecialType.System_String)
-        {
-            return false;
-        }
-
-        var original = method.ReducedFrom ?? method;
-        return IsSystemLinqEnumerable(original.ContainingType);
-    }
-
-    /// <summary>Returns whether a named type is <c>System.Linq.Enumerable</c>.</summary>
-    /// <param name="type">The type.</param>
-    /// <returns><see langword="true"/> for <c>System.Linq.Enumerable</c>.</returns>
-    private static bool IsSystemLinqEnumerable(INamedTypeSymbol? type)
-        => type?.Name == "Enumerable"
-            && type.ContainingNamespace?.Name == "Linq"
-            && type.ContainingNamespace.ContainingNamespace?.Name == "System"
-            && type.ContainingNamespace.ContainingNamespace.ContainingNamespace.IsGlobalNamespace;
+        => EnumerableInvocationHelper.IsEnumerableInvocation(outer, context.SemanticModel, context.CancellationToken)
+            && EnumerableInvocationHelper.IsEnumerableInvocation(inner, context.SemanticModel, context.CancellationToken);
 }

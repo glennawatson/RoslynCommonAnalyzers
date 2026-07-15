@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis.Formatting;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -71,15 +69,7 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
             return null;
         }
 
-        ExpressionSyntax awaited = SyntaxFactory.AwaitExpression(
-            SyntaxFactory.Token(SyntaxKind.AwaitKeyword).WithTrailingTrivia(SyntaxFactory.Space),
-            sibling);
-        if (NeedsParentheses(blocking))
-        {
-            awaited = SyntaxFactory.ParenthesizedExpression(awaited);
-        }
-
-        return awaited.WithTriviaFrom(blocking).WithAdditionalAnnotations(Formatter.Annotation);
+        return AwaitExpressionRewrite.WrapInAwait(sibling, blocking);
     }
 
     /// <summary>Builds the async sibling call for a reported synchronous invocation, and proves it binds.</summary>
@@ -117,18 +107,4 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
         => model.GetSpeculativeSymbolInfo(position, candidate, SpeculativeBindingOption.BindAsExpression).Symbol
                 is IMethodSymbol bound
             && SymbolEqualityComparer.Default.Equals(bound.OriginalDefinition, sibling.OriginalDefinition);
-
-    /// <summary>Returns whether the surrounding expression binds tighter than <c>await</c>, so the result needs parentheses.</summary>
-    /// <param name="blocking">The expression being replaced.</param>
-    /// <returns><see langword="true"/> when the replacement must be parenthesized to keep its meaning.</returns>
-    private static bool NeedsParentheses(ExpressionSyntax blocking)
-        => blocking.Parent switch
-        {
-            MemberAccessExpressionSyntax access => access.Expression == blocking,
-            ElementAccessExpressionSyntax element => element.Expression == blocking,
-            InvocationExpressionSyntax invocation => invocation.Expression == blocking,
-            ConditionalAccessExpressionSyntax conditional => conditional.Expression == blocking,
-            PostfixUnaryExpressionSyntax => true,
-            _ => false,
-        };
 }

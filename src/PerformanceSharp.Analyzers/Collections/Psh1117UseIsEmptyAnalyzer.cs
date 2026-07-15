@@ -48,17 +48,8 @@ public sealed class Psh1117UseIsEmptyAnalyzer : DiagnosticAnalyzer
     /// <returns>The count access and whether the check means empty, or <see langword="null"/>.</returns>
     internal static (MemberAccessExpressionSyntax Count, bool IsEmpty)? TryGetEmptinessShape(BinaryExpressionSyntax binary)
     {
-        if (TryGetCountAccess(binary.Left) is { } leftCount && TryGetLiteralValue(binary.Right) is { } rightLiteral)
-        {
-            return MapComparison(binary.Kind(), rightLiteral) is { } meansEmpty ? (leftCount, meansEmpty) : null;
-        }
-
-        if (TryGetCountAccess(binary.Right) is { } rightCount && TryGetLiteralValue(binary.Left) is { } leftLiteral)
-        {
-            return MapComparison(Mirror(binary.Kind()), leftLiteral) is { } meansEmpty ? (rightCount, meansEmpty) : null;
-        }
-
-        return null;
+        var shape = EmptinessComparisonClassifier.Classify(binary, TryGetCountAccess(binary.Left), TryGetCountAccess(binary.Right));
+        return shape is { } resolved ? (resolved.Count, !resolved.HasElements) : null;
     }
 
     /// <summary>Returns a member access when it reads <c>Count</c> or <c>Length</c>.</summary>
@@ -69,53 +60,6 @@ public sealed class Psh1117UseIsEmptyAnalyzer : DiagnosticAnalyzer
             && access.Name.Identifier.ValueText is CountPropertyName or LengthPropertyName
             ? access
             : null;
-
-    /// <summary>Returns the integer value of a zero or one literal operand.</summary>
-    /// <param name="expression">The comparison operand.</param>
-    /// <returns>0 or 1, or <see langword="null"/>.</returns>
-    private static int? TryGetLiteralValue(ExpressionSyntax expression)
-    {
-        if (expression is not LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression } literal)
-        {
-            return null;
-        }
-
-        return literal.Token.ValueText switch
-        {
-            "0" => 0,
-            "1" => 1,
-            _ => null,
-        };
-    }
-
-    /// <summary>Mirrors a comparison kind for reversed operand order.</summary>
-    /// <param name="kind">The original comparison kind.</param>
-    /// <returns>The kind with the count on the left.</returns>
-    private static SyntaxKind Mirror(SyntaxKind kind)
-        => kind switch
-        {
-            SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-            SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-            SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-            SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-            _ => kind,
-        };
-
-    /// <summary>Maps a count-on-the-left comparison to its emptiness meaning.</summary>
-    /// <param name="kind">The comparison kind.</param>
-    /// <param name="literal">The literal operand value.</param>
-    /// <returns><see langword="true"/> for empty, <see langword="false"/> for non-empty, or <see langword="null"/> when the shape is not an emptiness check.</returns>
-    private static bool? MapComparison(SyntaxKind kind, int literal)
-        => (kind, literal) switch
-        {
-            (SyntaxKind.EqualsExpression, 0) => true,
-            (SyntaxKind.LessThanOrEqualExpression, 0) => true,
-            (SyntaxKind.LessThanExpression, 1) => true,
-            (SyntaxKind.NotEqualsExpression, 0) => false,
-            (SyntaxKind.GreaterThanExpression, 0) => false,
-            (SyntaxKind.GreaterThanOrEqualExpression, 1) => false,
-            _ => null,
-        };
 
     /// <summary>Reports PSH1117 for an emptiness comparison whose receiver exposes IsEmpty.</summary>
     /// <param name="context">The syntax node analysis context.</param>

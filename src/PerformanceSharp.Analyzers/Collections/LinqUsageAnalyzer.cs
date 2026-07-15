@@ -57,7 +57,7 @@ public sealed class LinqUsageAnalyzer : DiagnosticAnalyzer
         if (!IsAvoidLinqOnHotPathEnabled(context)
             || !TryGetInvocationName(invocation, out var name)
             || !IsHotPathLinqMethodName(name.Identifier.ValueText)
-            || !IsEnumerableInvocation(invocation, context.SemanticModel, context.CancellationToken))
+            || !EnumerableInvocationHelper.IsEnumerableInvocation(invocation, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -87,8 +87,8 @@ public sealed class LinqUsageAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        if (!IsEnumerableInvocation(invocation, model, cancellationToken)
-            || !IsEnumerableInvocation(whereInvocation, model, cancellationToken))
+        if (!EnumerableInvocationHelper.IsEnumerableInvocation(invocation, model, cancellationToken)
+            || !EnumerableInvocationHelper.IsEnumerableInvocation(whereInvocation, model, cancellationToken))
         {
             return false;
         }
@@ -122,8 +122,8 @@ public sealed class LinqUsageAnalyzer : DiagnosticAnalyzer
 
         var castType = name.TypeArgumentList.Arguments[0];
         if (!SyntaxFactory.AreEquivalent(checkedType, castType)
-            || !IsEnumerableInvocation(invocation, model, cancellationToken)
-            || !IsEnumerableInvocation(whereInvocation, model, cancellationToken))
+            || !EnumerableInvocationHelper.IsEnumerableInvocation(invocation, model, cancellationToken)
+            || !EnumerableInvocationHelper.IsEnumerableInvocation(whereInvocation, model, cancellationToken))
         {
             return false;
         }
@@ -254,36 +254,6 @@ public sealed class LinqUsageAnalyzer : DiagnosticAnalyzer
     private static bool IsPredicateTerminalName(string name)
         => name is "Any" or "Count" or "First" or "FirstOrDefault" or "Last" or "LastOrDefault"
             or "Single" or "SingleOrDefault";
-
-    /// <summary>Returns whether the invocation resolves to <see cref="System.Linq.Enumerable"/>.</summary>
-    /// <param name="invocation">The invocation expression.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels analysis.</param>
-    /// <returns><see langword="true"/> when the target is an in-memory LINQ method.</returns>
-    private static bool IsEnumerableInvocation(InvocationExpressionSyntax invocation, SemanticModel model, CancellationToken cancellationToken)
-    {
-        if (model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol method)
-        {
-            return false;
-        }
-
-        if (method.ContainingType?.SpecialType == SpecialType.System_String)
-        {
-            return false;
-        }
-
-        var original = method.ReducedFrom ?? method;
-        return IsSystemLinqEnumerable(original.ContainingType);
-    }
-
-    /// <summary>Returns whether a named type is <c>System.Linq.Enumerable</c>.</summary>
-    /// <param name="type">The type.</param>
-    /// <returns><see langword="true"/> for <c>System.Linq.Enumerable</c>.</returns>
-    private static bool IsSystemLinqEnumerable(INamedTypeSymbol? type)
-        => type?.Name == "Enumerable"
-            && type.ContainingNamespace?.Name == "Linq"
-            && type.ContainingNamespace.ContainingNamespace?.Name == "System"
-            && type.ContainingNamespace.ContainingNamespace.ContainingNamespace.IsGlobalNamespace;
 
     /// <summary>Returns whether the hot-path LINQ rule is enabled for this compilation or tree.</summary>
     /// <param name="context">The syntax context.</param>

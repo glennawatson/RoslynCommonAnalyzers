@@ -24,20 +24,5 @@ internal readonly record struct SealNonDerivedTypeOptions(bool IncludePublic)
     /// a library.
     /// </remarks>
     public static SealNonDerivedTypeOptions Read(AnalyzerConfigOptions options)
-        => new(ReadBool(options, IncludePublicRuleKey, IncludePublicGeneralKey));
-
-    /// <summary>Reads a boolean setting that defaults to false, preferring the rule-specific key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="ruleKey">The rule-specific key.</param>
-    /// <param name="generalKey">The project-wide key.</param>
-    /// <returns>The configured value, or <see langword="false"/>.</returns>
-    private static bool ReadBool(AnalyzerConfigOptions options, string ruleKey, string generalKey)
-    {
-        if (options.TryGetValue(ruleKey, out var value) && bool.TryParse(value, out var parsed))
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(generalKey, out value) && bool.TryParse(value, out parsed) && parsed;
-    }
+        => new(AnalyzerOptionReader.ReadBool(options, IncludePublicRuleKey, IncludePublicGeneralKey));
 }

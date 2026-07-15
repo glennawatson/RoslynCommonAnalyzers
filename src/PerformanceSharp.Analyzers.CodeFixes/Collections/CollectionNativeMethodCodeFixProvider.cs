@@ -107,9 +107,9 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
         oldNode = null;
         var invocation = root.FindNode(span).FirstAncestorOrSelf<InvocationExpressionSyntax>();
         if (invocation is not { ArgumentList.Arguments.Count: 1, Expression: MemberAccessExpressionSyntax memberAccess }
-            || !TryGetPredicateLambda(invocation.ArgumentList.Arguments[0].Expression, out var parameterName, out var expressionBody)
+            || !LinqCallSyntax.TryGetPredicateLambda(invocation.ArgumentList.Arguments[0].Expression, out var parameterName, out var expressionBody)
             || expressionBody is not BinaryExpressionSyntax equality
-            || !TryGetComparedValue(equality, parameterName, out var value))
+            || !LinqCallSyntax.TryGetComparedValue(equality, parameterName, out var value))
         {
             return null;
         }
@@ -177,61 +177,6 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
                 SyntaxFactory.Token(SyntaxFactory.TriviaList(), SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space))
             ]);
         return SyntaxFactory.InvocationExpression(helperAccess, SyntaxFactory.ArgumentList(arguments)).WithTriviaFrom(invocation);
-    }
-
-    /// <summary>Gets the parameter name and expression body of a one-parameter lambda argument.</summary>
-    /// <param name="argument">The argument expression.</param>
-    /// <param name="parameterName">The lambda parameter name.</param>
-    /// <param name="expressionBody">The lambda expression body, or <see langword="null"/> for statement bodies.</param>
-    /// <returns><see langword="true"/> when the argument is a one-parameter lambda.</returns>
-    private static bool TryGetPredicateLambda(ExpressionSyntax argument, out string parameterName, out ExpressionSyntax? expressionBody)
-    {
-        switch (argument)
-        {
-            case SimpleLambdaExpressionSyntax simple:
-                {
-                    parameterName = simple.Parameter.Identifier.ValueText;
-                    expressionBody = simple.ExpressionBody;
-                    return true;
-                }
-
-            case ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 1 } parenthesized:
-                {
-                    parameterName = parenthesized.ParameterList.Parameters[0].Identifier.ValueText;
-                    expressionBody = parenthesized.ExpressionBody;
-                    return true;
-                }
-
-            default:
-                {
-                    parameterName = null!;
-                    expressionBody = null;
-                    return false;
-                }
-        }
-    }
-
-    /// <summary>Gets the non-parameter side of a <c>param == expr</c> or <c>expr == param</c> equality.</summary>
-    /// <param name="equality">The equality expression.</param>
-    /// <param name="parameterName">The lambda parameter name.</param>
-    /// <param name="value">The compared value expression.</param>
-    /// <returns><see langword="true"/> when one side is exactly the lambda parameter.</returns>
-    private static bool TryGetComparedValue(BinaryExpressionSyntax equality, string parameterName, out ExpressionSyntax value)
-    {
-        if (equality.Left is IdentifierNameSyntax left && left.Identifier.ValueText == parameterName)
-        {
-            value = equality.Right;
-            return true;
-        }
-
-        if (equality.Right is IdentifierNameSyntax right && right.Identifier.ValueText == parameterName)
-        {
-            value = equality.Left;
-            return true;
-        }
-
-        value = null!;
-        return false;
     }
 
     /// <summary>Reads the analyzer's replacement target name from the diagnostic.</summary>

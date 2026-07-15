@@ -193,8 +193,8 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
         oldNode = null;
         var invocation = root.FindNode(span).FirstAncestorOrSelf<InvocationExpressionSyntax>();
         if (invocation is not { Expression: MemberAccessExpressionSyntax { Expression: InvocationExpressionSyntax innerInvocation } }
-            || !TryGetOneParameterLambda(invocation, out var secondLambda)
-            || !TryGetOneParameterLambda(innerInvocation, out var firstLambda)
+            || !LinqCallSyntax.TryGetOneParameterLambda(invocation, out var secondLambda)
+            || !LinqCallSyntax.TryGetOneParameterLambda(innerInvocation, out var firstLambda)
             || firstLambda.ExpressionBody is not { } firstBody
             || secondLambda.ExpressionBody is not { } secondBody)
         {
@@ -359,45 +359,6 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
             ? simple.Parameter.Identifier.ValueText
             : ((ParenthesizedLambdaExpressionSyntax)lambda).ParameterList.Parameters[0].Identifier.ValueText;
 
-    /// <summary>Gets the invocation's single one-parameter lambda argument.</summary>
-    /// <param name="invocation">The invocation expression.</param>
-    /// <param name="lambda">The lambda argument.</param>
-    /// <returns><see langword="true"/> when the only argument is a lambda with exactly one parameter.</returns>
-    private static bool TryGetOneParameterLambda(InvocationExpressionSyntax invocation, out LambdaExpressionSyntax lambda)
-    {
-        lambda = null!;
-        if (invocation.ArgumentList.Arguments.Count != 1)
-        {
-            return false;
-        }
-
-        switch (invocation.ArgumentList.Arguments[0].Expression)
-        {
-            case SimpleLambdaExpressionSyntax simple:
-                {
-                    lambda = simple;
-                    return true;
-                }
-
-            case ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 1 } parenthesized:
-                {
-                    lambda = parenthesized;
-                    return true;
-                }
-
-            default:
-                {
-                    return false;
-                }
-        }
-    }
-
-    /// <summary>Returns whether the method name is a LINQ sort operator.</summary>
-    /// <param name="name">The method name.</param>
-    /// <returns><see langword="true"/> for the four LINQ sort operators.</returns>
-    private static bool IsSortMethodName(string name)
-        => name is "OrderBy" or "OrderByDescending" or "ThenBy" or "ThenByDescending";
-
     /// <summary>Returns whether the method name is a single-key LINQ sort operator.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> for <c>OrderBy</c> and <c>OrderByDescending</c>.</returns>
@@ -409,5 +370,5 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
     /// <returns><see langword="true"/> when the expression is a sort invocation.</returns>
     private static bool IsSortInvocation(ExpressionSyntax expression)
         => expression is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name: { } name } }
-            && IsSortMethodName(name.Identifier.ValueText);
+            && LinqCallSyntax.IsSortMethodName(name.Identifier.ValueText);
 }

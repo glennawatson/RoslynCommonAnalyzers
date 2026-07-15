@@ -9,7 +9,7 @@ namespace StyleSharp.Analyzers;
 /// Members are ordered by the default precedence: kind, then accessibility,
 /// then constant, then static, then readonly.
 /// </summary>
-internal static class OrderingRules
+internal static partial class OrderingRules
 {
     /// <summary>SST1201 — members should be ordered by kind.</summary>
     public static readonly DiagnosticDescriptor OrderByKind = Create(

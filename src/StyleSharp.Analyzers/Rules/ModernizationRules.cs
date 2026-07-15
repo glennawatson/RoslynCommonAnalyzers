@@ -11,7 +11,7 @@ namespace StyleSharp.Analyzers;
 /// rules are gated on the helper existing in the referenced framework, so they light up only
 /// where the replacement compiles.
 /// </summary>
-internal static class ModernizationRules
+internal static partial class ModernizationRules
 {
     /// <summary>SST2000 — a null check + throw should use <c>ArgumentNullException.ThrowIfNull</c>.</summary>
     public static readonly DiagnosticDescriptor UseThrowIfNull = Create(

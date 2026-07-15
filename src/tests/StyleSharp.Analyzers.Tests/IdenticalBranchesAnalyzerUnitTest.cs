@@ -2,7 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using VerifyIdenticalBranches = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1476IdenticalBranchesAnalyzer>;
+using VerifyIdenticalBranches = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.IdenticalBranchesAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 
@@ -188,11 +188,11 @@ public class IdenticalBranchesAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies a switch statement with no default label is not reported.</summary>
+    /// <summary>Verifies a switch statement with no default label is not the SST1476 all-branches case, but its two identical sections are the SST2414 pair.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
-    /// <remarks>An unmatched value falls out of the switch and does nothing, which the written sections do not.</remarks>
+    /// <remarks>An unmatched value falls out of the switch, so SST1476 stays silent; the two identical sections are still a shared implementation.</remarks>
     [Test]
-    public async Task SwitchStatementWithoutDefaultIsCleanAsync()
+    public async Task SwitchStatementWithoutDefaultReportsDuplicatePairAsync()
         => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
@@ -203,7 +203,7 @@ public class IdenticalBranchesAnalyzerUnitTest
                     {
                         case 1:
                             return 3;
-                        case 2:
+                        {|SST2414:case 2:|}
                             return 3;
                     }
 
@@ -269,10 +269,10 @@ public class IdenticalBranchesAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies a switch expression that leaves inputs unhandled is not reported.</summary>
+    /// <summary>Verifies a non-exhaustive switch expression is not the SST1476 all-arms case, but its two identical arms are the SST2414 pair.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
-    public async Task NonExhaustiveSwitchExpressionIsCleanAsync()
+    public async Task NonExhaustiveSwitchExpressionReportsDuplicatePairAsync()
         => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
@@ -280,7 +280,7 @@ public class IdenticalBranchesAnalyzerUnitTest
                 public string Name(int value) => value switch
                 {
                     1 => "same",
-                    2 => "same",
+                    {|SST2414:2|} => "same",
                 };
             }
             """);

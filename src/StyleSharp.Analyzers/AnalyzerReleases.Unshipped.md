@@ -36,7 +36,7 @@ SST1464 | Maintainability | Warning | Sst1464UnwrapElseAfterJumpAnalyzer
 SST1465 | Maintainability | Warning | Sst1465CollapseElseIntoElseIfAnalyzer
 SST1466 | Maintainability | Warning | Sst1466RemoveCaseBesideDefaultAnalyzer
 SST1467 | Maintainability | Warning | Sst1467UseForeachOverManualEnumeratorAnalyzer
-SST1468 | Maintainability | Warning | Sst1468UseShortCircuitOperatorAnalyzer
+SST1468 | Maintainability | Warning | NonShortCircuitOperatorAnalyzer
 SST1469 | Maintainability | Warning | Sst1469ValueTypeNullComparisonAnalyzer
 SST1470 | Maintainability | Warning | Sst1470RemoveRethrowOnlyCatchAnalyzer
 SST1471 | Maintainability | Warning | Sst1471MagicNumberAnalyzer
@@ -44,7 +44,7 @@ SST1472 | Maintainability | Warning | Sst1472TooManyParametersAnalyzer
 SST1473 | Maintainability | Warning | Sst1473FloatingPointEqualityAnalyzer
 SST1474 | Maintainability | Warning | Sst1474IdenticalOperandsAnalyzer
 SST1475 | Maintainability | Warning | Sst1475DuplicateConditionAnalyzer
-SST1476 | Maintainability | Warning | Sst1476IdenticalBranchesAnalyzer
+SST1476 | Maintainability | Warning | IdenticalBranchesAnalyzer
 SST1477 | Maintainability | Warning | Sst1477IntegerDivisionAsFloatingPointAnalyzer
 SST1478 | Maintainability | Warning | Sst1478SuspiciousShiftCountAnalyzer
 SST1479 | Maintainability | Warning | Sst1479MeaninglessCountComparisonAnalyzer
@@ -122,11 +122,23 @@ SST2402 | Correctness | Warning | Sst2402StaticFieldWrittenInConstructorAnalyzer
 SST2403 | Correctness | Warning | Sst2403ThisEscapesConstructorAnalyzer
 SST2404 | Correctness | Warning | Sst2404IteratorValidatesTooLateAnalyzer
 SST2405 | Correctness | Warning | Sst2405DebuggerDisplayNamesMissingMemberAnalyzer
-SST2406 | Correctness | Warning | Sst2406InvariantLoopConditionAnalyzer
+SST2406 | Correctness | Warning | LoopConditionAnalyzer
 SST2407 | Correctness | Warning | Sst2407EventNeverRaisedAnalyzer
 SST2408 | Correctness | Warning | Sst2408StringBuilderNeverReadAnalyzer
 SST2409 | Correctness | Warning | Sst2409ThrowsGeneralExceptionAnalyzer
 SST2410 | Correctness | Warning | Sst2410DisposableNeverDisposedAnalyzer
+SST2411 | Correctness | Warning | LoopConditionAnalyzer
+SST2412 | Correctness | Warning | LoopConditionAnalyzer
+SST2413 | Correctness | Warning | LoopConditionAnalyzer
+SST2414 | Correctness | Warning | IdenticalBranchesAnalyzer
+SST2415 | Correctness | Warning | NonShortCircuitOperatorAnalyzer
+SST2416 | Correctness | Warning | Sst2416SignedRemainderTestAnalyzer
+SST2417 | Correctness | Warning | Sst2417TransposedCompoundAssignmentAnalyzer
+SST2418 | Correctness | Warning | Sst2418DiscardedImmutableResultAnalyzer
+SST2419 | Correctness | Warning | Sst2419SelfCollectionOperationAnalyzer
+SST2420 | Correctness | Warning | Sst2420IndexOfSkipsFirstAnalyzer
+SST2421 | Correctness | Warning | Sst2421ReadonlyGenericFieldWriteAnalyzer
+SST2422 | Correctness | Warning | Sst2422BackingFieldMismatchAnalyzer
 SST2423 | Correctness | Warning | Sst2423DisposableReturnedFromUsingAnalyzer
 SST2424 | Correctness | Warning | OverrideParameterContractAnalyzer
 SST2425 | Correctness | Warning | Sst2425BaseCallDropsOptionalArgumentAnalyzer
@@ -151,6 +163,10 @@ SST2443 | Correctness | Warning | Sst2443LoggerCategoryAnalyzer
 SST2444 | Correctness | Warning | Sst2444InvalidRegexPatternAnalyzer
 SST2445 | Correctness | Warning | Sst2445CultureSensitiveDateFormatAnalyzer
 SST2446 | Correctness | Warning | Sst2446DiscardedStreamReadAnalyzer
+SST1119 | Readability | Warning | LiteralFormattingAnalyzer
+SST1138 | Readability | Warning | EmptyCodeAnalyzer
+SST1219 | Ordering | Warning | Sst1219DefaultSectionLastAnalyzer
+SST2018 | Modernization | Warning | Sst2018RedundantNullCheckBesidePatternAnalyzer
 
 ### Removed Rules
 

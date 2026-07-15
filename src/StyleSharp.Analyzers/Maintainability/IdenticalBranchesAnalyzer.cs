@@ -9,36 +9,24 @@ using Microsoft.CodeAnalysis.Operations;
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Reports a conditional construct whose branches all do the same thing (SST1476): an <c>if</c>/<c>else</c>,
-/// an <c>if</c>/<c>else if</c>/<c>else</c> chain, a conditional expression, a <c>switch</c> statement and a
-/// <c>switch</c> expression. When every branch has the same body the condition decides nothing, and the code
-/// claims to distinguish cases it does not — usually because one branch was meant to differ.
+/// Reports conditional constructs whose branches duplicate one another, in a single walk over each
+/// <c>if</c>/<c>else</c> chain, conditional expression, <c>switch</c> statement and <c>switch</c> expression.
 /// </summary>
 /// <remarks>
+/// Reports the following diagnostic ids:
+/// <list type="bullet">
+/// <item><description>SST1476 — <b>every</b> branch of an exhaustive construct has the same body, so the
+/// condition decides nothing.</description></item>
+/// <item><description>SST2414 — <b>any two</b> branches share a body while others differ, so one of them was
+/// probably meant to differ. SST1476 takes precedence: when every branch matches, only it is reported.</description></item>
+/// </list>
 /// <para>
-/// Only an <b>exhaustive</b> construct is reported. An <c>if</c> without an <c>else</c>, or a <c>switch</c>
-/// without a <c>default</c>, is a different shape: its unwritten branch does nothing, which the written ones
-/// do not, so the condition still decides something. Exhaustiveness is syntactic for the statement forms — a
-/// terminal <c>else</c>, a <c>default</c> label — and semantic for a <c>switch</c> expression, where the
-/// compiler's own exhaustiveness answer covers a complete <c>bool</c> or enum switch that never spells out a
-/// discard arm.
-/// </para>
-/// <para>
-/// The minimum body size that counts is configured with <c>stylesharp.SST1476.minimum_statements</c> and
-/// defaults to 1, so even a one-statement body is reported. An expression-bodied arm — a conditional
-/// expression's, a switch expression's — counts as one statement, so raising the minimum drops those shapes
-/// with the rest of the trivially short duplicates.
-/// </para>
-/// <para>
-/// Ordered so a clean file pays almost nothing. Exhaustiveness is a pointer walk and is settled first; the
-/// body comparison is a trivia-insensitive structural match that bails on the first difference and never
-/// copies a statement list; and only a construct that has already been proven duplicated reads its options or
-/// touches the semantic model. Each chain is analyzed exactly once, from its head — an <c>else if</c> is
-/// parented by an <see cref="ElseClauseSyntax"/> and returns immediately.
+/// The structural body comparison is trivia-insensitive and bails on the first difference; the two-arm scan
+/// compares span lengths before tokens, and only runs after the exhaustive check has declined the construct.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-public sealed class Sst1476IdenticalBranchesAnalyzer : DiagnosticAnalyzer
+public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The size, in statements, of a branch whose body is a single expression.</summary>
     private const int ExpressionBodySize = 1;
@@ -49,6 +37,9 @@ public sealed class Sst1476IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <summary>The fewest branches a construct needs before "every branch is the same" means anything.</summary>
     private const int MinimumBranchCount = 2;
 
+    /// <summary>The fewest statements a shared <c>if</c>-branch body needs before SST2414 reports it.</summary>
+    private const int PairMinimumStatements = 2;
+
     /// <summary>The phrase used for a conditional expression, whose two arms are always both of them.</summary>
     private const string ConditionalArmsPhrase = "Both arms of this conditional expression";
 
@@ -56,7 +47,9 @@ public sealed class Sst1476IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     private const string IfElseBranchesPhrase = "Both branches of this 'if'";
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.IdenticalBranches);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+        MaintainabilityRules.IdenticalBranches,
+        CorrectnessRules.DuplicateBranchImplementation);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -77,7 +70,7 @@ public sealed class Sst1476IdenticalBranchesAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(nodeContext => AnalyzeSwitchExpression(nodeContext, optionsByTree), SyntaxKind.SwitchExpression);
     }
 
-    /// <summary>Analyzes one <c>if</c> chain, from its head, and reports it when every branch is the same.</summary>
+    /// <summary>Analyzes one <c>if</c> chain, from its head.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     private static void AnalyzeIfChain(
@@ -90,17 +83,64 @@ public sealed class Sst1476IdenticalBranchesAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!TryGetExhaustiveChain(head, out var terminalElse, out var branches)
-            || !ChainBodiesMatch(head, terminalElse)
-            || !IsBodyLargeEnough(context, optionsByTree, GetStatementCount(head.Statement)))
+        if (TryGetExhaustiveChain(head, out var terminalElse, out var branches)
+            && ChainBodiesMatch(head, terminalElse)
+            && IsBodyLargeEnough(context, optionsByTree, GetStatementCount(head.Statement)))
         {
+            context.ReportDiagnostic(DiagnosticHelper.Create(
+                MaintainabilityRules.IdenticalBranches,
+                head.IfKeyword.GetLocation(),
+                DescribeIfChain(branches)));
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(
-            MaintainabilityRules.IdenticalBranches,
-            head.IfKeyword.GetLocation(),
-            DescribeIfChain(branches)));
+        ReportDuplicateIfBranch(context, head);
+    }
+
+    /// <summary>Reports the first pair of <c>if</c> branches with the same body.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="head">The chain's first branch.</param>
+    private static void ReportDuplicateIfBranch(SyntaxNodeAnalysisContext context, IfStatementSyntax head)
+    {
+        // Walk the conditioned branches (the head and each 'else if'), ignoring the terminal 'else', and
+        // report the first branch whose body matches an earlier one.
+        var branches = CollectConditionedBranches(head);
+        for (var i = 0; i < branches.Count; i++)
+        {
+            if (GetStatementCount(branches[i].Statement) < PairMinimumStatements)
+            {
+                continue;
+            }
+
+            for (var j = i + 1; j < branches.Count; j++)
+            {
+                if (HaveSameBody(branches[i].Statement, branches[j].Statement))
+                {
+                    context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.DuplicateBranchImplementation, branches[j].IfKeyword.GetLocation()));
+                    return;
+                }
+            }
+        }
+    }
+
+    /// <summary>Collects the conditioned branches of an <c>if</c> chain, excluding the terminal <c>else</c>.</summary>
+    /// <param name="head">The chain's first branch.</param>
+    /// <returns>The <c>if</c> and <c>else if</c> branches in order.</returns>
+    private static List<IfStatementSyntax> CollectConditionedBranches(IfStatementSyntax head)
+    {
+        var branches = new List<IfStatementSyntax>();
+        var current = head;
+        while (true)
+        {
+            branches.Add(current);
+            if (current.Else?.Statement is IfStatementSyntax next)
+            {
+                current = next;
+                continue;
+            }
+
+            return branches;
+        }
     }
 
     /// <summary>Walks an <c>if</c> chain to its end, looking for the <c>else</c> that makes it exhaustive.</summary>
@@ -108,7 +148,6 @@ public sealed class Sst1476IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="terminalElse">The body of the trailing <c>else</c>, when there is one.</param>
     /// <param name="branches">The number of branches in the chain, counting the trailing <c>else</c>.</param>
     /// <returns><see langword="true"/> when the chain ends in a plain <c>else</c>.</returns>
-    /// <remarks>A chain with no trailing <c>else</c> has an unwritten branch that does nothing, which is not the same as what the written ones do.</remarks>
     private static bool TryGetExhaustiveChain(
         IfStatementSyntax head,
         [NotNullWhen(true)] out StatementSyntax? terminalElse,
@@ -175,7 +214,7 @@ public sealed class Sst1476IdenticalBranchesAnalyzer : DiagnosticAnalyzer
             ConditionalArmsPhrase));
     }
 
-    /// <summary>Analyzes a <c>switch</c> statement and reports it when every section runs the same body.</summary>
+    /// <summary>Analyzes a <c>switch</c> statement for a fully or partially duplicated body.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     private static void AnalyzeSwitchStatement(
@@ -184,34 +223,152 @@ public sealed class Sst1476IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     {
         var switchStatement = (SwitchStatementSyntax)context.Node;
         var sections = switchStatement.Sections;
-        if (sections.Count < MinimumBranchCount
-            || !HasDefaultLabel(sections)
-            || !SectionBodiesMatch(sections)
-            || !IsBodyLargeEnough(context, optionsByTree, sections[0].Statements.Count))
+        if (sections.Count >= MinimumBranchCount
+            && HasDefaultLabel(sections)
+            && SectionBodiesMatch(sections)
+            && IsBodyLargeEnough(context, optionsByTree, sections[0].Statements.Count))
         {
+            context.ReportDiagnostic(DiagnosticHelper.Create(
+                MaintainabilityRules.IdenticalBranches,
+                switchStatement.SwitchKeyword.GetLocation(),
+                Describe(sections.Count, " branches of this 'switch'")));
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(
-            MaintainabilityRules.IdenticalBranches,
-            switchStatement.SwitchKeyword.GetLocation(),
-            Describe(sections.Count, " branches of this 'switch'")));
+        ReportDuplicateSection(context, switchStatement, sections);
     }
 
-    /// <summary>Returns whether a <c>switch</c> statement handles every value it is not given a case for.</summary>
+    /// <summary>Reports the first pair of switch sections that run the same body.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="switchStatement">The switch statement.</param>
+    /// <param name="sections">The switch's sections.</param>
+    private static void ReportDuplicateSection(SyntaxNodeAnalysisContext context, SwitchStatementSyntax switchStatement, SyntaxList<SwitchSectionSyntax> sections)
+    {
+        for (var i = 0; i < sections.Count; i++)
+        {
+            if (sections[i].Statements.Count == 0 || HasDefaultOrGotoLabel(sections[i]))
+            {
+                continue;
+            }
+
+            for (var j = i + 1; j < sections.Count; j++)
+            {
+                if (!HasDefaultOrGotoLabel(sections[j])
+                    && AreEquivalentStatements(sections[i].Statements, sections[j].Statements)
+                    && !ContainsGoto(switchStatement))
+                {
+                    context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.DuplicateBranchImplementation, sections[j].Labels[0].GetLocation()));
+                    return;
+                }
+            }
+        }
+    }
+
+    /// <summary>Analyzes a <c>switch</c> expression for a fully or partially duplicated value.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="optionsByTree">The per-tree settings cache.</param>
+    private static void AnalyzeSwitchExpression(
+        SyntaxNodeAnalysisContext context,
+        ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree)
+    {
+        var switchExpression = (SwitchExpressionSyntax)context.Node;
+        var arms = switchExpression.Arms;
+        if (arms.Count >= MinimumBranchCount
+            && ArmValuesMatch(arms)
+            && IsExhaustive(context, switchExpression)
+            && IsBodyLargeEnough(context, optionsByTree, ExpressionBodySize))
+        {
+            context.ReportDiagnostic(DiagnosticHelper.Create(
+                MaintainabilityRules.IdenticalBranches,
+                switchExpression.SwitchKeyword.GetLocation(),
+                Describe(arms.Count, " arms of this 'switch' expression")));
+            return;
+        }
+
+        ReportDuplicateArm(context, arms);
+    }
+
+    /// <summary>Reports the first pair of switch-expression arms that produce the same value.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="arms">The switch expression's arms.</param>
+    private static void ReportDuplicateArm(SyntaxNodeAnalysisContext context, SeparatedSyntaxList<SwitchExpressionArmSyntax> arms)
+    {
+        for (var i = 0; i < arms.Count; i++)
+        {
+            if (IsDiscardArm(arms[i]))
+            {
+                continue;
+            }
+
+            for (var j = i + 1; j < arms.Count; j++)
+            {
+                if (!IsDiscardArm(arms[j]) && SyntaxFactory.AreEquivalent(arms[i].Expression, arms[j].Expression, topLevel: false))
+                {
+                    context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.DuplicateBranchImplementation, arms[j].Pattern.GetLocation()));
+                    return;
+                }
+            }
+        }
+    }
+
+    /// <summary>Returns whether a switch-expression arm matches the discard pattern with no guard.</summary>
+    /// <param name="arm">The switch-expression arm.</param>
+    /// <returns><see langword="true"/> for a <c>_</c> arm.</returns>
+    private static bool IsDiscardArm(SwitchExpressionArmSyntax arm)
+        => arm.Pattern is DiscardPatternSyntax && arm.WhenClause is null;
+
+    /// <summary>Returns whether a switch section carries a <c>default</c> label.</summary>
+    /// <param name="section">The switch section.</param>
+    /// <returns><see langword="true"/> for a section that includes <c>default</c>.</returns>
+    private static bool HasDefaultOrGotoLabel(SwitchSectionSyntax section)
+    {
+        var labels = section.Labels;
+        for (var i = 0; i < labels.Count; i++)
+        {
+            if (labels[i].IsKind(SyntaxKind.DefaultSwitchLabel))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a switch statement contains a <c>goto case</c> / <c>goto default</c>.</summary>
+    /// <param name="switchStatement">The switch statement.</param>
+    /// <returns><see langword="true"/> when a jump could target a section by label.</returns>
+    private static bool ContainsGoto(SwitchStatementSyntax switchStatement)
+    {
+        var found = false;
+        DescendantTraversalHelper.VisitDescendants<GotoStatementSyntax, bool>(switchStatement, ref found, VisitGoto);
+        return found;
+    }
+
+    /// <summary>Records that a <c>goto case</c> / <c>goto default</c> was found.</summary>
+    /// <param name="node">The goto statement.</param>
+    /// <param name="found">Whether a targeting jump was found.</param>
+    /// <returns><see langword="false"/> once one is found, stopping the walk.</returns>
+    private static bool VisitGoto(GotoStatementSyntax node, ref bool found)
+    {
+        if (!node.IsKind(SyntaxKind.GotoCaseStatement) && !node.IsKind(SyntaxKind.GotoDefaultStatement))
+        {
+            return true;
+        }
+
+        found = true;
+        return false;
+    }
+
+    /// <summary>Returns whether a switch statement handles every value it is not given a case for.</summary>
     /// <param name="sections">The switch's sections.</param>
     /// <returns><see langword="true"/> when a <c>default</c> label is present.</returns>
     private static bool HasDefaultLabel(SyntaxList<SwitchSectionSyntax> sections)
     {
         for (var sectionIndex = 0; sectionIndex < sections.Count; sectionIndex++)
         {
-            var labels = sections[sectionIndex].Labels;
-            for (var labelIndex = 0; labelIndex < labels.Count; labelIndex++)
+            if (HasDefaultOrGotoLabel(sections[sectionIndex]))
             {
-                if (labels[labelIndex].IsKind(SyntaxKind.DefaultSwitchLabel))
-                {
-                    return true;
-                }
+                return true;
             }
         }
 
@@ -235,33 +392,6 @@ public sealed class Sst1476IdenticalBranchesAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <summary>Analyzes a <c>switch</c> expression and reports it when every arm produces the same value.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <remarks>
-    /// The structural match runs before the exhaustiveness question, so the semantic model is only reached for
-    /// a switch expression whose arms are already known to be identical — which is to say, almost never.
-    /// </remarks>
-    private static void AnalyzeSwitchExpression(
-        SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree)
-    {
-        var switchExpression = (SwitchExpressionSyntax)context.Node;
-        var arms = switchExpression.Arms;
-        if (arms.Count < MinimumBranchCount
-            || !ArmValuesMatch(arms)
-            || !IsExhaustive(context, switchExpression)
-            || !IsBodyLargeEnough(context, optionsByTree, ExpressionBodySize))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(DiagnosticHelper.Create(
-            MaintainabilityRules.IdenticalBranches,
-            switchExpression.SwitchKeyword.GetLocation(),
-            Describe(arms.Count, " arms of this 'switch' expression")));
-    }
-
     /// <summary>Returns whether every arm of a <c>switch</c> expression produces the same value.</summary>
     /// <param name="arms">The switch expression's arms.</param>
     /// <returns><see langword="true"/> when all arm expressions match.</returns>
@@ -283,10 +413,6 @@ public sealed class Sst1476IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="switchExpression">The switch expression.</param>
     /// <returns><see langword="true"/> when no input falls through to a thrown match failure.</returns>
-    /// <remarks>
-    /// The compiler's own answer is used rather than a search for a discard arm, so a complete <c>bool</c> or
-    /// enum switch counts as exhaustive even though it never writes <c>_</c>.
-    /// </remarks>
     private static bool IsExhaustive(SyntaxNodeAnalysisContext context, SwitchExpressionSyntax switchExpression)
         => context.SemanticModel.GetOperation(switchExpression, context.CancellationToken) is ISwitchExpressionOperation { IsExhaustive: true };
 
@@ -295,11 +421,6 @@ public sealed class Sst1476IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <param name="statements">The size of one branch's body, in statements.</param>
     /// <returns><see langword="true"/> when the body meets the configured minimum.</returns>
-    /// <remarks>
-    /// Every branch has already been proven identical by the time this runs, so one branch's size is every
-    /// branch's size. Two empty bodies never reach the default minimum of one — an empty block is SST1439's
-    /// business, not this rule's.
-    /// </remarks>
     private static bool IsBodyLargeEnough(
         SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree,
@@ -329,11 +450,6 @@ public sealed class Sst1476IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="first">The first branch's body.</param>
     /// <param name="second">The second branch's body.</param>
     /// <returns><see langword="true"/> when the bodies match, ignoring trivia and braces.</returns>
-    /// <remarks>
-    /// A body is read as its statement list, so a braced branch and a bare one are compared on what they
-    /// actually do: <c>if (c) Run(); else { Run(); }</c> is the same duplicate as the braced pair, and the
-    /// braces are not what the rule is about.
-    /// </remarks>
     private static bool HaveSameBody(StatementSyntax first, StatementSyntax second)
     {
         var count = GetStatementCount(first);

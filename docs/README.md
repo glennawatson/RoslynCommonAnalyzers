@@ -395,6 +395,7 @@ PSH1102, and PSH1100.
 | [SST2015](rules/SST2015.md) | A `++` or `--` is buried inside a larger expression, so its side effect happens in the middle of something else. |
 | [SST2016](rules/SST2016.md) | A `DateTime` is the type of an externally visible field, property, parameter or return type, so the offset is lost at the boundary. |
 | [SST2017](rules/SST2017.md) | A `.Date` or `.TimeOfDay` read proves the value is only a date, or only a time of day: use `DateOnly` / `TimeOnly`. |
+| [SST2018](rules/SST2018.md) | A null check sits beside an `is` type pattern that already excludes null. Code fix removes the null check. |
 
 ## Collection Expressions
 
@@ -502,6 +503,18 @@ Code that compiles and runs but does not do what it says.
 | [SST2408](rules/SST2408.md) | A local `StringBuilder` is appended to, and its contents are never read. |
 | [SST2409](rules/SST2409.md) | A `throw` constructs `Exception`, `SystemException`, or `ApplicationException`, which callers cannot catch selectively. |
 | [SST2410](rules/SST2410.md) | A local is handed a newly created `IDisposable` and never disposes it, and the value never leaves the method. |
+| [SST2411](rules/SST2411.md) | A `for` loop declares and tests a counter it never advances, so the loop runs forever or not at all. |
+| [SST2412](rules/SST2412.md) | A `for` loop steps its counter away from the side of its bound. Code fix flips the comparison. |
+| [SST2413](rules/SST2413.md) | A `for` loop's condition is already false at the counter's constant starting value, so its body never runs. |
+| [SST2414](rules/SST2414.md) | Two branches of one conditional share an implementation, so one was probably meant to differ. Code fix merges duplicated switch sections. |
+| [SST2415](rules/SST2415.md) | A non-short-circuiting `&`/`|` runs work the left operand was meant to guard. Code fix switches to `&&`/`||`. |
+| [SST2416](rules/SST2416.md) | A remainder test against a non-zero value misses every negative on a signed type. Code fix promotes `IsOddInteger`, or `% 2 != 0`. |
+| [SST2417](rules/SST2417.md) | An assignment is spaced like a transposed operator (`x =+ 1`). Code fix offers `x += 1` or `x = +1`. |
+| [SST2418](rules/SST2418.md) | The result of an immutable value's method is discarded, so the call does nothing. |
+| [SST2419](rules/SST2419.md) | A set or list operation is applied to the collection itself. |
+| [SST2420](rules/SST2420.md) | An index-of result tested with `> 0` treats a match at the first position as not found. Code fix uses `Contains`, or `>= 0`. |
+| [SST2421](rules/SST2421.md) | A write through a `readonly` field of an unconstrained type parameter lands on a copy and is lost. |
+| [SST2422](rules/SST2422.md) | A property's getter reads a different field than its setter writes. Code fix points the getter at the setter's field. |
 | [SST2423](rules/SST2423.md) | A value owned by a `using` is returned out of the `using` scope, so the caller receives an already-disposed object. Code fix transfers ownership. |
 | [SST2424](rules/SST2424.md) | An override declares a different parameter default than the base, so the same call means different things through the base and derived types. |
 | [SST2425](rules/SST2425.md) | An override forwards to the base but drops one of its own optional arguments, so the base substitutes its default and the caller's value is lost. |
@@ -574,6 +587,7 @@ Code that compiles and runs but does not do what it says.
 | [SST1216](rules/SST1216.md) | Using static directives should be placed after regular usings and before aliases. |
 | [SST1217](rules/SST1217.md) | Using static directives should be ordered alphabetically. |
 | [SST1218](rules/SST1218.md) | Other members separate a method's overloads. Code fix moves the overload back beside its family. |
+| [SST1219](rules/SST1219.md) | A `switch` statement's `default` section is not last. Code fix moves it to the end. |
 
 ## Readability
 
@@ -595,6 +609,7 @@ Code that compiles and runs but does not do what it says.
 | [SST1116](rules/SST1116.md) | A qualified name has a shorter spelling that binds to the same symbol. |
 | [SST1117](rules/SST1117.md) | Instance member access does not match the configured `this.` qualification style. |
 | [SST1118](rules/SST1118.md) | A parameter or argument spans multiple lines. Opt-in. |
+| [SST1119](rules/SST1119.md) | A numeric literal's digit separators group its digits irregularly. Code fix regroups them evenly. |
 | [SST1120](rules/SST1120.md) | A comment contains no text. |
 | [SST1121](rules/SST1121.md) | A framework type name is used instead of its built-in alias. Opt-in. |
 | [SST1122](rules/SST1122.md) | An empty string literal is used instead of `string.Empty`. |
@@ -612,6 +627,7 @@ Code that compiles and runs but does not do what it says.
 | [SST1135](rules/SST1135.md) | A using directive names a namespace or type that is not fully qualified. |
 | [SST1136](rules/SST1136.md) | Several enum members share a line. |
 | [SST1137](rules/SST1137.md) | Sibling elements are indented differently from one another. |
+| [SST1138](rules/SST1138.md) | A free-standing block declares nothing and only nests its statements. Code fix splices them into the enclosing block. |
 | [SST1139](rules/SST1139.md) | A numeric literal is cast where a literal suffix would express the type. |
 | [SST1140](rules/SST1140.md) | A wrapped conditional operator does not start an indented continuation line. |
 | [SST1141](rules/SST1141.md) | An explicit `ValueTuple<...>` is used where tuple syntax would do. |

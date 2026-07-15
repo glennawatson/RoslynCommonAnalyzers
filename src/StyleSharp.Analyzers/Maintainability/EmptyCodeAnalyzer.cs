@@ -12,6 +12,7 @@ namespace StyleSharp.Analyzers;
 /// <remarks>
 /// Reports the following diagnostic ids:
 /// <list type="bullet">
+/// <item><description>SST1138 — a free-standing block declares nothing and only nests its statements.</description></item>
 /// <item><description>SST1433 — a type's only constructor is a public, parameterless, empty constructor.</description></item>
 /// <item><description>SST1435 — a namespace declaration has no members.</description></item>
 /// <item><description>SST1436 — a class, struct, or record has no members (opt-in).</description></item>
@@ -25,6 +26,7 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
 {
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+        ReadabilityRules.FreeStandingBlock,
         MaintainabilityRules.NoRedundantConstructor,
         MaintainabilityRules.NoEmptyNamespace,
         MaintainabilityRules.NoEmptyType,
@@ -168,17 +170,47 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.NoEmptyMethod, method.Identifier.GetLocation(), method.Identifier.ValueText));
     }
 
-    /// <summary>Reports SST1439 for an empty block used as a loop or guard body.</summary>
+    /// <summary>Reports SST1138 for a free-standing block, or SST1439 for an empty loop or guard body.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeEmbeddedBlock(SyntaxNodeAnalysisContext context)
     {
         var block = (BlockSyntax)context.Node;
+
+        // A block whose parent is itself a block introduces no scope of its own; when it declares nothing it
+        // is dead weight, the residue of a removed 'if'/'using'/'lock'/'fixed'.
+        if (block.Parent is BlockSyntax)
+        {
+            if (DeclaresNothing(block) && !ContainsComment(block))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.FreeStandingBlock, block.GetLocation()));
+            }
+
+            return;
+        }
+
         if (block.Statements.Count != 0 || !IsLoopOrGuardBody(block) || ContainsComment(block))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.NoEmptyNestedBlock, block.GetLocation()));
+    }
+
+    /// <summary>Returns whether a block declares nothing that a splice into its parent would leak or lose.</summary>
+    /// <param name="block">The block to inspect.</param>
+    /// <returns><see langword="true"/> when the block declares no local, local function, or label.</returns>
+    private static bool DeclaresNothing(BlockSyntax block)
+    {
+        var statements = block.Statements;
+        for (var i = 0; i < statements.Count; i++)
+        {
+            if (statements[i] is LocalDeclarationStatementSyntax or LocalFunctionStatementSyntax or LabeledStatementSyntax)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Returns the number of instance constructors declared directly in a type.</summary>

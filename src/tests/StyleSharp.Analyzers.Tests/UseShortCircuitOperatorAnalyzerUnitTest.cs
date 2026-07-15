@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using VerifyShortCircuit = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
-    StyleSharp.Analyzers.Sst1468UseShortCircuitOperatorAnalyzer,
+    StyleSharp.Analyzers.NonShortCircuitOperatorAnalyzer,
     StyleSharp.Analyzers.Sst1468UseShortCircuitOperatorCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -123,15 +123,15 @@ public class UseShortCircuitOperatorAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies an invocation right operand is not reported because skipping it could change behavior.</summary>
+    /// <summary>Verifies an invocation right operand is the guard case (SST2415), not the tidy one.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task InvocationRightOperandIsCleanAsync()
+    public async Task InvocationRightOperandIsGuardCaseAsync()
         => await VerifyShortCircuit.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
-                public bool M(bool flag) => flag & Next();
+                public bool M(bool flag) => flag {|SST2415:&|} Next();
 
                 private static bool Next() => true;
             }
@@ -201,7 +201,7 @@ public class UseShortCircuitOperatorAnalyzerUnitTest
         const string Source = """
                               public sealed class C
                               {
-                                  public bool M(bool flag, bool other) => flag {|SST1468:&|} other | Next();
+                                  public bool M(bool flag, bool other) => flag {|SST1468:&|} other {|SST2415:||} Next();
 
                                   private static bool Next() => true;
                               }
@@ -209,7 +209,7 @@ public class UseShortCircuitOperatorAnalyzerUnitTest
         const string FixedSource = """
                                    public sealed class C
                                    {
-                                       public bool M(bool flag, bool other) => (flag && other) | Next();
+                                       public bool M(bool flag, bool other) => (flag && other) {|SST2415:||} Next();
 
                                        private static bool Next() => true;
                                    }

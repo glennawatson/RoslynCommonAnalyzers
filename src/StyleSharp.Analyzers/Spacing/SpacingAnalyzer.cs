@@ -325,11 +325,19 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
         {
             Report(context, SpacingRules.OperatorSpacing, current, AddBefore);
         }
-        else if (IsBinaryOperator(previous))
+        else if (IsBinaryOperator(previous) && !IsTransposedAssignmentOperator(previous))
         {
             Report(context, SpacingRules.OperatorSpacing, previous, AddAfter);
         }
     }
+
+    /// <summary>Returns whether a token is the <c>=</c> of a transposed-operator assignment (SST2417's span).</summary>
+    /// <param name="token">The candidate assignment operator.</param>
+    /// <returns><see langword="true"/> when adding a space would cement the fake compound operator.</returns>
+    private static bool IsTransposedAssignmentOperator(SyntaxToken token)
+        => token.Parent is AssignmentExpressionSyntax assignment
+            && assignment.OperatorToken == token
+            && TransposedCompoundAssignment.Matches(assignment);
 
     /// <summary>Reports a single-line brace block missing inner spacing — after '{' (SST1012) or before '}' (SST1013).</summary>
     /// <param name="context">The syntax tree analysis context.</param>
@@ -467,7 +475,14 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="current">The later token.</param>
     private static void CheckUnarySign(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
     {
-        if (previous.Parent is not PrefixUnaryExpressionSyntax)
+        if (previous.Parent is not PrefixUnaryExpressionSyntax prefix)
+        {
+            return;
+        }
+
+        // Leave the transposed-operator span (SST2417) alone: closing the gap here cements the fake
+        // compound operator and hides the correctness defect.
+        if (prefix.Parent is AssignmentExpressionSyntax assignment && TransposedCompoundAssignment.Matches(assignment))
         {
             return;
         }

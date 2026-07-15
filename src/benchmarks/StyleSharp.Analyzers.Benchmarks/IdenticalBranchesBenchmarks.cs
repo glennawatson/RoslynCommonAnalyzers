@@ -20,7 +20,7 @@ public class IdenticalBranchesBenchmarks
 
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new Sst1476IdenticalBranchesAnalyzer(), IdenticalBranchesBenchmarkSource.Generate, Nodes);
+    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new IdenticalBranchesAnalyzer(), IdenticalBranchesBenchmarkSource.Generate, Nodes);
 
     /// <summary>Benchmarks the clean identical-branch path.</summary>
     /// <returns>The number of diagnostics produced.</returns>

@@ -2,7 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using VerifyInvariantLoop = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2406InvariantLoopConditionAnalyzer>;
+using VerifyInvariantLoop = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.LoopConditionAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 
@@ -30,8 +30,12 @@ public class InvariantLoopConditionAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies a for loop with an empty incrementor is reported.</summary>
+    /// <summary>Verifies a for loop that does not declare its counter and never advances it is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A for loop that declares its own counter is SST2411's shape; here the counter is declared outside the
+    /// loop, so the invariant-condition rule is the one that applies.
+    /// </remarks>
     [Test]
     public async Task ForWithoutAnIncrementorIsReportedAsync()
         => await VerifyInvariantLoop.VerifyAnalyzerAsync(
@@ -42,7 +46,8 @@ public class InvariantLoopConditionAnalyzerUnitTest
             {
                 public void M(int limit)
                 {
-                    for (var index = 0; {|SST2406:index < limit|};)
+                    var index = 0;
+                    for (; {|SST2406:index < limit|};)
                     {
                         Console.WriteLine(index);
                     }

@@ -11,5 +11,5 @@ internal static class ShortCircuitOperatorBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
     public static SingleAnalyzerBenchmarkState Create(int nodes)
-        => SingleAnalyzerBenchmarkCases.Create(new Sst1468UseShortCircuitOperatorAnalyzer(), ShortCircuitOperatorBenchmarkSource.Generate, nodes);
+        => SingleAnalyzerBenchmarkCases.Create(new NonShortCircuitOperatorAnalyzer(), ShortCircuitOperatorBenchmarkSource.Generate, nodes);
 }

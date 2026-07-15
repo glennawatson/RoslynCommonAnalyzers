@@ -7,7 +7,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Single source of truth for the readability (SST11xx) diagnostic descriptors.
 /// </summary>
-internal static class ReadabilityRules
+internal static partial class ReadabilityRules
 {
     /// <summary>SST1106 — a statement is empty (a stray semicolon).</summary>
     public static readonly DiagnosticDescriptor EmptyStatement = Create(

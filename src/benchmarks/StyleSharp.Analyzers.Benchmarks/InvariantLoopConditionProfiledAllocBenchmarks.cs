@@ -21,7 +21,7 @@ public class InvariantLoopConditionProfiledAllocBenchmarks
 
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new Sst2406InvariantLoopConditionAnalyzer(), InvariantLoopConditionBenchmarkSource.Generate, Nodes);
+    public void Setup() => _state = SingleAnalyzerBenchmarkCases.Create(new LoopConditionAnalyzer(), InvariantLoopConditionBenchmarkSource.Generate, Nodes);
 
     /// <summary>Benchmarks the clean invariant-loop-condition path.</summary>
     /// <returns>The number of diagnostics produced.</returns>

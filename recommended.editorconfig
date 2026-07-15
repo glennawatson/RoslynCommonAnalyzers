@@ -267,6 +267,7 @@ dotnet_diagnostic.SST2014.severity = warning # A goto jumps to a label
 dotnet_diagnostic.SST2015.severity = warning # A ++ or -- is buried inside a larger expression
 dotnet_diagnostic.SST2016.severity = warning # A DateTime on a visible signature loses its offset at the boundary
 dotnet_diagnostic.SST2017.severity = warning # A .Date or .TimeOfDay read proves the value is only a date, or only a time of day
+dotnet_diagnostic.SST2018.severity = warning # A null check beside an 'is' type pattern is redundant
 
 # Collection expressions
 dotnet_diagnostic.SST2100.severity = warning # An empty collection creation can use []
@@ -353,6 +354,18 @@ dotnet_diagnostic.SST2407.severity = warning # A declared event is never raised
 dotnet_diagnostic.SST2408.severity = warning # A StringBuilder is filled and never read
 dotnet_diagnostic.SST2409.severity = warning # A throw constructs a general exception type (Exception/SystemException/ApplicationException)
 dotnet_diagnostic.SST2410.severity = warning # A created disposable is never disposed and never leaves the method
+dotnet_diagnostic.SST2411.severity = warning # A for loop declares and tests a counter it never advances
+dotnet_diagnostic.SST2412.severity = warning # A for loop steps its counter away from the side of its bound
+dotnet_diagnostic.SST2413.severity = warning # A for loop's condition is already false at the counter's constant start
+dotnet_diagnostic.SST2414.severity = warning # Two branches of one conditional share an implementation
+dotnet_diagnostic.SST2415.severity = warning # A non-short-circuiting boolean operator runs work the left operand cannot guard
+dotnet_diagnostic.SST2416.severity = warning # A remainder test against a non-zero value misses negatives on a signed type
+dotnet_diagnostic.SST2417.severity = warning # An assignment is spaced like a transposed operator (x =+ 1)
+dotnet_diagnostic.SST2418.severity = warning # The result of an immutable value's method is discarded
+dotnet_diagnostic.SST2419.severity = warning # A set or list operation is applied to the collection itself
+dotnet_diagnostic.SST2420.severity = warning # An index-of result tested with '> 0' skips the first position
+dotnet_diagnostic.SST2421.severity = warning # A write through a readonly field of an unconstrained type parameter is lost
+dotnet_diagnostic.SST2422.severity = warning # A property's getter reads a different field than its setter writes
 dotnet_diagnostic.SST2423.severity = warning # A value owned by a using is returned out of the using scope
 dotnet_diagnostic.SST2438.severity = warning # A catch logs at error level but discards the caught exception (level floor configurable)
 dotnet_diagnostic.SST2439.severity = warning # An exception is passed as a log message value instead of the exception argument
@@ -405,6 +418,7 @@ dotnet_diagnostic.SST1215.severity = warning # Instance readonly fields should a
 dotnet_diagnostic.SST1216.severity = warning # Using static directives should be placed after regular usings and before aliases
 dotnet_diagnostic.SST1217.severity = warning # Using static directives should be ordered alphabetically
 dotnet_diagnostic.SST1218.severity = warning # Other members separate a method's overloads
+dotnet_diagnostic.SST1219.severity = warning # A switch statement's default section is not last
 
 # Readability
 dotnet_diagnostic.SST1100.severity = warning # A base. prefix is used where the type does not override the member
@@ -423,6 +437,7 @@ dotnet_diagnostic.SST1115.severity = warning # A blank line separates a paramete
 dotnet_diagnostic.SST1116.severity = warning # A qualified name has a shorter spelling that binds to the same symbol
 dotnet_diagnostic.SST1117.severity = warning # Instance member access follows the configured this. qualification style
 # dotnet_diagnostic.SST1118.severity = warning # A parameter or argument spans multiple lines (opt-in)
+dotnet_diagnostic.SST1119.severity = warning # A numeric literal's digit separators group its digits irregularly
 dotnet_diagnostic.SST1120.severity = warning # A comment contains no text
 # dotnet_diagnostic.SST1121.severity = warning # A framework type name is used instead of its built-in alias (opt-in)
 dotnet_diagnostic.SST1122.severity = warning # An empty string literal is used instead of string.Empty
@@ -440,6 +455,7 @@ dotnet_diagnostic.SST1134.severity = warning # An attribute shares a line with a
 dotnet_diagnostic.SST1135.severity = warning # A using directive names a namespace or type that is not fully qualified
 dotnet_diagnostic.SST1136.severity = warning # Several enum members share a line
 dotnet_diagnostic.SST1137.severity = warning # Sibling elements are indented differently from one another
+dotnet_diagnostic.SST1138.severity = warning # A free-standing block declares nothing and only nests its statements
 dotnet_diagnostic.SST1139.severity = warning # A numeric literal is cast where a literal suffix would express the type
 dotnet_diagnostic.SST1140.severity = warning # A wrapped conditional operator should start an indented continuation line
 dotnet_diagnostic.SST1141.severity = warning # An explicit ValueTuple<...> is used where tuple syntax would do

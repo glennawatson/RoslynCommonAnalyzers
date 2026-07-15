@@ -149,6 +149,7 @@ async, `PSH14xx` API selection.
 | [PSH1415](rules/PSH1415.md) | A local or private field is typed as an interface where only one concrete type is ever assigned. Code fix changes the declared type. |
 | [PSH1416](rules/PSH1416.md) | A fresh `JsonSerializerOptions` per call throws away the serializer's per-type metadata cache. |
 | [PSH1417](rules/PSH1417.md) | An expensive argument is computed for a `Debug.Assert` that release builds compile away. |
+| [PSH1418](rules/PSH1418.md) | An `HttpClient` is constructed for a single call, so its connection pool dies with it and a socket leaks per call. |
 
 # StyleSharp Rule Index
 
@@ -497,6 +498,9 @@ Code that compiles and runs but does not do what it says.
 | [SST2441](rules/SST2441.md) | A message-template placeholder is empty, whitespace, or not a property name, so its value is dropped from the payload. |
 | [SST2442](rules/SST2442.md) | A message template names the same placeholder twice, so one value silently overwrites the other in a structured sink. |
 | [SST2443](rules/SST2443.md) | A typed logger's category is a type other than the one that logs, so its level filters and sink routes do nothing. Code fix rewrites the category. |
+| [SST2444](rules/SST2444.md) | A constant regular-expression pattern does not parse, so it throws on first use. Refactoring converts a valid literal to a source-generated `[GeneratedRegex]` method. |
+| [SST2445](rules/SST2445.md) | A custom date/time format uses an unquoted `/` or `:` with a culture-sensitive provider, so the separators change with the culture. Code fixes quote the separators or switch to the invariant culture. |
+| [SST2446](rules/SST2446.md) | A stream read's returned byte count is awaited and discarded through a configured awaiter or a local, so a short read passes unnoticed. Code fix rewrites to `ReadExactlyAsync` where it exists. |
 
 ## Naming
 

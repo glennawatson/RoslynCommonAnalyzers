@@ -124,6 +124,9 @@ SST2440 | Correctness | Warning | LoggerCallAnalyzer
 SST2441 | Correctness | Warning | LoggerCallAnalyzer
 SST2442 | Correctness | Warning | LoggerCallAnalyzer
 SST2443 | Correctness | Warning | Sst2443LoggerCategoryAnalyzer
+SST2444 | Correctness | Warning | Sst2444InvalidRegexPatternAnalyzer
+SST2445 | Correctness | Warning | Sst2445CultureSensitiveDateFormatAnalyzer
+SST2446 | Correctness | Warning | Sst2446DiscardedStreamReadAnalyzer
 
 ### Removed Rules
 

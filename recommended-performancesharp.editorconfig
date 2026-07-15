@@ -137,3 +137,4 @@ dotnet_diagnostic.PSH1414.severity = warning # Mark members that do not touch in
 dotnet_diagnostic.PSH1415.severity = warning # Hold the concrete type when the concrete type is what you have
 dotnet_diagnostic.PSH1416.severity = warning # Cache the serializer options instead of building them per call
 dotnet_diagnostic.PSH1417.severity = warning # Do not compute an expensive argument for an assertion
+dotnet_diagnostic.PSH1418.severity = warning # An HttpClient is constructed for a single call and its connection pool dies with it

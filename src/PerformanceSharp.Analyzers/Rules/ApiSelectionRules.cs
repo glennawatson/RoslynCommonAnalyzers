@@ -9,7 +9,7 @@ namespace PerformanceSharp.Analyzers;
 /// cheaper framework APIs that do the same work with less allocation or setup,
 /// and are gated on the replacement API existing in the referenced framework.
 /// </summary>
-internal static class ApiSelectionRules
+internal static partial class ApiSelectionRules
 {
     /// <summary>PSH1400 — one-shot hashing should use the static <c>HashData</c> methods.</summary>
     public static readonly DiagnosticDescriptor PreferStaticHashData = Create(

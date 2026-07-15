@@ -354,6 +354,9 @@ dotnet_diagnostic.SST2440.severity = warning # Two log values named after the pl
 dotnet_diagnostic.SST2441.severity = warning # A message-template placeholder has no valid property name
 dotnet_diagnostic.SST2442.severity = warning # A message template repeats a placeholder name
 dotnet_diagnostic.SST2443.severity = warning # A typed logger's category is a type other than the one that logs
+dotnet_diagnostic.SST2444.severity = warning # A constant regular-expression pattern does not parse
+dotnet_diagnostic.SST2445.severity = warning # A custom date/time format uses an unquoted culture separator with a culture-sensitive provider
+dotnet_diagnostic.SST2446.severity = warning # A stream read's byte count is awaited and discarded
 
 # Naming
 dotnet_diagnostic.SST1300.severity = warning # Types and members should be PascalCase

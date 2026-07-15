@@ -112,3 +112,4 @@ PSH1414 | ApiSelection | Warning | Psh1414MarkMembersStaticAnalyzer
 PSH1415 | ApiSelection | Warning | Psh1415UseConcreteTypeAnalyzer
 PSH1416 | ApiSelection | Warning | Psh1416CacheSerializerOptionsAnalyzer
 PSH1417 | ApiSelection | Warning | Psh1417ExpensiveDebugAssertArgumentAnalyzer
+PSH1418 | ApiSelection | Warning | Psh1418PerCallHttpClientAnalyzer

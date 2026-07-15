@@ -28,7 +28,7 @@
 # stylesharp.max_inheritance_depth = 5                     # SST1446
 # stylesharp.count_external_types = false                  # SST1446 (set true to count ancestors from other assemblies)
 # stylesharp.magic_number_allowed_values = -1, 0, 1        # SST1471 (comma-separated; the values that need no name)
-# stylesharp.allowed_enum_storage = int                     # SST2313 (comma-separated; add uint, long, ulong to match SonarAnalyzer's S4022)
+# stylesharp.allowed_enum_storage = int                     # SST2313 (comma-separated; add uint, long, ulong to allow wider enum storage)
 # stylesharp.allow_zero_comparison = true                  # SST1473 (set false to also report '== 0.0' on a float/double)
 # stylesharp.minimum_statements = 1                        # SST1476 (the smallest identical branch body that counts)
 # stylesharp.allow_zero_shift = false                      # SST1478 (set true to allow a shift by 0 in a regular table of shifts)

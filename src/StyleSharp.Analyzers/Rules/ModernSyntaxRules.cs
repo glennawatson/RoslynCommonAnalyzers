@@ -308,6 +308,13 @@ internal static class ModernSyntaxRules
         "This 'for' has neither an initializer nor an increment; write it as a 'while'",
         UseWhileOverForDescription);
 
+    /// <summary>SST2251 — an explicit method type-argument list repeats what inference would supply.</summary>
+    public static readonly DiagnosticDescriptor OmitInferableTypeArguments = Create(
+        "SST2251",
+        "Let inference supply the type arguments",
+        "Remove the explicit type arguments that inference supplies unchanged",
+        OmitInferableTypeArgumentsDescription);
+
     /// <summary>The SST2243 rule description.</summary>
     private const string UseRawStringLiteralDescription =
         "A verbatim string full of doubled-quote escapes, or one spanning multiple lines, reads with less escape noise as a raw string "
@@ -318,6 +325,12 @@ internal static class ModernSyntaxRules
     private const string UppercaseLiteralSuffixDescription =
         "A lower-case 'l' is very nearly a '1' in most fonts, so '1l' reads as eleven. The other suffixes follow the same rule for "
         + "consistency rather than because they are ambiguous.";
+
+    /// <summary>The SST2251 rule description.</summary>
+    private const string OmitInferableTypeArgumentsDescription =
+        "A method call that names its type arguments explicitly repeats what the compiler infers from the call's arguments. "
+        + "It is reported only when the call bound without the type-argument list resolves to the identical constructed method, "
+        + "so the arguments are provably redundant and can be dropped without changing which method the call means.";
 
     /// <summary>The UseWhileOverFor rule description.</summary>
     private const string UseWhileOverForDescription =

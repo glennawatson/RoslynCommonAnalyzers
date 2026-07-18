@@ -539,6 +539,12 @@ Code that compiles and runs but does not do what it says.
 | [SST2444](rules/SST2444.md) | A constant regular-expression pattern does not parse, so it throws on first use. Refactoring converts a valid literal to a source-generated `[GeneratedRegex]` method. |
 | [SST2445](rules/SST2445.md) | A custom date/time format uses an unquoted `/` or `:` with a culture-sensitive provider, so the separators change with the culture. Code fixes quote the separators or switch to the invariant culture. |
 | [SST2446](rules/SST2446.md) | A stream read's returned byte count is awaited and discarded through a configured awaiter or a local, so a short read passes unnoticed. Code fix rewrites to `ReadExactlyAsync` where it exists. |
+| [SST2448](rules/SST2448.md) | A combined or opaque delegate is removed with `-`/`-=`, which strips handlers only as one contiguous run, so the order they were combined in silently decides the result. |
+| [SST2449](rules/SST2449.md) | An event or delegate handler added as a lambda or anonymous method is removed with `-=`, which never matches it, so the subscription is never removed. |
+| [SST2451](rules/SST2451.md) | Every constructor of a non-static, non-abstract class is private, yet no member ever creates an instance, so the type can never exist. |
+| [SST2452](rules/SST2452.md) | A method marked `[Pure]` returns `void`, a bare `Task`, or a bare `ValueTask`, so it has no observable result — the attribute is wrong or the method is dead. Code fix removes the attribute. |
+| [SST2457](rules/SST2457.md) | An integer sequence `Sum` is wrapped in `unchecked`, which does not stop it throwing on overflow. |
+| [SST2458](rules/SST2458.md) | A bitwise operator is applied to an enum not declared `[Flags]`, producing a value with no defined meaning. |
 
 ## Naming
 

@@ -5,19 +5,20 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Reports an instance constructor that assigns one of its own type's static fields (SST2402).
+/// Reports an instance member — a constructor, method, finalizer, or a property, indexer, or event
+/// accessor — that assigns one of its own type's static fields (SST2402).
 /// </summary>
 /// <remarks>
 /// <para>
-/// Four shapes are deliberately not reported, because each of them means something other than "the newest
-/// object redefines the field":
+/// Four shapes are deliberately not reported, because each of them means something other than "one
+/// instance redefines the field for all the others":
 /// </para>
 /// <list type="bullet">
-/// <item><description>A <b>static constructor</b>, which is the correct place to set static state — it runs
-/// once, before anything can observe the field.</description></item>
+/// <item><description>A <b>static member</b> — a static constructor, method, or accessor is the correct
+/// place to set static state: it acts for the type, not for one instance.</description></item>
 /// <item><description>A <b>compound assignment or increment</b> (<c>Count++</c>, <c>_total += x</c>). It
 /// accumulates rather than overwrites: an instance counter is a deliberate, if racy, design, and the value
-/// the last constructor wrote is not the whole story.</description></item>
+/// the last instance wrote is not the whole story.</description></item>
 /// <item><description>A <b>lazily-initialised guard</b> — <c>Instance ??= this;</c>, or an assignment whose
 /// enclosing <c>if</c> tests the same field. The check is the author saying "only the first one wins", which
 /// is the opposite of the bug this rule describes.</description></item>
@@ -25,13 +26,15 @@ namespace StyleSharp.Analyzers;
 /// instance.</description></item>
 /// </list>
 /// <para>
-/// A write inside a lambda or a local function is not reported either: that code runs when the delegate is
-/// invoked, not while the object is being built.
+/// A write inside a lambda or a local function declared in a <b>constructor</b> is not reported either: that
+/// code runs when the delegate is invoked, not while the object is being built. In any other instance member
+/// the same write is reported — the delegate is part of how that member mutates type-wide state, whenever
+/// it runs.
 /// </para>
 /// <para>
-/// The clean path binds nothing. The constructor's assignments are found on syntax, the containing type is
+/// The clean path binds nothing. The member's assignments are found on syntax, the containing type is
 /// resolved only once one is present, and an assignment target is bound only after its name has matched a
-/// static field the type actually declares — which most assignments in a constructor never do.
+/// static field the type actually declares — which most assignments in a member never do.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -39,6 +42,15 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
 {
     /// <summary>The attribute marking a field as per-thread state.</summary>
     private const string ThreadStaticAttributeName = "ThreadStaticAttribute";
+
+    /// <summary>The member declaration kinds that can hold instance code.</summary>
+    private static readonly ImmutableArray<SyntaxKind> HandledKinds = ImmutableArrays.Of(
+        SyntaxKind.ConstructorDeclaration,
+        SyntaxKind.DestructorDeclaration,
+        SyntaxKind.MethodDeclaration,
+        SyntaxKind.PropertyDeclaration,
+        SyntaxKind.IndexerDeclaration,
+        SyntaxKind.EventDeclaration);
 
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
@@ -49,40 +61,119 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ConstructorDeclaration);
+        context.RegisterSyntaxNodeAction(Analyze, HandledKinds);
     }
 
-    /// <summary>Analyzes one constructor for writes to its type's static fields.</summary>
+    /// <summary>Analyzes one instance member for writes to its type's static fields.</summary>
     /// <param name="context">The syntax node context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var constructor = (ConstructorDeclarationSyntax)context.Node;
-        if (ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword)
-            || GetBody(constructor) is not { } body)
+        if (context.Node.Parent is not TypeDeclarationSyntax typeDeclaration)
         {
             return;
         }
 
-        var scan = new ConstructorScan(context, constructor);
-        DescendantTraversalHelper.VisitDescendants<AssignmentExpressionSyntax, ConstructorScan>(body, ref scan, VisitAssignment);
+        switch (context.Node)
+        {
+            case ConstructorDeclarationSyntax constructor:
+            {
+                if (!ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword))
+                {
+                    Scan(context, typeDeclaration, GetBody(constructor), excludeDeferredWrites: true);
+                }
+
+                break;
+            }
+
+            case BaseMethodDeclarationSyntax method:
+            {
+                if (!ModifierListHelper.Contains(method.Modifiers, SyntaxKind.StaticKeyword))
+                {
+                    Scan(context, typeDeclaration, GetBody(method), excludeDeferredWrites: false);
+                }
+
+                break;
+            }
+
+            case BasePropertyDeclarationSyntax property:
+            {
+                if (!ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword))
+                {
+                    ScanAccessors(context, typeDeclaration, property);
+                }
+
+                break;
+            }
+        }
     }
 
-    /// <summary>Reports one assignment when it overwrites a static field of the constructor's own type.</summary>
+    /// <summary>Scans each body a property, indexer, or event declares.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="typeDeclaration">The member's containing type declaration.</param>
+    /// <param name="property">The property, indexer, or event.</param>
+    private static void ScanAccessors(
+        SyntaxNodeAnalysisContext context,
+        TypeDeclarationSyntax typeDeclaration,
+        BasePropertyDeclarationSyntax property)
+    {
+        var expressionBody = property switch
+        {
+            PropertyDeclarationSyntax { ExpressionBody: { } getter } => getter,
+            IndexerDeclarationSyntax { ExpressionBody: { } getter } => getter,
+            _ => null,
+        };
+        Scan(context, typeDeclaration, expressionBody, excludeDeferredWrites: false);
+
+        if (property.AccessorList is not { } accessorList)
+        {
+            return;
+        }
+
+        var accessors = accessorList.Accessors;
+        for (var i = 0; i < accessors.Count; i++)
+        {
+            var accessor = accessors[i];
+            Scan(context, typeDeclaration, (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody, excludeDeferredWrites: false);
+        }
+    }
+
+    /// <summary>Scans one member body for assignments to the type's static fields.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="typeDeclaration">The member's containing type declaration.</param>
+    /// <param name="body">The body to scan, or <see langword="null"/> when the member has none.</param>
+    /// <param name="excludeDeferredWrites">Whether writes inside lambdas and local functions run outside this
+    /// member's story, as they do for a constructor.</param>
+    private static void Scan(
+        SyntaxNodeAnalysisContext context,
+        TypeDeclarationSyntax typeDeclaration,
+        SyntaxNode? body,
+        bool excludeDeferredWrites)
+    {
+        if (body is null)
+        {
+            return;
+        }
+
+        var scan = new MemberScan(context, typeDeclaration, body, excludeDeferredWrites);
+        DescendantTraversalHelper.VisitDescendants<AssignmentExpressionSyntax, MemberScan>(body, ref scan, VisitAssignment);
+    }
+
+    /// <summary>Reports one assignment when it overwrites a static field of the member's own type.</summary>
     /// <param name="assignment">The assignment being visited.</param>
     /// <param name="state">The scan state.</param>
-    /// <returns><see langword="true"/>, so the whole constructor is examined.</returns>
-    private static bool VisitAssignment(AssignmentExpressionSyntax assignment, ref ConstructorScan state)
+    /// <returns><see langword="true"/>, so the whole member is examined.</returns>
+    private static bool VisitAssignment(AssignmentExpressionSyntax assignment, ref MemberScan state)
     {
         if (!assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
             || GetAssignedName(assignment.Left) is not { } name
-            || IsDeferred(assignment, state.Constructor))
+            || (state.ExcludeDeferredWrites && IsDeferred(assignment, state.ScanRoot)))
         {
             return true;
         }
 
         if (state.ResolveContainingType() is not { } containingType
             || !DeclaresAssignableStaticField(containingType, name)
-            || !IsUnguarded(assignment, name)
+            || !IsUnguarded(assignment, name, state.ScanRoot)
             || ResolveField(state.Context, assignment.Left) is not { } field)
         {
             return true;
@@ -96,13 +187,13 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
     }
 
     /// <summary>Returns whether a static field with this name is one the type could assign here.</summary>
-    /// <param name="containingType">The constructor's type.</param>
+    /// <param name="containingType">The member's type.</param>
     /// <param name="name">The assigned name.</param>
     /// <returns><see langword="true"/> when the type declares a matching, writable static field.</returns>
     /// <remarks>
     /// A name comparison against the type's own members, so the assignment target is bound only when the
     /// name really could be a static field. <c>const</c> and <c>readonly</c> fields cannot be assigned from
-    /// an instance constructor at all, so a name that matches one of those is not a candidate.
+    /// an instance member at all, so a name that matches one of those is not a candidate.
     /// </remarks>
     private static bool DeclaresAssignableStaticField(INamedTypeSymbol containingType, string name)
     {
@@ -153,17 +244,18 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
     /// <summary>Returns whether the assignment is unguarded, and so really does overwrite the field.</summary>
     /// <param name="assignment">The assignment.</param>
     /// <param name="name">The assigned name.</param>
+    /// <param name="scanRoot">The member body being scanned.</param>
     /// <returns><see langword="true"/> when nothing on the way in tests the field's current value.</returns>
     /// <remarks>
     /// <c>if (Instance is null) { Instance = this; }</c> is a first-one-wins initializer, not a race to
-    /// overwrite. The test may be anywhere between the assignment and the constructor body, so every
-    /// enclosing <c>if</c> is checked for a mention of the field.
+    /// overwrite. The test may be anywhere between the assignment and the member body, so every enclosing
+    /// <c>if</c> is checked for a mention of the field.
     /// </remarks>
-    private static bool IsUnguarded(AssignmentExpressionSyntax assignment, string name)
+    private static bool IsUnguarded(AssignmentExpressionSyntax assignment, string name, SyntaxNode scanRoot)
     {
         for (SyntaxNode? node = assignment; node is not null; node = node.Parent)
         {
-            if (node is ConstructorDeclarationSyntax)
+            if (node == scanRoot)
             {
                 return true;
             }
@@ -203,13 +295,13 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
         return false;
     }
 
-    /// <summary>Returns whether an assignment runs later than the constructor that contains it.</summary>
+    /// <summary>Returns whether an assignment runs later than the member that contains it.</summary>
     /// <param name="assignment">The assignment.</param>
-    /// <param name="constructor">The constructor being analyzed.</param>
+    /// <param name="scanRoot">The member body being scanned.</param>
     /// <returns><see langword="true"/> when the assignment sits inside a lambda or a local function.</returns>
-    private static bool IsDeferred(AssignmentExpressionSyntax assignment, ConstructorDeclarationSyntax constructor)
+    private static bool IsDeferred(AssignmentExpressionSyntax assignment, SyntaxNode scanRoot)
     {
-        for (SyntaxNode? node = assignment.Parent; node is not null && node != constructor; node = node.Parent)
+        for (SyntaxNode? node = assignment.Parent; node is not null && node != scanRoot; node = node.Parent)
         {
             if (node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)
             {
@@ -222,7 +314,7 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
 
     /// <summary>Gets the name an assignment writes to.</summary>
     /// <param name="target">The assignment's left-hand side.</param>
-    /// <returns>The written name, or <see langword="null"/> when the target names an instance member of the object being built.</returns>
+    /// <returns>The written name, or <see langword="null"/> when the target names an instance member of the object itself.</returns>
     /// <remarks><c>this.X = …</c> cannot be a static field, so it never reaches the semantic model.</remarks>
     private static string? GetAssignedName(ExpressionSyntax target) => target switch
     {
@@ -232,16 +324,23 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
         _ => null,
     };
 
-    /// <summary>Gets a constructor's body, in whichever form it is written.</summary>
-    /// <param name="constructor">The constructor.</param>
-    /// <returns>The body, or <see langword="null"/> when the constructor has none.</returns>
-    private static SyntaxNode? GetBody(ConstructorDeclarationSyntax constructor)
-        => (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody;
+    /// <summary>Gets a constructor's, method's, or finalizer's body, in whichever form it is written.</summary>
+    /// <param name="member">The member.</param>
+    /// <returns>The body, or <see langword="null"/> when the member has none.</returns>
+    private static SyntaxNode? GetBody(BaseMethodDeclarationSyntax member)
+        => (SyntaxNode?)member.Body ?? member.ExpressionBody;
 
-    /// <summary>The state threaded through a constructor's assignment scan.</summary>
+    /// <summary>The state threaded through a member body's assignment scan.</summary>
     /// <param name="Context">The syntax node context.</param>
-    /// <param name="Constructor">The constructor being analyzed.</param>
-    private record struct ConstructorScan(SyntaxNodeAnalysisContext Context, ConstructorDeclarationSyntax Constructor)
+    /// <param name="TypeDeclaration">The member's containing type declaration.</param>
+    /// <param name="ScanRoot">The member body being scanned.</param>
+    /// <param name="ExcludeDeferredWrites">Whether writes inside lambdas and local functions run outside this
+    /// member's story, as they do for a constructor.</param>
+    private record struct MemberScan(
+        SyntaxNodeAnalysisContext Context,
+        TypeDeclarationSyntax TypeDeclaration,
+        SyntaxNode ScanRoot,
+        bool ExcludeDeferredWrites)
     {
         /// <summary>Gets or sets a value indicating whether the containing type has been resolved yet.</summary>
         private bool Resolved { get; set; }
@@ -249,7 +348,7 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
         /// <summary>Gets or sets the resolved containing type.</summary>
         private INamedTypeSymbol? ContainingType { get; set; }
 
-        /// <summary>Resolves the constructor's type, binding it at most once per constructor.</summary>
+        /// <summary>Resolves the member's type, binding it at most once per scanned body.</summary>
         /// <returns>The containing type, or <see langword="null"/> when it does not bind.</returns>
         public INamedTypeSymbol? ResolveContainingType()
         {
@@ -259,9 +358,7 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
             }
 
             Resolved = true;
-            ContainingType = Context.SemanticModel
-                .GetDeclaredSymbol(Constructor, Context.CancellationToken)?
-                .ContainingType;
+            ContainingType = Context.SemanticModel.GetDeclaredSymbol(TypeDeclaration, Context.CancellationToken);
             return ContainingType;
         }
     }

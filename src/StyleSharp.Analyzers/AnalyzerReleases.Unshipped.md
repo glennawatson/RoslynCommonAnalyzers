@@ -15,3 +15,6 @@ SST2457 | Correctness | Warning | Sst2457UncheckedSequenceSumAnalyzer
 SST2458 | Correctness | Warning | Sst2458NonFlagsEnumBitwiseAnalyzer
 SST2459 | Correctness | Warning | Sst2459OptionalByRefParameterAnalyzer
 SST2460 | Correctness | Warning | Sst2460DefaultValueOnParameterAnalyzer
+SST2462 | Correctness | Warning | Sst2462NewMemberReducesAccessibilityAnalyzer
+SST2463 | Correctness | Warning | Sst2463InheritedFieldCaseClashAnalyzer
+SST2465 | Correctness | Warning | Sst2465LoopConditionVariableReassignedAnalyzer

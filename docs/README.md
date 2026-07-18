@@ -549,6 +549,9 @@ Code that compiles and runs but does not do what it says.
 | [SST2458](rules/SST2458.md) | A bitwise operator is applied to an enum not declared `[Flags]`, producing a value with no defined meaning. |
 | [SST2459](rules/SST2459.md) | `[Optional]` on a `ref` or `out` parameter advertises an optionality no C# caller can use, while reflection reads `IsOptional` as true. Code fix removes the attribute. |
 | [SST2460](rules/SST2460.md) | `[DefaultValue]` on a method or record parameter is inert: it does not make the parameter optional and no call site reads it. Code fix swaps it for the interop `[DefaultParameterValue]`. |
+| [SST2462](rules/SST2462.md) | A member declared with `new` is less accessible than the inherited member it hides, so a base-typed reference still binds to the more accessible member and the reduced accessibility has no effect. |
+| [SST2463](rules/SST2463.md) | A derived type's instance field differs from an inherited accessible field only by case, so an unqualified reference to either name compiles and silently uses the wrong storage. |
+| [SST2465](rules/SST2465.md) | A for loop's body reassigns the counter or the local its condition tests, so the loop runs a different number of times than its header states. |
 
 ## Naming
 

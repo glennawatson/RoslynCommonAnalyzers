@@ -107,6 +107,12 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
             return targetType is not null;
         }
 
+        if (objectCreation.Parent is EqualsValueClauseSyntax { Parent: PropertyDeclarationSyntax property })
+        {
+            targetType = model.GetTypeInfo(property.Type, cancellationToken).Type;
+            return targetType is not null;
+        }
+
         if (objectCreation.Parent is not AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression, Left: { } left }
             || IsDiscardAssignmentTarget(left))
         {

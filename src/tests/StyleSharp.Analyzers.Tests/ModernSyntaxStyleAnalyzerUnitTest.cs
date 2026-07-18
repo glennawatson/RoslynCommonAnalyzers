@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyModernSyntaxStyle = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -52,6 +53,98 @@ public class ModernSyntaxStyleAnalyzerUnitTest
             TestCode = Source,
             FixedCode = FixedSource
         };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies repeated creation types in property initializers are removed.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task PropertyInitializerCandidateIsFixedAsync()
+    {
+        const string Source = """
+                              public sealed class Person
+                              {
+                              }
+
+                              public sealed class C
+                              {
+                                  public Person Owner { get; set; } = new {|SST2202:Person|}();
+
+                                  public Person Creator { get; } = new {|SST2202:Person|}();
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class Person
+                                   {
+                                   }
+
+                                   public sealed class C
+                                   {
+                                       public Person Owner { get; set; } = new();
+
+                                       public Person Creator { get; } = new();
+                                   }
+                                   """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies property initializers with a wider declared type stay explicit.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task PropertyInitializerWithDifferentTypeIsCleanAsync()
+    {
+        const string Source = """
+                              public sealed class Person
+                              {
+                              }
+
+                              public sealed class C
+                              {
+                                  public object Owner { get; set; } = new Person();
+                              }
+                              """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies property initializers stay explicit below C# 9, where target-typed new does not exist.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task PropertyInitializerIsSilentBelowCSharp9Async()
+    {
+        const string Source = """
+                              public sealed class Person
+                              {
+                              }
+
+                              public sealed class C
+                              {
+                                  public Person Owner { get; set; } = new Person();
+                              }
+                              """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source
+        };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp8));
+        });
 
         await test.RunAsync(CancellationToken.None);
     }

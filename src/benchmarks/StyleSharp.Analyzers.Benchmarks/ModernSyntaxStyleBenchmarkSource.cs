@@ -8,10 +8,13 @@ namespace StyleSharp.Analyzers.Benchmarks;
 internal static class ModernSyntaxStyleBenchmarkSource
 {
     /// <summary>The number of modern syntax shapes cycled by this source generator.</summary>
-    private const int ModernSyntaxShapeCount = 3;
+    private const int ModernSyntaxShapeCount = 4;
 
     /// <summary>The modulus bucket that emits a range candidate.</summary>
     private const int RangeShape = 2;
+
+    /// <summary>The modulus bucket that emits a property-initializer candidate.</summary>
+    private const int PropertyInitializerShape = 3;
 
     /// <summary>Builds clean or violating modern-syntax-style members.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
@@ -52,6 +55,9 @@ internal static class ModernSyntaxStyleBenchmarkSource
             (RangeShape, true) => $$"""
                                      public string Slice{{index}}(string text, int start, int length) => text.Substring(start, length);
                                      """,
+            (PropertyInitializerShape, true) => $$"""
+                                                  public Person Owner{{index}} { get; set; } = new Person();
+                                                  """,
             (0, false) => $$"""
                             public Person Create{{index}}()
                             {
@@ -62,8 +68,11 @@ internal static class ModernSyntaxStyleBenchmarkSource
             (1, false) => $$"""
                             public int Last{{index}}(int[] values) => values[^1];
                             """,
+            (RangeShape, false) => $$"""
+                                     public string Slice{{index}}(string text, int start, int length) => text[start..(start + length)];
+                                     """,
             _ => $$"""
-                   public string Slice{{index}}(string text, int start, int length) => text[start..(start + length)];
+                   public Person Owner{{index}} { get; set; } = new();
                    """
         };
 }

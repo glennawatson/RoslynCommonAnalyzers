@@ -5,11 +5,14 @@
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
-/// Reports an <c>HttpClient</c> that is constructed for a single call and then dropped (PSH1418): a
-/// <c>using new HttpClient(...)</c> declaration or statement, and <c>new HttpClient(...).SendAsync(...)</c>
-/// used directly as the receiver of the call it feeds. Each such instance carries its own connection pool,
-/// so building one per request opens and abandons a socket every time and drains the ephemeral port range
-/// under load.
+/// Reports a heavyweight, shareable client that is constructed for a single call and then dropped
+/// (PSH1418): a <c>using</c> (or <c>await using</c>) declaration or statement over the construction,
+/// and <c>new Client(...).Method(...)</c> used directly as the receiver of the call it feeds. Beyond
+/// <c>HttpClient</c>, whose per-instance connection pool abandons a socket per call, the same
+/// treatment covers the cloud service clients that are documented as thread-safe and intended to be
+/// cached for the lifetime of the process — the storage, messaging, document-database, and secret
+/// clients — because each construction builds a transport pipeline, authentication state, and
+/// metadata caches that die with the call.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,24 +22,31 @@ namespace PerformanceSharp.Analyzers;
 /// the fix asks for.
 /// </para>
 /// <para>
-/// The message adapts to the compilation. Where the dependency-injection client factory type resolves, it is
-/// named as the destination; where it does not — the usual case for a library that cannot assume a container —
-/// the rule steers to a single <c>static readonly HttpClient</c>, which is the correct answer either way. The
+/// The message adapts to the compilation. For <c>HttpClient</c>, where the dependency-injection client
+/// factory type resolves it is named as the destination; where it does not — the usual case for a library
+/// that cannot assume a container — the rule steers to a single <c>static readonly HttpClient</c>. The
+/// service clients all get the same steer: cache one shared instance for the lifetime of the process. The
 /// assembly entry point is exempt: a process that is about to exit exhausts nothing.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on <c>HttpClient</c> resolving, so a project that never
-/// references it registers no syntax action at all. The clean path is a parent-shape check and a token
-/// comparison, and nothing binds until both hold.
+/// The whole rule is gated at compilation start on <c>HttpClient</c> resolving — every supported client's
+/// SDK layers on the HTTP stack, so a compilation where <c>HttpClient</c> is absent cannot construct any of
+/// them and registers no syntax action at all. The clean path is a parent-shape check and a token
+/// comparison; each service-client type is resolved lazily, the first time its simple name appears in a
+/// per-call shape, and the result (present or absent) is cached for the compilation, so a project without a
+/// client's package pays a single failed lookup for it at most.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The simple name of the constructed type.</summary>
+    /// <summary>The simple name of the HTTP client type.</summary>
     internal const string HttpClientTypeName = "HttpClient";
 
-    /// <summary>The metadata name of the constructed type.</summary>
+    /// <summary>The index of the HTTP client in <see cref="ClientMetadataNames"/>.</summary>
+    private const int HttpClientIndex = 0;
+
+    /// <summary>The metadata name of the HTTP client type.</summary>
     private const string HttpClientMetadataName = "System.Net.Http.HttpClient";
 
     /// <summary>The metadata name of the dependency-injection client factory.</summary>
@@ -48,8 +58,51 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
     /// <summary>The suggestion appended when the client factory is not referenced.</summary>
     private const string StaticSuggestion = "share one 'static readonly HttpClient' instead";
 
+    /// <summary>The suggestion appended for the service clients, which are all safe to share across threads.</summary>
+    private const string SharedClientSuggestion = "cache one shared instance for the lifetime of the process instead";
+
+    /// <summary>
+    /// The metadata names of the reported client types, indexed like <see cref="ClientSimpleNames"/>.
+    /// Every entry must be documented as thread-safe, intended for process-lifetime reuse, and expensive
+    /// to construct, so the shared-instance steer is always correct.
+    /// </summary>
+    private static readonly string[] ClientMetadataNames =
+    [
+        HttpClientMetadataName,
+        "Azure.Storage.Blobs.BlobServiceClient",
+        "Azure.Storage.Queues.QueueServiceClient",
+        "Azure.Storage.Files.Shares.ShareServiceClient",
+        "Azure.Storage.Files.DataLake.DataLakeServiceClient",
+        "Azure.Data.Tables.TableServiceClient",
+        "Azure.Messaging.ServiceBus.ServiceBusClient",
+        "Azure.Messaging.EventHubs.Producer.EventHubProducerClient",
+        "Azure.Messaging.EventGrid.EventGridPublisherClient",
+        "Microsoft.Azure.Cosmos.CosmosClient",
+        "Azure.Security.KeyVault.Secrets.SecretClient",
+        "Azure.Security.KeyVault.Keys.KeyClient",
+        "Azure.Security.KeyVault.Certificates.CertificateClient",
+    ];
+
+    /// <summary>The simple names of the reported client types.</summary>
+    private static readonly string[] ClientSimpleNames =
+    [
+        HttpClientTypeName,
+        "BlobServiceClient",
+        "QueueServiceClient",
+        "ShareServiceClient",
+        "DataLakeServiceClient",
+        "TableServiceClient",
+        "ServiceBusClient",
+        "EventHubProducerClient",
+        "EventGridPublisherClient",
+        "CosmosClient",
+        "SecretClient",
+        "KeyClient",
+        "CertificateClient",
+    ];
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ApiSelectionRules.ReuseHttpClient);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ApiSelectionRules.ReuseSharedClient);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -64,13 +117,14 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
                 return;
             }
 
-            var suggestion = start.Compilation.GetTypeByMetadataName(HttpClientFactoryMetadataName) is not null
+            var httpClientSuggestion = start.Compilation.GetTypeByMetadataName(HttpClientFactoryMetadataName) is not null
                 ? FactorySuggestion
                 : StaticSuggestion;
             var entryPoint = start.Compilation.GetEntryPoint(start.CancellationToken);
+            var clientTypes = new ClientTypeCache(start.Compilation, httpClientType);
 
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeCreation(nodeContext, httpClientType, entryPoint, suggestion),
+                nodeContext => AnalyzeCreation(nodeContext, clientTypes, entryPoint, httpClientSuggestion),
                 SyntaxKind.ObjectCreationExpression,
                 SyntaxKind.ImplicitObjectCreationExpression);
         });
@@ -110,45 +164,73 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
         };
     }
 
-    /// <summary>Reports PSH1418 for a per-call construction of the client type.</summary>
+    /// <summary>Reports PSH1418 for a per-call construction of a known client type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="httpClientType">The compilation's client type.</param>
+    /// <param name="clientTypes">The compilation's lazily resolved client types.</param>
     /// <param name="entryPoint">The compilation's entry point, when it has one.</param>
-    /// <param name="suggestion">The compilation-specific replacement advice.</param>
+    /// <param name="httpClientSuggestion">The compilation-specific replacement advice for the HTTP client.</param>
     private static void AnalyzeCreation(
         SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol httpClientType,
+        ClientTypeCache clientTypes,
         IMethodSymbol? entryPoint,
-        string suggestion)
+        string httpClientSuggestion)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
-        if (!IsPerCallShape(creation) || !NamesHttpClient(creation))
+        if (!IsPerCallShape(creation))
+        {
+            return;
+        }
+
+        var writtenName = GetWrittenTypeName(creation);
+        var index = GetKnownClientIndex(writtenName);
+        if (index < 0 || clientTypes.Resolve(index) is not { } clientType)
         {
             return;
         }
 
         if (context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
-            || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, httpClientType)
+            || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, clientType)
             || IsInEntryPoint(context.SemanticModel, creation, entryPoint, context.CancellationToken))
         {
             return;
         }
 
         context.ReportDiagnostic(DiagnosticHelper.Create(
-            ApiSelectionRules.ReuseHttpClient,
+            ApiSelectionRules.ReuseSharedClient,
             creation.SyntaxTree,
             creation.Span,
-            suggestion));
+            writtenName!,
+            index == HttpClientIndex ? httpClientSuggestion : SharedClientSuggestion));
     }
 
-    /// <summary>Rejects a construction not written as the client type, without binding it.</summary>
-    /// <param name="creation">The construction to inspect.</param>
-    /// <returns><see langword="true"/> when the written type or its declaration names the client type.</returns>
-    private static bool NamesHttpClient(BaseObjectCreationExpressionSyntax creation) => creation switch
+    /// <summary>Maps a written simple name to its index in the client tables, without binding.</summary>
+    /// <param name="simpleName">The written simple name, when the construction spells one.</param>
+    /// <returns>The index into <see cref="ClientMetadataNames"/>, or -1 when the name is not a known client.</returns>
+    private static int GetKnownClientIndex(string? simpleName)
     {
-        ObjectCreationExpressionSyntax explicitCreation => GetSimpleName(explicitCreation.Type) == HttpClientTypeName,
+        if (simpleName is not null)
+        {
+            for (var i = 0; i < ClientSimpleNames.Length; i++)
+            {
+                if (ClientSimpleNames[i] == simpleName)
+                {
+                    return i;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Returns the simple name a construction is written as, without binding it.</summary>
+    /// <param name="creation">The construction to inspect.</param>
+    /// <returns>The written type's simple name, or <see langword="null"/> when nothing spells one.</returns>
+    private static string? GetWrittenTypeName(BaseObjectCreationExpressionSyntax creation) => creation switch
+    {
+        ObjectCreationExpressionSyntax explicitCreation => GetSimpleName(explicitCreation.Type),
         _ => creation.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration } }
-            && GetSimpleName(declaration.Type) == HttpClientTypeName,
+            ? GetSimpleName(declaration.Type)
+            : null,
     };
 
     /// <summary>Returns whether the construction sits inside the assembly entry point.</summary>
@@ -185,4 +267,48 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
         AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
         _ => null,
     };
+
+    /// <summary>Lazily resolves and caches the known client types for one compilation.</summary>
+    /// <remarks>
+    /// Each slot moves from unprobed (<see langword="null"/>) to either the resolved symbol or the
+    /// absent sentinel, so a compilation probes each metadata name once and a project without a
+    /// client's package pays one failed lookup for it in total. The unsynchronized writes race
+    /// benignly: concurrent probes of the same slot compute the same value.
+    /// </remarks>
+    private sealed class ClientTypeCache
+    {
+        /// <summary>The sentinel cached when a metadata name does not resolve.</summary>
+        private static readonly object Absent = new();
+
+        /// <summary>The compilation the client types resolve in.</summary>
+        private readonly Compilation _compilation;
+
+        /// <summary>The per-index slots: unprobed, <see cref="Absent"/>, or the resolved symbol.</summary>
+        private readonly object?[] _clientTypes;
+
+        /// <summary>Initializes a new instance of the <see cref="ClientTypeCache"/> class.</summary>
+        /// <param name="compilation">The compilation the client types resolve in.</param>
+        /// <param name="httpClientType">The already-resolved HTTP client type.</param>
+        internal ClientTypeCache(Compilation compilation, INamedTypeSymbol httpClientType)
+        {
+            _compilation = compilation;
+            _clientTypes = new object?[ClientMetadataNames.Length];
+            _clientTypes[HttpClientIndex] = httpClientType;
+        }
+
+        /// <summary>Resolves the client type at an index, probing its metadata name at most once.</summary>
+        /// <param name="index">The index into <see cref="ClientMetadataNames"/>.</param>
+        /// <returns>The resolved type, or <see langword="null"/> when the compilation does not reference it.</returns>
+        internal INamedTypeSymbol? Resolve(int index)
+        {
+            var cached = Volatile.Read(ref _clientTypes[index]);
+            if (cached is null)
+            {
+                cached = (object?)_compilation.GetTypeByMetadataName(ClientMetadataNames[index]) ?? Absent;
+                Volatile.Write(ref _clientTypes[index], cached);
+            }
+
+            return cached as INamedTypeSymbol;
+        }
+    }
 }

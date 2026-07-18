@@ -4,10 +4,10 @@
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
-/// <summary>Builds synthetic source for per-call HttpClient analyzer benchmarks.</summary>
+/// <summary>Builds synthetic source for per-call client analyzer benchmarks (PSH1418).</summary>
 internal static class PerCallHttpClientBenchmarkSource
 {
-    /// <summary>Builds a compilation unit that exercises clean or violating HttpClient patterns.</summary>
+    /// <summary>Builds a compilation unit that exercises clean or violating client-construction patterns.</summary>
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
@@ -15,13 +15,32 @@ internal static class PerCallHttpClientBenchmarkSource
         => $$"""
            using System.Net.Http;
            using System.Threading.Tasks;
+           using Azure.Storage.Blobs;
 
-           namespace Bench;
+           namespace Azure.Storage.Blobs
+           {
+               public class BlobContainerClient
+               {
+                   public Task CreateIfNotExistsAsync() => Task.CompletedTask;
+               }
 
-           {{BenchmarkSourceText.JoinBlocks(types, i => violating ? GenerateViolatingType(i) : GenerateCleanType(i))}}
+               public class BlobServiceClient
+               {
+                   public BlobServiceClient(string connectionString)
+                   {
+                   }
+
+                   public BlobContainerClient GetBlobContainerClient(string name) => new BlobContainerClient();
+               }
+           }
+
+           namespace Bench
+           {
+               {{BenchmarkSourceText.JoinBlocks(types, i => violating ? GenerateViolatingType(i) : GenerateCleanType(i))}}
+           }
            """;
 
-    /// <summary>Builds one clean type, which shares one client instance.</summary>
+    /// <summary>Builds one clean type, which shares one instance of each client.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     private static string GenerateCleanType(int index)
@@ -30,7 +49,11 @@ internal static class PerCallHttpClientBenchmarkSource
            {
                private static readonly HttpClient Client = new HttpClient();
 
+               private static readonly BlobServiceClient Blobs = new BlobServiceClient("UseDevelopmentStorage=true");
+
                public Task<string> M(string url) => Client.GetStringAsync(url);
+
+               public Task Prepare() => Blobs.GetBlobContainerClient("data").CreateIfNotExistsAsync();
 
                public HttpClient Create() => new HttpClient();
            }
@@ -48,6 +71,9 @@ internal static class PerCallHttpClientBenchmarkSource
                    using var client = new HttpClient();
                    return await client.GetStringAsync(url);
                }
+
+               public Task Prepare(string connection)
+                   => new BlobServiceClient(connection).GetBlobContainerClient("data").CreateIfNotExistsAsync();
            }
            """;
 }

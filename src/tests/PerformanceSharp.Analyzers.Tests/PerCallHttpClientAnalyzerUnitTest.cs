@@ -13,6 +13,69 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1418PerCallHttpClientAnalyzer"/> (PSH1418 per-call HttpClient construction).</summary>
 public class PerCallHttpClientAnalyzerUnitTest
 {
+    /// <summary>Minimal service-client surfaces declared under the real SDK namespaces, so the metadata-name probes resolve.</summary>
+    private const string ServiceClientStubsSource = """
+        namespace Azure.Storage.Blobs
+        {
+            public class BlobContainerClient
+            {
+                public System.Threading.Tasks.Task CreateIfNotExistsAsync() => System.Threading.Tasks.Task.CompletedTask;
+            }
+
+            public class BlobServiceClient
+            {
+                public BlobServiceClient(string connectionString)
+                {
+                }
+
+                public BlobContainerClient GetBlobContainerClient(string name) => new BlobContainerClient();
+            }
+        }
+
+        namespace Azure.Messaging.ServiceBus
+        {
+            public class ServiceBusClient : System.IAsyncDisposable
+            {
+                public ServiceBusClient(string connectionString)
+                {
+                }
+
+                public System.Threading.Tasks.ValueTask DisposeAsync() => default;
+            }
+        }
+
+        namespace Microsoft.Azure.Cosmos
+        {
+            public class CosmosClient : System.IDisposable
+            {
+                public CosmosClient(string connectionString)
+                {
+                }
+
+                public void Dispose()
+                {
+                }
+            }
+        }
+
+        namespace Azure.Security.KeyVault.Secrets
+        {
+            public class KeyVaultSecret
+            {
+            }
+
+            public class SecretClient
+            {
+                public SecretClient(System.Uri vaultUri)
+                {
+                }
+
+                public System.Threading.Tasks.Task<KeyVaultSecret> GetSecretAsync(string name)
+                    => System.Threading.Tasks.Task.FromResult(new KeyVaultSecret());
+            }
+        }
+        """;
+
     /// <summary>Verifies a using declaration over the construction is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -120,6 +183,74 @@ public class PerCallHttpClientAnalyzerUnitTest
                     using HttpClient client = {|PSH1418:new()|};
                     return await client.GetStringAsync(url);
                 }
+            }
+            """);
+
+    /// <summary>Verifies a service client used directly as a call receiver is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BlobServiceClientInlineReceiverIsFlaggedAsync()
+        => await VerifyWithServiceClientsAsync(
+            """
+            using Azure.Storage.Blobs;
+            using System.Threading.Tasks;
+
+            public class C
+            {
+                public Task M(string connection)
+                    => {|PSH1418:new BlobServiceClient(connection)|}.GetBlobContainerClient("data").CreateIfNotExistsAsync();
+            }
+            """);
+
+    /// <summary>Verifies a using declaration over a disposable service client is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CosmosClientUsingDeclarationIsFlaggedAsync()
+        => await VerifyWithServiceClientsAsync(
+            """
+            using Microsoft.Azure.Cosmos;
+
+            public class C
+            {
+                public void M(string connection)
+                {
+                    using var client = {|PSH1418:new CosmosClient(connection)|};
+                }
+            }
+            """);
+
+    /// <summary>Verifies an await using declaration over an async-disposable service client is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ServiceBusClientAwaitUsingDeclarationIsFlaggedAsync()
+        => await VerifyWithServiceClientsAsync(
+            """
+            using Azure.Messaging.ServiceBus;
+            using System.Threading.Tasks;
+
+            public class C
+            {
+                public async Task M(string connection)
+                {
+                    await using var client = {|PSH1418:new ServiceBusClient(connection)|};
+                }
+            }
+            """);
+
+    /// <summary>Verifies a secret client used directly as a call receiver is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SecretClientInlineReceiverIsFlaggedAsync()
+        => await VerifyWithServiceClientsAsync(
+            """
+            using System;
+            using System.Threading.Tasks;
+            using Azure.Security.KeyVault.Secrets;
+
+            public class C
+            {
+                public Task<KeyVaultSecret> M(Uri vault, string name)
+                    => {|PSH1418:new SecretClient(vault)|}.GetSecretAsync(name);
             }
             """);
 
@@ -242,6 +373,90 @@ public class PerCallHttpClientAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a service client cached in a static readonly field is never reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ServiceClientStaticFieldIsCleanAsync()
+        => await VerifyWithServiceClientsAsync(
+            """
+            using Azure.Storage.Blobs;
+            using System.Threading.Tasks;
+
+            public class C
+            {
+                private static readonly BlobServiceClient Client = new BlobServiceClient("UseDevelopmentStorage=true");
+
+                public Task M() => Client.GetBlobContainerClient("data").CreateIfNotExistsAsync();
+            }
+            """);
+
+    /// <summary>Verifies a service client injected through the constructor is never reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InjectedServiceClientIsCleanAsync()
+        => await VerifyWithServiceClientsAsync(
+            """
+            using Microsoft.Azure.Cosmos;
+
+            public class C
+            {
+                private readonly CosmosClient _client;
+
+                public C(CosmosClient client) => _client = client;
+
+                public CosmosClient Get() => _client;
+            }
+            """);
+
+    /// <summary>Verifies a same-named type is never reported when the service client's package is absent.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ClientNameWithoutSdkIsCleanAsync()
+        => await VerifyAsync(
+            """
+            namespace MyApp
+            {
+                public class CosmosClient : System.IDisposable
+                {
+                    public void Dispose()
+                    {
+                    }
+                }
+
+                public class C
+                {
+                    public void M()
+                    {
+                        using var client = new CosmosClient();
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a user type sharing a service client's simple name is never reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UserTypeSharingClientNameIsCleanAsync()
+        => await VerifyWithServiceClientsAsync(
+            """
+            namespace MyApp
+            {
+                public class BlobServiceClient
+                {
+                    public BlobServiceClient(string connectionString)
+                    {
+                    }
+
+                    public System.Threading.Tasks.Task PingAsync() => System.Threading.Tasks.Task.CompletedTask;
+                }
+
+                public class C
+                {
+                    public System.Threading.Tasks.Task M(string connection) => new BlobServiceClient(connection).PingAsync();
+                }
+            }
+            """);
+
     /// <summary>Verifies the assembly entry point is exempt.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -274,6 +489,21 @@ public class PerCallHttpClientAnalyzerUnitTest
             ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
             TestCode = source,
         };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Runs a verification with the service-client stub surfaces added to the compilation.</summary>
+    /// <param name="source">The source with diagnostic markup.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    private static async Task VerifyWithServiceClientsAsync(string source)
+    {
+        var test = new Verify.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
+            TestCode = source,
+        };
+        test.TestState.Sources.Add(ServiceClientStubsSource);
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -25,12 +25,12 @@ internal static partial class ApiSelectionRules
         "Seal '{0}' so attribute lookups skip the inheritance search",
         "Reflection-based attribute lookups are cheaper on sealed attribute types because the runtime never has to consider derived attributes.");
 
-    /// <summary>PSH1402 — a compile-time-constant static readonly field should be const.</summary>
+    /// <summary>PSH1402 — a compile-time-constant static readonly field or never-reassigned local should be const.</summary>
     public static readonly DiagnosticDescriptor PreferConstOverStaticReadonly = Create(
         "PSH1402",
         "Use const for compile-time constants",
         "Make '{0}' const; its value is known at compile time",
-        "A private or internal static readonly field with a constant value costs a field load on every use; const folds the value into call sites. Public fields are skipped.");
+        "A non-public static readonly field or a never-reassigned local with a constant value costs a load on every use; const folds the value into the use sites. Public fields are skipped.");
 
     /// <summary>PSH1403 — fields should not restate their default value.</summary>
     public static readonly DiagnosticDescriptor RemoveRedundantDefaultInitialization = Create(

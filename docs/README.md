@@ -551,7 +551,15 @@ Code that compiles and runs but does not do what it says.
 | [SST2460](rules/SST2460.md) | `[DefaultValue]` on a method or record parameter is inert: it does not make the parameter optional and no call site reads it. Code fix swaps it for the interop `[DefaultParameterValue]`. |
 | [SST2462](rules/SST2462.md) | A member declared with `new` is less accessible than the inherited member it hides, so a base-typed reference still binds to the more accessible member and the reduced accessibility has no effect. |
 | [SST2463](rules/SST2463.md) | A derived type's instance field differs from an inherited accessible field only by case, so an unqualified reference to either name compiles and silently uses the wrong storage. |
+| [SST2464](rules/SST2464.md) | A mutable class (a settable field or property) declares a value-equality `operator ==`, so a mutated instance's hash no longer matches the bucket it was stored in and it is lost as a dictionary or hash-set key. |
 | [SST2465](rules/SST2465.md) | A for loop's body reassigns the counter or the local its condition tests, so the loop runs a different number of times than its header states. |
+| [SST2467](rules/SST2467.md) | A type declares a `params` overload and a same-arity overload whose last parameter is more specific than the array's element type, so a single argument of that type silently binds to the specific overload instead of the params one. |
+| [SST2468](rules/SST2468.md) | A classic partial method is declared but never implemented, so the compiler silently removes the declaration and every call to it. |
+| [SST2470](rules/SST2470.md) | Two string literals concatenate with no space between them, fusing a SQL keyword into the adjacent token so the query changes at runtime. Code fix adds a space to a regular right literal. |
+| [SST2472](rules/SST2472.md) | A type is exported for a contract (`[Export(typeof(IFoo))]`) it neither implements nor inherits, so the container cannot supply it for that contract. |
+| [SST2473](rules/SST2473.md) | A `new` expression constructs a type that is itself a shared export part, bypassing the container and its single-instance guarantee. |
+| [SST2474](rules/SST2474.md) | A part-creation-policy attribute is applied to a type with no `[Export]`, so it governs nothing. |
+| [SST2475](rules/SST2475.md) | An entity's primary key is typed `DateTime` or `DateTimeOffset`, so keys collide within a tick, are not stable identifiers, cluster the table by insertion time, and round-trip imprecisely across providers. |
 
 ## Naming
 

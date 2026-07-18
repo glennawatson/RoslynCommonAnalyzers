@@ -17,4 +17,12 @@ SST2459 | Correctness | Warning | Sst2459OptionalByRefParameterAnalyzer
 SST2460 | Correctness | Warning | Sst2460DefaultValueOnParameterAnalyzer
 SST2462 | Correctness | Warning | Sst2462NewMemberReducesAccessibilityAnalyzer
 SST2463 | Correctness | Warning | Sst2463InheritedFieldCaseClashAnalyzer
+SST2464 | Correctness | Warning | Sst2464EqualityOperatorOnMutableClassAnalyzer
 SST2465 | Correctness | Warning | Sst2465LoopConditionVariableReassignedAnalyzer
+SST2467 | Correctness | Warning | Sst2467BypassedParamsOverloadAnalyzer
+SST2468 | Correctness | Warning | Sst2468UnimplementedPartialMethodAnalyzer
+SST2470 | Correctness | Warning | Sst2470FusedSqlKeywordAnalyzer
+SST2472 | Correctness | Warning | MefContractAnalyzer
+SST2473 | Correctness | Warning | MefContractAnalyzer
+SST2474 | Correctness | Warning | MefContractAnalyzer
+SST2475 | Correctness | Warning | Sst2475TemporalPrimaryKeyAnalyzer

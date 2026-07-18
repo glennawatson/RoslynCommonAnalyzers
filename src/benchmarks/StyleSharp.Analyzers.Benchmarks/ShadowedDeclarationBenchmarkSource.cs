@@ -30,8 +30,9 @@ internal static class ShadowedDeclarationBenchmarkSource
     /// <returns>The generated type block.</returns>
     /// <remarks>
     /// Covers every rejection route the no-diagnostic path takes: names that miss the member table entirely
-    /// (the common case), a constructor parameter that feeds the field it shadows, and a local in a static
-    /// method that reuses an instance field's name, which is not in scope there.
+    /// (the common case), a constructor parameter that feeds the field it shadows, a local in a static
+    /// method that reuses an instance field's name, which is not in scope there, a property of a non-nested
+    /// type, and a nested type whose field and property miss the containing type's table.
     /// </remarks>
     private static string GenerateCleanType(int index)
         => $$"""
@@ -42,6 +43,8 @@ internal static class ShadowedDeclarationBenchmarkSource
                private int count;
 
                public C{{index}}(string name) => this.name = name;
+
+               public int Count => count;
 
                public static int Measure(string text)
                {
@@ -62,17 +65,33 @@ internal static class ShadowedDeclarationBenchmarkSource
                }
 
                public string Describe() => name;
+
+               public sealed class Snapshot
+               {
+                   private int taken;
+
+                   public int Taken => taken;
+
+                   public void Mark() => taken++;
+               }
            }
            """;
 
     /// <summary>Builds one type whose declarations all shadow a member.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    /// <remarks>Emits four diagnostics: a parameter, a local, a loop variable and an out variable.</remarks>
+    /// <remarks>
+    /// Emits six diagnostics: a parameter, a local, a loop variable, an out variable, and a nested type's
+    /// field and property that shadow the containing type's static members.
+    /// </remarks>
     private static string GenerateViolatingType(int index)
         => $$"""
            public sealed class V{{index}}
            {
+               public static int Limit;
+
+               public static string Label { get; set; }
+
                private int count;
 
                private string name;
@@ -100,7 +119,16 @@ internal static class ShadowedDeclarationBenchmarkSource
                    return false;
                }
 
-               public string Describe() => name + count;
+               public string Describe() => name + count + Limit + Label;
+
+               public sealed class Segment
+               {
+                   private int Limit;
+
+                   public string Label { get; set; }
+
+                   public int Measure() => Limit + Label.Length;
+               }
            }
            """;
 }

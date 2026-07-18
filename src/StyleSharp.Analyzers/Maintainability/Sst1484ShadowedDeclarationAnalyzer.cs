@@ -8,8 +8,9 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Reports a declaration that reuses the name of a field or property already visible from an enclosing scope
-/// (SST1484). Reporting a field that hides an inherited field of the same name is opt-in with
-/// <c>stylesharp.SST1484.check_base_types</c>.
+/// (SST1484): a local, parameter or pattern variable that shadows a member, and a nested type's field or
+/// property that shadows a containing type's static member. Reporting a field that hides an inherited field
+/// of the same name is opt-in with <c>stylesharp.SST1484.check_base_types</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,7 +26,9 @@ namespace StyleSharp.Analyzers;
 /// Ordered so the clean path never touches the semantic model. The member table is built once per type
 /// declaration and cached on the declaration node, so a local costs a parent walk and two hash probes; only
 /// the first declaration inside a type pays for the type symbol, and only a name that actually collides pays
-/// for the static-context walk or the assignment scan.
+/// for the static-context walk or the assignment scan. A nested type's field or property is measured against
+/// its containing types' cached tables the same way, and a member of a non-nested type is rejected by a
+/// single parent probe before anything is looked up.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -62,7 +65,8 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
             SyntaxKind.VariableDeclarator,
             SyntaxKind.ForEachStatement,
             SyntaxKind.SingleVariableDesignation,
-            SyntaxKind.CatchDeclaration);
+            SyntaxKind.CatchDeclaration,
+            SyntaxKind.PropertyDeclaration);
     }
 
     /// <summary>Routes one declaration to the rule that governs it.</summary>
@@ -103,6 +107,12 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
             case CatchDeclarationSyntax clause:
             {
                 AnalyzeLocal(context, clause, clause.Identifier, tablesByType);
+                break;
+            }
+
+            case PropertyDeclarationSyntax property:
+            {
+                AnalyzeProperty(context, property, tablesByType);
                 break;
             }
         }
@@ -173,16 +183,17 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>Reports a field that hides an inherited field of the same name, when that check is enabled.</summary>
+    /// <summary>Reports a field that shadows a containing type's static member or hides an inherited field.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="declarator">The field's declarator.</param>
     /// <param name="field">The field declaration.</param>
     /// <param name="tablesByType">The per-type-declaration member table cache.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <remarks>
-    /// The option is read first, so a field in the default configuration is rejected by one cached hash probe
-    /// and never reaches the member table. A field marked <c>new</c> says the hiding is deliberate, and is
-    /// taken at its word.
+    /// The containing-type check runs first and answers for a field of a non-nested type — the common case —
+    /// with a single parent probe. The inherited-field check reads its option next, so a field in the default
+    /// configuration is rejected by one cached hash probe and never reaches the member table. A field marked
+    /// <c>new</c> says the hiding is deliberate, and is taken at its word.
     /// </remarks>
     private static void AnalyzeField(
         SyntaxNodeAnalysisContext context,
@@ -191,6 +202,11 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
         ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType,
         ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions> optionsByTree)
     {
+        if (TryReportNestedTypeMember(context, field, field.Modifiers, declarator.Identifier, tablesByType))
+        {
+            return;
+        }
+
         if (!GetOptions(context, optionsByTree).CheckBaseTypes
             || ModifierListHelper.Contains(field.Modifiers, SyntaxKind.NewKeyword))
         {
@@ -208,6 +224,82 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
             declarator.Identifier.GetLocation(),
             declarator.Identifier.ValueText,
             ShadowedMember.InheritedFieldDescription));
+    }
+
+    /// <summary>Reports a nested type's property that shadows a containing type's static member.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="property">The property declaration.</param>
+    /// <param name="tablesByType">The per-type-declaration member table cache.</param>
+    /// <remarks>
+    /// An explicit interface implementation is not measured: it is not reachable by simple name, so it can
+    /// make nothing ambiguous.
+    /// </remarks>
+    private static void AnalyzeProperty(
+        SyntaxNodeAnalysisContext context,
+        PropertyDeclarationSyntax property,
+        ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType)
+    {
+        if (property.ExplicitInterfaceSpecifier is not null)
+        {
+            return;
+        }
+
+        TryReportNestedTypeMember(context, property, property.Modifiers, property.Identifier, tablesByType);
+    }
+
+    /// <summary>Reports a nested type's field or property that shadows a containing type's static member.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="member">The field or property declaration.</param>
+    /// <param name="modifiers">The member's modifiers.</param>
+    /// <param name="identifier">The declared identifier.</param>
+    /// <param name="tablesByType">The per-type-declaration member table cache.</param>
+    /// <returns><see langword="true"/> when the member was reported.</returns>
+    /// <remarks>
+    /// A member of a non-nested type is rejected by a single parent probe before anything is looked up. The
+    /// walk then mirrors C#'s simple-name lookup: the nearest containing type that claims the name answers,
+    /// and only a static claim is reported — an outer instance member is not reachable by simple name from a
+    /// nested type, so nothing is ambiguous. A member marked <c>new</c> says its hiding is deliberate, and an
+    /// <c>override</c> keeps the name its base declared, so neither is this declaration's naming choice.
+    /// </remarks>
+    private static bool TryReportNestedTypeMember(
+        SyntaxNodeAnalysisContext context,
+        MemberDeclarationSyntax member,
+        SyntaxTokenList modifiers,
+        SyntaxToken identifier,
+        ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType)
+    {
+        if (member.Parent is not TypeDeclarationSyntax { Parent: TypeDeclarationSyntax } nestedType)
+        {
+            return false;
+        }
+
+        var name = identifier.ValueText;
+        if (!CanShadow(name) || ModifierListHelper.ContainsEither(modifiers, SyntaxKind.NewKeyword, SyntaxKind.OverrideKeyword))
+        {
+            return false;
+        }
+
+        for (var outer = nestedType.Parent as TypeDeclarationSyntax; outer is not null; outer = outer.Parent as TypeDeclarationSyntax)
+        {
+            if (!GetTable(context, outer, tablesByType).TryGet(name, out var shadowed))
+            {
+                continue;
+            }
+
+            if (!shadowed.IsStatic)
+            {
+                return false;
+            }
+
+            context.ReportDiagnostic(Diagnostic.Create(
+                MaintainabilityRules.ShadowedDeclaration,
+                identifier.GetLocation(),
+                name,
+                shadowed.ContainingTypeDescription));
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>Reports a local, a loop variable or a pattern variable that shadows a member.</summary>
@@ -250,7 +342,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     {
         member = default;
         var name = identifier.ValueText;
-        if (name.Length == 0 || name == DiscardName)
+        if (!CanShadow(name))
         {
             return false;
         }
@@ -263,6 +355,11 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
 
         return member.IsStatic || !IsInStaticContext(declaration);
     }
+
+    /// <summary>Returns whether a declared name is one that can shadow at all.</summary>
+    /// <param name="name">The declared name.</param>
+    /// <returns><see langword="false"/> for a missing identifier or the discard, which name nothing.</returns>
+    private static bool CanShadow(string name) => name.Length != 0 && name != DiscardName;
 
     /// <summary>Reports one shadowing declaration.</summary>
     /// <param name="context">The syntax node context.</param>

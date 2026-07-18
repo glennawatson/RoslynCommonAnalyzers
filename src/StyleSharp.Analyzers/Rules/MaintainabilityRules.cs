@@ -796,8 +796,10 @@ internal static class MaintainabilityRules
     private const string ShadowedDeclarationDescription =
         "A local or parameter that reuses the name of a field or property makes every unqualified use of that name ambiguous to a reader — "
         + "and an assignment that was meant for the field silently updates the local instead. A constructor parameter that feeds the field "
-        + "it shadows is the idiomatic exception and is not reported. Set 'stylesharp.SST1484.check_base_types = true' to also report a "
-        + "field that shadows one inherited from a base type.";
+        + "it shadows is the idiomatic exception and is not reported. A nested type's field or property that reuses the name of a "
+        + "containing type's static field or property is reported for the same reason: inside the nested type the simple name resolves to "
+        + "the nested member. Set 'stylesharp.SST1484.check_base_types = true' to also report a field that shadows one inherited from a "
+        + "base type.";
 
     /// <summary>The SST1485 rule description.</summary>
     private const string UnexpectedThrowDescription =

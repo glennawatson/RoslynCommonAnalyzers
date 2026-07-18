@@ -27,6 +27,11 @@ internal readonly record struct ShadowedMember(
         _ => "field",
     };
 
+    /// <summary>Gets the wording the diagnostic message uses when a nested type's member shadows this member.</summary>
+    public string ContainingTypeDescription => IsProperty
+        ? "containing type's static property"
+        : "containing type's static field";
+
     /// <summary>Returns this member, marked as hiding an inherited field of the same name.</summary>
     /// <returns>The updated member.</returns>
     public ShadowedMember HidingInheritedField() => this with { HidesInheritedField = true };

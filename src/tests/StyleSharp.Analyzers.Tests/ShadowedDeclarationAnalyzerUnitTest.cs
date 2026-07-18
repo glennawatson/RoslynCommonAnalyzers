@@ -365,6 +365,239 @@ public class ShadowedDeclarationAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a nested type's field that reuses a containing type's static member name is reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// Inside the nested type the simple name resolves to the nested member, so a reader who knows the
+    /// containing type's static member resolves the wrong symbol. A static field, a const and a static
+    /// property are all in scope by simple name and all count.
+    /// </remarks>
+    [Test]
+    public async Task NestedTypeFieldShadowingOuterStaticMemberIsReportedAsync()
+        => await VerifyShadowed.VerifyAnalyzerAsync(
+            """
+            public class Registry
+            {
+                public static int Count;
+                public const int Max = 10;
+                public static int Version { get; set; }
+
+                public int Read() => Count + Max + Version;
+
+                public class Entry
+                {
+                    private int {|SST1484:Count|};
+                    private const int {|SST1484:Max|} = 20;
+                    private int {|SST1484:Version|};
+
+                    public int Read() => Count + Max + Version;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a nested type's property that reuses a containing type's static member name is reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NestedTypePropertyShadowingOuterStaticMemberIsReportedAsync()
+        => await VerifyShadowed.VerifyAnalyzerAsync(
+            """
+            public class Configuration
+            {
+                public static string Owner { get; set; }
+                public static int Limit;
+
+                public string Read() => Owner + Limit;
+
+                public class Section
+                {
+                    public string {|SST1484:Owner|} { get; set; }
+
+                    public int {|SST1484:Limit|} { get; set; }
+                }
+            }
+            """);
+
+    /// <summary>Verifies every containing type is measured, including statics the containing type inherits.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NestedTypeMemberShadowingDeeperOuterStaticIsReportedAsync()
+        => await VerifyShadowed.VerifyAnalyzerAsync(
+            """
+            public class BaseSettings
+            {
+                protected static int Threshold;
+            }
+
+            public class Settings : BaseSettings
+            {
+                public static string Owner;
+
+                public string Read() => Owner + Threshold;
+
+                public class Group
+                {
+                    public class Item
+                    {
+                        private string {|SST1484:Owner|};
+                        private int {|SST1484:Threshold|};
+
+                        public string Read() => Owner + Threshold;
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a containing type's instance member cannot be shadowed by a nested type's member.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// An outer instance member is not reachable by simple name from a nested type, so nothing is ambiguous.
+    /// The walk also stops at the nearest containing type that claims the name, the way C# resolves it:
+    /// <c>Leaf.Value</c> is clean because <c>Middle</c>'s claim on the name is an instance field, even though
+    /// a farther containing type has a static of that name — which is why <c>Middle.Value</c> itself is the
+    /// one reported.
+    /// </remarks>
+    [Test]
+    public async Task NestedTypeMemberMatchingOuterInstanceMemberIsCleanAsync()
+        => await VerifyShadowed.VerifyAnalyzerAsync(
+            """
+            public class Host
+            {
+                private int count;
+
+                public int Read() => count;
+
+                public class Worker
+                {
+                    private int count;
+
+                    public int Read() => count;
+                }
+            }
+
+            public class Root
+            {
+                public static int Value { get; set; }
+
+                public class Middle
+                {
+                    private int {|SST1484:Value|};
+
+                    public int Read() => Value;
+
+                    public class Leaf
+                    {
+                        private int Value;
+
+                        public int Read() => Value;
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a name a nested member did not choose for itself is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// An <c>override</c> keeps the name its base declared, a member marked <c>new</c> says the hiding is
+    /// deliberate, and an explicit interface implementation is not reachable by simple name at all.
+    /// </remarks>
+    [Test]
+    public async Task NestedTypeMemberWithContractOrDeliberateNameIsCleanAsync()
+        => await VerifyShadowed.VerifyAnalyzerAsync(
+            """
+            public interface INamed
+            {
+                string Name { get; }
+            }
+
+            public class BaseEntry
+            {
+                public virtual string Title { get; set; }
+
+                protected string label;
+
+                public string Read() => Title + label;
+            }
+
+            public class Panel
+            {
+                public static string Title { get; set; }
+
+                public static string Name;
+
+                public static string label;
+
+                public string Read() => Title + Name + label;
+
+                public class Entry : BaseEntry
+                {
+                    public override string Title { get; set; }
+
+                    private new string label;
+
+                    public string Get() => label;
+                }
+
+                public class Card : INamed
+                {
+                    string INamed.Name => "card";
+                }
+            }
+            """);
+
+    /// <summary>Verifies a sibling nested type's static member is not in scope and so cannot be shadowed.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task SiblingNestedTypeMembersAreCleanAsync()
+        => await VerifyShadowed.VerifyAnalyzerAsync(
+            """
+            public class Pair
+            {
+                public class First
+                {
+                    public static int Size;
+
+                    public int Read() => Size;
+                }
+
+                public class Second
+                {
+                    private int Size;
+
+                    public int Read() => Size;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a discard-named member and a catch clause with no name shadow nothing.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task DiscardNamedMemberAndNamelessCatchAreCleanAsync()
+        => await VerifyShadowed.VerifyAnalyzerAsync(
+            """
+            public class Shell
+            {
+                public static int _;
+
+                public int Read() => _;
+
+                public void Handle()
+                {
+                    try
+                    {
+                        Read();
+                    }
+                    catch (System.InvalidOperationException)
+                    {
+                    }
+                }
+
+                public class Inner
+                {
+                    public int _ { get; set; }
+                }
+            }
+            """);
+
     /// <summary>Verifies a field that hides an inherited field is not reported by default.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

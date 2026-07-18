@@ -166,7 +166,7 @@ internal static class ModernSyntaxRules
         "SST2222",
         "Remove value overwritten before use",
         "Remove this overwritten value",
-        "A local initializer or assignment is removed when the next write to the same local occurs before any read and the removed value has no side effects.");
+        "A local initializer or assignment overwritten by the next write before any read is removed when it has no side effects, as is a postfix step whose written value can never be read.");
 
     /// <summary>SST2223 — a null check assignment can use <c>??=</c>.</summary>
     public static readonly DiagnosticDescriptor UseCoalesceAssignment = Create(

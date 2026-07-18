@@ -19,7 +19,10 @@ using VerifyModernSyntaxValue = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier
 
 namespace StyleSharp.Analyzers.Tests;
 
-/// <summary>Unit tests for value-oriented modern syntax rules (SST2220–SST2228, SST2231, SST2232).</summary>
+/// <summary>
+/// Unit tests for value-oriented modern syntax rules (SST2220–SST2228, SST2231, SST2232). The
+/// overwritten-value rule (SST2222) is covered by <see cref="RemoveOverwrittenValueUnitTest"/>.
+/// </summary>
 public class ModernSyntaxValueAnalyzerUnitTest
 {
     /// <summary>Verifies a redundant ToString call is folded into the interpolation hole.</summary>
@@ -264,128 +267,6 @@ public class ModernSyntaxValueAnalyzerUnitTest
         test.FixedState.ExpectedDiagnostics.Add(VerifyModernSyntaxValue.Diagnostic("SST2221").WithSpan(10, 13, 10, 22));
 
         await test.RunAsync(CancellationToken.None);
-    }
-
-    /// <summary>Verifies adjacent overwritten local values are removed without touching the later write.</summary>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    [Test]
-    public async Task OverwrittenLocalValueIsRemovedAsync()
-    {
-        const string Source = """
-                              public sealed class C
-                              {
-                                  public int M()
-                                  {
-                                      int value = {|SST2222:0|};
-                                      value = 1;
-                                      return value;
-                                  }
-                              }
-                              """;
-        const string FixedSource = """
-                                   public sealed class C
-                                   {
-                                       public int M()
-                                       {
-                                           int value;
-                                           value = 1;
-                                           return value;
-                                       }
-                                   }
-                                   """;
-
-        await VerifyModernSyntaxValue.VerifyCodeFixAsync(Source, FixedSource);
-    }
-
-    /// <summary>Verifies repeated discard assignments are not treated as overwritten local values.</summary>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    [Test]
-    public async Task RepeatedDiscardAssignmentsAreCleanAsync()
-    {
-        const string Source = """
-                              public sealed class C
-                              {
-                                  public void M()
-                                  {
-                                      _ = 0;
-                                      _ = 1;
-                                  }
-                              }
-                              """;
-
-        await VerifyModernSyntaxValue.VerifyAnalyzerAsync(Source);
-    }
-
-    /// <summary>Verifies an initializer is preserved when the following assignment captures the local.</summary>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    [Test]
-    public async Task OverwrittenLocalValueCapturedByFollowingAssignmentIsCleanAsync()
-    {
-        const string Source = """
-                              #nullable enable
-
-                              using System;
-
-                              public sealed class C
-                              {
-                                  private readonly object _gate = new();
-                                  private readonly IScheduler _scheduler;
-
-                                  public C(IScheduler scheduler)
-                                  {
-                                      _scheduler = scheduler;
-                                  }
-
-                                  private void Reschedule()
-                                  {
-                                      var isAdded = false;
-                                      var isDone = false;
-                                      IDisposable? disposable = null;
-                                      disposable = _scheduler.Schedule(() =>
-                                      {
-                                          lock (_gate)
-                                          {
-                                              if (isAdded)
-                                              {
-                                                  _ = Remove(disposable!);
-                                              }
-                                              else
-                                              {
-                                                  isDone = true;
-                                              }
-                                          }
-
-                                          RunRecursiveAction();
-                                      });
-
-                                      lock (_gate)
-                                      {
-                                          if (!isDone)
-                                          {
-                                              Add(disposable);
-                                              isAdded = true;
-                                          }
-                                      }
-                                  }
-
-                                  private void Add(IDisposable? disposable)
-                                  {
-                                  }
-
-                                  private bool Remove(IDisposable disposable) => true;
-
-                                  private void RunRecursiveAction()
-                                  {
-                                  }
-                              }
-
-                              public interface IScheduler
-                              {
-                                  IDisposable Schedule(Action action);
-                              }
-                              """;
-
-        await VerifyModernSyntaxValue.VerifyAnalyzerAsync(Source);
     }
 
     /// <summary>Verifies a null fallback assignment is rewritten with coalescing assignment.</summary>

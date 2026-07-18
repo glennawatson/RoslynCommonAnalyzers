@@ -50,7 +50,9 @@ public class ModernSyntaxValueCodeFixBenchmarks : IDisposable
         ModernSyntaxValueBenchmarkShape.FoldNullCheck,
         ModernSyntaxValueBenchmarkShape.LocalFunction,
         ModernSyntaxValueBenchmarkShape.NullPattern,
-        ModernSyntaxValueBenchmarkShape.UnboundGenericName)]
+        ModernSyntaxValueBenchmarkShape.UnboundGenericName,
+        ModernSyntaxValueBenchmarkShape.ReturnedIncrement,
+        ModernSyntaxValueBenchmarkShape.SelfAssignedIncrement)]
     public ModernSyntaxValueBenchmarkShape CurrentShape { get; set; }
 
     /// <summary>Builds the benchmark document and representative diagnostic.</summary>
@@ -127,6 +129,8 @@ public class ModernSyntaxValueCodeFixBenchmarks : IDisposable
         {
             ModernSyntaxValueBenchmarkShape.LocalFunction => CreateLocalFunctionDiagnostic(),
             ModernSyntaxValueBenchmarkShape.NullPattern => CreateNullPatternDiagnostic(),
+            ModernSyntaxValueBenchmarkShape.ReturnedIncrement => CreateReturnedIncrementDiagnostic(),
+            ModernSyntaxValueBenchmarkShape.SelfAssignedIncrement => CreateSelfAssignedIncrementDiagnostic(),
             _ => CreateUnboundGenericNameDiagnostic()
         };
 
@@ -241,6 +245,28 @@ public class ModernSyntaxValueCodeFixBenchmarks : IDisposable
             Nodes / MiddleNodeDivisor,
             static node => node.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ObjectKeyword });
         return Diagnostic.Create(ModernSyntaxRules.UseDirectNullPattern, pattern.GetLocation());
+    }
+
+    /// <summary>Creates a return-discarded step diagnostic.</summary>
+    /// <returns>The diagnostic.</returns>
+    private Diagnostic CreateReturnedIncrementDiagnostic()
+    {
+        var postfix = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<PostfixUnaryExpressionSyntax>(
+            _root,
+            Nodes / MiddleNodeDivisor,
+            static _ => true);
+        return Diagnostic.Create(ModernSyntaxRules.RemoveOverwrittenValue, postfix.GetLocation());
+    }
+
+    /// <summary>Creates a self-assigned step diagnostic.</summary>
+    /// <returns>The diagnostic.</returns>
+    private Diagnostic CreateSelfAssignedIncrementDiagnostic()
+    {
+        var assignment = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<AssignmentExpressionSyntax>(
+            _root,
+            Nodes / MiddleNodeDivisor,
+            static node => node.Right is PostfixUnaryExpressionSyntax);
+        return Diagnostic.Create(ModernSyntaxRules.RemoveOverwrittenValue, assignment.GetLocation());
     }
 
     /// <summary>Creates a generic nameof diagnostic.</summary>

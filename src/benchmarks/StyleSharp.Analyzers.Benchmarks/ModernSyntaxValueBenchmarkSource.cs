@@ -8,7 +8,7 @@ namespace StyleSharp.Analyzers.Benchmarks;
 internal static class ModernSyntaxValueBenchmarkSource
 {
     /// <summary>The number of shapes cycled by the analyzer benchmark corpus.</summary>
-    private const int ShapeCount = 11;
+    private const int ShapeCount = 13;
 
     /// <summary>Builds clean or violating source for the modern-syntax value analyzer.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
@@ -93,6 +93,8 @@ internal static class ModernSyntaxValueBenchmarkSource
         {
             ModernSyntaxValueBenchmarkShape.LocalFunction => GenerateLocalFunction(index, violating),
             ModernSyntaxValueBenchmarkShape.NullPattern => GenerateNullPattern(index, violating),
+            ModernSyntaxValueBenchmarkShape.ReturnedIncrement => GenerateReturnedIncrement(index, violating),
+            ModernSyntaxValueBenchmarkShape.SelfAssignedIncrement => GenerateSelfAssignedIncrement(index, violating),
             _ => GenerateUnboundGenericName(index, violating)
         };
 
@@ -285,6 +287,50 @@ internal static class ModernSyntaxValueBenchmarkSource
                 """
             : $$"""
                 private bool NullPattern{{index}}(object value) => value is not null;
+                """;
+
+    /// <summary>Builds one return-discarded step shape.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="violating">Whether to emit the reportable form.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateReturnedIncrement(int index, bool violating)
+        => violating
+            ? $$"""
+                private int ReturnedIncrement{{index}}()
+                {
+                    int value = {{index}};
+                    return value++;
+                }
+                """
+            : $$"""
+                private int ReturnedIncrement{{index}}()
+                {
+                    int value = {{index}};
+                    return value;
+                }
+                """;
+
+    /// <summary>Builds one self-assigned step shape.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <param name="violating">Whether to emit the reportable form.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateSelfAssignedIncrement(int index, bool violating)
+        => violating
+            ? $$"""
+                private int SelfAssignedIncrement{{index}}(int seed)
+                {
+                    int value = seed;
+                    value = value++;
+                    return value;
+                }
+                """
+            : $$"""
+                private int SelfAssignedIncrement{{index}}(int seed)
+                {
+                    int value = seed;
+                    value++;
+                    return value;
+                }
                 """;
 
     /// <summary>Builds one generic nameof shape.</summary>

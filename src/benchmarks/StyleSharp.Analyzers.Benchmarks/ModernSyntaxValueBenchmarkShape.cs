@@ -38,5 +38,11 @@ public enum ModernSyntaxValueBenchmarkShape
     NullPattern,
 
     /// <summary>Concrete generic arguments inside nameof.</summary>
-    UnboundGenericName
+    UnboundGenericName,
+
+    /// <summary>Postfix step discarded by the enclosing return.</summary>
+    ReturnedIncrement,
+
+    /// <summary>Local assigned its own postfix step.</summary>
+    SelfAssignedIncrement
 }

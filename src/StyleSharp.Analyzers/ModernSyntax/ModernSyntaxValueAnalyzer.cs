@@ -64,6 +64,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
 
         context.RegisterSyntaxNodeAction(AnalyzeInterpolation, SyntaxKind.Interpolation);
         context.RegisterSyntaxNodeAction(AnalyzeExpressionStatement, SyntaxKind.ExpressionStatement);
+        context.RegisterSyntaxNodeAction(AnalyzeReturnStatement, SyntaxKind.ReturnStatement);
         context.RegisterSyntaxNodeAction(AnalyzeLocalDeclaration, SyntaxKind.LocalDeclarationStatement);
         context.RegisterSyntaxNodeAction(AnalyzeIfStatement, SyntaxKind.IfStatement);
         context.RegisterSyntaxNodeAction(AnalyzeCoalesceExpression, SyntaxKind.CoalesceExpression);
@@ -201,7 +202,11 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         var statement = (ExpressionStatementSyntax)context.Node;
         if (statement.Expression is AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment)
         {
-            AnalyzeOverwrittenAssignment(context, statement, assignment);
+            if (!TryReportSelfAssignedStep(context, assignment))
+            {
+                AnalyzeOverwrittenAssignment(context, statement, assignment);
+            }
+
             return;
         }
 
@@ -504,6 +509,203 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.RemoveOverwrittenValue, assignment.GetLocation()));
+    }
+
+    /// <summary>Reports a postfix step whose written value dies with the frame the return leaves.</summary>
+    /// <param name="context">The syntax context.</param>
+    private static void AnalyzeReturnStatement(SyntaxNodeAnalysisContext context)
+    {
+        var returnStatement = (ReturnStatementSyntax)context.Node;
+        if (returnStatement.Expression is not { } expression
+            || ExpressionSimplificationAnalyzer.Unwrap(expression) is not PostfixUnaryExpressionSyntax postfix
+            || !IsPostfixStep(postfix)
+            || ExpressionSimplificationAnalyzer.Unwrap(postfix.Operand) is not IdentifierNameSyntax operand
+            || GetStepReturnScope(returnStatement) is not { } function
+            || !TryGetRemovableStepLocal(postfix, operand, context.SemanticModel, context.CancellationToken, out var local)
+            || !SymbolEqualityComparer.Default.Equals(
+                local.ContainingSymbol,
+                context.SemanticModel.GetEnclosingSymbol(returnStatement.SpanStart, context.CancellationToken))
+            || LocalStorageEscapes(function, local, context.SemanticModel, context.CancellationToken))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.RemoveOverwrittenValue, postfix.GetLocation()));
+    }
+
+    /// <summary>Reports an assignment that puts a local's original value back over its own postfix step.</summary>
+    /// <param name="context">The syntax context.</param>
+    /// <param name="assignment">The simple assignment statement expression.</param>
+    /// <returns><see langword="true"/> when a diagnostic was reported.</returns>
+    private static bool TryReportSelfAssignedStep(SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment)
+    {
+        if (assignment.Left is not IdentifierNameSyntax target
+            || ExpressionSimplificationAnalyzer.Unwrap(assignment.Right) is not PostfixUnaryExpressionSyntax postfix
+            || !IsPostfixStep(postfix)
+            || ExpressionSimplificationAnalyzer.Unwrap(postfix.Operand) is not IdentifierNameSyntax operand
+            || operand.Identifier.ValueText != target.Identifier.ValueText
+            || !TryGetRemovableStepLocal(postfix, operand, context.SemanticModel, context.CancellationToken, out _))
+        {
+            return false;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.RemoveOverwrittenValue, assignment.GetLocation()));
+        return true;
+    }
+
+    /// <summary>Returns whether an expression is a postfix increment or decrement.</summary>
+    /// <param name="postfix">The postfix expression.</param>
+    /// <returns><see langword="true"/> for <c>x++</c> and <c>x--</c>.</returns>
+    private static bool IsPostfixStep(PostfixUnaryExpressionSyntax postfix)
+        => postfix.RawKind is (int)SyntaxKind.PostIncrementExpression or (int)SyntaxKind.PostDecrementExpression;
+
+    /// <summary>Gets the local a postfix step can be removed for, when the step itself cannot be observed or throw.</summary>
+    /// <param name="postfix">The postfix step.</param>
+    /// <param name="operand">The stepped identifier.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <param name="local">The stepped local.</param>
+    /// <returns><see langword="true"/> for a non-ref local stepped by the built-in operator outside overflow-throwing contexts.</returns>
+    private static bool TryGetRemovableStepLocal(
+        PostfixUnaryExpressionSyntax postfix,
+        IdentifierNameSyntax operand,
+        SemanticModel model,
+        CancellationToken cancellationToken,
+        out ILocalSymbol local)
+    {
+        local = null!;
+        if (model.GetSymbolInfo(operand, cancellationToken).Symbol is not ILocalSymbol { IsRef: false } localSymbol
+            || model.GetSymbolInfo(postfix, cancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.BuiltinOperator }
+            || IsOverflowThrowingStepType(localSymbol.Type)
+            || IsInCheckedContext(postfix, model))
+        {
+            return false;
+        }
+
+        local = localSymbol;
+        return true;
+    }
+
+    /// <summary>Returns whether a type's built-in step can throw regardless of the checked context.</summary>
+    /// <param name="type">The stepped local's type.</param>
+    /// <returns><see langword="true"/> for <c>decimal</c>, whose arithmetic always throws on overflow.</returns>
+    private static bool IsOverflowThrowingStepType(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable)
+        {
+            type = nullable.TypeArguments[0];
+        }
+
+        return type.SpecialType == SpecialType.System_Decimal;
+    }
+
+    /// <summary>Returns whether a node evaluates where an integral step can throw on overflow.</summary>
+    /// <param name="node">The stepped expression.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <returns><see langword="true"/> in a checked statement, or under a compilation that checks overflow.</returns>
+    private static bool IsInCheckedContext(SyntaxNode node, SemanticModel model)
+    {
+        for (var current = node.Parent; current is not null; current = current.Parent)
+        {
+            if (current is CheckedStatementSyntax statement)
+            {
+                return statement.Keyword.RawKind == (int)SyntaxKind.CheckedKeyword;
+            }
+
+            if (current is MemberDeclarationSyntax)
+            {
+                break;
+            }
+        }
+
+        return model.Compilation.Options is CSharpCompilationOptions { CheckOverflow: true };
+    }
+
+    /// <summary>Gets the function whose frame a return statement destroys, when nothing can run in between.</summary>
+    /// <param name="returnStatement">The return statement.</param>
+    /// <returns>The enclosing function node, or <see langword="null"/> under a <c>try</c> or at the top level.</returns>
+    private static SyntaxNode? GetStepReturnScope(ReturnStatementSyntax returnStatement)
+    {
+        var current = returnStatement.Parent;
+        while (current is not (null or TryStatementSyntax))
+        {
+            if (current is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax
+                or AccessorDeclarationSyntax or BaseMethodDeclarationSyntax)
+            {
+                return current;
+            }
+
+            current = current.Parent;
+        }
+
+        return null;
+    }
+
+    /// <summary>Returns whether a local's storage can be reached after its frame returns.</summary>
+    /// <param name="function">The function the local dies with.</param>
+    /// <param name="local">The stepped local.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when a nested function captures the local or a reference to it is handed out.</returns>
+    private static bool LocalStorageEscapes(SyntaxNode function, ILocalSymbol local, SemanticModel model, CancellationToken cancellationToken)
+    {
+        var scan = new EscapeScan(function, local, model, cancellationToken);
+        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, EscapeScan>(function, ref scan, VisitEscapeCandidate);
+        return scan.Escapes;
+    }
+
+    /// <summary>Classifies one identifier during a local's escape scan.</summary>
+    /// <param name="identifier">The identifier being visited.</param>
+    /// <param name="scan">The scan state.</param>
+    /// <returns><see langword="false"/> once an escape is found, which stops the walk.</returns>
+    private static bool VisitEscapeCandidate(IdentifierNameSyntax identifier, ref EscapeScan scan)
+    {
+        if (identifier.Identifier.ValueText != scan.Local.Name
+            || (!IsAliasTarget(identifier) && !IsInsideNestedFunction(identifier, scan.Function))
+            || !SymbolEqualityComparer.Default.Equals(scan.Model.GetSymbolInfo(identifier, scan.CancellationToken).Symbol, scan.Local))
+        {
+            return true;
+        }
+
+        scan.Escapes = true;
+        return false;
+    }
+
+    /// <summary>Returns whether an identifier hands out a reference to its storage.</summary>
+    /// <param name="identifier">The identifier.</param>
+    /// <returns><see langword="true"/> for a ref-like argument, a <c>ref</c> expression, or an address-of operand.</returns>
+    private static bool IsAliasTarget(IdentifierNameSyntax identifier)
+    {
+        SyntaxNode? parent = identifier.Parent;
+        while (parent is ParenthesizedExpressionSyntax)
+        {
+            parent = parent.Parent;
+        }
+
+        return parent switch
+        {
+            ArgumentSyntax { RefKindKeyword.RawKind: not 0 } => true,
+            RefExpressionSyntax => true,
+            PrefixUnaryExpressionSyntax prefix => prefix.RawKind == (int)SyntaxKind.AddressOfExpression,
+            _ => false
+        };
+    }
+
+    /// <summary>Returns whether a node sits inside a lambda or local function declared under the frame's function.</summary>
+    /// <param name="node">The node to test.</param>
+    /// <param name="function">The frame's function node.</param>
+    /// <returns><see langword="true"/> when a nested function sits between the node and the frame.</returns>
+    private static bool IsInsideNestedFunction(SyntaxNode node, SyntaxNode function)
+    {
+        for (var current = node.Parent; current is not null && current != function; current = current.Parent)
+        {
+            if (current is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Creates an interpolation format clause from a string literal expression.</summary>
@@ -994,5 +1196,16 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         }
 
         return highest;
+    }
+
+    /// <summary>The state threaded through a local's escape scan.</summary>
+    /// <param name="Function">The function whose frame the local dies with.</param>
+    /// <param name="Local">The stepped local.</param>
+    /// <param name="Model">The semantic model.</param>
+    /// <param name="CancellationToken">A token that cancels analysis.</param>
+    private record struct EscapeScan(SyntaxNode Function, ILocalSymbol Local, SemanticModel Model, CancellationToken CancellationToken)
+    {
+        /// <summary>Gets or sets a value indicating whether the local's storage can be reached after the frame returns.</summary>
+        public bool Escapes { get; set; }
     }
 }

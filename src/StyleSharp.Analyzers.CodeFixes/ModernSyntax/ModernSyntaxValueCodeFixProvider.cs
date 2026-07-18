@@ -39,7 +39,13 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         foreach (var diagnostic in context.Diagnostics)
         {
             var title = GetTitle(diagnostic.Id);
-            if (title is null || CreateEdit(root, model, diagnostic, out _, out _, context.CancellationToken) is null)
+            if (title is null)
+            {
+                continue;
+            }
+
+            _ = CreateEdit(root, model, diagnostic, out var editTarget, out _, context.CancellationToken);
+            if (editTarget is null)
             {
                 continue;
             }
@@ -358,8 +364,20 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <param name="span">The diagnostic span.</param>
     /// <param name="oldNode">The node to replace or remove.</param>
     /// <returns>The replacement node, or <see langword="null"/> for statement removal.</returns>
-    private static LocalDeclarationStatementSyntax? CreateOverwrittenValueFix(SyntaxNode root, TextSpan span, out SyntaxNode? oldNode)
+    private static SyntaxNode? CreateOverwrittenValueFix(SyntaxNode root, TextSpan span, out SyntaxNode? oldNode)
     {
+        if (root.FindNode(span) is PostfixUnaryExpressionSyntax postfix)
+        {
+            if (!IsReturnedExpression(postfix))
+            {
+                oldNode = null;
+                return null;
+            }
+
+            oldNode = postfix;
+            return postfix.Operand.WithTriviaFrom(postfix);
+        }
+
         if (FindAncestor<LocalDeclarationStatementSyntax>(root, span) is { } local
             && local.Declaration.Variables.Count == 1
             && local.Declaration.Variables[0].Initializer is not null)
@@ -372,8 +390,34 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
             return local.WithDeclaration(local.Declaration.WithVariables(SyntaxFactory.SingletonSeparatedList(variable)));
         }
 
-        oldNode = FindAncestor<ExpressionStatementSyntax>(root, span);
+        oldNode = FindRemovableAssignmentStatement(root, span);
         return null;
+    }
+
+    /// <summary>Gets the assignment statement an overwritten-value diagnostic removes.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic span.</param>
+    /// <returns>The statement, or <see langword="null"/> when the span no longer covers a simple assignment.</returns>
+    private static ExpressionStatementSyntax? FindRemovableAssignmentStatement(SyntaxNode root, TextSpan span)
+    {
+        var statement = FindAncestor<ExpressionStatementSyntax>(root, span);
+        return statement?.Expression is AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression }
+            ? statement
+            : null;
+    }
+
+    /// <summary>Returns whether an expression is what a return statement hands back.</summary>
+    /// <param name="expression">The expression to test.</param>
+    /// <returns><see langword="true"/> when the expression, possibly parenthesized, is a return value.</returns>
+    private static bool IsReturnedExpression(ExpressionSyntax expression)
+    {
+        SyntaxNode? current = expression.Parent;
+        while (current is ParenthesizedExpressionSyntax)
+        {
+            current = current.Parent;
+        }
+
+        return current is ReturnStatementSyntax;
     }
 
     /// <summary>Creates a <c>??=</c> rewrite.</summary>

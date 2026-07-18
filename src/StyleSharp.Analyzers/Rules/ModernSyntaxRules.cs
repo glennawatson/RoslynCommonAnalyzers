@@ -315,6 +315,13 @@ internal static class ModernSyntaxRules
         "Deconstruct '{0}' into these locals instead of copying its members one at a time",
         DeconstructMemberCopiesDescription);
 
+    /// <summary>SST2250 — a bare local declaration and its immediately following first assignment can be joined.</summary>
+    public static readonly DiagnosticDescriptor JoinDeclarationAndAssignment = Create(
+        "SST2250",
+        "Join a declaration with its first assignment",
+        "Give '{0}' its first value at the declaration",
+        JoinDeclarationAndAssignmentDescription);
+
     /// <summary>SST2251 — an explicit method type-argument list repeats what inference would supply.</summary>
     public static readonly DiagnosticDescriptor OmitInferableTypeArguments = Create(
         "SST2251",
@@ -349,6 +356,13 @@ internal static class ModernSyntaxRules
         "Consecutive locals that each copy one member of the same tuple or Deconstruct-able value ('var a = pair.Item1; var b = pair.Item2;') "
         + "are declared once with deconstruction ('var (a, b) = pair;'), keeping the parts beside the value they come from. Reported only when "
         + "the reads cover every position of the value in order and the value is a side-effect-free local or parameter (C# 7).";
+
+    /// <summary>The JoinDeclarationAndAssignment rule description.</summary>
+    private const string JoinDeclarationAndAssignmentDescription =
+        "A local declared without a value and then given one by the very next statement holds the reader across a gap that carries no "
+        + "meaning. Putting the value on the declaration keeps the name and its first value together. Reported only when the first "
+        + "assignment is the immediately following straight-line statement at the same block level, so nothing reads the local in "
+        + "between and joining cannot move evaluation or change definite assignment.";
 
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

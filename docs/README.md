@@ -541,10 +541,14 @@ Code that compiles and runs but does not do what it says.
 | [SST2446](rules/SST2446.md) | A stream read's returned byte count is awaited and discarded through a configured awaiter or a local, so a short read passes unnoticed. Code fix rewrites to `ReadExactlyAsync` where it exists. |
 | [SST2448](rules/SST2448.md) | A combined or opaque delegate is removed with `-`/`-=`, which strips handlers only as one contiguous run, so the order they were combined in silently decides the result. |
 | [SST2449](rules/SST2449.md) | An event or delegate handler added as a lambda or anonymous method is removed with `-=`, which never matches it, so the subscription is never removed. |
+| [SST2450](rules/SST2450.md) | A `Debug.Assert` condition performs a side effect, so a release build compiles the call out and the work never runs. |
 | [SST2451](rules/SST2451.md) | Every constructor of a non-static, non-abstract class is private, yet no member ever creates an instance, so the type can never exist. |
 | [SST2452](rules/SST2452.md) | A method marked `[Pure]` returns `void`, a bare `Task`, or a bare `ValueTask`, so it has no observable result — the attribute is wrong or the method is dead. Code fix removes the attribute. |
+| [SST2456](rules/SST2456.md) | A field-like event declared `override`, or `new` hiding an inherited event, gets its own backing delegate field, so handlers added through one type are invisible to raises through the other. |
 | [SST2457](rules/SST2457.md) | An integer sequence `Sum` is wrapped in `unchecked`, which does not stop it throwing on overflow. |
 | [SST2458](rules/SST2458.md) | A bitwise operator is applied to an enum not declared `[Flags]`, producing a value with no defined meaning. |
+| [SST2459](rules/SST2459.md) | `[Optional]` on a `ref` or `out` parameter advertises an optionality no C# caller can use, while reflection reads `IsOptional` as true. Code fix removes the attribute. |
+| [SST2460](rules/SST2460.md) | `[DefaultValue]` on a method or record parameter is inert: it does not make the parameter optional and no call site reads it. Code fix swaps it for the interop `[DefaultParameterValue]`. |
 
 ## Naming
 

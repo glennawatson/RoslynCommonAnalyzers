@@ -308,6 +308,13 @@ internal static class ModernSyntaxRules
         "This 'for' has neither an initializer nor an increment; write it as a 'while'",
         UseWhileOverForDescription);
 
+    /// <summary>SST2246 — a same-subject conditional chain can be a switch expression.</summary>
+    public static readonly DiagnosticDescriptor ConvertChainedConditionalToSwitch = Create(
+        "SST2246",
+        "Express a same-value conditional chain as a switch",
+        "Rewrite this conditional chain that tests one value against constants as a switch expression",
+        ConvertChainedConditionalToSwitchDescription);
+
     /// <summary>SST2247 — consecutive locals copying one value's members can use deconstruction.</summary>
     public static readonly DiagnosticDescriptor DeconstructMemberCopies = Create(
         "SST2247",
@@ -350,6 +357,15 @@ internal static class ModernSyntaxRules
     private const string UseWhileOverForDescription =
         "'for (; condition; )' is a 'while' with two empty clauses the reader still has to check. Writing 'while (condition)' says the same "
         + "thing with nothing left over.";
+
+    /// <summary>The ConvertChainedConditionalToSwitch rule description.</summary>
+    private const string ConvertChainedConditionalToSwitchDescription =
+        "A run of nested '?:' expressions that all compare the same value against constants — "
+        + "'x == 1 ? a : x == 2 ? b : c' — is a switch expression wearing conditional syntax. "
+        + "'x switch { 1 => a, 2 => b, _ => c }' names the value once and lines each case up against its result. "
+        + "Reported only when the tested value is a side-effect-free local, parameter, or field of a type whose "
+        + "'==' matches a constant pattern, the language version supports switch expressions (C# 8), and the "
+        + "rewritten switch binds to the same type.";
 
     /// <summary>The DeconstructMemberCopies rule description.</summary>
     private const string DeconstructMemberCopiesDescription =

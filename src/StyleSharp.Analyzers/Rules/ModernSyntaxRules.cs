@@ -308,6 +308,13 @@ internal static class ModernSyntaxRules
         "This 'for' has neither an initializer nor an increment; write it as a 'while'",
         UseWhileOverForDescription);
 
+    /// <summary>SST2247 — consecutive locals copying one value's members can use deconstruction.</summary>
+    public static readonly DiagnosticDescriptor DeconstructMemberCopies = Create(
+        "SST2247",
+        "Deconstruct a value instead of copying its members",
+        "Deconstruct '{0}' into these locals instead of copying its members one at a time",
+        DeconstructMemberCopiesDescription);
+
     /// <summary>SST2251 — an explicit method type-argument list repeats what inference would supply.</summary>
     public static readonly DiagnosticDescriptor OmitInferableTypeArguments = Create(
         "SST2251",
@@ -336,6 +343,12 @@ internal static class ModernSyntaxRules
     private const string UseWhileOverForDescription =
         "'for (; condition; )' is a 'while' with two empty clauses the reader still has to check. Writing 'while (condition)' says the same "
         + "thing with nothing left over.";
+
+    /// <summary>The DeconstructMemberCopies rule description.</summary>
+    private const string DeconstructMemberCopiesDescription =
+        "Consecutive locals that each copy one member of the same tuple or Deconstruct-able value ('var a = pair.Item1; var b = pair.Item2;') "
+        + "are declared once with deconstruction ('var (a, b) = pair;'), keeping the parts beside the value they come from. Reported only when "
+        + "the reads cover every position of the value in order and the value is a side-effect-free local or parameter (C# 7).";
 
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

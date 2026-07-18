@@ -31,9 +31,8 @@ internal static class EventHandlerSignatureBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     /// <remarks>
-    /// The framework handlers settle in two string comparisons, and the hand-written delegate of the right
-    /// shape is the expensive clean case: it walks the invoke signature and the payload's base chain before
-    /// it is let go.
+    /// The framework handlers settle in two string comparisons, and the interface-dictated event is the
+    /// expensive clean case: it walks the implemented interfaces before it is let go.
     /// </remarks>
     private static string GenerateCleanType(int index)
         => $$"""
@@ -42,15 +41,16 @@ internal static class EventHandlerSignatureBenchmarkSource
                public int Value { get; set; }
            }
 
-           public delegate void ValueChangedHandler{{index}}(object sender, ValueChangedEventArgs{{index}} e);
+           public interface INotifier{{index}}
+           {
+               event EventHandler<ValueChangedEventArgs{{index}}> Changed;
+           }
 
-           public sealed class Slider{{index}}
+           public sealed class Slider{{index}} : INotifier{{index}}
            {
                public event EventHandler Closed;
 
                public event EventHandler<ValueChangedEventArgs{{index}}> Changed;
-
-               public event ValueChangedHandler{{index}} Moved;
 
                public int Value { get; set; }
            }
@@ -59,14 +59,26 @@ internal static class EventHandlerSignatureBenchmarkSource
     /// <summary>Builds one type that reaches the report.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    /// <remarks>One diagnostic per type: a delegate carrying a payload nothing generic can handle.</remarks>
+    /// <remarks>
+    /// Two diagnostics per type, one per message flavour: a delegate carrying a payload nothing generic can
+    /// handle, and a right-shape delegate whose exact replacement is spelled out.
+    /// </remarks>
     private static string GenerateViolatingType(int index)
         => $$"""
+           public sealed class MovedEventArgs{{index}} : EventArgs
+           {
+               public int Value { get; set; }
+           }
+
            public delegate void ValueChanged{{index}}(int oldValue, int newValue);
+
+           public delegate void MovedHandler{{index}}(object sender, MovedEventArgs{{index}} e);
 
            public sealed class Slider{{index}}
            {
                public event ValueChanged{{index}} Changed;
+
+               public event MovedHandler{{index}} Moved;
 
                public int Value { get; set; }
            }

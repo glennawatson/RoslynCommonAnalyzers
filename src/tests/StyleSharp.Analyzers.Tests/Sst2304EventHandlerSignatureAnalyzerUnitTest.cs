@@ -73,11 +73,11 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies a hand-written delegate of the right shape is left alone.</summary>
+    /// <summary>Verifies a hand-written delegate of the right shape is told to become the framework handler.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
-    /// <remarks>The rule is about the shape a consumer can handle, not about the name of the delegate.</remarks>
+    /// <remarks>The shape already matches, so the message names the exact replacement.</remarks>
     [Test]
-    public async Task CustomDelegateWithTheRightShapeIsCleanAsync()
+    public async Task CustomDelegateWithTheRightShapeIsReportedWithItsReplacementAsync()
         => await VerifyEvents.VerifyAnalyzerAsync(
             """
             using System;
@@ -92,12 +92,30 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
             {
                 public event ValueChangedHandler Changed;
             }
-            """);
+            """,
+            VerifyEvents.Diagnostic().WithSpan(11, 38, 11, 45).WithArguments("Changed", "EventHandler<ValueChangedEventArgs>", "ValueChangedHandler"));
 
-    /// <summary>Verifies a generic delegate is judged by what its constraint promises.</summary>
+    /// <summary>Verifies a payload of exactly <c>EventArgs</c> is pointed at the non-generic handler.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
-    public async Task GenericHandlerConstrainedToEventArgsIsCleanAsync()
+    public async Task EventArgsPayloadSuggestsTheNonGenericHandlerAsync()
+        => await VerifyEvents.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public delegate void Poked(object sender, EventArgs e);
+
+            public class Button
+            {
+                public event Poked Pressed;
+            }
+            """,
+            VerifyEvents.Diagnostic().WithSpan(7, 24, 7, 31).WithArguments("Pressed", "EventHandler", "Poked"));
+
+    /// <summary>Verifies a generic delegate constrained to <c>EventArgs</c> is offered the generic handler over its own type parameter.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task GenericHandlerConstrainedToEventArgsIsReportedWithItsReplacementAsync()
         => await VerifyEvents.VerifyAnalyzerAsync(
             """
             using System;
@@ -109,6 +127,72 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
                 where T : EventArgs
             {
                 public event Handler<T> Updated;
+            }
+            """,
+            VerifyEvents.Diagnostic().WithSpan(9, 29, 9, 36).WithArguments("Updated", "EventHandler<T>", "Handler<T>"));
+
+    /// <summary>Verifies a constructed generic delegate is offered the handler closed over the same payload.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ConstructedGenericHandlerIsReportedWithItsReplacementAsync()
+        => await VerifyEvents.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public sealed class MovedEventArgs : EventArgs
+            {
+            }
+
+            public delegate void Handler<T>(object sender, T e)
+                where T : EventArgs;
+
+            public class Feed
+            {
+                public event Handler<MovedEventArgs> Moved;
+            }
+            """,
+            VerifyEvents.Diagnostic().WithSpan(12, 42, 12, 47).WithArguments("Moved", "EventHandler<MovedEventArgs>", "Handler<MovedEventArgs>"));
+
+    /// <summary>Verifies a by-reference parameter disqualifies a delegate from the mechanical replacement.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>The signature differs from the standard shape, so only the shape itself is suggested.</remarks>
+    [Test]
+    public async Task ByRefLookalikeIsNotOfferedTheMechanicalReplacementAsync()
+        => await VerifyEvents.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public delegate void Prodded(ref object sender, EventArgs e);
+
+            public class Widget
+            {
+                public event Prodded Poked;
+            }
+            """,
+            VerifyEvents.Diagnostic().WithSpan(7, 26, 7, 31).WithArguments("Poked", "EventHandler<TEventArgs>", "Prodded"));
+
+    /// <summary>Verifies a right-shape delegate dictated by an interface is reported at the interface, not the implementation.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RightShapeInterfaceImplementationIsReportedAtItsSourceAsync()
+        => await VerifyEvents.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public sealed class MovedEventArgs : EventArgs
+            {
+            }
+
+            public delegate void MovedHandler(object sender, MovedEventArgs e);
+
+            public interface ITracker
+            {
+                event MovedHandler {|SST2304:Moved|};
+            }
+
+            public class Tracker : ITracker
+            {
+                public event MovedHandler Moved;
             }
             """);
 

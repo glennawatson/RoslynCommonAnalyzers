@@ -150,7 +150,7 @@ async, `PSH14xx` API selection.
 | [PSH1415](rules/PSH1415.md) | A local or private field is typed as an interface where only one concrete type is ever assigned. Code fix changes the declared type. |
 | [PSH1416](rules/PSH1416.md) | A fresh `JsonSerializerOptions` per call throws away the serializer's per-type metadata cache. |
 | [PSH1417](rules/PSH1417.md) | An expensive argument is computed for a `Debug.Assert` that release builds compile away. |
-| [PSH1418](rules/PSH1418.md) | An `HttpClient` is constructed for a single call, so its connection pool dies with it and a socket leaks per call. |
+| [PSH1418](rules/PSH1418.md) | A shareable client (`HttpClient` or an Azure SDK service client) is constructed for a single call, so its pooled connections and caches die with it and every call pays the setup cost again. |
 
 # StyleSharp Rule Index
 

@@ -455,6 +455,12 @@ PSH1102, and PSH1100.
 | [SST2243](rules/SST2243.md) | A verbatim string literal is full of doubled-quote escapes, or spans lines. Code fix rewrites it as a raw string literal. |
 | [SST2244](rules/SST2244.md) | A numeric literal's suffix is lower case. Code fix upper-cases the suffix, leaving the digits alone. |
 | [SST2245](rules/SST2245.md) | A `for` loop with only a condition should be a `while` loop. Code fix rewrites it. |
+| [SST2246](rules/SST2246.md) | A chain of `?:` expressions that tests one value against constants can be a switch expression. Code fix rewrites it. |
+| [SST2247](rules/SST2247.md) | Consecutive locals that copy one tuple- or `Deconstruct`-able value's members in order should be a deconstruction. Code fix folds them into `var (a, b) = source;`. |
+| [SST2248](rules/SST2248.md) | Two comparisons of the same value against constants can fold into one `is`-pattern. Code fix rewrites them. |
+| [SST2249](rules/SST2249.md) | A `string.Format` call with a literal format, or a concatenation of literals with values, reads more clearly as an interpolated string. Code fix rewrites it; a call passing an explicit format provider is left alone so its culture is not dropped. |
+| [SST2250](rules/SST2250.md) | A bare local declared without a value and assigned once by the next straight-line statement can be joined into an initialized declaration. Code fix joins them. |
+| [SST2251](rules/SST2251.md) | A method call names type arguments that inference would supply. Code fix removes them. |
 
 ## Design
 
@@ -560,6 +566,8 @@ Code that compiles and runs but does not do what it says.
 | [SST2473](rules/SST2473.md) | A `new` expression constructs a type that is itself a shared export part, bypassing the container and its single-instance guarantee. |
 | [SST2474](rules/SST2474.md) | A part-creation-policy attribute is applied to a type with no `[Export]`, so it governs nothing. |
 | [SST2475](rules/SST2475.md) | An entity's primary key is typed `DateTime` or `DateTimeOffset`, so keys collide within a tick, are not stable identifiers, cluster the table by insertion time, and round-trip imprecisely across providers. |
+| [SST2479](rules/SST2479.md) | A for/while/do loop variable captured by a lambda, anonymous method, or local function that is stored beyond the iteration reads its final value on every deferred call. |
+| [SST2481](rules/SST2481.md) | A `GetHashCode` override folds the base object identity hash into a value hash, so two value-equal instances hash differently and are lost in any hash-based collection. |
 
 ## Naming
 

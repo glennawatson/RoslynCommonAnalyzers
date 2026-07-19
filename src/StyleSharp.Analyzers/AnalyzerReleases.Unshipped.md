@@ -34,3 +34,11 @@ SST2474 | Correctness | Warning | MefContractAnalyzer
 SST2475 | Correctness | Warning | Sst2475TemporalPrimaryKeyAnalyzer
 SST2479 | Correctness | Warning | Sst2479CapturedLoopVariableAnalyzer
 SST2481 | Correctness | Warning | Sst2481IdentityHashInValueHashAnalyzer
+SST2500 | Testing | Warning | Sst2500TestWithoutAssertionAnalyzer
+SST2501 | Testing | Warning | Sst2501SelfComparisonAssertionAnalyzer
+SST2502 | Testing | Warning | Sst2502ReversedEqualityAssertionAnalyzer
+SST2503 | Testing | Warning | Sst2503BooleanLiteralAssertionAnalyzer
+SST2504 | Testing | Warning | Sst2504EmptyTestClassAnalyzer
+SST2505 | Testing | Warning | Sst2505ParameterizedTestWithoutDataSourceAnalyzer
+SST2506 | Testing | Warning | Sst2506ThreadSleepInTestAnalyzer
+SST2507 | Testing | Warning | Sst2507ExpectedExceptionAnalyzer

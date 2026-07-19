@@ -569,6 +569,19 @@ Code that compiles and runs but does not do what it says.
 | [SST2479](rules/SST2479.md) | A for/while/do loop variable captured by a lambda, anonymous method, or local function that is stored beyond the iteration reads its final value on every deferred call. |
 | [SST2481](rules/SST2481.md) | A `GetHashCode` override folds the base object identity hash into a value hash, so two value-equal instances hash differently and are lost in any hash-based collection. |
 
+## Testing
+
+| Rule | Description |
+| --- | --- |
+| [SST2500](rules/SST2500.md) | A test method carrying a test attribute contains no assertion and no expected-exception check, so it always passes without verifying anything. Reported only when every call in the body resolves to a non-verifying platform (BCL) API (or there are none); any user or third-party call keeps it silent. |
+| [SST2501](rules/SST2501.md) | An equality or identity assertion compares an expression with itself, so a positive assertion always passes and a negated one always fails, verifying nothing. Covers xUnit, NUnit (classic and `Assert.That`), and MSTest. |
+| [SST2502](rules/SST2502.md) | An equality assertion is passed a constant as its actual argument and a computed value as its expected, so a failure reports them the wrong way round. Code fix swaps the two arguments. |
+| [SST2503](rules/SST2503.md) | An equality assertion compares a value against a boolean literal (`Assert.Equal(true, x)` / `Assert.AreEqual(true, x)`), obscuring intent and giving a worse failure message. Code fix rewrites it to the framework's boolean assertion. |
+| [SST2504](rules/SST2504.md) | A concrete class marked as a test fixture (MSTest test-class or NUnit test-fixture) declares no test method of its own and inherits none, so the runner loads it but never runs anything. |
+| [SST2505](rules/SST2505.md) | A test method declares parameters but no data source, so the runner cannot supply arguments and the test silently never runs. |
+| [SST2506](rules/SST2506.md) | A test method calls `Thread.Sleep`, spending a fixed real-time delay on every run that slows the suite and races the wall clock, a classic flaky-test source. |
+| [SST2507](rules/SST2507.md) | A test method declares its expected failure with an expected-exception attribute instead of asserting the specific operation, so any statement in the whole method throwing that type passes the test. |
+
 ## Naming
 
 | Rule | Description |

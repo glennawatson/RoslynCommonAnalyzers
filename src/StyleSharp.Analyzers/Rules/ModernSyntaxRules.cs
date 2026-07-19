@@ -322,6 +322,13 @@ internal static class ModernSyntaxRules
         "Deconstruct '{0}' into these locals instead of copying its members one at a time",
         DeconstructMemberCopiesDescription);
 
+    /// <summary>SST2248 — comparisons of one value against constants can fold into a single is-pattern.</summary>
+    public static readonly DiagnosticDescriptor UseComparisonPattern = Create(
+        "SST2248",
+        "Combine comparisons into a pattern",
+        "Combine these comparisons into a single is-pattern",
+        UseComparisonPatternDescription);
+
     /// <summary>SST2250 — a bare local declaration and its immediately following first assignment can be joined.</summary>
     public static readonly DiagnosticDescriptor JoinDeclarationAndAssignment = Create(
         "SST2250",
@@ -372,6 +379,13 @@ internal static class ModernSyntaxRules
         "Consecutive locals that each copy one member of the same tuple or Deconstruct-able value ('var a = pair.Item1; var b = pair.Item2;') "
         + "are declared once with deconstruction ('var (a, b) = pair;'), keeping the parts beside the value they come from. Reported only when "
         + "the reads cover every position of the value in order and the value is a side-effect-free local or parameter (C# 7).";
+
+    /// <summary>The UseComparisonPattern rule description.</summary>
+    private const string UseComparisonPatternDescription =
+        "Two comparisons of the same side-effect-free value against constants read as one pattern: a range such as 'x >= 0 && x <= 9' "
+        + "becomes 'x is >= 0 and <= 9', a set such as 't == A || t == B' becomes 't is A or B', and the region outside a range such as "
+        + "'n < 0 || n > 100' becomes 'n is < 0 or > 100'. Reported from C# 9, only when the subject is a local, field, or parameter of an "
+        + "integral, char, or enum type, and only for combinations whose merged pattern matches the original result exactly.";
 
     /// <summary>The JoinDeclarationAndAssignment rule description.</summary>
     private const string JoinDeclarationAndAssignmentDescription =

@@ -42,3 +42,4 @@ SST2504 | Testing | Warning | Sst2504EmptyTestClassAnalyzer
 SST2505 | Testing | Warning | Sst2505ParameterizedTestWithoutDataSourceAnalyzer
 SST2506 | Testing | Warning | Sst2506ThreadSleepInTestAnalyzer
 SST2507 | Testing | Warning | Sst2507ExpectedExceptionAnalyzer
+SST2600 | Logging | Warning | Sst2600LegacyTracingAnalyzer

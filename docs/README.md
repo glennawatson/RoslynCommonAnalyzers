@@ -582,6 +582,14 @@ Code that compiles and runs but does not do what it says.
 | [SST2506](rules/SST2506.md) | A test method calls `Thread.Sleep`, spending a fixed real-time delay on every run that slows the suite and races the wall clock, a classic flaky-test source. |
 | [SST2507](rules/SST2507.md) | A test method declares its expected failure with an expected-exception attribute instead of asserting the specific operation, so any statement in the whole method throwing that type passes the test. |
 
+## Logging
+
+Legacy tracing in place of structured logging.
+
+| Rule | Description |
+| --- | --- |
+| [SST2600](rules/SST2600.md) | Application output is written through `Trace.Write`/`WriteLine`/`WriteIf`/`WriteLineIf` when a structured logger (`ILogger`) is available, so the message loses its level, category, and named state. Reported only when `ILogger` resolves; `Debug.*` is excluded. |
+
 ## Naming
 
 | Rule | Description |

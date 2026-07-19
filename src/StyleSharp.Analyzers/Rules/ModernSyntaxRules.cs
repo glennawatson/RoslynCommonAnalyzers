@@ -329,6 +329,13 @@ internal static class ModernSyntaxRules
         "Combine these comparisons into a single is-pattern",
         UseComparisonPatternDescription);
 
+    /// <summary>SST2249 — a composite format call or a literal-plus-value concatenation reads more clearly as interpolation.</summary>
+    public static readonly DiagnosticDescriptor UseInterpolatedString = Create(
+        "SST2249",
+        "Use an interpolated string",
+        "Rewrite this {0} as an interpolated string",
+        UseInterpolatedStringDescription);
+
     /// <summary>SST2250 — a bare local declaration and its immediately following first assignment can be joined.</summary>
     public static readonly DiagnosticDescriptor JoinDeclarationAndAssignment = Create(
         "SST2250",
@@ -386,6 +393,15 @@ internal static class ModernSyntaxRules
         + "becomes 'x is >= 0 and <= 9', a set such as 't == A || t == B' becomes 't is A or B', and the region outside a range such as "
         + "'n < 0 || n > 100' becomes 'n is < 0 or > 100'. Reported from C# 9, only when the subject is a local, field, or parameter of an "
         + "integral, char, or enum type, and only for combinations whose merged pattern matches the original result exactly.";
+
+    /// <summary>The UseInterpolatedString rule description.</summary>
+    private const string UseInterpolatedStringDescription =
+        "A composite format call such as Format(\"{0} of {1}\", part, whole), or a chain of '+' that splices values between literals, "
+        + "makes the reader assemble the result in their head from a numbered template and a trailing argument list, or track a value "
+        + "through the concatenation. An interpolated string puts each value where it lands in the text. Reported only when the "
+        + "language version supports interpolation (C# 6) and the rewrite is provably identical, which the fix confirms before it is "
+        + "offered. A composite format that passes an explicit format provider is left alone, because a plain interpolated string uses "
+        + "the current culture and would silently drop the culture the call chose.";
 
     /// <summary>The JoinDeclarationAndAssignment rule description.</summary>
     private const string JoinDeclarationAndAssignmentDescription =

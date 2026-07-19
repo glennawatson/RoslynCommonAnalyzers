@@ -18,14 +18,19 @@
     <Project Path="PerformanceSharp.Analyzers/PerformanceSharp.Analyzers.csproj" />
     <Project Path="PerformanceSharp.Analyzers.CodeFixes/PerformanceSharp.Analyzers.CodeFixes.csproj" />
     <Project Path="PerformanceSharp.Analyzers.Package/PerformanceSharp.Analyzers.Packages.csproj" />
+    <Project Path="SecuritySharp.Analyzers/SecuritySharp.Analyzers.csproj" />
+    <Project Path="SecuritySharp.Analyzers.CodeFixes/SecuritySharp.Analyzers.CodeFixes.csproj" />
+    <Project Path="SecuritySharp.Analyzers.Package/SecuritySharp.Analyzers.Packages.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj" />
     <Project Path="tests/PerformanceSharp.Analyzers.Tests/PerformanceSharp.Analyzers.Tests.csproj" />
+    <Project Path="tests/SecuritySharp.Analyzers.Tests/SecuritySharp.Analyzers.Tests.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/StyleSharp.Analyzers.Benchmarks/StyleSharp.Analyzers.Benchmarks.csproj" />
     <Project Path="benchmarks/PerformanceSharp.Analyzers.Benchmarks/PerformanceSharp.Analyzers.Benchmarks.csproj" />
+    <Project Path="benchmarks/SecuritySharp.Analyzers.Benchmarks/SecuritySharp.Analyzers.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/TraceFocus/TraceFocus.csproj" />

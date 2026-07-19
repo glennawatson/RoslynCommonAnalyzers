@@ -1,0 +1,18 @@
+# SecuritySharp.Analyzers — recommended .editorconfig preset
+#
+# Drop this in (or merge it into) the .editorconfig at your repository root to adopt
+# the SecuritySharp rule set with sensible defaults. Every rule below is already
+# enabled by default at Warning severity — listing them explicitly just gives you a
+# single place to tune severities (warning / suggestion / error / none) per rule.
+#
+# Lines that are commented out are the OPT-IN rules: off by default because they are
+# situational. Uncomment one to turn it on. See docs/CONFIGURATION.md and
+# docs/rules/SESxxxx.md for what each rule does.
+#
+# Configurable options (uncomment and adjust):
+# (none yet — rule-specific options use the securitysharp.<RuleId>.<option> convention)
+
+[*.cs]
+
+# Cryptography
+dotnet_diagnostic.SES1001.severity = warning # AEAD encryption must not use a constant or reused nonce

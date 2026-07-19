@@ -64,7 +64,7 @@
     behind ROSLYN_5_OR_GREATER. Keep these assemblies netstandard2.0 (RS1041).
   -->
   <PropertyGroup>
-    <IsRoslynComponentProject Condition="'$(MSBuildProjectName)' == 'StyleSharp.Analyzers' Or '$(MSBuildProjectName)' == 'StyleSharp.Analyzers.CodeFixes' Or '$(MSBuildProjectName)' == 'PerformanceSharp.Analyzers' Or '$(MSBuildProjectName)' == 'PerformanceSharp.Analyzers.CodeFixes'">true</IsRoslynComponentProject>
+    <IsRoslynComponentProject Condition="'$(MSBuildProjectName)' == 'StyleSharp.Analyzers' Or '$(MSBuildProjectName)' == 'StyleSharp.Analyzers.CodeFixes' Or '$(MSBuildProjectName)' == 'PerformanceSharp.Analyzers' Or '$(MSBuildProjectName)' == 'PerformanceSharp.Analyzers.CodeFixes' Or '$(MSBuildProjectName)' == 'SecuritySharp.Analyzers' Or '$(MSBuildProjectName)' == 'SecuritySharp.Analyzers.CodeFixes'">true</IsRoslynComponentProject>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(IsRoslynComponentProject)' == 'true'">

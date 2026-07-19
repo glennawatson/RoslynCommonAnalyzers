@@ -100,6 +100,10 @@ jobs:
                 working-directory: src
                 run: dotnet test --project tests/PerformanceSharp.Analyzers.Tests/PerformanceSharp.Analyzers.Tests.csproj --configuration Release --no-restore -- --coverage --coverage-output-format xml --results-directory TestResults/PerformanceSharp --coverage-output sonar-coverage.xml
 
+            -   name: Test SecuritySharp with MTP coverage
+                working-directory: src
+                run: dotnet test --project tests/SecuritySharp.Analyzers.Tests/SecuritySharp.Analyzers.Tests.csproj --configuration Release --no-restore -- --coverage --coverage-output-format xml --results-directory TestResults/SecuritySharp --coverage-output sonar-coverage.xml
+
             -   name: End Sonar analysis
                 working-directory: src
                 env:

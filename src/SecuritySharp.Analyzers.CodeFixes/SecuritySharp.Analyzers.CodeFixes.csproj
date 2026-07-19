@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>SecuritySharp.Analyzers</RootNamespace>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SecuritySharp.Analyzers.Benchmarks" />
+    <InternalsVisibleTo Include="SecuritySharp.Analyzers.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Linq" />
+    <Using Include="System.Collections.Immutable" />
+    <Using Include="System.Composition" />
+    <Using Include="System.Diagnostics.CodeAnalysis" />
+    <Using Include="Microsoft.CodeAnalysis" />
+    <Using Include="Microsoft.CodeAnalysis.CodeActions" />
+    <Using Include="Microsoft.CodeAnalysis.CodeFixes" />
+    <Using Include="Microsoft.CodeAnalysis.Editing" />
+    <Using Include="Microsoft.CodeAnalysis.Text" />
+    <Using Include="Microsoft.CodeAnalysis.CSharp" />
+    <Using Include="Microsoft.CodeAnalysis.CSharp.Syntax" />
+    <Using Include="Microsoft.CodeAnalysis.Diagnostics" />
+    <Using Include="RoslynCommon.Analyzers" />
+    <Using Include="RoslynCommon.Analyzers.CodeFixes" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SecuritySharp.Analyzers\SecuritySharp.Analyzers.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\CodeFixes\*.cs" Link="Helpers\Shared\%(Filename).cs" />
+  </ItemGroup>
+
+</Project>

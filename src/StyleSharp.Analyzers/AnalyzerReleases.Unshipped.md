@@ -11,6 +11,10 @@ SST2248 | ModernSyntax | Warning | Sst2248UseComparisonPatternAnalyzer
 SST2249 | ModernSyntax | Warning | Sst2249UseInterpolatedStringAnalyzer
 SST2250 | ModernSyntax | Warning | Sst2250JoinDeclarationAndAssignmentAnalyzer
 SST2251 | ModernSyntax | Warning | Sst2251InferableTypeArgumentsAnalyzer
+SST2322 | Design | Warning | Sst2322ReadonlyMutableCollectionFieldAnalyzer
+SST2323 | Design | Warning | Sst2323PreferInterfaceOverAbstractClassAnalyzer
+SST2324 | Design | Warning | Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer
+SST2325 | Design | Warning | Sst2325AsyncValidatesAfterAwaitAnalyzer
 SST2448 | Correctness | Warning | Sst2448DelegateSubtractionAnalyzer
 SST2449 | Correctness | Warning | Sst2449LambdaUnsubscriptionAnalyzer
 SST2450 | Correctness | Warning | Sst2450DebugAssertSideEffectAnalyzer

@@ -43,6 +43,7 @@ async, `PSH14xx` API selection.
 | [PSH1018](rules/PSH1018.md) | A hand-written array is passed to a `params` parameter. Code fix passes the elements directly. |
 | [PSH1019](rules/PSH1019.md) | The range indexer on an array allocates a copy where a view would do. Code fix slices in place with `AsSpan` or `AsMemory`. |
 | [PSH1020](rules/PSH1020.md) | A multidimensional array is chosen where a jagged array would index on the CLR's fast path. |
+| [PSH1021](rules/PSH1021.md) | An explicit `GC.Collect` or `GC.WaitForPendingFinalizers` call forces collection the runtime tunes itself. |
 
 ## Collections
 
@@ -491,6 +492,10 @@ conventions, and what a member exposes.
 | [SST2319](rules/SST2319.md) | An optional parameter's default can never bind because a same-named overload already takes exactly its required prefix. |
 | [SST2320](rules/SST2320.md) | An interface inherits the same member from two unrelated base interfaces, so every consumer that accesses it gets an ambiguity error. |
 | [SST2321](rules/SST2321.md) | A class library calls `Environment.Exit` or `Environment.FailFast`, ending the whole host process instead of throwing. |
+| [SST2322](rules/SST2322.md) | A non-private instance `readonly` field holds a mutable collection, so any caller can still add, remove, or clear its items; `readonly` freezes the reference, not the contents. |
+| [SST2323](rules/SST2323.md) | A non-static abstract class that extends only `object` and declares nothing but public abstract members is a stateless contract better written as an interface. |
+| [SST2324](rules/SST2324.md) | A member is declared more accessible than its containing type, so the wider modifier is dead — the container caps its reach. |
+| [SST2325](rules/SST2325.md) | An async method checks an argument after its first await, so the guard does not throw at the call site but later, when the returned task is awaited. |
 
 ## Correctness
 

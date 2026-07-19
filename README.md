@@ -8,6 +8,8 @@
 [![Downloads](https://img.shields.io/nuget/dt/StyleSharp.Analyzers.svg?logo=nuget&label=downloads)](https://www.nuget.org/packages/StyleSharp.Analyzers/)
 [![NuGet](https://img.shields.io/nuget/v/PerformanceSharp.Analyzers.svg?logo=nuget&label=PerformanceSharp.Analyzers)](https://www.nuget.org/packages/PerformanceSharp.Analyzers/)
 [![Downloads](https://img.shields.io/nuget/dt/PerformanceSharp.Analyzers.svg?logo=nuget&label=downloads)](https://www.nuget.org/packages/PerformanceSharp.Analyzers/)
+[![NuGet](https://img.shields.io/nuget/v/SecuritySharp.Analyzers.svg?logo=nuget&label=SecuritySharp.Analyzers)](https://www.nuget.org/packages/SecuritySharp.Analyzers/)
+[![Downloads](https://img.shields.io/nuget/dt/SecuritySharp.Analyzers.svg?logo=nuget&label=downloads)](https://www.nuget.org/packages/SecuritySharp.Analyzers/)
 [![GitHub stars](https://img.shields.io/github/stars/glennawatson/RoslynCommonAnalyzers?style=social)](https://github.com/glennawatson/RoslynCommonAnalyzers/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -23,6 +25,7 @@ Two fast Roslyn analyzer and code-fix packages for .NET codebases, built from on
 
 - **`StyleSharp.Analyzers`** (`SST####`) — style and consistency: spacing, readability, ordering, layout, naming, maintainability, documentation, extension blocks, records, lock-target safety, modernization, collection expressions, and modern C# syntax.
 - **`PerformanceSharp.Analyzers`** (`PSH####`) — runtime performance of *your* code: avoidable allocations, collection and LINQ enumeration costs, string handling, concurrency and async patterns, and cheaper API selection.
+- **`SecuritySharp.Analyzers`** (`SES####`) — runtime security of *your* code: cryptography (algorithm, key, and nonce/IV misuse), transport protection, secret handling, injection sinks, unsafe deserialization, web hardening, and AI input trust boundaries.
 
 Both packages are analyzer-only, target `netstandard2.0`, ship as a `DevelopmentDependency`, and pack analyzer/code-fix assemblies for multiple Roslyn slots under one NuGet package each. The analyzers themselves are engineered for build-time speed: allocation-free no-diagnostic paths, syntax-first candidate filtering, and per-rule benchmarks.
 
@@ -31,6 +34,7 @@ Both packages are analyzer-only, target `netstandard2.0`, ship as a `Development
 ```bash
 dotnet add package StyleSharp.Analyzers
 dotnet add package PerformanceSharp.Analyzers
+dotnet add package SecuritySharp.Analyzers
 ```
 
 Each package adds no runtime assemblies to your output and is not transitive to consumers of your library. They are independent — install either or both.

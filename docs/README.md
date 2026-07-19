@@ -1,13 +1,14 @@
 # Rule Index
 
-This page is the full categorized rule catalog for both packages published from
-this repository: [`StyleSharp.Analyzers`](#stylesharp-rule-index) (`SST####`) and
-[`PerformanceSharp.Analyzers`](#performancesharp-rule-index) (`PSH####`).
+This page is the full categorized rule catalog for the packages published from
+this repository: [`StyleSharp.Analyzers`](#stylesharp-rule-index) (`SST####`),
+[`PerformanceSharp.Analyzers`](#performancesharp-rule-index) (`PSH####`), and
+[`SecuritySharp.Analyzers`](#securitysharp-rule-index) (`SES####`).
 
 - Repository overview and installation: [`../README.md`](../README.md)
 - Configuration reference: [`CONFIGURATION.md`](CONFIGURATION.md)
 - Performance guidance: [`PERFORMANCE.md`](PERFORMANCE.md)
-- Recommended presets: [`../recommended.editorconfig`](../recommended.editorconfig) (StyleSharp), [`../recommended-performancesharp.editorconfig`](../recommended-performancesharp.editorconfig) (PerformanceSharp)
+- Recommended presets: [`../recommended.editorconfig`](../recommended.editorconfig) (StyleSharp), [`../recommended-performancesharp.editorconfig`](../recommended-performancesharp.editorconfig) (PerformanceSharp), [`../recommended-securitysharp.editorconfig`](../recommended-securitysharp.editorconfig) (SecuritySharp)
 
 Unless noted otherwise, rules are enabled by default at `Warning` severity. Rules marked `opt-in` are disabled by default and are commented out in the presets.
 
@@ -793,3 +794,16 @@ pages are retained only as historical aliases.
 | [SST1026](rules/SST1026.md) | A space follows `new` or `stackalloc` in an implicit array creation. |
 | [SST1027](rules/SST1027.md) | A tab character is used where the project standardizes on spaces. |
 | [SST1028](rules/SST1028.md) | A line ends with trailing whitespace. |
+
+# SecuritySharp Rule Index
+
+Rules whose primary motivation is the runtime security of the analyzed code. Ids
+are grouped by the hundreds digit: `SES10xx` cryptography, `SES11xx` transport,
+`SES12xx` secrets, `SES13xx` injection, `SES14xx` serialization, `SES15xx` web
+hardening, `SES16xx` AI input trust boundaries.
+
+## Cryptography
+
+| Rule | Description |
+| --- | --- |
+| [SES1001](rules/SES1001.md) | AEAD encryption (`AesGcm`/`AesCcm`/`ChaCha20Poly1305`) uses a constant or reused nonce, which is catastrophic under a fixed key. |

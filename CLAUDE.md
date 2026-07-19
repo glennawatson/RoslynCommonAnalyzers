@@ -1,10 +1,12 @@
 # CLAUDE.md
 
-Guidance for working in this repository (Roslyn analyzers and code fixes). Two
+Guidance for working in this repository (Roslyn analyzers and code fixes). Three
 NuGet packages are published from here: `StyleSharp.Analyzers` (style, layout,
-naming, documentation, readability) and `PerformanceSharp.Analyzers` (runtime
+naming, documentation, readability), `PerformanceSharp.Analyzers` (runtime
 performance: allocations, collections/LINQ usage, strings, concurrency/async,
-faster API selection). The GitHub repo is `RoslynCommonAnalyzers`. Each package
+faster API selection), and `SecuritySharp.Analyzers` (runtime security:
+cryptography, transport, secrets, injection, serialization, web hardening, AI
+input trust boundaries; `SES####`). The GitHub repo is `RoslynCommonAnalyzers`. Each package
 has its own analyzer/code-fix/package/test/benchmark project family; the same
 conventions apply to both.
 

@@ -158,6 +158,13 @@ internal static class AllocationRules
         "'{0}' is multidimensional; a jagged array indexes faster",
         PreferJaggedArraysDescription);
 
+    /// <summary>PSH1021 — an explicit call that forces the garbage collector the runtime tunes itself.</summary>
+    public static readonly DiagnosticDescriptor AvoidForcedGarbageCollection = Create(
+        "PSH1021",
+        "Do not force garbage collection",
+        "Remove this 'GC.{0}' call; forcing collection stalls every thread and defeats the self-tuning garbage collector",
+        AvoidForcedGarbageCollectionDescription);
+
     /// <summary>The PSH1009 rule description.</summary>
     private const string UnboundedStackallocDescription =
         "A stackalloc whose length comes from data can blow the stack on adversarial or unexpected input; the resilient shape tests the "
@@ -226,6 +233,13 @@ internal static class AllocationRules
     private const string PreferJaggedArraysDescription =
         "The CLR gives single-dimensional arrays a fast, bounds-check-elided access path that multidimensional arrays do not get: every "
         + "'a[i, j]' goes through a slower helper. A jagged array is an array of single-dimensional arrays, so each row gets the fast path.";
+
+    /// <summary>The PSH1021 rule description.</summary>
+    private const string AvoidForcedGarbageCollectionDescription =
+        "GC.Collect forces a blocking garbage collection that suspends every managed thread, and GC.WaitForPendingFinalizers blocks the "
+        + "caller until the finalizer queue drains; both override the runtime's self-tuning collection heuristics and almost always lower "
+        + "throughput. Let the garbage collector schedule collection itself and remove the call, keeping it only for the rare diagnostic or "
+        + "benchmarking scenario that genuinely needs a deterministic collection.";
 
     /// <summary>Creates a Warning-severity Allocations descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

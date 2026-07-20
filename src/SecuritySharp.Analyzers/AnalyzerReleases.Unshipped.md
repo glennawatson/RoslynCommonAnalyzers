@@ -33,3 +33,9 @@ SES1505 | WebHardening | Warning | Ses1505RequestBodySizeLimitRemovalAnalyzer
 SES1506 | WebHardening | Info | Ses1506UnguardedDeveloperExceptionPageAnalyzer
 SES1507 | WebHardening | Warning | Ses1507ConflictingAnonymousAuthorizationAnalyzer
 SES1508 | WebHardening | Warning | Ses1508FailOpenValidationAnalyzer
+SES1601 | Ai | Warning | Ses1601NonConstantSystemPromptAnalyzer
+SES1602 | Ai | Warning | Ses1602ModelOutputToDangerousSinkAnalyzer
+SES1603 | Ai | Warning | Ses1603NonDestructiveToolMutationAnalyzer
+SES1604 | Ai | Warning | Ses1604PromptTemplateContentEncodingDisabledAnalyzer
+SES1605 | Ai | Info | Ses1605SensitiveAiTelemetryAnalyzer
+SES1606 | Ai | Warning | Ses1606CleartextModelWeightsUrlAnalyzer

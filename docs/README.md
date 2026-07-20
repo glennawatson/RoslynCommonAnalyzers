@@ -859,3 +859,14 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1506](rules/SES1506.md) | The developer exception page (`UseDeveloperExceptionPage`) is enabled without a development-environment guard, so in production it renders full exception detail and stack traces to the client. |
 | [SES1507](rules/SES1507.md) | A single method or type declaration carries both `[AllowAnonymous]` and `[Authorize]`; the anonymous marker wins at runtime, so the co-located `[Authorize]` is dead and the endpoint is unauthenticated. |
 | [SES1508](rules/SES1508.md) | A validation/verification method (`bool`/`Task<bool>` named `Validate`/`Verify`/`Authenticate`/`Authorize`/`Check`/`IsValid`/`IsAuthentic`/`Ensure`) fails open: a `catch` swallows a broad or security-relevant exception and returns success. |
+
+## Ai
+
+| Rule | Description |
+| --- | --- |
+| [SES1601](rules/SES1601.md) | An LLM system-role message (`Microsoft.Extensions.AI` `ChatMessage(ChatRole.System, ...)`, or Semantic Kernel `ChatHistory.AddSystemMessage`/`AddMessage(AuthorRole.System, ...)`/`ChatMessageContent(AuthorRole.System, ...)`) is given non-constant content; runtime or user data in the instruction channel is a prompt-injection risk. |
+| [SES1602](rules/SES1602.md) | AI model output (`ChatResponse`/`ChatMessage` `.Text`) flows inline into a dangerous sink (a process start, a scripting call, a raw SQL command, or a `File` path); executing or evaluating model output is a prompt-injection-to-code-execution path. |
+| [SES1603](rules/SES1603.md) | A model-facing tool declared read-only (`ReadOnly = true`) or non-destructive (`Destructive = false`) via `[McpServerTool]` calls a state-changing API in its body (a file delete or overwrite, a directory delete, a process start, an ADO.NET non-query, an EF bulk mutation, or `SaveChanges`), so a host may auto-invoke it and cause irreversible damage. |
+| [SES1604](rules/SES1604.md) | A Semantic Kernel prompt template disables the default encoding of substituted input by setting `AllowDangerouslySetContent = true` on `PromptTemplateConfig`/`InputVariable`/a template factory, re-opening prompt injection through template variables. |
+| [SES1605](rules/SES1605.md) | Sensitive AI telemetry capture is enabled (`EnableSensitiveData = true`) on a `Microsoft.Extensions.AI` OpenTelemetry instrumentation client, shipping raw prompts and model responses -- which routinely carry secrets and PII -- verbatim to the telemetry backend. |
+| [SES1606](rules/SES1606.md) | A string literal targets a model-weights file (`.onnx`, `.gguf`, `.safetensors`, `.pt`, `.pth`, `.ckpt`) over a cleartext `http://` URL, letting a network attacker swap in a tampered or backdoored model; non-loopback hosts only, and the `HttpClient`-sink case is left to SES1106. |

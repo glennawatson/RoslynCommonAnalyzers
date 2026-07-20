@@ -846,3 +846,16 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1401](rules/SES1401.md) | A type resolved from non-constant data via `Type.GetType` is passed inline to `Activator.CreateInstance` or a `Deserialize(Type, ...)` call, letting untrusted input choose which type is instantiated. |
 | [SES1402](rules/SES1402.md) | An assembly is loaded from raw bytes (`Assembly.Load(byte[])` / `AssemblyLoadContext.LoadFromStream`) or from a non-constant `LoadFrom`/`LoadFile`/`UnsafeLoadFrom` path, running unverifiable code with full process trust. |
 | [SES1403](rules/SES1403.md) | A constant `System.Text.Json` `MaxDepth` (on `JsonSerializerOptions`/`JsonReaderOptions`/`JsonDocumentOptions`) is raised above a configurable ceiling (default 64), re-opening the deep-nesting stack-exhaustion denial-of-service that the default limit guards against. |
+
+## WebHardening
+
+| Rule | Description |
+| --- | --- |
+| [SES1501](rules/SES1501.md) | A single CORS policy calls both `AllowAnyOrigin()` and `AllowCredentials()` on `CorsPolicyBuilder`; a wildcard origin combined with credentials is rejected by browsers and throws when the policy is applied. |
+| [SES1502](rules/SES1502.md) | A CORS origin predicate passed to `CorsPolicyBuilder.SetIsOriginAllowed` unconditionally returns true (`_ => true`), allowing every origin -- equivalent to `AllowAnyOrigin` and dangerous with credentials. |
+| [SES1503](rules/SES1503.md) | JWT signature verification is turned off on `TokenValidationParameters` because `RequireSignedTokens` or `ValidateIssuerSigningKey` is set to false, so a forged or unsigned token passes validation. |
+| [SES1504](rules/SES1504.md) | A cookie initializer (`CookieOptions`/`CookieBuilder`) sets `SameSite=None` without securing the cookie in the same initializer (`Secure = true`, or a non-`None` `SecurePolicy`), so the browser drops it or it travels over plain HTTP. |
+| [SES1505](rules/SES1505.md) | The request body size limit is removed -- `[DisableRequestSizeLimit]` on a controller or action, or `MaxRequestBodySize` set to null on `KestrelServerLimits`/`IHttpMaxRequestBodySizeFeature` -- letting a client stream an unbounded upload and exhaust server memory or disk. |
+| [SES1506](rules/SES1506.md) | The developer exception page (`UseDeveloperExceptionPage`) is enabled without a development-environment guard, so in production it renders full exception detail and stack traces to the client. |
+| [SES1507](rules/SES1507.md) | A single method or type declaration carries both `[AllowAnonymous]` and `[Authorize]`; the anonymous marker wins at runtime, so the co-located `[Authorize]` is dead and the endpoint is unauthenticated. |
+| [SES1508](rules/SES1508.md) | A validation/verification method (`bool`/`Task<bool>` named `Validate`/`Verify`/`Authenticate`/`Authorize`/`Check`/`IsValid`/`IsAuthentic`/`Ensure`) fails open: a `catch` swallows a broad or security-relevant exception and returns success. |

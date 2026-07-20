@@ -25,3 +25,11 @@ SES1306 | Injection | Warning | Ses1306DynamicScriptCompilationAnalyzer
 SES1401 | Serialization | Warning | Ses1401NonConstantTypeActivationAnalyzer
 SES1402 | Serialization | Warning | Ses1402UnsafeAssemblyLoadAnalyzer
 SES1403 | Serialization | Info | Ses1403JsonMaxDepthAnalyzer
+SES1501 | WebHardening | Warning | Ses1501CorsAnyOriginWithCredentialsAnalyzer
+SES1502 | WebHardening | Warning | Ses1502AlwaysAllowedCorsOriginAnalyzer
+SES1503 | WebHardening | Warning | Ses1503JwtSignatureValidationDisabledAnalyzer
+SES1504 | WebHardening | Warning | Ses1504SameSiteNoneWithoutSecureAnalyzer
+SES1505 | WebHardening | Warning | Ses1505RequestBodySizeLimitRemovalAnalyzer
+SES1506 | WebHardening | Info | Ses1506UnguardedDeveloperExceptionPageAnalyzer
+SES1507 | WebHardening | Warning | Ses1507ConflictingAnonymousAuthorizationAnalyzer
+SES1508 | WebHardening | Warning | Ses1508FailOpenValidationAnalyzer

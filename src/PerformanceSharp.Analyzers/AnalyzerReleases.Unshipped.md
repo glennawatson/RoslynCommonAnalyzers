@@ -5,4 +5,3 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
-PSH1021 | Allocations | Warning | Psh1021ForcedGarbageCollectionAnalyzer

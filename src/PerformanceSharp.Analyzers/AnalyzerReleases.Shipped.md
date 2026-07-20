@@ -116,3 +116,11 @@ PSH1415 | ApiSelection | Warning | Psh1415UseConcreteTypeAnalyzer
 PSH1416 | ApiSelection | Warning | Psh1416CacheSerializerOptionsAnalyzer
 PSH1417 | ApiSelection | Warning | Psh1417ExpensiveDebugAssertArgumentAnalyzer
 PSH1418 | ApiSelection | Warning | Psh1418PerCallHttpClientAnalyzer
+
+## Release 3.29.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+PSH1021 | Allocations | Warning | Psh1021ForcedGarbageCollectionAnalyzer

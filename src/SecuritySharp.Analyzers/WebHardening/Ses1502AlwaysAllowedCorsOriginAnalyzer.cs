@@ -91,7 +91,7 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
         }
 
         // A method group is always-true only when its referenced source method is.
-        if (shape == PredicateShape.MethodGroup && !IsAlwaysTrueMethodGroup(context.SemanticModel, predicate, context.CancellationToken))
+        if (shape == PredicateShape.MethodGroup && !AlwaysTrueCallback.IsAlwaysTrueMethodGroup(context.SemanticModel, predicate, context.CancellationToken))
         {
             return;
         }
@@ -109,115 +109,9 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
     {
         if (predicate is AnonymousFunctionExpressionSyntax function)
         {
-            return IsAlwaysTrueLambda(function) ? PredicateShape.AlwaysTrueLambda : PredicateShape.None;
+            return AlwaysTrueCallback.IsAlwaysTrueLambda(function) ? PredicateShape.AlwaysTrueLambda : PredicateShape.None;
         }
 
         return predicate is IdentifierNameSyntax or MemberAccessExpressionSyntax ? PredicateShape.MethodGroup : PredicateShape.None;
-    }
-
-    /// <summary>Returns whether a lambda or anonymous method always yields <see langword="true"/>.</summary>
-    /// <param name="function">The predicate lambda or anonymous method.</param>
-    /// <returns><see langword="true"/> when the body is <c>=&gt; true</c> or a block whose only result is <c>return true;</c>.</returns>
-    private static bool IsAlwaysTrueLambda(AnonymousFunctionExpressionSyntax function)
-        => IsAlwaysTrueBody(function.ExpressionBody, function.Block);
-
-    /// <summary>Returns whether the method a method group references always yields <see langword="true"/>.</summary>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="predicate">The method-group argument expression.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the referenced source method always returns true.</returns>
-    private static bool IsAlwaysTrueMethodGroup(SemanticModel model, ExpressionSyntax predicate, CancellationToken cancellationToken)
-    {
-        // A method group without exactly one source declaration (metadata, partial, or overload set) cannot be
-        // inspected locally, so it is left alone.
-        if (model.GetSymbolInfo(predicate, cancellationToken).Symbol is not IMethodSymbol method
-            || method.DeclaringSyntaxReferences.Length != 1)
-        {
-            return false;
-        }
-
-        return method.DeclaringSyntaxReferences[0].GetSyntax(cancellationToken) switch
-        {
-            MethodDeclarationSyntax declaration => IsAlwaysTrueBody(declaration.ExpressionBody?.Expression, declaration.Body),
-            LocalFunctionStatementSyntax localFunction => IsAlwaysTrueBody(localFunction.ExpressionBody?.Expression, localFunction.Body),
-            _ => false,
-        };
-    }
-
-    /// <summary>Returns whether a member body always yields <see langword="true"/>.</summary>
-    /// <param name="expressionBody">The arrow-body expression, when the member is expression-bodied.</param>
-    /// <param name="block">The block body, when the member is block-bodied.</param>
-    /// <returns><see langword="true"/> for an expression body of <c>true</c> or a block whose only result is <c>return true;</c>.</returns>
-    private static bool IsAlwaysTrueBody(ExpressionSyntax? expressionBody, BlockSyntax? block)
-    {
-        if (expressionBody is not null)
-        {
-            return IsTrueLiteral(expressionBody);
-        }
-
-        return block is not null && BlockAlwaysReturnsTrue(block);
-    }
-
-    /// <summary>Returns whether every <c>return</c> in a block yields the literal <see langword="true"/>.</summary>
-    /// <param name="block">The block body to inspect.</param>
-    /// <returns><see langword="true"/> when the block has at least one return and all of them return <c>true</c>.</returns>
-    private static bool BlockAlwaysReturnsTrue(BlockSyntax block)
-    {
-        var sawReturn = false;
-        return AllReturnsTrue(block, ref sawReturn) && sawReturn;
-    }
-
-    /// <summary>Walks a body's own <c>return</c> statements, skipping nested functions.</summary>
-    /// <param name="node">The current node whose children are scanned.</param>
-    /// <param name="sawReturn">Set to <see langword="true"/> when any return belonging to this body is seen.</param>
-    /// <returns><see langword="false"/> as soon as a return yields anything other than the literal <c>true</c>.</returns>
-    private static bool AllReturnsTrue(SyntaxNode node, ref bool sawReturn)
-    {
-        foreach (var child in node.ChildNodes())
-        {
-            switch (child)
-            {
-                case ReturnStatementSyntax returnStatement:
-                {
-                    sawReturn = true;
-                    if (!IsTrueLiteral(returnStatement.Expression))
-                    {
-                        return false;
-                    }
-
-                    break;
-                }
-
-                // A nested lambda, anonymous method, or local function owns its own returns; do not descend.
-                case AnonymousFunctionExpressionSyntax:
-                case LocalFunctionStatementSyntax:
-                    break;
-
-                default:
-                {
-                    if (!AllReturnsTrue(child, ref sawReturn))
-                    {
-                        return false;
-                    }
-
-                    break;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>Returns whether an expression is the literal <see langword="true"/>, ignoring parentheses.</summary>
-    /// <param name="expression">The expression to test.</param>
-    /// <returns><see langword="true"/> when the expression is a <c>true</c> literal.</returns>
-    private static bool IsTrueLiteral(ExpressionSyntax? expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression?.IsKind(SyntaxKind.TrueLiteralExpression) == true;
     }
 }

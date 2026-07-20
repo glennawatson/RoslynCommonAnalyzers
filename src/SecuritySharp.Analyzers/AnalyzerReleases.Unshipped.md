@@ -5,3 +5,4 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
+SES1108 | Transport | Warning | Ses1108AlwaysTrueServerCertificateValidationAnalyzer

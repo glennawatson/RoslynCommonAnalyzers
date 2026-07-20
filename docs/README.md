@@ -832,6 +832,7 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1105](rules/SES1105.md) | Bearer/OpenID Connect metadata is fetched over plain HTTP because `RequireHttpsMetadata` is set to false outside a development-environment guard, exposing token validation to a network attacker. |
 | [SES1106](rules/SES1106.md) | An `HttpClient` request targets a cleartext `http://` URL literal (a string overload, a `new Uri(...)` argument, or a `BaseAddress` assignment); non-loopback hosts only. |
 | [SES1107](rules/SES1107.md) | A SQL connection weakens transport security: `TrustServerCertificate=true`, `Encrypt=false`, or `Encrypt=Optional` in a literal connection string or a `SqlConnectionStringBuilder`, bypassing server-certificate validation or transport encryption. |
+| [SES1108](rules/SES1108.md) | A custom `HttpClientHandler.ServerCertificateCustomValidationCallback` always returns `true` (an expression/block lambda, an anonymous method, or a method group to a source method of that shape), disabling TLS server authentication so the client trusts any certificate. |
 
 ## Secrets
 

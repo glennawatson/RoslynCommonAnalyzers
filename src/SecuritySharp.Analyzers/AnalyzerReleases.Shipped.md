@@ -1,6 +1,14 @@
 ; Shipped analyzer releases
 ; https://github.com/dotnet/roslyn-analyzers/blob/main/src/Microsoft.CodeAnalysis.Analyzers/ReleaseTrackingAnalyzers.Help.md
 
+## Release 3.31.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+SES1108 | Transport | Warning | Ses1108AlwaysTrueServerCertificateValidationAnalyzer
+
 ## Release 3.30.0
 
 ### New Rules

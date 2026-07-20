@@ -812,6 +812,15 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1004](rules/SES1004.md) | A secret (token, key, password, nonce, salt, session id, OTP, reset token) is minted from `Guid.NewGuid()`; a GUID is an identifier, not a cryptographically strong secret. |
 | [SES1005](rules/SES1005.md) | A secret (HMAC, signature, tag, token, or hash) is compared with a non-constant-time equality (`==`, `.Equals`, `SequenceEqual`), leaking it a byte at a time through timing. Code fix rewrites a byte-buffer comparison to `CryptographicOperations.FixedTimeEquals`. |
 
+## Transport
+
+| Rule | Description |
+| --- | --- |
+| [SES1102](rules/SES1102.md) | A read of `HttpClientHandler.DangerousAcceptAnyServerCertificateValidator` disables TLS server-certificate validation, so the client trusts any certificate and the connection is open to man-in-the-middle attacks. |
+| [SES1104](rules/SES1104.md) | X509 certificate-chain validation is deliberately weakened: `RevocationMode` set to `NoCheck`, or `VerificationFlags` set to a value naming `AllowUnknownCertificateAuthority` or `AllFlags` (alone or OR-combined), so revoked or untrusted certificates are accepted. |
+| [SES1105](rules/SES1105.md) | Bearer/OpenID Connect metadata is fetched over plain HTTP because `RequireHttpsMetadata` is set to false outside a development-environment guard, exposing token validation to a network attacker. |
+| [SES1106](rules/SES1106.md) | An `HttpClient` request targets a cleartext `http://` URL literal (a string overload, a `new Uri(...)` argument, or a `BaseAddress` assignment); non-loopback hosts only. |
+
 ## Secrets
 
 | Rule | Description |

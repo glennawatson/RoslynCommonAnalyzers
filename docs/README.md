@@ -811,6 +811,7 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1003](rules/SES1003.md) | A `Rfc2898DeriveBytes.Pbkdf2` one-shot derives a key with a constant iteration count below the configured floor (default 100000), leaving offline password cracking cheap. |
 | [SES1004](rules/SES1004.md) | A secret (token, key, password, nonce, salt, session id, OTP, reset token) is minted from `Guid.NewGuid()`; a GUID is an identifier, not a cryptographically strong secret. |
 | [SES1005](rules/SES1005.md) | A secret (HMAC, signature, tag, token, or hash) is compared with a non-constant-time equality (`==`, `.Equals`, `SequenceEqual`), leaking it a byte at a time through timing. Code fix rewrites a byte-buffer comparison to `CryptographicOperations.FixedTimeEquals`. |
+| [SES1006](rules/SES1006.md) | A Data Protection key ring is persisted to an explicit repository (`PersistKeysToFileSystem`/`DbContext`/`AzureBlobStorage`/`StackExchangeRedis`/`Registry`) with no `ProtectKeysWith...` call in the same chain, so the keys are stored unencrypted at rest. |
 
 ## Transport
 
@@ -820,6 +821,7 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1104](rules/SES1104.md) | X509 certificate-chain validation is deliberately weakened: `RevocationMode` set to `NoCheck`, or `VerificationFlags` set to a value naming `AllowUnknownCertificateAuthority` or `AllFlags` (alone or OR-combined), so revoked or untrusted certificates are accepted. |
 | [SES1105](rules/SES1105.md) | Bearer/OpenID Connect metadata is fetched over plain HTTP because `RequireHttpsMetadata` is set to false outside a development-environment guard, exposing token validation to a network attacker. |
 | [SES1106](rules/SES1106.md) | An `HttpClient` request targets a cleartext `http://` URL literal (a string overload, a `new Uri(...)` argument, or a `BaseAddress` assignment); non-loopback hosts only. |
+| [SES1107](rules/SES1107.md) | A SQL connection weakens transport security: `TrustServerCertificate=true`, `Encrypt=false`, or `Encrypt=Optional` in a literal connection string or a `SqlConnectionStringBuilder`, bypassing server-certificate validation or transport encryption. |
 
 ## Secrets
 
@@ -866,6 +868,10 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1508](rules/SES1508.md) | A validation/verification method (`bool`/`Task<bool>` named `Validate`/`Verify`/`Authenticate`/`Authorize`/`Check`/`IsValid`/`IsAuthentic`/`Ensure`) fails open: a `catch` swallows a broad or security-relevant exception and returns success. |
 | [SES1509](rules/SES1509.md) | A constant, backtracking-prone regular expression (an unbounded quantifier over a group that itself repeats or alternates, as in `(a+)+` or `(a|aa)+`) is compiled or run with no match timeout and without `RegexOptions.NonBacktracking`, so a crafted input can force catastrophic backtracking and hang the thread (ReDoS, CWE-1333). |
 | [SES1510](rules/SES1510.md) | A controller (`ControllerBase`) redirects to a non-constant URL via `Redirect`/`RedirectPermanent`/`RedirectPreserveMethod`/`RedirectPermanentPreserveMethod`; an attacker-controlled target is an open redirect (CWE-601) to a phishing site — validate the URL is local (e.g. `LocalRedirect`). |
+| [SES1511](rules/SES1511.md) | The forwarded-headers trust boundary is removed — `.Clear()` on `KnownProxies`/`KnownNetworks`/`KnownIPNetworks`, or `ForwardLimit` set to null — so untrusted proxies can spoof the client IP, host, and scheme via `X-Forwarded-*` headers (CWE-348). |
+| [SES1512](rules/SES1512.md) | Sensitive framework diagnostics — EF Core `EnableSensitiveDataLogging()`, or `IdentityModelEventSource.ShowPII`/`LogCompleteSecurityArtifact = true` — are enabled without a development-environment guard, so parameter values, PII, and full tokens land in production logs (CWE-215/532). |
+| [SES1513](rules/SES1513.md) | An `IAuthorizationService.AuthorizeAsync` call discards its `AuthorizationResult` (a bare await or `_ =`), so nothing reads `Succeeded` and the guarded operation runs whether or not authorization passed (CWE-863). |
+| [SES1514](rules/SES1514.md) | OpenID Connect protocol protections are disabled — `UsePkce`, `RequireState`, `RequireStateValidation`, or `RequireNonce` set to false — weakening the authorization-code flow against CSRF and replay (CWE-352/294). |
 
 ## Ai
 

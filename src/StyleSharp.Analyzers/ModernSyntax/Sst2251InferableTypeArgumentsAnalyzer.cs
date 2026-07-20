@@ -103,7 +103,11 @@ public sealed class Sst2251InferableTypeArgumentsAnalyzer : DiagnosticAnalyzer
         var rewritten = invocation.ReplaceNode(genericName, withoutTypeArguments);
         var after = model.GetSpeculativeSymbolInfo(invocation.SpanStart, rewritten, SpeculativeBindingOption.BindAsExpression).Symbol;
 
-        return after is IMethodSymbol && SymbolEqualityComparer.Default.Equals(after, before);
+        // Compare with nullability included: 'Task.FromResult<object?>(value)' and the inferred
+        // 'Task.FromResult<object>(value)' bind to the same open method but produce differently-annotated
+        // results, so dropping the explicit '<object?>' would change the expression's type. Only when the
+        // inferred type arguments match the written ones down to their nullability is the list truly redundant.
+        return after is IMethodSymbol && SymbolEqualityComparer.IncludeNullability.Equals(after, before);
     }
 
     /// <summary>Reports the redundant type-argument list on an invocation.</summary>

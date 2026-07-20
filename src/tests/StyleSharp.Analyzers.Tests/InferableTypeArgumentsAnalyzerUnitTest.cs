@@ -105,4 +105,49 @@ public class InferableTypeArgumentsAnalyzerUnitTest
                 public int? UseConditional(C other) => other?.Echo<int>(42);
             }
             """);
+
+    /// <summary>Verifies a type argument that only differs from inference in nullability is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NullabilityChangingTypeArgumentIsCleanAsync()
+        => await VerifyInferableTypeArguments.VerifyAnalyzerAsync(
+            """
+            #nullable enable
+
+            public sealed class C
+            {
+                public T Id<T>(T value) => value;
+
+                // Dropping <object?> would infer <object> from the non-null argument, changing the result type.
+                public object? Use(object value) => Id<object?>(value);
+            }
+            """);
+
+    /// <summary>Verifies a redundant reference-type argument whose nullability matches inference is still removed.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RedundantReferenceTypeArgumentWithMatchingNullabilityIsRemovedAsync()
+    {
+        const string Source = """
+                              #nullable enable
+
+                              public sealed class C
+                              {
+                                  public T Id<T>(T value) => value;
+
+                                  public object? Use(object? value) => Id{|SST2251:<object?>|}(value);
+                              }
+                              """;
+        const string FixedSource = """
+                                   #nullable enable
+
+                                   public sealed class C
+                                   {
+                                       public T Id<T>(T value) => value;
+
+                                       public object? Use(object? value) => Id(value);
+                                   }
+                                   """;
+        await VerifyInferableTypeArguments.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

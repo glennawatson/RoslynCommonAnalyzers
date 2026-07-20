@@ -46,9 +46,10 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     private const int FullReach = SameAssemblyDerived | OtherAssemblyDerived | SameAssemblyOther | OtherAssemblyOther;
 
     /// <summary>
-    /// The metadata names of attributes whose framework requires the annotated member be <c>public</c>. TUnit's
-    /// lifecycle hooks reject any lesser accessibility (its own generator demands public), so narrowing them —
-    /// which is all this rule could suggest — would not compile.
+    /// The metadata names of attributes whose framework requires the annotated member be <c>public</c>: narrowing
+    /// such a member — all this rule could suggest — would break the framework contract, not tidy dead reach.
+    /// TUnit lifecycle hooks reject any lesser accessibility (its generator demands public); Blazor binds a
+    /// component parameter by reflection and requires it public.
     /// </summary>
     private static readonly string[] PublicMandatingAttributeMetadataNames =
     [
@@ -56,6 +57,9 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         "TUnit.Core.AfterAttribute",
         "TUnit.Core.BeforeEveryAttribute",
         "TUnit.Core.AfterEveryAttribute",
+        "Microsoft.AspNetCore.Components.ParameterAttribute",
+        "Microsoft.AspNetCore.Components.CascadingParameterAttribute",
+        "Microsoft.AspNetCore.Components.SupplyParameterFromQueryAttribute",
     ];
 
     /// <inheritdoc/>
@@ -69,14 +73,26 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         context.RegisterCompilationStartAction(static start =>
         {
             var publicMandatingAttributes = ResolvePublicMandatingAttributes(start.Compilation);
-            start.RegisterSymbolAction(symbolContext => AnalyzeNamedType(symbolContext, publicMandatingAttributes), SymbolKind.NamedType);
+
+            // A member inherited from a base class can implicitly implement an interface listed only by a
+            // derived type, which forces it to stay public — a relationship invisible from the base's own
+            // declaration. That view needs the whole source assembly, so it is built once and lazily: a
+            // project with no reportable member (the common case) never pays for it.
+            var inheritedInterfaceImplementations = new Lazy<HashSet<ISymbol>>(
+                () => BuildInheritedInterfaceImplementationSet(start.Compilation),
+                isThreadSafe: true);
+
+            start.RegisterSymbolAction(
+                symbolContext => AnalyzeNamedType(symbolContext, publicMandatingAttributes, inheritedInterfaceImplementations),
+                SymbolKind.NamedType);
         });
     }
 
     /// <summary>Reports each member of a type whose modifier promises more reach than the type can deliver.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="publicMandatingAttributes">The resolved attributes whose framework requires the member be public.</param>
-    private static void AnalyzeNamedType(SymbolAnalysisContext context, INamedTypeSymbol[] publicMandatingAttributes)
+    /// <param name="inheritedInterfaceImplementations">The lazily-built set of inherited members that implicitly implement an interface.</param>
+    private static void AnalyzeNamedType(SymbolAnalysisContext context, INamedTypeSymbol[] publicMandatingAttributes, Lazy<HashSet<ISymbol>> inheritedInterfaceImplementations)
     {
         var type = (INamedTypeSymbol)context.Symbol;
 
@@ -99,7 +115,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         for (var i = 0; i < members.Length; i++)
         {
             var member = members[i];
-            if (WideningModifierLocation(member, type, containerReach, publicMandatingAttributes, context.CancellationToken) is not { } location)
+            if (WideningModifierLocation(member, type, containerReach, publicMandatingAttributes, inheritedInterfaceImplementations, context.CancellationToken) is not { } location)
             {
                 continue;
             }
@@ -118,9 +134,16 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// <param name="type">The containing type.</param>
     /// <param name="containerReach">The container's effective caller set.</param>
     /// <param name="publicMandatingAttributes">The resolved attributes whose framework requires the member be public.</param>
+    /// <param name="inheritedInterfaceImplementations">The lazily-built set of inherited members that implicitly implement an interface.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The offending modifier's location, or <see langword="null"/> when nothing should be reported.</returns>
-    private static Location? WideningModifierLocation(ISymbol member, INamedTypeSymbol type, int containerReach, INamedTypeSymbol[] publicMandatingAttributes, CancellationToken cancellationToken)
+    private static Location? WideningModifierLocation(
+        ISymbol member,
+        INamedTypeSymbol type,
+        int containerReach,
+        INamedTypeSymbol[] publicMandatingAttributes,
+        Lazy<HashSet<ISymbol>> inheritedInterfaceImplementations,
+        CancellationToken cancellationToken)
     {
         if (!IsCandidateMember(member) || !IsWider(AccessibilityReach(member.DeclaredAccessibility), containerReach))
         {
@@ -133,9 +156,17 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
             return null;
         }
 
-        // A member a framework requires to be public — a TUnit [Before]/[After] hook it would otherwise reject —
-        // cannot be narrowed to match its container either, so it is left alone.
+        // A member a framework requires to be public — a TUnit [Before]/[After] hook or a Blazor [Parameter] it
+        // would otherwise reject — cannot be narrowed to match its container either, so it is left alone.
         if (HasPublicMandatingAttribute(member, publicMandatingAttributes))
+        {
+            return null;
+        }
+
+        // A member inherited by a derived type to implicitly implement an interface must stay public even though
+        // its own declaring type lists no interface: narrowing it would fail with CS0737. This lookup builds the
+        // whole-assembly view on first use, so only a project that has a reportable member ever pays for it.
+        if (inheritedInterfaceImplementations.Value.Contains(member.OriginalDefinition))
         {
             return null;
         }
@@ -323,6 +354,64 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         }
 
         return false;
+    }
+
+    /// <summary>Builds the set of source members that a derived type uses to implicitly implement an interface member.</summary>
+    /// <param name="compilation">The analyzed compilation.</param>
+    /// <returns>
+    /// The inherited implementation members, by original definition. Only same-assembly types are walked (a member
+    /// of an <c>internal</c> base is invisible across assemblies), and only implementations declared on a type
+    /// other than the one implementing the interface — the inherited case the declaring type cannot see — are kept.
+    /// </returns>
+    private static HashSet<ISymbol> BuildInheritedInterfaceImplementationSet(Compilation compilation)
+    {
+        var result = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var pending = new Stack<INamespaceOrTypeSymbol>();
+        pending.Push(compilation.Assembly.GlobalNamespace);
+        while (pending.Count > 0)
+        {
+            var members = pending.Pop().GetMembers();
+            for (var i = 0; i < members.Length; i++)
+            {
+                switch (members[i])
+                {
+                    case INamespaceSymbol childNamespace:
+                    {
+                        pending.Push(childNamespace);
+                        break;
+                    }
+
+                    case INamedTypeSymbol type:
+                    {
+                        pending.Push(type);
+                        RecordInheritedInterfaceImplementations(type, result);
+                        break;
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>Records each interface member of a type that is implemented by a member inherited from a base type.</summary>
+    /// <param name="type">The type whose interface implementations are examined.</param>
+    /// <param name="result">The set collecting inherited implementation members by original definition.</param>
+    private static void RecordInheritedInterfaceImplementations(INamedTypeSymbol type, HashSet<ISymbol> result)
+    {
+        var interfaces = type.AllInterfaces;
+        for (var i = 0; i < interfaces.Length; i++)
+        {
+            var interfaceMembers = interfaces[i].GetMembers();
+            for (var j = 0; j < interfaceMembers.Length; j++)
+            {
+                if (type.FindImplementationForInterfaceMember(interfaceMembers[j]) is { } implementation
+                    && !SymbolEqualityComparer.Default.Equals(implementation.ContainingType, type))
+                {
+                    result.Add(implementation.OriginalDefinition);
+                }
+            }
+        }
     }
 
     /// <summary>Returns whether a member of a nested type is named anywhere outside that type's own declaration.</summary>

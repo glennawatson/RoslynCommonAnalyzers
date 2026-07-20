@@ -281,4 +281,79 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies an inherited member a derived type uses to implement an interface is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InheritedInterfaceImplementationIsNotReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            internal interface IWork
+            {
+                void Run();
+            }
+
+            internal abstract class WorkBase
+            {
+                public void Run()
+                {
+                }
+            }
+
+            internal sealed class Worker : WorkBase, IWork
+            {
+            }
+            """);
+
+    /// <summary>Verifies a sibling public member of the same base, used by no interface, is still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PublicMemberOfBaseNotUsedForInterfaceIsReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            internal interface IWork
+            {
+                void Run();
+            }
+
+            internal abstract class WorkBase
+            {
+                public void Run()
+                {
+                }
+
+                {|SST2324:public|} void Helper()
+                {
+                }
+            }
+
+            internal sealed class Worker : WorkBase, IWork
+            {
+            }
+            """);
+
+    /// <summary>Verifies a Blazor <c>[Parameter]</c> property, which the framework requires be public, is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BlazorParameterInPrivateTypeIsNotReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            namespace Microsoft.AspNetCore.Components
+            {
+                public sealed class ParameterAttribute : System.Attribute
+                {
+                }
+            }
+
+            public class Host
+            {
+                private sealed class HarnessComponent
+                {
+                    [Microsoft.AspNetCore.Components.Parameter]
+                    public int Captured { get; set; }
+
+                    {|SST2324:public|} int Other { get; set; }
+                }
+            }
+            """);
 }

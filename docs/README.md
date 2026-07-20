@@ -838,6 +838,9 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1304](rules/SES1304.md) | An archive entry name (`ZipArchiveEntry.FullName` / `TarEntry.Name`) is joined via `Path.Combine` or `+` straight into a file-writing sink with no inline containment check, letting a crafted `../` or absolute entry escape the target directory (zip slip / path traversal). |
 | [SES1305](rules/SES1305.md) | An uploaded file name (`IFormFile.FileName`) is used to build a storage path -- a `Path.Combine` argument, a `+` path concatenation, or a file-creating call (`File.Create`/`OpenWrite`/`WriteAllBytes`/`Copy`, `new FileStream`) -- enabling path traversal; sanitize with `Path.GetFileName` or use a server-generated name. |
 | [SES1306](rules/SES1306.md) | Non-constant C# source is compiled and executed via the scripting API (`CSharpScript.EvaluateAsync`/`RunAsync`/`Create`), which is arbitrary code execution; the code channel must be a constant, trusted template rather than runtime data. |
+| [SES1307](rules/SES1307.md) | `Path.GetTempFileName()` creates a predictable, world-readable temporary file open to a time-of-check/time-of-use race and a 65535-file limit (CWE-377); use `Path.GetRandomFileName()` for an unpredictable name, or `Directory.CreateTempSubdirectory()` (.NET 7+) for an isolated directory. |
+| [SES1308](rules/SES1308.md) | A file or directory is created group- or world-writable (a `UnixFileMode` including `GroupWrite`/`OtherWrite`, CWE-732), letting other local users tamper with it. |
+| [SES1309](rules/SES1309.md) | An XSLT stylesheet is loaded via `XslCompiledTransform.Load` with `XsltSettings` that enable embedded script (`EnableScript = true`, a constant `enableScript` constructor argument, or `XsltSettings.TrustedXslt`), letting a stylesheet run arbitrary code in the host process (CWE-95). |
 
 ## Serialization
 
@@ -846,6 +849,8 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1401](rules/SES1401.md) | A type resolved from non-constant data via `Type.GetType` is passed inline to `Activator.CreateInstance` or a `Deserialize(Type, ...)` call, letting untrusted input choose which type is instantiated. |
 | [SES1402](rules/SES1402.md) | An assembly is loaded from raw bytes (`Assembly.Load(byte[])` / `AssemblyLoadContext.LoadFromStream`) or from a non-constant `LoadFrom`/`LoadFile`/`UnsafeLoadFrom` path, running unverifiable code with full process trust. |
 | [SES1403](rules/SES1403.md) | A constant `System.Text.Json` `MaxDepth` (on `JsonSerializerOptions`/`JsonReaderOptions`/`JsonDocumentOptions`) is raised above a configurable ceiling (default 64), re-opening the deep-nesting stack-exhaustion denial-of-service that the default limit guards against. |
+| [SES1404](rules/SES1404.md) | A type is instantiated by name through the string overloads of `Activator.CreateInstance`/`Activator.CreateInstanceFrom` from a non-constant `typeName`, letting untrusted input choose which type is constructed (CWE-470). |
+| [SES1405](rules/SES1405.md) | MessagePack typeless deserialization (`MessagePackSerializer.Typeless`, or a serializer built on `TypelessObjectResolver`/`TypelessContractlessStandardResolver`) reconstructs whatever .NET type the payload names, letting untrusted input instantiate arbitrary types (CWE-502). |
 
 ## WebHardening
 
@@ -859,6 +864,8 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1506](rules/SES1506.md) | The developer exception page (`UseDeveloperExceptionPage`) is enabled without a development-environment guard, so in production it renders full exception detail and stack traces to the client. |
 | [SES1507](rules/SES1507.md) | A single method or type declaration carries both `[AllowAnonymous]` and `[Authorize]`; the anonymous marker wins at runtime, so the co-located `[Authorize]` is dead and the endpoint is unauthenticated. |
 | [SES1508](rules/SES1508.md) | A validation/verification method (`bool`/`Task<bool>` named `Validate`/`Verify`/`Authenticate`/`Authorize`/`Check`/`IsValid`/`IsAuthentic`/`Ensure`) fails open: a `catch` swallows a broad or security-relevant exception and returns success. |
+| [SES1509](rules/SES1509.md) | A constant, backtracking-prone regular expression (an unbounded quantifier over a group that itself repeats or alternates, as in `(a+)+` or `(a|aa)+`) is compiled or run with no match timeout and without `RegexOptions.NonBacktracking`, so a crafted input can force catastrophic backtracking and hang the thread (ReDoS, CWE-1333). |
+| [SES1510](rules/SES1510.md) | A controller (`ControllerBase`) redirects to a non-constant URL via `Redirect`/`RedirectPermanent`/`RedirectPreserveMethod`/`RedirectPermanentPreserveMethod`; an attacker-controlled target is an open redirect (CWE-601) to a phishing site — validate the URL is local (e.g. `LocalRedirect`). |
 
 ## Ai
 

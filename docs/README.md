@@ -154,6 +154,16 @@ async, `PSH14xx` API selection.
 | [PSH1417](rules/PSH1417.md) | An expensive argument is computed for a `Debug.Assert` that release builds compile away. |
 | [PSH1418](rules/PSH1418.md) | A shareable client (`HttpClient` or an Azure SDK service client) is constructed for a single call, so its pooled connections and caches die with it and every call pays the setup cost again. |
 
+## AspNetCore
+
+| Rule | Description |
+| --- | --- |
+| [PSH1500](rules/PSH1500.md) | A route handler returns `Results.*`; `TypedResults.*` avoids boxing the result and gives the endpoint its response metadata. Code fix rewrites the call. |
+| [PSH1501](rules/PSH1501.md) | Middleware is registered in the legacy `Use(next => context => ...)` nested-delegate form, which allocates a per-request closure; the two-parameter `Use((context, next) => ...)` overload does not. |
+| [PSH1502](rules/PSH1502.md) | A route handler returns a deferred `IEnumerable<T>` (an `IQueryable<T>` or an un-materialized LINQ query), so the response serializer enumerates it synchronously on the request thread. |
+| [PSH1503](rules/PSH1503.md) | The legacy response-caching middleware only honors HTTP cache-control headers; output caching (.NET 7+) caches on the server under keys you control and can be invalidated. Info. |
+| [PSH1505](rules/PSH1505.md) | A class implements an MVC exception filter (`IExceptionFilter`/`IAsyncExceptionFilter`); centralized error handling belongs in an `IExceptionHandler` the pipeline runs once. Info. |
+
 # StyleSharp Rule Index
 
 Style, layout, naming, documentation, and readability rules. Ids are grouped by

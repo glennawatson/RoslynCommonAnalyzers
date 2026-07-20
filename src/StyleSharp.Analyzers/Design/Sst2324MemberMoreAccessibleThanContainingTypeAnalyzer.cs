@@ -45,6 +45,19 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// <summary>The caller set a <c>public</c> element admits — everything.</summary>
     private const int FullReach = SameAssemblyDerived | OtherAssemblyDerived | SameAssemblyOther | OtherAssemblyOther;
 
+    /// <summary>
+    /// The metadata names of attributes whose framework requires the annotated member be <c>public</c>. TUnit's
+    /// lifecycle hooks reject any lesser accessibility (its own generator demands public), so narrowing them —
+    /// which is all this rule could suggest — would not compile.
+    /// </summary>
+    private static readonly string[] PublicMandatingAttributeMetadataNames =
+    [
+        "TUnit.Core.BeforeAttribute",
+        "TUnit.Core.AfterAttribute",
+        "TUnit.Core.BeforeEveryAttribute",
+        "TUnit.Core.AfterEveryAttribute",
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(DesignRules.MemberMoreAccessibleThanContainingType);
 
@@ -53,12 +66,17 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSymbolAction(AnalyzeNamedType, SymbolKind.NamedType);
+        context.RegisterCompilationStartAction(static start =>
+        {
+            var publicMandatingAttributes = ResolvePublicMandatingAttributes(start.Compilation);
+            start.RegisterSymbolAction(symbolContext => AnalyzeNamedType(symbolContext, publicMandatingAttributes), SymbolKind.NamedType);
+        });
     }
 
     /// <summary>Reports each member of a type whose modifier promises more reach than the type can deliver.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    private static void AnalyzeNamedType(SymbolAnalysisContext context)
+    /// <param name="publicMandatingAttributes">The resolved attributes whose framework requires the member be public.</param>
+    private static void AnalyzeNamedType(SymbolAnalysisContext context, INamedTypeSymbol[] publicMandatingAttributes)
     {
         var type = (INamedTypeSymbol)context.Symbol;
 
@@ -81,7 +99,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         for (var i = 0; i < members.Length; i++)
         {
             var member = members[i];
-            if (WideningModifierLocation(member, type, containerReach, context.CancellationToken) is not { } location)
+            if (WideningModifierLocation(member, type, containerReach, publicMandatingAttributes, context.CancellationToken) is not { } location)
             {
                 continue;
             }
@@ -99,9 +117,10 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// <param name="member">The declared member.</param>
     /// <param name="type">The containing type.</param>
     /// <param name="containerReach">The container's effective caller set.</param>
+    /// <param name="publicMandatingAttributes">The resolved attributes whose framework requires the member be public.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The offending modifier's location, or <see langword="null"/> when nothing should be reported.</returns>
-    private static Location? WideningModifierLocation(ISymbol member, INamedTypeSymbol type, int containerReach, CancellationToken cancellationToken)
+    private static Location? WideningModifierLocation(ISymbol member, INamedTypeSymbol type, int containerReach, INamedTypeSymbol[] publicMandatingAttributes, CancellationToken cancellationToken)
     {
         if (!IsCandidateMember(member) || !IsWider(AccessibilityReach(member.DeclaredAccessibility), containerReach))
         {
@@ -110,6 +129,13 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
 
         // A member whose accessibility a contract fixes cannot be narrowed, so it is not something to report.
         if (ImplementsInterfaceMember(type, member))
+        {
+            return null;
+        }
+
+        // A member a framework requires to be public — a TUnit [Before]/[After] hook it would otherwise reject —
+        // cannot be narrowed to match its container either, so it is left alone.
+        if (HasPublicMandatingAttribute(member, publicMandatingAttributes))
         {
             return null;
         }
@@ -228,6 +254,68 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
             for (var j = 0; j < interfaceMembers.Length; j++)
             {
                 if (SymbolEqualityComparer.Default.Equals(type.FindImplementationForInterfaceMember(interfaceMembers[j]), member))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Resolves each public-mandating attribute type that binds in the compilation, packed with no gaps.</summary>
+    /// <param name="compilation">The analyzed compilation.</param>
+    /// <returns>The resolved attribute types; empty when none — such as a project referencing no such framework — bind.</returns>
+    private static INamedTypeSymbol[] ResolvePublicMandatingAttributes(Compilation compilation)
+    {
+        var resolved = new INamedTypeSymbol[PublicMandatingAttributeMetadataNames.Length];
+        var count = 0;
+        for (var i = 0; i < PublicMandatingAttributeMetadataNames.Length; i++)
+        {
+            if (compilation.GetTypeByMetadataName(PublicMandatingAttributeMetadataNames[i]) is { } type)
+            {
+                resolved[count] = type;
+                count++;
+            }
+        }
+
+        if (count == resolved.Length)
+        {
+            return resolved;
+        }
+
+        var trimmed = new INamedTypeSymbol[count];
+        for (var i = 0; i < count; i++)
+        {
+            trimmed[i] = resolved[i];
+        }
+
+        return trimmed;
+    }
+
+    /// <summary>Returns whether a member carries an attribute whose framework requires it be declared public.</summary>
+    /// <param name="member">The declared member.</param>
+    /// <param name="publicMandatingAttributes">The resolved public-mandating attribute types.</param>
+    /// <returns><see langword="true"/> when the member carries one of the resolved attributes.</returns>
+    private static bool HasPublicMandatingAttribute(ISymbol member, INamedTypeSymbol[] publicMandatingAttributes)
+    {
+        if (publicMandatingAttributes.Length == 0)
+        {
+            return false;
+        }
+
+        var attributes = member.GetAttributes();
+        for (var i = 0; i < attributes.Length; i++)
+        {
+            var attributeClass = attributes[i].AttributeClass;
+            if (attributeClass is null)
+            {
+                continue;
+            }
+
+            for (var j = 0; j < publicMandatingAttributes.Length; j++)
+            {
+                if (SymbolEqualityComparer.Default.Equals(attributeClass, publicMandatingAttributes[j]))
                 {
                     return true;
                 }

@@ -54,6 +54,45 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
         }
         """;
 
+    /// <summary>Minimal TUnit attribute stubs, including the data-source interface its data attributes implement.</summary>
+    private const string TUnitStubs = """
+        namespace TUnit.Core
+        {
+            using System;
+            public interface IDataSourceAttribute { }
+            public sealed class TestAttribute : Attribute { }
+            public sealed class ArgumentsAttribute : Attribute, IDataSourceAttribute { public ArgumentsAttribute(params object[] values) { } }
+        }
+        """;
+
+    /// <summary>Verifies a TUnit test whose only parameter is an injected <c>CancellationToken</c> is never reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TUnitTestWithInjectedCancellationTokenIsCleanAsync()
+        => await VerifyAsync(
+            TUnitStubs + """
+
+            public class Tests
+            {
+                [TUnit.Core.Test]
+                public void Case(System.Threading.CancellationToken token) { }
+            }
+            """);
+
+    /// <summary>Verifies a data parameter alongside an injected <c>CancellationToken</c> is still reported when no data source is present.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TUnitTestWithDataParameterAndCancellationTokenIsReportedAsync()
+        => await VerifyAsync(
+            TUnitStubs + """
+
+            public class Tests
+            {
+                [TUnit.Core.Test]
+                public void {|SST2505:Case|}(int value, System.Threading.CancellationToken token) { }
+            }
+            """);
+
     /// <summary>Verifies an xUnit theory with a parameter and no data attribute is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

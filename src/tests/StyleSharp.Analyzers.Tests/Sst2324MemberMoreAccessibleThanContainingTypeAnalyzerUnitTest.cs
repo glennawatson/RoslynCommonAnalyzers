@@ -240,4 +240,45 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies a <c>public</c> TUnit lifecycle hook in an <c>internal</c> type is not reported — TUnit rejects narrowing it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PublicFrameworkHookInInternalTypeIsNotReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            namespace TUnit.Core
+            {
+                public sealed class BeforeAttribute : System.Attribute
+                {
+                }
+            }
+
+            internal static class GlobalHook
+            {
+                [TUnit.Core.Before]
+                public static void ConfigureDefaults()
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies a same-named hook attribute from an unrelated namespace does not exempt the member.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PublicLookalikeHookInInternalTypeIsReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            public sealed class BeforeAttribute : System.Attribute
+            {
+            }
+
+            internal static class GlobalHook
+            {
+                [Before]
+                {|SST2324:public|} static void ConfigureDefaults()
+                {
+                }
+            }
+            """);
 }

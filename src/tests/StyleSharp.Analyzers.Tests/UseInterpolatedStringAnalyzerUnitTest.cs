@@ -14,6 +14,20 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst2249UseInterpolatedStringAnalyzer"/> and its code fix (SST2249).</summary>
 public class UseInterpolatedStringAnalyzerUnitTest
 {
+    /// <summary>Minimal stubs for the logging-extensions surface whose message template must stay non-interpolated.</summary>
+    private const string LoggingStubs = """
+        using Microsoft.Extensions.Logging;
+
+        namespace Microsoft.Extensions.Logging
+        {
+            public interface ILogger { }
+            public static class LoggerExtensions
+            {
+                public static void LogInformation(this ILogger logger, string message, params object[] args) { }
+            }
+        }
+        """;
+
     /// <summary>Verifies a two-placeholder composite format call is reported and interpolated.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -197,6 +211,59 @@ public class UseInterpolatedStringAnalyzerUnitTest
             public sealed class C
             {
                 public string M(string format, string a) => string.Format(format, a);
+            }
+            """);
+
+    /// <summary>Verifies a concatenation used as a structured-logging message template is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConcatenationInLoggingTemplateIsSilentAsync()
+        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+            LoggingStubs + """
+
+            public sealed class C
+            {
+                public void M(ILogger logger, string name) => logger.LogInformation("User " + name + " signed in");
+            }
+            """);
+
+    /// <summary>Verifies a composite format used as a structured-logging message template is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CompositeFormatInLoggingTemplateIsSilentAsync()
+        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+            LoggingStubs + """
+
+            public sealed class C
+            {
+                public void M(ILogger logger, string name) => logger.LogInformation(string.Format("User {0}", name));
+            }
+            """);
+
+    /// <summary>Verifies a concatenation passed among a log call's format arguments — not the template — is still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConcatenationInLoggingValueArgumentIsReportedAsync()
+        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+            LoggingStubs + """
+
+            public sealed class C
+            {
+                public void M(ILogger logger, string name) => logger.LogInformation("User {Name}", {|SST2249:"id-" + name|});
+            }
+            """);
+
+    /// <summary>Verifies a concatenation argument to a non-logging call is still reported when logging is referenced.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConcatenationInNonLoggingCallIsReportedAsync()
+        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+            LoggingStubs + """
+
+            public sealed class C
+            {
+                public string Wrap(string value) => value;
+                public void M(ILogger logger, string name) => Wrap({|SST2249:"User " + name|});
             }
             """);
 

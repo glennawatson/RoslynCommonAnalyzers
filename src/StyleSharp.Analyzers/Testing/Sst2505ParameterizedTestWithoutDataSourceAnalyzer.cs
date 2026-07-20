@@ -150,7 +150,38 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
             }
         }
 
-        return hasTestMarker && !ParameterCarriesDataSource(model, method.ParameterList, symbols, cancellationToken);
+        return hasTestMarker
+            && !ParameterCarriesDataSource(model, method.ParameterList, symbols, cancellationToken)
+            && HasDataRequiringParameter(model, method, symbols, cancellationToken);
+    }
+
+    /// <summary>Returns whether the method declares a parameter that a data source would have to fill.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="method">The method declaration.</param>
+    /// <param name="symbols">The resolved test-framework symbols.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>
+    /// <see langword="true"/> when at least one parameter is not framework-injected. A test whose only
+    /// parameters are framework-injected — a <c>CancellationToken</c> the runner supplies for a timeout —
+    /// needs no data source, so it is not reported.
+    /// </returns>
+    private static bool HasDataRequiringParameter(SemanticModel model, MethodDeclarationSyntax method, FrameworkSymbols symbols, CancellationToken cancellationToken)
+    {
+        if (model.GetDeclaredSymbol(method, cancellationToken) is not { } methodSymbol)
+        {
+            return true;
+        }
+
+        var parameters = methodSymbol.Parameters;
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (!symbols.IsInjectedParameterType(parameters[i].Type))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether any attribute on the method is written with a known test-attribute name.</summary>
@@ -225,15 +256,20 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
         /// <summary>The resolved data-source interfaces a data attribute implements across frameworks.</summary>
         private readonly INamedTypeSymbol[] _dataSourceInterfaces;
 
+        /// <summary>The resolved <c>System.Threading.CancellationToken</c> type a runner injects, never a data source.</summary>
+        private readonly INamedTypeSymbol? _cancellationToken;
+
         /// <summary>Initializes a new instance of the <see cref="FrameworkSymbols"/> class.</summary>
         /// <param name="testMarkers">The resolved test-attribute markers.</param>
         /// <param name="xunitDataAttribute">The resolved xUnit data-attribute base, or <see langword="null"/>.</param>
         /// <param name="dataSourceInterfaces">The resolved data-source interfaces.</param>
-        private FrameworkSymbols(INamedTypeSymbol[] testMarkers, INamedTypeSymbol? xunitDataAttribute, INamedTypeSymbol[] dataSourceInterfaces)
+        /// <param name="cancellationToken">The resolved <c>CancellationToken</c> type, or <see langword="null"/>.</param>
+        private FrameworkSymbols(INamedTypeSymbol[] testMarkers, INamedTypeSymbol? xunitDataAttribute, INamedTypeSymbol[] dataSourceInterfaces, INamedTypeSymbol? cancellationToken)
         {
             _testMarkers = testMarkers;
             _xunitDataAttribute = xunitDataAttribute;
             _dataSourceInterfaces = dataSourceInterfaces;
+            _cancellationToken = cancellationToken;
         }
 
         /// <summary>Resolves the test-framework symbols, or <see langword="null"/> when no test framework is referenced.</summary>
@@ -250,8 +286,15 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
             return new FrameworkSymbols(
                 markers,
                 compilation.GetTypeByMetadataName(XunitDataAttributeMetadataName),
-                ResolveAll(compilation, DataSourceInterfaceMetadataNames));
+                ResolveAll(compilation, DataSourceInterfaceMetadataNames),
+                compilation.GetTypeByMetadataName("System.Threading.CancellationToken"));
         }
+
+        /// <summary>Returns whether a parameter's type is one a test runner injects rather than one a data source fills.</summary>
+        /// <param name="type">The parameter's type.</param>
+        /// <returns><see langword="true"/> for <c>System.Threading.CancellationToken</c>.</returns>
+        public bool IsInjectedParameterType(ITypeSymbol type)
+            => _cancellationToken is not null && SymbolEqualityComparer.Default.Equals(type, _cancellationToken);
 
         /// <summary>Returns whether an attribute type is or derives from a resolved test-attribute marker.</summary>
         /// <param name="attributeClass">The attribute's type.</param>

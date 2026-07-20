@@ -9,102 +9,10 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2326 (narrowing an interface reference to a concrete implementation type).</summary>
 public class InterfaceToConcreteCastAnalyzerUnitTest
 {
-    /// <summary>Verifies an explicit cast from an interface to a concrete class is reported on the target type.</summary>
+    /// <summary>Verifies an explicit cast from an interface to a cross-assembly concrete class is reported on the target type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task ExplicitCastFromInterfaceToConcreteIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
-            """
-            interface IShape
-            {
-            }
-
-            sealed class Circle : IShape
-            {
-            }
-
-            class Consumer
-            {
-                void Use(IShape shape)
-                {
-                    var circle = ({|SST2326:Circle|})shape;
-                }
-            }
-            """);
-
-    /// <summary>Verifies an <c>as</c> conversion from an interface to a concrete class is reported on the target type.</summary>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
-    [Test]
-    public async Task AsExpressionFromInterfaceToConcreteIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
-            """
-            interface IShape
-            {
-            }
-
-            sealed class Circle : IShape
-            {
-            }
-
-            class Consumer
-            {
-                void Use(IShape shape)
-                {
-                    var circle = shape as {|SST2326:Circle|};
-                }
-            }
-            """);
-
-    /// <summary>Verifies an <c>is</c> type test from an interface to a concrete class is reported on the target type.</summary>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
-    [Test]
-    public async Task IsTypeTestFromInterfaceToConcreteIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
-            """
-            interface IShape
-            {
-            }
-
-            sealed class Circle : IShape
-            {
-            }
-
-            class Consumer
-            {
-                bool Use(IShape shape) => shape is {|SST2326:Circle|};
-            }
-            """);
-
-    /// <summary>Verifies an <c>is</c> declaration pattern from an interface to a concrete class is reported on the target type.</summary>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
-    [Test]
-    public async Task IsDeclarationPatternFromInterfaceToConcreteIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
-            """
-            interface IShape
-            {
-            }
-
-            sealed class Circle : IShape
-            {
-            }
-
-            class Consumer
-            {
-                void Use(IShape shape)
-                {
-                    if (shape is {|SST2326:Circle|} circle)
-                    {
-                        _ = circle;
-                    }
-                }
-            }
-            """);
-
-    /// <summary>Verifies a cast from a constructed generic interface to its concrete implementation is reported.</summary>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
-    [Test]
-    public async Task GenericInterfaceToConcreteListIsReportedAsync()
+    public async Task ExplicitCastToExternalConcreteIsReportedAsync()
         => await Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
@@ -117,6 +25,115 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies an <c>as</c> conversion from an interface to a cross-assembly concrete class is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AsExpressionToExternalConcreteIsReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            using System.Collections.Generic;
+
+            class Consumer
+            {
+                void Use(IEnumerable<int> items)
+                {
+                    var list = items as {|SST2326:List<int>|};
+                }
+            }
+            """);
+
+    /// <summary>Verifies an <c>is</c> type test from an interface to a cross-assembly concrete class is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task IsTypeTestToExternalConcreteIsReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            using System.Collections.Generic;
+
+            class Consumer
+            {
+                bool Use(IEnumerable<int> items) => items is {|SST2326:List<int>|};
+            }
+            """);
+
+    /// <summary>Verifies an <c>is</c> declaration pattern from an interface to a cross-assembly concrete class is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task IsDeclarationPatternToExternalConcreteIsReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            using System.Collections.Generic;
+
+            class Consumer
+            {
+                void Use(IEnumerable<int> items)
+                {
+                    if (items is {|SST2326:List<int>|} list)
+                    {
+                        _ = list;
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies narrowing to a concrete type declared in the same assembly is not reported: it is a closed, in-house set, not coupling.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SameAssemblyConcreteTypeIsNotReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            interface IShape
+            {
+            }
+
+            sealed class Circle : IShape
+            {
+            }
+
+            class Consumer
+            {
+                void Use(IShape shape)
+                {
+                    var circle = (Circle)shape;
+                    _ = circle;
+                    _ = shape is Circle;
+                    _ = shape as Circle;
+                }
+            }
+            """);
+
+    /// <summary>Verifies an allow-listed external concrete type is not reported: the option sanctions narrowing to it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AllowListedExternalConcreteIsNotReportedAsync()
+    {
+        var test = new Verify.Test
+        {
+            TestCode = """
+                       using System.Collections.Generic;
+
+                       class Consumer
+                       {
+                           void Use(IEnumerable<int> items)
+                           {
+                               var list = (List<int>)items;
+                               _ = list;
+                           }
+                       }
+                       """,
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.SST2326.allowed_types = System.Collections.Generic.List`1
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Verifies a cast from one interface to another interface is not reported: the target is not a concrete class.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -210,15 +227,13 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
     public async Task CastFromObjectIsNotReportedAsync()
         => await Verify.VerifyAnalyzerAsync(
             """
-            sealed class Circle
-            {
-            }
+            using System.Collections.Generic;
 
             class Consumer
             {
                 void Use(object value)
                 {
-                    var circle = (Circle)value;
+                    var list = (List<int>)value;
                 }
             }
             """);
@@ -229,18 +244,12 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
     public async Task IsTypeTestFromTypeParameterIsNotReportedAsync()
         => await Verify.VerifyAnalyzerAsync(
             """
-            interface IShape
-            {
-            }
-
-            sealed class Circle : IShape
-            {
-            }
+            using System.Collections.Generic;
 
             class Consumer<T>
-                where T : IShape
+                where T : IEnumerable<int>
             {
-                bool Use(T shape) => shape is Circle;
+                bool Use(T items) => items is List<int>;
             }
             """);
 
@@ -250,17 +259,11 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
     public async Task IsNotPatternIsNotReportedAsync()
         => await Verify.VerifyAnalyzerAsync(
             """
-            interface IShape
-            {
-            }
-
-            sealed class Circle : IShape
-            {
-            }
+            using System.Collections.Generic;
 
             class Consumer
             {
-                bool Use(IShape shape) => shape is not Circle;
+                bool Use(IEnumerable<int> items) => items is not List<int>;
             }
             """);
 }

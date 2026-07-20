@@ -23,14 +23,26 @@ namespace StyleSharp.Analyzers;
 /// left alone.
 /// </para>
 /// <para>
+/// A concrete type declared in the <b>same assembly</b> is not reported: narrowing to an implementation the author
+/// owns is a closed, in-house set of implementations — effectively a discriminated union — not coupling to an
+/// external implementation choice. Only a concrete type from another assembly is the coupling this rule warns
+/// about. A specific external type can additionally be exempted through the editorconfig option
+/// <c>stylesharp.SST2326.allowed_types</c> (a comma-separated list of fully-qualified metadata names, e.g.
+/// <c>System.Collections.Generic.List`1</c>), which declares that narrowing to it is a sanctioned fast path.
+/// </para>
+/// <para>
 /// The clean path allocates nothing: the syntactic dispatch rejects every node that is not one of the four
-/// narrowing shapes (an <c>is</c> pattern that is not a declaration pattern binds nothing), and display strings
-/// for the message are built only once a violation is confirmed.
+/// narrowing shapes (an <c>is</c> pattern that is not a declaration pattern binds nothing), and the assembly
+/// check, the allow-list read, and the message's display strings run only once a cross-assembly violation is
+/// confirmed.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The editorconfig key naming concrete types that are a sanctioned narrowing and never reported.</summary>
+    private const string AllowedTypesOptionKey = "stylesharp.SST2326.allowed_types";
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(DesignRules.InterfaceToConcreteCast);
 
@@ -39,17 +51,22 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSyntaxNodeAction(
-            Analyze,
-            SyntaxKind.CastExpression,
-            SyntaxKind.AsExpression,
-            SyntaxKind.IsExpression,
-            SyntaxKind.IsPatternExpression);
+        context.RegisterCompilationStartAction(static start =>
+        {
+            var currentAssembly = start.Compilation.Assembly;
+            start.RegisterSyntaxNodeAction(
+                nodeContext => Analyze(nodeContext, currentAssembly),
+                SyntaxKind.CastExpression,
+                SyntaxKind.AsExpression,
+                SyntaxKind.IsExpression,
+                SyntaxKind.IsPatternExpression);
+        });
     }
 
     /// <summary>Reports one narrowing of an interface reference to a concrete implementation type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context)
+    /// <param name="currentAssembly">The assembly being compiled, whose own concrete types are not coupling.</param>
+    private static void Analyze(SyntaxNodeAnalysisContext context, IAssemblySymbol currentAssembly)
     {
         if (!TryGetOperandAndTarget(context.Node, out var operand, out var targetType))
         {
@@ -80,11 +97,64 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // A concrete type declared in this same assembly is one the author owns: narrowing to it is a closed,
+        // in-house choice among your own implementations, not coupling to someone else's. Leave it alone.
+        if (SymbolEqualityComparer.Default.Equals(concreteType.ContainingAssembly, currentAssembly))
+        {
+            return;
+        }
+
+        // A specifically allow-listed external type is a sanctioned narrowing — a documented fast path over a
+        // concrete implementation the project deliberately depends on.
+        if (IsAllowedType(context, concreteType))
+        {
+            return;
+        }
+
         context.ReportDiagnostic(DiagnosticHelper.Create(
             DesignRules.InterfaceToConcreteCast,
             targetType.GetLocation(),
             interfaceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
             concreteType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
+    }
+
+    /// <summary>Returns whether a concrete type is named in the <c>allowed_types</c> editorconfig list for the file.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="concreteType">The confirmed cross-assembly concrete target type.</param>
+    /// <returns><see langword="true"/> when the type's original definition matches an allow-list entry.</returns>
+    /// <remarks>
+    /// Each list entry is resolved through <see cref="Compilation.GetTypeByMetadataName(string)"/>, which parses the
+    /// arity-encoded metadata name (<c>List`1</c>) exactly, and compared by symbol — so the option is robust to how
+    /// the type is spelt at the use site. This runs only for a cross-assembly candidate that has already passed every
+    /// other check, so the parse and lookups stay off the clean path.
+    /// </remarks>
+    private static bool IsAllowedType(SyntaxNodeAnalysisContext context, INamedTypeSymbol concreteType)
+    {
+        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
+        if (!options.TryGetValue(AllowedTypesOptionKey, out var value) || value.Length == 0)
+        {
+            return false;
+        }
+
+        var compilation = context.SemanticModel.Compilation;
+        var definition = concreteType.OriginalDefinition;
+        var start = 0;
+        while (start <= value.Length)
+        {
+            var comma = value.IndexOf(',', start);
+            var end = comma < 0 ? value.Length : comma;
+            var entry = value.Substring(start, end - start).Trim();
+            if (entry.Length > 0
+                && compilation.GetTypeByMetadataName(entry) is { } allowed
+                && SymbolEqualityComparer.Default.Equals(allowed, definition))
+            {
+                return true;
+            }
+
+            start = end + 1;
+        }
+
+        return false;
     }
 
     /// <summary>Splits a narrowing node into the operand being narrowed and the target type syntax, on syntax alone.</summary>

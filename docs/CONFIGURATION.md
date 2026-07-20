@@ -99,6 +99,7 @@ Some rules expose options. Current options:
 | `stylesharp.max_switch_section_lines` | [SST1524](rules/SST1524.md) | positive integer (code lines) | `20` |
 | `stylesharp.allowed_enum_storage` | [SST2313](rules/SST2313.md) | comma-separated type names, as C# keywords (`byte`) or CLR names (`Byte`) | `int` |
 | `stylesharp.SST1431.additional_per_owner_types` | [SST1431](rules/SST1431.md) | comma-separated fully-qualified type names | built-in list only |
+| `stylesharp.SST2326.allowed_types` | [SST2326](rules/SST2326.md) | comma-separated fully-qualified metadata names (e.g. ``System.Collections.Generic.List`1``) | none (same-assembly types always exempt) |
 | `stylesharp.document_exposed_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_internal_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_private_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `false` |

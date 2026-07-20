@@ -152,6 +152,62 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies an identity-equality operator (<c>ReferenceEquals</c> expression body) on a mutable class is silent.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReferenceEqualsExpressionBodyIsCleanAsync()
+        => await VerifyCleanAsync(
+            """
+            public class C
+            {
+                public int X;
+                public static bool operator ==(C a, C b) => ReferenceEquals(a, b);
+                public static bool operator !=(C a, C b) => !ReferenceEquals(a, b);
+            }
+            """);
+
+    /// <summary>Verifies an identity-equality operator with a block body and a single <c>return ReferenceEquals</c> is silent.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReferenceEqualsBlockBodyIsCleanAsync()
+        => await VerifyCleanAsync(
+            """
+            public class C
+            {
+                public int X;
+                public static bool operator ==(C a, C b) { return ReferenceEquals(b, a); }
+                public static bool operator !=(C a, C b) => true;
+            }
+            """);
+
+    /// <summary>Verifies an identity-equality operator written as <c>(object)a == (object)b</c> is silent.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ObjectCastEqualityIsCleanAsync()
+        => await VerifyCleanAsync(
+            """
+            public class C
+            {
+                public int X;
+                public static bool operator ==(C a, C b) => (object)a == (object)b;
+                public static bool operator !=(C a, C b) => (object)a != (object)b;
+            }
+            """);
+
+    /// <summary>Verifies a genuine value-equality operator on a mutable class is still reported after the identity exemption.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ValueEqualityOperatorIsStillReportedAsync()
+        => await VerifyReportAsync(
+            """
+            public class C
+            {
+                public int X;
+                public static bool operator {|SST2464:==|}(C a, C b) => a.X == b.X;
+                public static bool operator !=(C a, C b) => a.X != b.X;
+            }
+            """);
+
     /// <summary>Runs a report verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

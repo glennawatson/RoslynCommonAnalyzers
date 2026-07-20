@@ -26,6 +26,11 @@ namespace StyleSharp.Analyzers;
 /// class yields a single diagnostic. Whether the type also overrides <c>Equals</c>/<c>GetHashCode</c> is
 /// irrelevant here — the defect is value equality on mutable state, not a missing member.
 /// </para>
+/// <para>
+/// An operator that is really identity equality is exempt: a body of <c>ReferenceEquals(left, right)</c> or
+/// <c>(object)left == (object)right</c> compares the operands by reference, so the result never changes when
+/// the state changes and the hash-key hazard the rule warns about cannot arise.
+/// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2464EqualityOperatorOnMutableClassAnalyzer : DiagnosticAnalyzer
@@ -53,7 +58,8 @@ public sealed class Sst2464EqualityOperatorOnMutableClassAnalyzer : DiagnosticAn
         }
 
         if (context.SemanticModel.GetDeclaredSymbol(classDeclaration, context.CancellationToken) is not { TypeKind: TypeKind.Class, IsRecord: false } type
-            || !IsMutable(type))
+            || !IsMutable(type)
+            || IsReferenceEquality(operatorDeclaration, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -87,5 +93,104 @@ public sealed class Sst2464EqualityOperatorOnMutableClassAnalyzer : DiagnosticAn
         }
 
         return false;
+    }
+
+    /// <summary>Returns whether an <c>operator ==</c> body is identity equality of its two operands.</summary>
+    /// <param name="operatorDeclaration">The operator declaration.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns><see langword="true"/> for a body of <c>ReferenceEquals(left, right)</c> or <c>(object)left == (object)right</c>.</returns>
+    private static bool IsReferenceEquality(OperatorDeclarationSyntax operatorDeclaration, SemanticModel model, CancellationToken cancellationToken)
+    {
+        var parameters = operatorDeclaration.ParameterList.Parameters;
+        if (parameters.Count != 2 || GetBodyExpression(operatorDeclaration) is not { } body)
+        {
+            return false;
+        }
+
+        var left = parameters[0].Identifier.ValueText;
+        var right = parameters[1].Identifier.ValueText;
+
+        return Unwrap(body) switch
+        {
+            InvocationExpressionSyntax invocation => IsReferenceEqualsCall(invocation, left, right, model, cancellationToken),
+            BinaryExpressionSyntax { OperatorToken.RawKind: (int)SyntaxKind.EqualsEqualsToken } binary =>
+                IsObjectCastOfParameter(binary.Left, left, right) && IsObjectCastOfParameter(binary.Right, left, right),
+            _ => false,
+        };
+    }
+
+    /// <summary>Returns the single expression an operator body evaluates to, or <see langword="null"/> when it has none.</summary>
+    /// <param name="operatorDeclaration">The operator declaration.</param>
+    /// <returns>The expression-body expression or the sole <c>return</c>'s expression, or <see langword="null"/>.</returns>
+    private static ExpressionSyntax? GetBodyExpression(OperatorDeclarationSyntax operatorDeclaration)
+    {
+        if (operatorDeclaration.ExpressionBody is { } arrow)
+        {
+            return arrow.Expression;
+        }
+
+        return operatorDeclaration.Body is { } block
+            && block.Statements.Count == 1
+            && block.Statements[0] is ReturnStatementSyntax { Expression: { } returned }
+            ? returned
+            : null;
+    }
+
+    /// <summary>Strips redundant parentheses from an expression.</summary>
+    /// <param name="expression">The expression to unwrap.</param>
+    /// <returns>The innermost non-parenthesized expression.</returns>
+    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+        {
+            expression = parenthesized.Expression;
+        }
+
+        return expression;
+    }
+
+    /// <summary>Returns whether an invocation is <c>object.ReferenceEquals</c> applied to the two operands.</summary>
+    /// <param name="invocation">The invocation expression.</param>
+    /// <param name="left">The first operand's name.</param>
+    /// <param name="right">The second operand's name.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns><see langword="true"/> when the call is <c>ReferenceEquals(left, right)</c> in either argument order.</returns>
+    private static bool IsReferenceEqualsCall(InvocationExpressionSyntax invocation, string left, string right, SemanticModel model, CancellationToken cancellationToken)
+    {
+        var arguments = invocation.ArgumentList.Arguments;
+        return arguments.Count == 2
+            && ArgumentsNameBothParameters(arguments[0].Expression, arguments[1].Expression, left, right)
+            && model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { Name: "ReferenceEquals", ContainingType.SpecialType: SpecialType.System_Object };
+    }
+
+    /// <summary>Returns whether two expressions are the two operand identifiers, in either order.</summary>
+    /// <param name="first">The first argument expression.</param>
+    /// <param name="second">The second argument expression.</param>
+    /// <param name="left">The first operand's name.</param>
+    /// <param name="right">The second operand's name.</param>
+    /// <returns><see langword="true"/> when one names <paramref name="left"/> and the other <paramref name="right"/>.</returns>
+    private static bool ArgumentsNameBothParameters(ExpressionSyntax first, ExpressionSyntax second, string left, string right)
+    {
+        var a = (Unwrap(first) as IdentifierNameSyntax)?.Identifier.ValueText;
+        var b = (Unwrap(second) as IdentifierNameSyntax)?.Identifier.ValueText;
+        return (a == left && b == right) || (a == right && b == left);
+    }
+
+    /// <summary>Returns whether an expression is an <c>(object)</c> cast of one of the two operands.</summary>
+    /// <param name="expression">The operand expression.</param>
+    /// <param name="left">The first operand's name.</param>
+    /// <param name="right">The second operand's name.</param>
+    /// <returns><see langword="true"/> when the expression casts one operand to <c>object</c>.</returns>
+    private static bool IsObjectCastOfParameter(ExpressionSyntax expression, string left, string right)
+    {
+        if (Unwrap(expression) is not CastExpressionSyntax { Type: PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ObjectKeyword } } cast)
+        {
+            return false;
+        }
+
+        var name = (Unwrap(cast.Expression) as IdentifierNameSyntax)?.Identifier.ValueText;
+        return name == left || name == right;
     }
 }

@@ -81,26 +81,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         for (var i = 0; i < members.Length; i++)
         {
             var member = members[i];
-            if (!IsCandidateMember(member))
-            {
-                continue;
-            }
-
-            var memberReach = AccessibilityReach(member.DeclaredAccessibility);
-            if (!IsWider(memberReach, containerReach))
-            {
-                continue;
-            }
-
-            // From here the widening is real and rare. A member whose accessibility a contract fixes cannot be
-            // narrowed, so it is not something to report.
-            if (ImplementsInterfaceMember(type, member))
-            {
-                continue;
-            }
-
-            // Syntax is read only now, to point the diagnostic at the offending modifier keyword.
-            if (AccessModifierLocation(member, context.CancellationToken) is not { } location)
+            if (WideningModifierLocation(member, type, containerReach, context.CancellationToken) is not { } location)
             {
                 continue;
             }
@@ -112,6 +93,39 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
                 AccessibilityKeyword(member.DeclaredAccessibility),
                 ReachKeyword(containerReach)));
         }
+    }
+
+    /// <summary>Returns the modifier location to report for a member wider than its container, or null to leave it alone.</summary>
+    /// <param name="member">The declared member.</param>
+    /// <param name="type">The containing type.</param>
+    /// <param name="containerReach">The container's effective caller set.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The offending modifier's location, or <see langword="null"/> when nothing should be reported.</returns>
+    private static Location? WideningModifierLocation(ISymbol member, INamedTypeSymbol type, int containerReach, CancellationToken cancellationToken)
+    {
+        if (!IsCandidateMember(member) || !IsWider(AccessibilityReach(member.DeclaredAccessibility), containerReach))
+        {
+            return null;
+        }
+
+        // A member whose accessibility a contract fixes cannot be narrowed, so it is not something to report.
+        if (ImplementsInterfaceMember(type, member))
+        {
+            return null;
+        }
+
+        // A member of a nested type whose reach excludes same-assembly non-derived callers cannot be narrowed to
+        // match: private, private protected, and protected — the only accessibilities the rule could name here —
+        // are all unreachable from the enclosing type (CS0122), so 'internal' is the minimum that compiles and
+        // demanding less is unsatisfiable. Report such a member only when nothing outside its declaring type
+        // names it, where making it private would actually compile.
+        if ((containerReach & SameAssemblyOther) == 0 && IsReferencedOutsideDeclaringType(member, cancellationToken))
+        {
+            return null;
+        }
+
+        // Syntax is read only now, to point the diagnostic at the offending modifier keyword.
+        return AccessModifierLocation(member, cancellationToken);
     }
 
     /// <summary>Returns whether a member is one whose author-written accessibility this rule can weigh.</summary>
@@ -217,6 +231,75 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
                 {
                     return true;
                 }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a member of a nested type is named anywhere outside that type's own declaration.</summary>
+    /// <param name="member">The member declared in a nested type.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns><see langword="true"/> when the member's name appears in the enclosing type outside the declaring type.</returns>
+    /// <remarks>
+    /// A member of a nested type is only visible within the immediately enclosing type, so any use outside the
+    /// declaring type appears in that enclosing type's declarations. The match is syntactic — a name occurrence,
+    /// not a bound reference, since an analyzer must not build a semantic model here — so it errs toward leaving
+    /// a member alone: an unrelated same-named identifier suppresses the report but never invents one. The
+    /// declaring type's own subtree is pruned, so a self-reference does not count as an outside use.
+    /// </remarks>
+    private static bool IsReferencedOutsideDeclaringType(ISymbol member, CancellationToken cancellationToken)
+    {
+        var declaringType = member.ContainingType;
+        if (declaringType?.ContainingType is not { } enclosing)
+        {
+            return false;
+        }
+
+        var declaringNodes = DeclaringNodes(declaringType, cancellationToken);
+        var enclosingReferences = enclosing.DeclaringSyntaxReferences;
+        for (var i = 0; i < enclosingReferences.Length; i++)
+        {
+            var enclosingNode = enclosingReferences[i].GetSyntax(cancellationToken);
+            foreach (var descendant in enclosingNode.DescendantNodes(node => !IsAny(node, declaringNodes)))
+            {
+                if (descendant is SimpleNameSyntax name && name.Identifier.ValueText == member.Name)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Materializes a type's declaration nodes so they can be compared by reference during a walk.</summary>
+    /// <param name="type">The type whose declaration nodes are wanted.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The type's declaration syntax nodes.</returns>
+    private static SyntaxNode[] DeclaringNodes(INamedTypeSymbol type, CancellationToken cancellationToken)
+    {
+        var references = type.DeclaringSyntaxReferences;
+        var nodes = new SyntaxNode[references.Length];
+        for (var i = 0; i < references.Length; i++)
+        {
+            nodes[i] = references[i].GetSyntax(cancellationToken);
+        }
+
+        return nodes;
+    }
+
+    /// <summary>Returns whether a node is one of a set, comparing by reference.</summary>
+    /// <param name="node">The node to test.</param>
+    /// <param name="nodes">The set of nodes.</param>
+    /// <returns><see langword="true"/> when the node is in the set.</returns>
+    private static bool IsAny(SyntaxNode node, SyntaxNode[] nodes)
+    {
+        for (var i = 0; i < nodes.Length; i++)
+        {
+            if (ReferenceEquals(node, nodes[i]))
+            {
+                return true;
             }
         }
 

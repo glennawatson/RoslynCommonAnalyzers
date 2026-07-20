@@ -206,4 +206,38 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies an <c>internal</c> member of a <c>private</c> nested type used by the enclosing type is not reported — it cannot be narrowed to <c>private</c> without CS0122.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InternalMemberOfPrivateNestedTypeUsedOutsideIsNotReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            public class Outer
+            {
+                private sealed class Sink
+                {
+                    internal int Next() => 0;
+                }
+
+                private readonly Sink _sink = new();
+
+                public int Use() => _sink.Next();
+            }
+            """);
+
+    /// <summary>Verifies an <c>internal</c> member of a <c>private</c> nested type that nothing outside the type uses is reported — making it <c>private</c> would compile.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UnusedInternalMemberOfPrivateNestedTypeIsReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            public class Outer
+            {
+                private sealed class Sink
+                {
+                    {|SST2324:internal|} int Next() => 0;
+                }
+            }
+            """);
 }

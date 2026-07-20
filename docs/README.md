@@ -153,6 +153,7 @@ async, `PSH14xx` API selection.
 | [PSH1416](rules/PSH1416.md) | A fresh `JsonSerializerOptions` per call throws away the serializer's per-type metadata cache. |
 | [PSH1417](rules/PSH1417.md) | An expensive argument is computed for a `Debug.Assert` that release builds compile away. |
 | [PSH1418](rules/PSH1418.md) | A shareable client (`HttpClient` or an Azure SDK service client) is constructed for a single call, so its pooled connections and caches die with it and every call pays the setup cost again. |
+| [PSH1419](rules/PSH1419.md) | A call to the TimeZoneConverter package where the built-in `TimeZoneInfo` now resolves IANA and Windows ids cross-platform (.NET 6+). Code fix rewrites `GetTimeZoneInfo` to `TimeZoneInfo.FindSystemTimeZoneById`. |
 
 ## AspNetCore
 
@@ -473,6 +474,7 @@ PSH1102, and PSH1100.
 | [SST2249](rules/SST2249.md) | A `string.Format` call with a literal format, or a concatenation of literals with values, reads more clearly as an interpolated string. Code fix rewrites it; a call passing an explicit format provider is left alone so its culture is not dropped. |
 | [SST2250](rules/SST2250.md) | A bare local declared without a value and assigned once by the next straight-line statement can be joined into an initialized declaration. Code fix joins them. |
 | [SST2251](rules/SST2251.md) | A method call names type arguments that inference would supply. Code fix removes them. |
+| [SST2252](rules/SST2252.md) | A `switch` statement nested inside another `switch` statement's section; lift it into a method, a `switch` expression, or a lookup. |
 
 ## Design
 
@@ -509,6 +511,7 @@ conventions, and what a member exposes.
 | [SST2325](rules/SST2325.md) | An async method checks an argument after its first await, so the guard does not throw at the call site but later, when the returned task is awaited. |
 | [SST2326](rules/SST2326.md) | An interface-typed value is narrowed to a concrete class that implements it — via a cast, `as`, or `is` test — coupling the code to one implementation. Info. |
 | [SST2327](rules/SST2327.md) | A type inspects its own runtime type against a specific class (`this is Derived`, `this as Derived`, or `this.GetType() == typeof(Derived)`) instead of dispatching through a virtual member. |
+| [SST2328](rules/SST2328.md) | A visible instance field or property hands out a raw native pointer (`IntPtr`/`UIntPtr`/`nint`/`nuint`), letting callers read, write, free, or corrupt the native memory the type owns. Keep it private behind a `SafeHandle`. |
 
 ## Correctness
 
@@ -586,6 +589,13 @@ Code that compiles and runs but does not do what it says.
 | [SST2475](rules/SST2475.md) | An entity's primary key is typed `DateTime` or `DateTimeOffset`, so keys collide within a tick, are not stable identifiers, cluster the table by insertion time, and round-trip imprecisely across providers. |
 | [SST2479](rules/SST2479.md) | A for/while/do loop variable captured by a lambda, anonymous method, or local function that is stored beyond the iteration reads its final value on every deferred call. |
 | [SST2481](rules/SST2481.md) | A `GetHashCode` override folds the base object identity hash into a value hash, so two value-equal instances hash differently and are lost in any hash-based collection. |
+| [SST2484](rules/SST2484.md) | A raw handle read through `SafeHandle.DangerousGetHandle()` is not reference-counted, so a concurrent dispose or finalize can recycle the value and it is used after free. |
+| [SST2485](rules/SST2485.md) | A member throws `new NotImplementedException`, a stub that compiles but crashes at runtime on any path that reaches it. `NotSupportedException` is left alone. |
+| [SST2486](rules/SST2486.md) | An assembly is loaded through `Assembly.LoadFrom`, `LoadFile`, or `LoadWithPartialName` instead of `Assembly.Load` with a full display name; a code fix swaps `LoadWithPartialName` to `Assembly.Load`. |
+| [SST2487](rules/SST2487.md) | A `[ConstructorArgument]` names no parameter of any constructor of its declaring type, so a markup extension cannot round-trip the property back to a constructor argument. |
+| [SST2488](rules/SST2488.md) | A catch logs the caught exception and then rethrows it with a bare `throw;`, so the same failure is recorded here and again where it is finally handled. |
+| [SST2489](rules/SST2489.md) | A relational comparison an integer operand's type already decides — an unsigned value `>= 0` (always true) or `< 0` (always false), or a value at its type's min/max edge such as `b <= 255` for a `byte`. |
+| [SST2490](rules/SST2490.md) | Two adjacent `try` statements in the same block repeat the same catch/finally handling, so the pair can collapse into one `try` wrapping both bodies. |
 
 ## Testing
 
@@ -599,6 +609,8 @@ Code that compiles and runs but does not do what it says.
 | [SST2505](rules/SST2505.md) | A test method declares parameters but no data source, so the runner cannot supply arguments and the test silently never runs. |
 | [SST2506](rules/SST2506.md) | A test method calls `Thread.Sleep`, spending a fixed real-time delay on every run that slows the suite and races the wall clock, a classic flaky-test source. |
 | [SST2507](rules/SST2507.md) | A test method declares its expected failure with an expected-exception attribute instead of asserting the specific operation, so any statement in the whole method throwing that type passes the test. |
+| [SST2508](rules/SST2508.md) | A fluent assertion names its subject with a bare `Should()` statement but chains no check, so it compiles, runs, and passes while verifying nothing. Gated on FluentAssertions/AwesomeAssertions. |
+| [SST2509](rules/SST2509.md) | A method carrying a test attribute has a signature the runner cannot execute — non-public, a parameterless generic, or a return type other than `void`/`Task`/`ValueTask` — so it is discovered and then silently skipped. |
 
 ## Logging
 
@@ -607,6 +619,7 @@ Legacy tracing in place of structured logging.
 | Rule | Description |
 | --- | --- |
 | [SST2600](rules/SST2600.md) | Application output is written through `Trace.Write`/`WriteLine`/`WriteIf`/`WriteLineIf` when a structured logger (`ILogger`) is available, so the message loses its level, category, and named state. Reported only when `ILogger` resolves; `Debug.*` is excluded. |
+| [SST2601](rules/SST2601.md) | An `ILogger`/`ILogger<T>` field or property is named against the logger convention (`_logger`/`_log` for a private instance one, `Logger` otherwise). Configurable via `stylesharp.SST2601.fieldname`. |
 
 ## Naming
 
@@ -631,6 +644,7 @@ Legacy tracing in place of structured logging.
 | [SST1317](rules/SST1317.md) | Task-returning method names should end with `Async`. |
 | [SST1318](rules/SST1318.md) | Overriding or implementing parameter names should match the base member. |
 | [SST1319](rules/SST1319.md) | An enumeration's type name holds an underscore or an all-capitals acronym. SST1300 owns its first character. |
+| [SST1320](rules/SST1320.md) | A method parameter's name is identical to its containing method's name. |
 
 ## Ordering
 
@@ -826,6 +840,7 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1006](rules/SES1006.md) | A Data Protection key ring is persisted to an explicit repository (`PersistKeysToFileSystem`/`DbContext`/`AzureBlobStorage`/`StackExchangeRedis`/`Registry`) with no `ProtectKeysWith...` call in the same chain, so the keys are stored unencrypted at rest. |
 | [SES1007](rules/SES1007.md) | A type derives from an abstract cryptographic primitive base (`HashAlgorithm`/`KeyedHashAlgorithm`/`HMAC`/`SymmetricAlgorithm`/`AsymmetricAlgorithm`/`DeriveBytes`) and implements the algorithm by hand; use a vetted platform implementation. Subclassing a concrete algorithm to configure it is not reported. |
 | [SES1008](rules/SES1008.md) | An XML signature is verified with the no-key `SignedXml.CheckSignature()` overload, which trusts the key embedded in the document's `KeyInfo`, so an attacker can re-sign tampered XML with their own key and still pass; pass a known key or certificate instead. |
+| [SES1009](rules/SES1009.md) | A password is hashed with a fast general-purpose hash (`MD5`/`SHA-1`/`SHA-256`/`SHA-384`/`SHA-512`) via `HashData`/`ComputeHash` instead of a slow, salted password KDF; a fast hash is cheap to brute-force even when salted. |
 
 ## Transport
 
@@ -859,6 +874,7 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1307](rules/SES1307.md) | `Path.GetTempFileName()` creates a predictable, world-readable temporary file open to a time-of-check/time-of-use race and a 65535-file limit (CWE-377); use `Path.GetRandomFileName()` for an unpredictable name, or `Directory.CreateTempSubdirectory()` (.NET 7+) for an isolated directory. |
 | [SES1308](rules/SES1308.md) | A file or directory is created group- or world-writable (a `UnixFileMode` including `GroupWrite`/`OtherWrite`, CWE-732), letting other local users tamper with it. |
 | [SES1309](rules/SES1309.md) | An XSLT stylesheet is loaded via `XslCompiledTransform.Load` with `XsltSettings` that enable embedded script (`EnableScript = true`, a constant `enableScript` constructor argument, or `XsltSettings.TrustedXslt`), letting a stylesheet run arbitrary code in the host process (CWE-95). |
+| [SES1310](rules/SES1310.md) | A `DirectoryEntry` binds to the directory without proving identity — `AuthenticationTypes.Anonymous`, or an `LDAP://` path bound with an explicitly empty/`null` username and password (CWE-287). |
 
 ## Serialization
 
@@ -888,6 +904,7 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1512](rules/SES1512.md) | Sensitive framework diagnostics — EF Core `EnableSensitiveDataLogging()`, or `IdentityModelEventSource.ShowPII`/`LogCompleteSecurityArtifact = true` — are enabled without a development-environment guard, so parameter values, PII, and full tokens land in production logs (CWE-215/532). |
 | [SES1513](rules/SES1513.md) | An `IAuthorizationService.AuthorizeAsync` call discards its `AuthorizationResult` (a bare await or `_ =`), so nothing reads `Succeeded` and the guarded operation runs whether or not authorization passed (CWE-863). |
 | [SES1514](rules/SES1514.md) | OpenID Connect protocol protections are disabled — `UsePkce`, `RequireState`, `RequireStateValidation`, or `RequireNonce` set to false — weakening the authorization-code flow against CSRF and replay (CWE-352/294). |
+| [SES1515](rules/SES1515.md) | A `Content-Security-Policy` value carries `'unsafe-inline'`, `'unsafe-eval'`, or a bare `*` source on a `default-src`/`script-src`/`style-src`/`object-src`/`base-uri` directive, re-permitting injected inline scripts and defeating the header's XSS protection (CWE-1021/79). |
 
 ## Ai
 

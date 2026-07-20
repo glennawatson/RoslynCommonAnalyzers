@@ -350,6 +350,13 @@ internal static class ModernSyntaxRules
         "Remove the explicit type arguments that inference supplies unchanged",
         OmitInferableTypeArgumentsDescription);
 
+    /// <summary>SST2252 — a switch statement is nested inside another switch statement's section.</summary>
+    public static readonly DiagnosticDescriptor AvoidNestedSwitchStatement = Create(
+        "SST2252",
+        "Avoid nesting switch statements",
+        "Extract this nested switch statement into its own method, a switch expression, or a lookup",
+        AvoidNestedSwitchStatementDescription);
+
     /// <summary>The SST2243 rule description.</summary>
     private const string UseRawStringLiteralDescription =
         "A verbatim string full of doubled-quote escapes, or one spanning multiple lines, reads with less escape noise as a raw string "
@@ -409,6 +416,14 @@ internal static class ModernSyntaxRules
         + "meaning. Putting the value on the declaration keeps the name and its first value together. Reported only when the first "
         + "assignment is the immediately following straight-line statement at the same block level, so nothing reads the local in "
         + "between and joining cannot move evaluation or change definite assignment.";
+
+    /// <summary>The SST2252 rule description.</summary>
+    private const string AvoidNestedSwitchStatementDescription =
+        "A switch statement inside another switch statement's section stacks two multi-way branches at one point, so the reader "
+        + "tracks two governing values and both sets of cases at once. Lifting the inner switch into its own method, a switch "
+        + "expression, or a lookup keeps each branch readable on its own. Only a switch statement nested in another switch "
+        + "statement's section is reported; a switch expression is the preferred compact form and is left alone, and a switch "
+        + "inside a lambda or local function declared in a section belongs to that body rather than to the enclosing switch.";
 
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

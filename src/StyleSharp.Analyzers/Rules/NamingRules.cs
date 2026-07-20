@@ -144,6 +144,13 @@ internal static class NamingRules
         "Enumeration '{0}' should be PascalCase",
         "An enum's type name is PascalCase: no underscore, and an acronym over two letters written as a word ('HttpStatus', not 'HTTPStatus'). SST1300 owns the upper-case start.");
 
+    /// <summary>SST1320 — a method parameter's name is identical to its containing method's name.</summary>
+    public static readonly DiagnosticDescriptor ParameterNameMatchesMethod = Create(
+        "SST1320",
+        "Parameter names should not match the method name",
+        "Parameter '{0}' has the same name as its method; rename it so the call site stays readable",
+        "A parameter whose name equals its method's name reads as a copy-paste slip and makes a named argument at the call site ambiguous. Rename it for its role; the match is case-sensitive.");
+
     /// <summary>Every fixable naming id, for the shared rename code fix.</summary>
     public static readonly ImmutableArray<string> AllFixableIds = ImmutableArrays.Of(
         "SST1300",

@@ -827,3 +827,22 @@ hardening, `SES16xx` AI input trust boundaries.
 | --- | --- |
 | [SES1201](rules/SES1201.md) | A string literal hard-codes a recognizable credential (API key, token, private key, or connection-string password), which is committed to source and must be treated as leaked. |
 | [SES1202](rules/SES1202.md) | A non-empty string literal is hard-coded where a credential is expected (a credential-named parameter or a credential-type constructor), even when its text is not a recognizable secret pattern. |
+
+## Injection
+
+| Rule | Description |
+| --- | --- |
+| [SES1301](rules/SES1301.md) | A process command line is composed from a non-constant interpolated or concatenated string via `ProcessStartInfo.Arguments` (assignment or object initializer) or `Process.Start(fileName, arguments)`; use `ArgumentList` so each argument is escaped. |
+| [SES1302](rules/SES1302.md) | A `ProcessStartInfo` with `UseShellExecute = true` names a non-constant `FileName` (from the initializer or the constructor argument), so the OS shell resolves a data-derived program: a command-injection and unexpected-program risk. |
+| [SES1303](rules/SES1303.md) | A regular-expression pattern is built from non-constant data, letting an attacker inject regex metacharacters (alternation, catastrophic backtracking, capture rewriting); reports the pattern argument of the `Regex` constructor and the static `Regex.IsMatch`/`Match`/`Matches`/`Replace`/`Split` overloads. |
+| [SES1304](rules/SES1304.md) | An archive entry name (`ZipArchiveEntry.FullName` / `TarEntry.Name`) is joined via `Path.Combine` or `+` straight into a file-writing sink with no inline containment check, letting a crafted `../` or absolute entry escape the target directory (zip slip / path traversal). |
+| [SES1305](rules/SES1305.md) | An uploaded file name (`IFormFile.FileName`) is used to build a storage path -- a `Path.Combine` argument, a `+` path concatenation, or a file-creating call (`File.Create`/`OpenWrite`/`WriteAllBytes`/`Copy`, `new FileStream`) -- enabling path traversal; sanitize with `Path.GetFileName` or use a server-generated name. |
+| [SES1306](rules/SES1306.md) | Non-constant C# source is compiled and executed via the scripting API (`CSharpScript.EvaluateAsync`/`RunAsync`/`Create`), which is arbitrary code execution; the code channel must be a constant, trusted template rather than runtime data. |
+
+## Serialization
+
+| Rule | Description |
+| --- | --- |
+| [SES1401](rules/SES1401.md) | A type resolved from non-constant data via `Type.GetType` is passed inline to `Activator.CreateInstance` or a `Deserialize(Type, ...)` call, letting untrusted input choose which type is instantiated. |
+| [SES1402](rules/SES1402.md) | An assembly is loaded from raw bytes (`Assembly.Load(byte[])` / `AssemblyLoadContext.LoadFromStream`) or from a non-constant `LoadFrom`/`LoadFile`/`UnsafeLoadFrom` path, running unverifiable code with full process trust. |
+| [SES1403](rules/SES1403.md) | A constant `System.Text.Json` `MaxDepth` (on `JsonSerializerOptions`/`JsonReaderOptions`/`JsonDocumentOptions`) is raised above a configurable ceiling (default 64), re-opening the deep-nesting stack-exhaustion denial-of-service that the default limit guards against. |

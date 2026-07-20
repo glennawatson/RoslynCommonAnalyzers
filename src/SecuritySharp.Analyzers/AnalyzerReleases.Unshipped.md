@@ -16,3 +16,12 @@ SES1105 | Transport | Warning | Ses1105PlainHttpMetadataRetrievalAnalyzer
 SES1106 | Transport | Warning | Ses1106CleartextHttpUrlAnalyzer
 SES1201 | Secrets | Warning | Ses1201HardcodedSecretAnalyzer
 SES1202 | Secrets | Warning | Ses1202HardcodedCredentialArgumentAnalyzer
+SES1301 | Injection | Warning | Ses1301ProcessArgumentsCompositionAnalyzer
+SES1302 | Injection | Warning | Ses1302ShellExecuteFileNameAnalyzer
+SES1303 | Injection | Warning | Ses1303RegexInjectionAnalyzer
+SES1304 | Injection | Warning | Ses1304ArchiveEntryPathTraversalAnalyzer
+SES1305 | Injection | Warning | Ses1305UploadFilenameInPathAnalyzer
+SES1306 | Injection | Warning | Ses1306DynamicScriptCompilationAnalyzer
+SES1401 | Serialization | Warning | Ses1401NonConstantTypeActivationAnalyzer
+SES1402 | Serialization | Warning | Ses1402UnsafeAssemblyLoadAnalyzer
+SES1403 | Serialization | Info | Ses1403JsonMaxDepthAnalyzer

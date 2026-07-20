@@ -567,3 +567,12 @@ SST2505 | Testing | Warning | Sst2505ParameterizedTestWithoutDataSourceAnalyzer
 SST2506 | Testing | Warning | Sst2506ThreadSleepInTestAnalyzer
 SST2507 | Testing | Warning | Sst2507ExpectedExceptionAnalyzer
 SST2600 | Logging | Warning | Sst2600LegacyTracingAnalyzer
+
+## Release 3.32.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+SST2326 | Design | Info | Sst2326InterfaceToConcreteCastAnalyzer
+SST2327 | Design | Warning | Sst2327SelfTypeCheckAnalyzer

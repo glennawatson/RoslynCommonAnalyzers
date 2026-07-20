@@ -507,6 +507,8 @@ conventions, and what a member exposes.
 | [SST2323](rules/SST2323.md) | A non-static abstract class that extends only `object` and declares nothing but public abstract members is a stateless contract better written as an interface. |
 | [SST2324](rules/SST2324.md) | A member is declared more accessible than its containing type, so the wider modifier is dead — the container caps its reach. |
 | [SST2325](rules/SST2325.md) | An async method checks an argument after its first await, so the guard does not throw at the call site but later, when the returned task is awaited. |
+| [SST2326](rules/SST2326.md) | An interface-typed value is narrowed to a concrete class that implements it — via a cast, `as`, or `is` test — coupling the code to one implementation. Info. |
+| [SST2327](rules/SST2327.md) | A type inspects its own runtime type against a specific class (`this is Derived`, `this as Derived`, or `this.GetType() == typeof(Derived)`) instead of dispatching through a virtual member. |
 
 ## Correctness
 
@@ -822,6 +824,8 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1004](rules/SES1004.md) | A secret (token, key, password, nonce, salt, session id, OTP, reset token) is minted from `Guid.NewGuid()`; a GUID is an identifier, not a cryptographically strong secret. |
 | [SES1005](rules/SES1005.md) | A secret (HMAC, signature, tag, token, or hash) is compared with a non-constant-time equality (`==`, `.Equals`, `SequenceEqual`), leaking it a byte at a time through timing. Code fix rewrites a byte-buffer comparison to `CryptographicOperations.FixedTimeEquals`. |
 | [SES1006](rules/SES1006.md) | A Data Protection key ring is persisted to an explicit repository (`PersistKeysToFileSystem`/`DbContext`/`AzureBlobStorage`/`StackExchangeRedis`/`Registry`) with no `ProtectKeysWith...` call in the same chain, so the keys are stored unencrypted at rest. |
+| [SES1007](rules/SES1007.md) | A type derives from an abstract cryptographic primitive base (`HashAlgorithm`/`KeyedHashAlgorithm`/`HMAC`/`SymmetricAlgorithm`/`AsymmetricAlgorithm`/`DeriveBytes`) and implements the algorithm by hand; use a vetted platform implementation. Subclassing a concrete algorithm to configure it is not reported. |
+| [SES1008](rules/SES1008.md) | An XML signature is verified with the no-key `SignedXml.CheckSignature()` overload, which trusts the key embedded in the document's `KeyInfo`, so an attacker can re-sign tampered XML with their own key and still pass; pass a known key or certificate instead. |
 
 ## Transport
 
@@ -840,6 +844,7 @@ hardening, `SES16xx` AI input trust boundaries.
 | --- | --- |
 | [SES1201](rules/SES1201.md) | A string literal hard-codes a recognizable credential (API key, token, private key, or connection-string password), which is committed to source and must be treated as leaked. |
 | [SES1202](rules/SES1202.md) | A non-empty string literal is hard-coded where a credential is expected (a credential-named parameter or a credential-type constructor), even when its text is not a recognizable secret pattern. |
+| [SES1203](rules/SES1203.md) | A database connection-string literal names a user but supplies an empty or missing password, a zero-strength credential that lets anyone who can reach the server authenticate as that account. |
 
 ## Injection
 

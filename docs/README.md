@@ -148,7 +148,7 @@ async, `PSH14xx` API selection.
 | [PSH1411](rules/PSH1411.md) | Seal non-public types nothing derives from so the JIT can devirtualize. Code fix adds `sealed`. |
 | [PSH1412](rules/PSH1412.md) | Use `Random.Shared` instead of allocating a `Random`. Code fix takes the shared instance. |
 | [PSH1413](rules/PSH1413.md) | Read the Unix epoch from `DateTime.UnixEpoch`, not a hand-built date. Code fix uses the field. |
-| [PSH1414](rules/PSH1414.md) | A member never touches instance state, so it still pays for a receiver it does not use. Code fix adds `static` and repairs `this.`-qualified call sites. |
+| [PSH1414](rules/PSH1414.md) | A private or internal member never touches instance state, so it still pays for a receiver it does not use; test, benchmark, and serialization-callback members (and members of test-fixture types) are left alone because a framework needs them on an instance. Code fix for a private member adds `static` and repairs `this.`-qualified call sites. |
 | [PSH1415](rules/PSH1415.md) | A local or private field is typed as an interface where only one concrete type is ever assigned. Code fix changes the declared type. |
 | [PSH1416](rules/PSH1416.md) | A fresh `JsonSerializerOptions` per call throws away the serializer's per-type metadata cache. |
 | [PSH1417](rules/PSH1417.md) | An expensive argument is computed for a `Debug.Assert` that release builds compile away. |

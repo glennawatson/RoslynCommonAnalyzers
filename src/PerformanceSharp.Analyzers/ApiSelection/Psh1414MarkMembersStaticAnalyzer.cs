@@ -5,19 +5,25 @@
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
-/// Flags a private instance method or property that never reads <c>this</c> (PSH1414). The
+/// Flags a private or internal instance method or property that never reads <c>this</c> (PSH1414). The
 /// receiver is still passed at every call as a hidden argument, and the JIT must prove it
 /// non-null before it can dispatch; <c>static</c> says what the member actually is and lets the
 /// call go direct.
 /// <para>
-/// The rule is deliberately conservative about what it will touch. Only <c>private</c> members are
-/// reported: making a visible member static is a breaking change to an API and a decision the
-/// analyzer has no business making, whereas a private member's call sites are all inside its own
-/// type. Anything <c>virtual</c>, <c>abstract</c>, or <c>override</c> is bound to instance
-/// dispatch by definition. Any member carrying an attribute is skipped, as is every member of a
-/// type carrying one, because serialization, dependency injection, and test frameworks all reach
-/// members by reflection and an attribute is the only hint of it visible from here. An
-/// auto-property is skipped too — it <em>is</em> instance state.
+/// The rule touches only <c>private</c> and (assembly-visible) <c>internal</c> members: making a
+/// <c>public</c> or <c>protected</c> member static is a breaking change to a surface other code binds
+/// to, a decision the analyzer has no business making. Anything <c>virtual</c>, <c>abstract</c>, or
+/// <c>override</c> is bound to instance dispatch by definition, and an auto-property <em>is</em>
+/// instance state.
+/// </para>
+/// <para>
+/// The rule is deliberately aware of the members that a framework <em>requires</em> to stay instance
+/// methods, so it never suggests <c>static</c> where the suggestion would break the tool that reaches
+/// the member. A member carrying a test attribute (xUnit, NUnit, MSTest, TUnit), a BenchmarkDotNet
+/// benchmark or lifecycle attribute, or a serialization callback attribute is left alone, as is every
+/// member of a type marked as a test fixture or a BenchmarkDotNet diagnostics host. Unlike a blanket
+/// "any attribute is off-limits" rule, an unrelated attribute — <c>[Obsolete]</c>, an inlining hint —
+/// does not exempt a member that could plainly be static.
 /// </para>
 /// <para>
 /// A member "uses instance state" when it mentions <c>this</c> or <c>base</c>, or names any
@@ -28,6 +34,46 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The metadata names of member attributes that require the member to stay an instance method.</summary>
+    private static readonly string[] InstanceRequiringMemberAttributeNames =
+    [
+        "Xunit.FactAttribute",
+        "Xunit.TheoryAttribute",
+        "NUnit.Framework.TestAttribute",
+        "NUnit.Framework.TestCaseAttribute",
+        "NUnit.Framework.TestCaseSourceAttribute",
+        "NUnit.Framework.TheoryAttribute",
+        "NUnit.Framework.SetUpAttribute",
+        "NUnit.Framework.TearDownAttribute",
+        "NUnit.Framework.OneTimeSetUpAttribute",
+        "NUnit.Framework.OneTimeTearDownAttribute",
+        "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
+        "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
+        "Microsoft.VisualStudio.TestTools.UnitTesting.TestInitializeAttribute",
+        "Microsoft.VisualStudio.TestTools.UnitTesting.TestCleanupAttribute",
+        "TUnit.Core.TestAttribute",
+        "TUnit.Core.BeforeAttribute",
+        "TUnit.Core.AfterAttribute",
+        "BenchmarkDotNet.Attributes.BenchmarkAttribute",
+        "BenchmarkDotNet.Attributes.GlobalSetupAttribute",
+        "BenchmarkDotNet.Attributes.GlobalCleanupAttribute",
+        "BenchmarkDotNet.Attributes.IterationSetupAttribute",
+        "BenchmarkDotNet.Attributes.IterationCleanupAttribute",
+        "System.Runtime.Serialization.OnSerializingAttribute",
+        "System.Runtime.Serialization.OnSerializedAttribute",
+        "System.Runtime.Serialization.OnDeserializingAttribute",
+        "System.Runtime.Serialization.OnDeserializedAttribute",
+    ];
+
+    /// <summary>The metadata names of type attributes whose members a framework reaches by reflection on an instance.</summary>
+    private static readonly string[] FixtureTypeAttributeNames =
+    [
+        "Microsoft.VisualStudio.TestTools.UnitTesting.TestClassAttribute",
+        "NUnit.Framework.TestFixtureAttribute",
+        "BenchmarkDotNet.Attributes.MemoryDiagnoserAttribute",
+        "BenchmarkDotNet.Attributes.SimpleJobAttribute",
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ApiSelectionRules.MarkMembersStatic);
 
@@ -37,39 +83,62 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterSyntaxNodeAction(AnalyzeMember, SyntaxKind.MethodDeclaration, SyntaxKind.PropertyDeclaration);
+        context.RegisterCompilationStartAction(static start =>
+        {
+            var memberMarkers = ResolveMarkers(start.Compilation, InstanceRequiringMemberAttributeNames);
+            var fixtureMarkers = ResolveMarkers(start.Compilation, FixtureTypeAttributeNames);
+            start.RegisterSyntaxNodeAction(
+                nodeContext => AnalyzeMember(nodeContext, memberMarkers, fixtureMarkers),
+                SyntaxKind.MethodDeclaration,
+                SyntaxKind.PropertyDeclaration);
+        });
     }
 
-    /// <summary>Returns whether a member's modifiers and attributes even allow it to become static.</summary>
+    /// <summary>Returns whether a member's modifiers even allow it to become static.</summary>
     /// <param name="member">The member declaration.</param>
-    /// <returns><see langword="true"/> when the member is a plain private instance member.</returns>
+    /// <returns><see langword="true"/> when the member is a plain private or internal instance member.</returns>
+    /// <remarks>
+    /// This is the syntactic gate shared with the code fix. It decides accessibility and dispatch shape
+    /// only; whether a framework requires the member to stay instance is a semantic question answered in
+    /// <see cref="AnalyzeMember"/>, which is why an attribute no longer disqualifies a member here.
+    /// </remarks>
     internal static bool IsEligibleDeclaration(MemberDeclarationSyntax member)
     {
-        if (member.AttributeLists.Count > 0 || member.Parent is not TypeDeclarationSyntax)
+        if (member.Parent is not TypeDeclarationSyntax)
         {
             return false;
         }
 
         var modifiers = member.Modifiers;
-        return modifiers.Any(SyntaxKind.PrivateKeyword)
-            && !modifiers.Any(SyntaxKind.StaticKeyword)
-            && !modifiers.Any(SyntaxKind.VirtualKeyword)
-            && !modifiers.Any(SyntaxKind.AbstractKeyword)
-            && !modifiers.Any(SyntaxKind.OverrideKeyword)
-            && !modifiers.Any(SyntaxKind.ExternKeyword)
-            && !modifiers.Any(SyntaxKind.PartialKeyword);
+        var isPrivateOrInternal = modifiers.Any(SyntaxKind.PrivateKeyword) || modifiers.Any(SyntaxKind.InternalKeyword);
+        return isPrivateOrInternal && !HasDisqualifyingModifier(modifiers);
     }
 
-    /// <summary>Reports PSH1414 for a private instance member that never reads <c>this</c>.</summary>
+    /// <summary>Returns whether a member carries a modifier that either widens its surface or fixes its dispatch.</summary>
+    /// <param name="modifiers">The declaration's modifiers.</param>
+    /// <returns><see langword="true"/> when the member cannot be made static without changing a contract.</returns>
+    private static bool HasDisqualifyingModifier(SyntaxTokenList modifiers)
+        => modifiers.Any(SyntaxKind.ProtectedKeyword)
+            || modifiers.Any(SyntaxKind.PublicKeyword)
+            || modifiers.Any(SyntaxKind.StaticKeyword)
+            || modifiers.Any(SyntaxKind.VirtualKeyword)
+            || modifiers.Any(SyntaxKind.AbstractKeyword)
+            || modifiers.Any(SyntaxKind.OverrideKeyword)
+            || modifiers.Any(SyntaxKind.ExternKeyword)
+            || modifiers.Any(SyntaxKind.PartialKeyword);
+
+    /// <summary>Reports PSH1414 for a private or internal instance member that never reads <c>this</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeMember(SyntaxNodeAnalysisContext context)
+    /// <param name="memberMarkers">The resolved attributes that pin a member to instance dispatch.</param>
+    /// <param name="fixtureMarkers">The resolved attributes that mark a type's members as reflection targets.</param>
+    private static void AnalyzeMember(SyntaxNodeAnalysisContext context, INamedTypeSymbol[] memberMarkers, INamedTypeSymbol[] fixtureMarkers)
     {
         var member = (MemberDeclarationSyntax)context.Node;
         if (!IsEligibleDeclaration(member)
             || TryGetExecutableBody(member) is not { } body
             || context.SemanticModel.GetDeclaredSymbol(member, context.CancellationToken) is not { } symbol
-            || symbol.GetAttributes().Length > 0
-            || symbol.ContainingType.GetAttributes().Length > 0)
+            || HasAttributeFrom(symbol.GetAttributes(), memberMarkers)
+            || HasAttributeFrom(symbol.ContainingType.GetAttributes(), fixtureMarkers))
         {
             return;
         }
@@ -83,6 +152,60 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
             ApiSelectionRules.MarkMembersStatic,
             GetIdentifier(member).GetLocation(),
             symbol.Name));
+    }
+
+    /// <summary>Resolves the non-null named-type symbols for a set of metadata names, right-sized.</summary>
+    /// <param name="compilation">The analyzed compilation.</param>
+    /// <param name="metadataNames">The metadata names to resolve.</param>
+    /// <returns>The resolved markers, an array no longer than <paramref name="metadataNames"/> (empty when none resolve).</returns>
+    private static INamedTypeSymbol[] ResolveMarkers(Compilation compilation, string[] metadataNames)
+    {
+        var buffer = new INamedTypeSymbol[metadataNames.Length];
+        var count = 0;
+        for (var i = 0; i < metadataNames.Length; i++)
+        {
+            if (compilation.GetTypeByMetadataName(metadataNames[i]) is { } marker)
+            {
+                buffer[count++] = marker;
+            }
+        }
+
+        if (count == buffer.Length)
+        {
+            return buffer;
+        }
+
+        var result = new INamedTypeSymbol[count];
+        Array.Copy(buffer, result, count);
+        return result;
+    }
+
+    /// <summary>Returns whether any of a member's or type's attributes binds to a resolved marker.</summary>
+    /// <param name="attributes">The attributes to inspect.</param>
+    /// <param name="markers">The resolved markers to match against.</param>
+    /// <returns><see langword="true"/> when an attribute equals or derives from a marker.</returns>
+    private static bool HasAttributeFrom(ImmutableArray<AttributeData> attributes, INamedTypeSymbol[] markers)
+    {
+        if (markers.Length == 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < attributes.Length; i++)
+        {
+            for (var current = attributes[i].AttributeClass; current is not null; current = current.BaseType)
+            {
+                for (var j = 0; j < markers.Length; j++)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(current, markers[j]))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns the member's executable body, or nothing when it has none to inspect.</summary>

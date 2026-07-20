@@ -4,6 +4,8 @@
 
 using Microsoft.CodeAnalysis.Testing;
 
+using AnalyzeStatic = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
+    PerformanceSharp.Analyzers.Psh1414MarkMembersStaticAnalyzer>;
 using VerifyStatic = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1414MarkMembersStaticAnalyzer,
     PerformanceSharp.Analyzers.Psh1414MarkMembersStaticCodeFixProvider>;
@@ -85,6 +87,22 @@ public class MarkMembersStaticAnalyzerUnitTest
         await VerifyNet90Async(Source, FixedSource);
     }
 
+    /// <summary>Verifies an internal method that never reads this is reported, but not auto-fixed (its call sites may lie outside this file).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InternalMethodWithoutInstanceStateIsReportedWithoutFixAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public int Use(int a, int b) => Add(a, b);
+
+                                  internal int {|PSH1414:Add|}(int a, int b) => a + b;
+                              }
+                              """;
+        await VerifyReportedNet90Async(Source);
+    }
+
     /// <summary>Verifies a member that reads an instance field is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -133,6 +151,20 @@ public class MarkMembersStaticAnalyzerUnitTest
         await VerifyNet90Async(Source, Source);
     }
 
+    /// <summary>Verifies a protected member is never reported, because a derived type binds to it as an instance member.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ProtectedMemberIsNotReportedAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  protected int Add(int a, int b) => a + b;
+                              }
+                              """;
+        await VerifyNet90Async(Source, Source);
+    }
+
     /// <summary>Verifies a virtual member is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -147,10 +179,10 @@ public class MarkMembersStaticAnalyzerUnitTest
         await VerifyNet90Async(Source, Source);
     }
 
-    /// <summary>Verifies a member carrying an attribute is skipped, since reflection may reach it.</summary>
+    /// <summary>Verifies an unrelated attribute no longer exempts a member that could plainly be static.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task AttributedMemberIsNotReportedAsync()
+    public async Task MemberWithUnrelatedAttributeIsStillReportedAsync()
     {
         const string Source = """
                               using System;
@@ -160,7 +192,109 @@ public class MarkMembersStaticAnalyzerUnitTest
                                   public int Use(int a, int b) => Add(a, b);
 
                                   [Obsolete]
+                                  private int {|PSH1414:Add|}(int a, int b) => a + b;
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       public int Use(int a, int b) => Add(a, b);
+
+                                       [Obsolete]
+                                       private static int Add(int a, int b) => a + b;
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a member carrying a test attribute is not reported, because the runner invokes it on an instance.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TestMethodMemberIsNotReportedAsync()
+    {
+        const string Source = """
+                              namespace Xunit
+                              {
+                                  public sealed class FactAttribute : System.Attribute { }
+                              }
+
+                              public class C
+                              {
+                                  [Xunit.Fact]
+                                  private void Runs() { }
+                              }
+                              """;
+        await VerifyNet90Async(Source, Source);
+    }
+
+    /// <summary>Verifies a benchmark method is not reported, because BenchmarkDotNet requires an instance method.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BenchmarkMethodMemberIsNotReportedAsync()
+    {
+        const string Source = """
+                              namespace BenchmarkDotNet.Attributes
+                              {
+                                  public sealed class BenchmarkAttribute : System.Attribute { }
+                              }
+
+                              public class C
+                              {
+                                  [BenchmarkDotNet.Attributes.Benchmark]
+                                  internal int Measure() => 42;
+                              }
+                              """;
+        await VerifyNet90Async(Source, Source);
+    }
+
+    /// <summary>Verifies a private helper in a test-fixture type is not reported, because the fixture is a reflection host.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task MemberOfTestFixtureTypeIsNotReportedAsync()
+    {
+        const string Source = """
+                              namespace Microsoft.VisualStudio.TestTools.UnitTesting
+                              {
+                                  public sealed class TestClassAttribute : System.Attribute { }
+                              }
+
+                              namespace NUnit.Framework
+                              {
+                                  public sealed class TestFixtureAttribute : System.Attribute { }
+                              }
+
+                              namespace BenchmarkDotNet.Attributes
+                              {
+                                  public sealed class MemoryDiagnoserAttribute : System.Attribute { }
+
+                                  public sealed class SimpleJobAttribute : System.Attribute { }
+                              }
+
+                              [Microsoft.VisualStudio.TestTools.UnitTesting.TestClass]
+                              public class C
+                              {
+                                  public int Use(int a, int b) => Add(a, b);
+
                                   private int Add(int a, int b) => a + b;
+                              }
+                              """;
+        await VerifyNet90Async(Source, Source);
+    }
+
+    /// <summary>Verifies a serialization callback is not reported, because it must stay an instance method with the callback signature.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SerializationCallbackMemberIsNotReportedAsync()
+    {
+        const string Source = """
+                              using System.Runtime.Serialization;
+
+                              public class C
+                              {
+                                  [OnDeserialized]
+                                  private void AfterLoad(StreamingContext context) { }
                               }
                               """;
         await VerifyNet90Async(Source, Source);
@@ -240,6 +374,20 @@ public class MarkMembersStaticAnalyzerUnitTest
             ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
             TestCode = source,
             FixedCode = fixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Runs an analyzer-only verification against the .NET 9 reference assemblies, for a diagnostic the fix does not touch.</summary>
+    /// <param name="source">The source with diagnostic markup.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    private static async Task VerifyReportedNet90Async(string source)
+    {
+        var test = new AnalyzeStatic.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
+            TestCode = source
         };
 
         await test.RunAsync(CancellationToken.None);

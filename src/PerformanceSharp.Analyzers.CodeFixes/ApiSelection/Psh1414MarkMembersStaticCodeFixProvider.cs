@@ -12,10 +12,15 @@ namespace PerformanceSharp.Analyzers;
 /// <c>this.Foo(...)</c> call does not, so each one is rewritten to <c>Foo(...)</c> in the same
 /// edit.
 /// <para>
-/// The fix is offered only when it can see every call site and prove all of them are safe. The
-/// member's type must be declared in a single file, and every reference to the member must be
-/// either unqualified or <c>this</c>-qualified — a call through some other instance
-/// (<c>other.Foo()</c>) would break, so where one exists the diagnostic is left for a human.
+/// The fix is offered only when it can see every call site and prove all of them are safe. That
+/// certainty exists only for a <c>private</c> member: its call sites are confined to its own type,
+/// so scanning that single type declaration finds them all. An <c>internal</c> member — which the
+/// analyzer also reports — can be called from another file in the assembly, out of this fix's view,
+/// so no automatic fix is offered for it and the diagnostic is left for a human (making an
+/// assembly-visible member static is a judgement call in any case). For a private member the type
+/// must be declared in a single file, and every reference must be unqualified or <c>this</c>-qualified;
+/// a call through some other instance (<c>other.Foo()</c>) would break, so where one exists the fix
+/// steps aside.
 /// </para>
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1414MarkMembersStaticCodeFixProvider))]
@@ -122,6 +127,7 @@ public sealed class Psh1414MarkMembersStaticCodeFixProvider : CodeFixProvider, I
         if (!Psh1414MarkMembersStaticAnalyzer.IsEligibleDeclaration(member)
             || member.Parent is not TypeDeclarationSyntax typeDeclaration
             || model.GetDeclaredSymbol(member) is not { } symbol
+            || symbol.DeclaredAccessibility != Accessibility.Private
             || symbol.ContainingType.DeclaringSyntaxReferences.Length != 1)
         {
             return null;

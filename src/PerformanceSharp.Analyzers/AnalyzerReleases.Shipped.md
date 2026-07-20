@@ -1,6 +1,14 @@
 ; Shipped analyzer releases
 ; https://github.com/dotnet/roslyn-analyzers/blob/main/src/Microsoft.CodeAnalysis.Analyzers/ReleaseTrackingAnalyzers.Help.md
 
+## Release 3.33.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+PSH1419 | ApiSelection | Warning | Psh1419PreferBuiltInTimeZoneAnalyzer
+
 ## Release 3.30.0
 
 ### New Rules

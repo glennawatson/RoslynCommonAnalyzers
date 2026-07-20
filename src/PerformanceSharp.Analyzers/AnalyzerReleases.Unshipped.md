@@ -5,4 +5,3 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
-PSH1419 | ApiSelection | Warning | Psh1419PreferBuiltInTimeZoneAnalyzer

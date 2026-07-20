@@ -1,6 +1,6 @@
-# Configuring StyleSharp and PerformanceSharp
+# Configuring StyleSharp, PerformanceSharp, and SecuritySharp
 
-Both packages are configured entirely through **`.editorconfig`** — the same file
+All three packages are configured entirely through **`.editorconfig`** — the same file
 you already use for `dotnet_diagnostic.*` severities and .NET code style. There is
 no separate JSON configuration file.
 
@@ -16,11 +16,12 @@ Instead they follow the approach the .NET SDK's own **CA analyzers** use:
   cascading.
 - Keys follow CA's rule-specific-over-general layering, under a per-package
   prefix (`stylesharp.` for `SST####` rules, `performancesharp.` for `PSH####`
-  rules) that mirrors CA's `dotnet_code_quality.` prefix:
-  - `stylesharp.<option>` / `performancesharp.<option>` — applies to every rule
-    that reads that option.
-  - `stylesharp.<RuleId>.<option>` / `performancesharp.<RuleId>.<option>` —
-    overrides the general value for one rule.
+  rules, `securitysharp.` for `SES####` rules) that mirrors CA's
+  `dotnet_code_quality.` prefix:
+  - `stylesharp.<option>` / `performancesharp.<option>` / `securitysharp.<option>`
+    — applies to every rule that reads that option.
+  - `stylesharp.<RuleId>.<option>` / `performancesharp.<RuleId>.<option>` /
+    `securitysharp.<RuleId>.<option>` — overrides the general value for one rule.
 
 This means a single, familiar file controls **severity, code style, and analyzer
 options** together, and configuration cascades per directory exactly like
@@ -37,12 +38,13 @@ dotnet_diagnostic.SST1309.severity = warning   # error | warning | suggestion | 
 
 ## Recommended presets
 
-Two ready-to-use presets live at the repository root, one per package, each
+Three ready-to-use presets live at the repository root, one per package, each
 listing every rule grouped by category with the opt-in (disabled-by-default)
 rules commented out so you can switch them on individually:
 
 - [`recommended.editorconfig`](../recommended.editorconfig) — StyleSharp (`SST####`)
 - [`recommended-performancesharp.editorconfig`](../recommended-performancesharp.editorconfig) — PerformanceSharp (`PSH####`)
+- [`recommended-securitysharp.editorconfig`](../recommended-securitysharp.editorconfig) — SecuritySharp (`SES####`)
 
 Copy one in — or merge its `[*.cs]` block into your existing `.editorconfig` — as
 a starting point, then tune severities to taste.
@@ -105,6 +107,8 @@ Some rules expose options. Current options:
 | `file_header_template` | [SST1633](rules/SST1633.md) | header text (`\n` separates lines, `{fileName}` substituted), or `unset` | `unset` |
 | `stylesharp.file_naming_convention` | [SST1402](rules/SST1402.md) / [SST1649](rules/SST1649.md) code fixes | `braces` (`Widget{T}.cs`), `metadata` (`Widget`1.cs`) | `braces` |
 | `stylesharp.SST2438.minimum_level` | [SST2438](rules/SST2438.md) | `trace`, `debug`, `information`, `warning`, `error`, `critical` | `error` |
+| `securitysharp.SES1003.iterations` | [SES1003](rules/SES1003.md) | positive integer (minimum accepted PBKDF2 iteration count) | `100000` |
+| `securitysharp.SES1403.maxdepth` | [SES1403](rules/SES1403.md) | positive integer (highest accepted `System.Text.Json` `MaxDepth`) | `64` |
 
 Example:
 

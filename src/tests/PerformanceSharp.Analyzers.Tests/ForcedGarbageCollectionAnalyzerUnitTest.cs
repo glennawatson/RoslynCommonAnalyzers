@@ -103,4 +103,68 @@ public class ForcedGarbageCollectionAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies forced-GC calls that settle the heap for an allocation sample are left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ForcedGcInAllocationMeasurementIsCleanAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public static class C
+            {
+                public static long Measure(Action op)
+                {
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    GC.Collect();
+
+                    var before = GC.GetAllocatedBytesForCurrentThread();
+                    op();
+                    return GC.GetAllocatedBytesForCurrentThread() - before;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a forced collection beside a <c>GC.GetTotalMemory</c> read is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ForcedGcBesideGetTotalMemoryIsCleanAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public static class C
+            {
+                public static long Measure()
+                {
+                    GC.Collect();
+                    return GC.GetTotalMemory(true);
+                }
+            }
+            """);
+
+    /// <summary>Verifies a same-named sampling method that is not <c>System.GC</c> does not exempt the forced collection.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ForcedGcWithLookalikeSampleIsReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public static class Meter
+            {
+                public static long GetAllocatedBytesForCurrentThread() => 0;
+            }
+
+            public static class C
+            {
+                public static long Measure()
+                {
+                    {|PSH1021:GC.Collect()|};
+                    return Meter.GetAllocatedBytesForCurrentThread();
+                }
+            }
+            """);
 }

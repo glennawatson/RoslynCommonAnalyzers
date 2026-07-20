@@ -807,3 +807,14 @@ hardening, `SES16xx` AI input trust boundaries.
 | Rule | Description |
 | --- | --- |
 | [SES1001](rules/SES1001.md) | AEAD encryption (`AesGcm`/`AesCcm`/`ChaCha20Poly1305`) uses a constant or reused nonce, which is catastrophic under a fixed key. |
+| [SES1002](rules/SES1002.md) | Password-based key derivation (`Rfc2898DeriveBytes`/`Pbkdf2`) is given a constant or predictable salt, letting an attacker precompute rainbow tables and defeating per-secret salting. |
+| [SES1003](rules/SES1003.md) | A `Rfc2898DeriveBytes.Pbkdf2` one-shot derives a key with a constant iteration count below the configured floor (default 100000), leaving offline password cracking cheap. |
+| [SES1004](rules/SES1004.md) | A secret (token, key, password, nonce, salt, session id, OTP, reset token) is minted from `Guid.NewGuid()`; a GUID is an identifier, not a cryptographically strong secret. |
+| [SES1005](rules/SES1005.md) | A secret (HMAC, signature, tag, token, or hash) is compared with a non-constant-time equality (`==`, `.Equals`, `SequenceEqual`), leaking it a byte at a time through timing. Code fix rewrites a byte-buffer comparison to `CryptographicOperations.FixedTimeEquals`. |
+
+## Secrets
+
+| Rule | Description |
+| --- | --- |
+| [SES1201](rules/SES1201.md) | A string literal hard-codes a recognizable credential (API key, token, private key, or connection-string password), which is committed to source and must be treated as leaked. |
+| [SES1202](rules/SES1202.md) | A non-empty string literal is hard-coded where a credential is expected (a credential-named parameter or a credential-type constructor), even when its text is not a recognizable secret pattern. |

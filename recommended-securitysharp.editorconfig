@@ -2,17 +2,65 @@
 #
 # Drop this in (or merge it into) the .editorconfig at your repository root to adopt
 # the SecuritySharp rule set with sensible defaults. Every rule below is already
-# enabled by default at Warning severity — listing them explicitly just gives you a
-# single place to tune severities (warning / suggestion / error / none) per rule.
+# enabled by default (at Warning, except the two advisory rules listed at
+# suggestion) — listing them explicitly just gives you a single place to tune
+# severities (warning / suggestion / error / none) per rule.
 #
-# Lines that are commented out are the OPT-IN rules: off by default because they are
-# situational. Uncomment one to turn it on. See docs/CONFIGURATION.md and
-# docs/rules/SESxxxx.md for what each rule does.
+# Security rules only ever suggest an API they can resolve in the compilation, and
+# they report local shapes only (no interprocedural taint tracking). Framework rules
+# (ASP.NET, JWT, EF, the AI SDKs) cost nothing in a project that does not reference
+# the framework. See docs/CONFIGURATION.md and docs/rules/SESxxxx.md for details.
 #
-# Configurable options (uncomment and adjust):
-# (none yet — rule-specific options use the securitysharp.<RuleId>.<option> convention)
+# Configurable options (uncomment and adjust — values shown are the defaults):
+# securitysharp.SES1003.iterations = 100000   # minimum accepted PBKDF2 iteration count
+# securitysharp.SES1403.maxdepth = 64          # highest accepted System.Text.Json MaxDepth
 
 [*.cs]
 
 # Cryptography
 dotnet_diagnostic.SES1001.severity = warning # AEAD encryption must not use a constant or reused nonce
+dotnet_diagnostic.SES1002.severity = warning # Password-based key derivation must not use a constant or predictable salt
+dotnet_diagnostic.SES1003.severity = warning # Password-based key derivation must use a sufficient iteration count
+dotnet_diagnostic.SES1004.severity = warning # A secret must not be produced from Guid.NewGuid()
+dotnet_diagnostic.SES1005.severity = warning # Compare secret values in constant time
+
+# Transport
+dotnet_diagnostic.SES1102.severity = warning # Do not accept any server certificate
+dotnet_diagnostic.SES1104.severity = warning # Certificate-chain validation must not be deliberately weakened
+dotnet_diagnostic.SES1105.severity = warning # Bearer and OpenID Connect metadata must not be retrieved over plain HTTP outside development
+dotnet_diagnostic.SES1106.severity = warning # Do not send HttpClient requests to a cleartext http URL
+
+# Secrets
+dotnet_diagnostic.SES1201.severity = warning # Do not hard-code secrets in source
+dotnet_diagnostic.SES1202.severity = warning # Do not hard-code a credential value
+
+# Injection
+dotnet_diagnostic.SES1301.severity = warning # Do not build a process command line from non-constant string parts
+dotnet_diagnostic.SES1302.severity = warning # A shell-executed process must not use a non-constant FileName
+dotnet_diagnostic.SES1303.severity = warning # Regular-expression pattern must not be built from non-constant data
+dotnet_diagnostic.SES1304.severity = warning # An archive entry name must not build a write path without a containment check
+dotnet_diagnostic.SES1305.severity = warning # Do not build a storage path from an uploaded file name
+dotnet_diagnostic.SES1306.severity = warning # Do not compile or execute non-constant C# via the scripting API
+
+# Serialization
+dotnet_diagnostic.SES1401.severity = warning # A type resolved from non-constant data must not be instantiated or deserialized
+dotnet_diagnostic.SES1402.severity = warning # Do not load an assembly from raw bytes or a non-constant location
+dotnet_diagnostic.SES1403.severity = suggestion # JSON deserialization depth limit must stay within a safe ceiling
+
+# WebHardening
+dotnet_diagnostic.SES1501.severity = warning # A CORS policy must not allow credentials together with any origin
+dotnet_diagnostic.SES1502.severity = warning # A CORS origin predicate must not unconditionally allow every origin
+dotnet_diagnostic.SES1503.severity = warning # JWT signature verification must not be disabled on TokenValidationParameters
+dotnet_diagnostic.SES1504.severity = warning # A cookie with SameSite=None must be marked Secure
+dotnet_diagnostic.SES1505.severity = warning # The request body size limit must not be removed
+dotnet_diagnostic.SES1506.severity = suggestion # The developer exception page must be guarded by a development-environment check
+dotnet_diagnostic.SES1507.severity = warning # AllowAnonymous and Authorize on the same declaration conflict
+dotnet_diagnostic.SES1508.severity = warning # A validation method must not fail open by returning success from a catch
+
+# Ai
+dotnet_diagnostic.SES1601.severity = warning # An LLM system prompt must be a constant, trusted template
+dotnet_diagnostic.SES1602.severity = warning # Do not route AI model output into a process, file, or raw SQL sink
+dotnet_diagnostic.SES1603.severity = warning # An AI tool declared read-only or non-destructive must not call a state-changing API
+dotnet_diagnostic.SES1604.severity = warning # Prompt-template input encoding must not be disabled
+dotnet_diagnostic.SES1605.severity = suggestion # AI instrumentation must not enable sensitive-data capture
+dotnet_diagnostic.SES1606.severity = warning # Do not fetch model weights over cleartext HTTP

@@ -21,13 +21,13 @@
 
 # RoslynCommonAnalyzers
 
-Two fast Roslyn analyzer and code-fix packages for .NET codebases, built from one repository:
+Three fast Roslyn analyzer and code-fix packages for .NET codebases, built from one repository:
 
 - **`StyleSharp.Analyzers`** (`SST####`) — style and consistency: spacing, readability, ordering, layout, naming, maintainability, documentation, extension blocks, records, lock-target safety, modernization, collection expressions, and modern C# syntax.
 - **`PerformanceSharp.Analyzers`** (`PSH####`) — runtime performance of *your* code: avoidable allocations, collection and LINQ enumeration costs, string handling, concurrency and async patterns, and cheaper API selection.
 - **`SecuritySharp.Analyzers`** (`SES####`) — runtime security of *your* code: cryptography (algorithm, key, and nonce/IV misuse), transport protection, secret handling, injection sinks, unsafe deserialization, web hardening, and AI input trust boundaries.
 
-Both packages are analyzer-only, target `netstandard2.0`, ship as a `DevelopmentDependency`, and pack analyzer/code-fix assemblies for multiple Roslyn slots under one NuGet package each. The analyzers themselves are engineered for build-time speed: allocation-free no-diagnostic paths, syntax-first candidate filtering, and per-rule benchmarks.
+All three packages are analyzer-only, target `netstandard2.0`, ship as a `DevelopmentDependency`, and pack analyzer/code-fix assemblies for multiple Roslyn slots under one NuGet package each. The analyzers themselves are engineered for build-time speed: allocation-free no-diagnostic paths, syntax-first candidate filtering, and per-rule benchmarks. Security rules never suggest an API without resolving it in the analyzed compilation first, and they report only local shapes — no interprocedural taint tracking.
 
 ## Installation
 
@@ -37,14 +37,14 @@ dotnet add package PerformanceSharp.Analyzers
 dotnet add package SecuritySharp.Analyzers
 ```
 
-Each package adds no runtime assemblies to your output and is not transitive to consumers of your library. They are independent — install either or both.
+Each package adds no runtime assemblies to your output and is not transitive to consumers of your library. They are independent — install any combination.
 
 ## Documentation
 
-- Full rule catalog (both packages): [`docs/README.md`](docs/README.md)
+- Full rule catalog (all three packages): [`docs/README.md`](docs/README.md)
 - Configuration: [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
 - Performance guidance: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md)
-- Ready-to-use presets: [`recommended.editorconfig`](recommended.editorconfig) (StyleSharp) and [`recommended-performancesharp.editorconfig`](recommended-performancesharp.editorconfig) (PerformanceSharp)
+- Ready-to-use presets: [`recommended.editorconfig`](recommended.editorconfig) (StyleSharp), [`recommended-performancesharp.editorconfig`](recommended-performancesharp.editorconfig) (PerformanceSharp), and [`recommended-securitysharp.editorconfig`](recommended-securitysharp.editorconfig) (SecuritySharp)
 
 The rule catalog is intentionally split out of this README so the GitHub landing page stays readable while the detailed rule index can grow with the project.
 
@@ -74,11 +74,21 @@ The rule catalog is intentionally split out of this README so the GitHub landing
 - `Concurrency` (`PSH13xx`) for `System.Threading.Lock` adoption and async/concurrency perf patterns
 - `ApiSelection` (`PSH14xx`) for cheaper framework APIs such as one-shot `HashData`
 
-Rules whose primary motivation is runtime performance live in PerformanceSharp; rules about style and consistency live in StyleSharp. Unless a rule is marked opt-in, it is enabled by default at `Warning` severity.
+### SecuritySharp (`SES####`)
+
+- `Cryptography` (`SES10xx`) for AEAD nonce/IV reuse, KDF salts, PBKDF2 iteration floors, non-CSPRNG secrets, and constant-time secret comparison
+- `Transport` (`SES11xx`) for certificate-validation callbacks, chain-policy weakening, and cleartext transport
+- `Secrets` (`SES12xx`) for hard-coded credentials, keys, and tokens
+- `Injection` (`SES13xx`) for command, regex, upload-path, archive-extraction, and dynamic-script injection sinks
+- `Serialization` (`SES14xx`) for unsafe type activation, assembly loading, and deserialization depth limits
+- `WebHardening` (`SES15xx`) for CORS, authentication cookies, JWT validation, request-size limits, and error-page exposure
+- `Ai` (`SES16xx`) for LLM prompt construction and model-input trust boundaries
+
+Rules whose primary motivation is runtime performance live in PerformanceSharp, rules about runtime security live in SecuritySharp, and rules about style and consistency live in StyleSharp. Unless a rule is marked opt-in, it is enabled by default at `Warning` severity (a few advisory rules default to `suggestion`).
 
 ## Configuration
 
-Both packages are configured entirely through `.editorconfig`. Severity uses the standard `dotnet_diagnostic.<RuleId>.severity` keys, and rule options use the compiler-provided analyzer config system with a per-package prefix (`stylesharp.` / `performancesharp.`).
+All three packages are configured entirely through `.editorconfig`. Severity uses the standard `dotnet_diagnostic.<RuleId>.severity` keys, and rule options use the compiler-provided analyzer config system with a per-package prefix (`stylesharp.` / `performancesharp.` / `securitysharp.`).
 
 ```ini
 [*.cs]
@@ -87,6 +97,9 @@ stylesharp.tuple_element_naming = pascal_case
 
 dotnet_diagnostic.PSH1100.severity = warning
 performancesharp.avoid_linq_on_hot_path = true
+
+dotnet_diagnostic.SES1003.severity = warning
+securitysharp.SES1003.iterations = 100000
 ```
 
 See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for the full option list and the recommended configuration approach.
@@ -95,9 +108,9 @@ See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for the full option list an
 
 | Project | Purpose |
 | --- | --- |
-| `src/StyleSharp.Analyzers` / `src/PerformanceSharp.Analyzers` | analyzer implementations |
-| `src/StyleSharp.Analyzers.CodeFixes` / `src/PerformanceSharp.Analyzers.CodeFixes` | code-fix implementations |
-| `src/StyleSharp.Analyzers.Package` / `src/PerformanceSharp.Analyzers.Package` | NuGet packaging |
+| `src/StyleSharp.Analyzers` / `src/PerformanceSharp.Analyzers` / `src/SecuritySharp.Analyzers` | analyzer implementations |
+| `src/*.Analyzers.CodeFixes` | code-fix implementations |
+| `src/*.Analyzers.Package` | NuGet packaging |
 | `src/tests/*` | TUnit + `Microsoft.CodeAnalysis.Testing` test suites |
 | `src/benchmarks/*` | BenchmarkDotNet perf harnesses |
 
@@ -109,6 +122,7 @@ Run these commands from `src/`:
 dotnet build RoslynCommonAnalyzers.slnx -c Release
 dotnet test --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release
 dotnet test --project tests/PerformanceSharp.Analyzers.Tests/PerformanceSharp.Analyzers.Tests.csproj -c Release
+dotnet test --project tests/SecuritySharp.Analyzers.Tests/SecuritySharp.Analyzers.Tests.csproj -c Release
 ```
 
 To pack every Roslyn slot into the published NuGet packages:
@@ -116,6 +130,7 @@ To pack every Roslyn slot into the published NuGet packages:
 ```bash
 dotnet pack StyleSharp.Analyzers.Package/StyleSharp.Analyzers.Packages.csproj -c Release
 dotnet pack PerformanceSharp.Analyzers.Package/PerformanceSharp.Analyzers.Packages.csproj -c Release
+dotnet pack SecuritySharp.Analyzers.Package/SecuritySharp.Analyzers.Packages.csproj -c Release
 ```
 
 ## Contributing
@@ -127,9 +142,9 @@ When adding a rule, update all of the following (in whichever package the rule b
 - analyzer implementation
 - code-fix implementation if the rule is fixable
 - tests
-- `docs/rules/SST####.md` or `docs/rules/PSH####.md`
+- `docs/rules/SST####.md`, `docs/rules/PSH####.md`, or `docs/rules/SES####.md`
 - that package's `AnalyzerReleases.Unshipped.md`
-- the matching preset (`recommended.editorconfig` / `recommended-performancesharp.editorconfig`) if the rule should appear there
+- the matching preset (`recommended.editorconfig` / `recommended-performancesharp.editorconfig` / `recommended-securitysharp.editorconfig`) if the rule should appear there
 
 Performance is a first-class requirement. Read [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) before changing analyzer hot paths, and benchmark changes rather than guessing.
 

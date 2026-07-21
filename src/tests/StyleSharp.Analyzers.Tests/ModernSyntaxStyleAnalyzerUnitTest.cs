@@ -571,6 +571,111 @@ public class ModernSyntaxStyleAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a creation argument to a conditional-access call stays explicit and never crashes the speculative rebind.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ConditionalAccessArgumentStaysExplicitAsync()
+    {
+        const string Source = """
+                              public sealed class E
+                              {
+                                  public E(int value)
+                                  {
+                                  }
+                              }
+
+                              public sealed class Sink
+                              {
+                                  public void Log(E item)
+                                  {
+                                  }
+                              }
+
+                              public sealed class Inner
+                              {
+                                  public void Log(E item)
+                                  {
+                                  }
+                              }
+
+                              public sealed class Box
+                              {
+                                  public Inner Part = new();
+                              }
+
+                              public sealed class C
+                              {
+                                  public void DirectConditional(Sink sink)
+                                  {
+                                      sink?.Log(new E(1));
+                                  }
+
+                                  public void ChainedConditional(Box box)
+                                  {
+                                      box?.Part.Log(new E(1));
+                                  }
+
+                                  public void PlainCall(Sink sink)
+                                  {
+                                      sink.Log(new {|SST2202:E|}(1));
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class E
+                                   {
+                                       public E(int value)
+                                       {
+                                       }
+                                   }
+
+                                   public sealed class Sink
+                                   {
+                                       public void Log(E item)
+                                       {
+                                       }
+                                   }
+
+                                   public sealed class Inner
+                                   {
+                                       public void Log(E item)
+                                       {
+                                       }
+                                   }
+
+                                   public sealed class Box
+                                   {
+                                       public Inner Part = new();
+                                   }
+
+                                   public sealed class C
+                                   {
+                                       public void DirectConditional(Sink sink)
+                                       {
+                                           sink?.Log(new E(1));
+                                       }
+
+                                       public void ChainedConditional(Box box)
+                                       {
+                                           box?.Part.Log(new E(1));
+                                       }
+
+                                       public void PlainCall(Sink sink)
+                                       {
+                                           sink.Log(new(1));
+                                       }
+                                   }
+                                   """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies the outer creation is fixed while a constructor-argument creation stays explicit.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

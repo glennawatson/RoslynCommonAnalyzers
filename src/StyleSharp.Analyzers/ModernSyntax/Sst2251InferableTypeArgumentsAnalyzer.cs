@@ -69,7 +69,7 @@ public sealed class Sst2251InferableTypeArgumentsAnalyzer : DiagnosticAnalyzer
         // enclosing conditional access that no longer exists (FindConditionalAccessNodeForBinding) and throws.
         // The direct receiver?.Method<T>(...) form never reaches here - its invoked name is a
         // MemberBindingExpression, which the switch above does not match - so this guards only the chained form.
-        if (InvokedThroughConditionalAccess(invocation.Expression))
+        if (ConditionalAccessSpeculation.ReachedThroughConditionalAccess(invocation.Expression))
         {
             genericName = null;
             return false;
@@ -120,36 +120,6 @@ public sealed class Sst2251InferableTypeArgumentsAnalyzer : DiagnosticAnalyzer
         // results, so dropping the explicit '<object?>' would change the expression's type. Only when the
         // inferred type arguments match the written ones down to their nullability is the list truly redundant.
         return after is IMethodSymbol && SymbolEqualityComparer.IncludeNullability.Equals(after, before);
-    }
-
-    /// <summary>
-    /// Determines whether <paramref name="invoked"/> is reached through a conditional access
-    /// (<c>?.</c> or <c>?[]</c>), so the invoked name binds to an orphaned member or element binding once
-    /// its enclosing conditional access is detached.
-    /// </summary>
-    /// <param name="invoked">The invocation's expression - the invoked name and its receiver spine.</param>
-    /// <returns><see langword="true"/> when a member or element binding sits on the receiver spine.</returns>
-    internal static bool InvokedThroughConditionalAccess(ExpressionSyntax invoked)
-    {
-        for (ExpressionSyntax? node = invoked; node is not null;)
-        {
-            if (node is MemberBindingExpressionSyntax or ElementBindingExpressionSyntax)
-            {
-                return true;
-            }
-
-            node = node switch
-            {
-                MemberAccessExpressionSyntax member => member.Expression,
-                ElementAccessExpressionSyntax element => element.Expression,
-                InvocationExpressionSyntax invocation => invocation.Expression,
-                PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } suppress => suppress.Operand,
-                ParenthesizedExpressionSyntax parenthesized => parenthesized.Expression,
-                _ => null,
-            };
-        }
-
-        return false;
     }
 
     /// <summary>Reports the redundant type-argument list on an invocation.</summary>

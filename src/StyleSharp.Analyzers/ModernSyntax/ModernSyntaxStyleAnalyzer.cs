@@ -189,6 +189,15 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
+        // A call reached through a conditional access - receiver?.M(new T()) or receiver?.P.M(new T()) - cannot
+        // be speculatively rebound: detaching the invocation to test the target-typed rewrite orphans its member
+        // or element binding, and Roslyn then dereferences null hunting for the conditional access that is no
+        // longer in the tree. The rewrite stays unverified, so the argument keeps its explicit type.
+        if (ConditionalAccessSpeculation.ReachedThroughConditionalAccess(invocation.Expression))
+        {
+            return false;
+        }
+
         var typeInfo = model.GetTypeInfo(objectCreation, cancellationToken);
         if (typeInfo.Type is null
             || typeInfo.ConvertedType is null

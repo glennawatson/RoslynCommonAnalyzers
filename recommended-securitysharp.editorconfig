@@ -14,6 +14,10 @@
 # Configurable options (uncomment and adjust — values shown are the defaults):
 # securitysharp.SES1003.iterations = 100000   # minimum accepted PBKDF2 iteration count
 # securitysharp.SES1403.maxdepth = 64          # highest accepted System.Text.Json MaxDepth
+# securitysharp.SES1701.sanitizers =            # SES1701 (comma-separated HTML-sanitizer method names)
+# securitysharp.SES1703.exempt_types =          # SES1703 (comma-separated exempt component types)
+# securitysharp.SES1705.validators =            # SES1705 (comma-separated navigation-validator method names)
+# securitysharp.SES1706.max_bytes = 10485760    # SES1706 (uploaded-file read limit, in bytes)
 
 [*.cs]
 
@@ -23,16 +27,23 @@ dotnet_diagnostic.SES1002.severity = warning # Password-based key derivation mus
 dotnet_diagnostic.SES1003.severity = warning # Password-based key derivation must use a sufficient iteration count
 dotnet_diagnostic.SES1004.severity = warning # A secret must not be produced from Guid.NewGuid()
 dotnet_diagnostic.SES1005.severity = warning # Compare secret values in constant time
+dotnet_diagnostic.SES1006.severity = warning # Persisted Data Protection keys must be encrypted at rest
+dotnet_diagnostic.SES1007.severity = warning # Do not hand-implement a cryptographic primitive
+dotnet_diagnostic.SES1008.severity = warning # Verify an XML signature against a known key
+dotnet_diagnostic.SES1009.severity = warning # Passwords must use a slow, salted key-derivation function
 
 # Transport
 dotnet_diagnostic.SES1102.severity = warning # Do not accept any server certificate
 dotnet_diagnostic.SES1104.severity = warning # Certificate-chain validation must not be deliberately weakened
 dotnet_diagnostic.SES1105.severity = warning # Bearer and OpenID Connect metadata must not be retrieved over plain HTTP outside development
 dotnet_diagnostic.SES1106.severity = warning # Do not send HttpClient requests to a cleartext http URL
+dotnet_diagnostic.SES1107.severity = warning # Do not weaken SQL connection transport security
+dotnet_diagnostic.SES1108.severity = warning # Do not accept every server certificate from a custom callback
 
 # Secrets
 dotnet_diagnostic.SES1201.severity = warning # Do not hard-code secrets in source
 dotnet_diagnostic.SES1202.severity = warning # Do not hard-code a credential value
+dotnet_diagnostic.SES1203.severity = warning # Do not use an empty or missing database connection-string password
 
 # Injection
 dotnet_diagnostic.SES1301.severity = warning # Do not build a process command line from non-constant string parts
@@ -41,11 +52,18 @@ dotnet_diagnostic.SES1303.severity = warning # Regular-expression pattern must n
 dotnet_diagnostic.SES1304.severity = warning # An archive entry name must not build a write path without a containment check
 dotnet_diagnostic.SES1305.severity = warning # Do not build a storage path from an uploaded file name
 dotnet_diagnostic.SES1306.severity = warning # Do not compile or execute non-constant C# via the scripting API
+dotnet_diagnostic.SES1307.severity = warning # Do not create predictable temporary files with Path.GetTempFileName
+dotnet_diagnostic.SES1308.severity = warning # Do not create a group- or world-writable file or directory
+dotnet_diagnostic.SES1309.severity = warning # Do not load an XSLT stylesheet with script execution enabled
+dotnet_diagnostic.SES1310.severity = warning # Do not bind to a directory without authenticating
 
 # Serialization
-dotnet_diagnostic.SES1401.severity = warning # A type resolved from non-constant data must not be instantiated or deserialized
+dotnet_diagnostic.SES1401.severity = warning # A type resolved from non-constant data must not be instantiated or used as a deserialization target
 dotnet_diagnostic.SES1402.severity = warning # Do not load an assembly from raw bytes or a non-constant location
 dotnet_diagnostic.SES1403.severity = suggestion # JSON deserialization depth limit must stay within a safe ceiling
+dotnet_diagnostic.SES1404.severity = warning # A type must not be instantiated by name from non-constant data
+dotnet_diagnostic.SES1405.severity = warning # A MessagePack typeless deserializer must not reconstruct arbitrary types from untrusted input
+# dotnet_diagnostic.SES1406.severity = warning # Reflection must not reach non-public members to bypass their declared accessibility (opt-in)
 
 # WebHardening
 dotnet_diagnostic.SES1501.severity = warning # A CORS policy must not allow credentials together with any origin
@@ -56,6 +74,13 @@ dotnet_diagnostic.SES1505.severity = warning # The request body size limit must 
 dotnet_diagnostic.SES1506.severity = suggestion # The developer exception page must be guarded by a development-environment check
 dotnet_diagnostic.SES1507.severity = warning # AllowAnonymous and Authorize on the same declaration conflict
 dotnet_diagnostic.SES1508.severity = warning # A validation method must not fail open by returning success from a catch
+dotnet_diagnostic.SES1509.severity = warning # Backtracking-prone regular expression has no match timeout
+dotnet_diagnostic.SES1510.severity = warning # An MVC controller must not redirect to a non-constant URL
+dotnet_diagnostic.SES1511.severity = warning # The forwarded-headers trust boundary must not be removed
+dotnet_diagnostic.SES1512.severity = warning # Sensitive framework diagnostics must be guarded by a development-environment check
+dotnet_diagnostic.SES1513.severity = warning # An authorization result must be checked, not discarded
+dotnet_diagnostic.SES1514.severity = warning # OpenID Connect PKCE, state, and nonce protections must not be disabled
+dotnet_diagnostic.SES1515.severity = warning # A Content-Security-Policy value disables its own protection
 
 # Ai
 dotnet_diagnostic.SES1601.severity = warning # An LLM system prompt must be a constant, trusted template
@@ -64,3 +89,15 @@ dotnet_diagnostic.SES1603.severity = warning # An AI tool declared read-only or 
 dotnet_diagnostic.SES1604.severity = warning # Prompt-template input encoding must not be disabled
 dotnet_diagnostic.SES1605.severity = suggestion # AI instrumentation must not enable sensitive-data capture
 dotnet_diagnostic.SES1606.severity = warning # Do not fetch model weights over cleartext HTTP
+
+# Blazor
+dotnet_diagnostic.SES1701.severity = warning # Raw HTML is rendered from a non-constant value
+dotnet_diagnostic.SES1702.severity = warning # A JavaScript interop call targets a script-evaluation primitive
+dotnet_diagnostic.SES1703.severity = warning # Authorize on a non-routable component enforces nothing
+dotnet_diagnostic.SES1704.severity = warning # HttpContext accessed from an interactive component is stale
+dotnet_diagnostic.SES1705.severity = warning # A Blazor component must navigate only to a verified relative URL
+dotnet_diagnostic.SES1706.severity = warning # A Blazor uploaded-file read must have a bounded, server-chosen size limit
+dotnet_diagnostic.SES1707.severity = warning # Do not hard-code secrets in code that runs in the browser as WebAssembly
+dotnet_diagnostic.SES1708.severity = warning # Circuit detailed errors must not be enabled outside development
+dotnet_diagnostic.SES1709.severity = warning # Do not serialize every claim into the client-readable authentication state
+dotnet_diagnostic.SES1710.severity = warning # Do not disable antiforgery validation on a form

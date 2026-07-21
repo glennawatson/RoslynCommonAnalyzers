@@ -922,6 +922,7 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1403](rules/SES1403.md) | A constant `System.Text.Json` `MaxDepth` (on `JsonSerializerOptions`/`JsonReaderOptions`/`JsonDocumentOptions`) is raised above a configurable ceiling (default 64), re-opening the deep-nesting stack-exhaustion denial-of-service that the default limit guards against. |
 | [SES1404](rules/SES1404.md) | A type is instantiated by name through the string overloads of `Activator.CreateInstance`/`Activator.CreateInstanceFrom` from a non-constant `typeName`, letting untrusted input choose which type is constructed (CWE-470). |
 | [SES1405](rules/SES1405.md) | MessagePack typeless deserialization (`MessagePackSerializer.Typeless`, or a serializer built on `TypelessObjectResolver`/`TypelessContractlessStandardResolver`) reconstructs whatever .NET type the payload names, letting untrusted input instantiate arbitrary types (CWE-502). |
+| [SES1406](rules/SES1406.md) | Reflection reaches non-public members by passing `BindingFlags.NonPublic` to `Type.GetMethod`/`GetField`/`GetMembers`/etc., bypassing the accessibility the type declares (CWE-470). Opt-in — reflecting over private members is routine in tests, serializers, and DI, so it ships disabled. |
 
 ## WebHardening
 

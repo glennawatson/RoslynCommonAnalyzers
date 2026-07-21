@@ -1,6 +1,14 @@
 ; Shipped analyzer releases
 ; https://github.com/dotnet/roslyn-analyzers/blob/main/src/Microsoft.CodeAnalysis.Analyzers/ReleaseTrackingAnalyzers.Help.md
 
+## Release 3.35.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+SES1406 | Serialization | Disabled | Ses1406NonPublicReflectionAnalyzer
+
 ## Release 3.34.0
 
 ### New Rules

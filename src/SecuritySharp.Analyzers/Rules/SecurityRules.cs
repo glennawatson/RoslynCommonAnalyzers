@@ -45,4 +45,14 @@ internal static partial class SecurityRules
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string category, string description) =>
         DescriptorFactory.Create(id, title, messageFormat, category, description);
+
+    /// <summary>Creates a Warning descriptor that is disabled by default (opt-in via <c>.editorconfig</c>).</summary>
+    /// <param name="id">The diagnostic id.</param>
+    /// <param name="title">The rule title.</param>
+    /// <param name="messageFormat">The message format.</param>
+    /// <param name="category">The rule category (one of the group constants on this class).</param>
+    /// <param name="description">The rule description.</param>
+    /// <returns>The descriptor.</returns>
+    private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string category, string description) =>
+        DescriptorFactory.CreateOptIn(id, title, messageFormat, category, description);
 }

@@ -357,6 +357,13 @@ internal static class ModernSyntaxRules
         "Extract this nested switch statement into its own method, a switch expression, or a lookup",
         AvoidNestedSwitchStatementDescription);
 
+    /// <summary>SST2254 — a target-typed <c>new</c> can instead name the created type explicitly.</summary>
+    public static readonly DiagnosticDescriptor UseExplicitObjectCreationType = CreateOptIn(
+        "SST2254",
+        "Name the created type in an object creation",
+        "Name the created type '{0}' in this object creation instead of a target-typed 'new'",
+        UseExplicitObjectCreationTypeDescription);
+
     /// <summary>The SST2243 rule description.</summary>
     private const string UseRawStringLiteralDescription =
         "A verbatim string full of doubled-quote escapes, or one spanning multiple lines, reads with less escape noise as a raw string "
@@ -424,6 +431,16 @@ internal static class ModernSyntaxRules
         + "expression, or a lookup keeps each branch readable on its own. Only a switch statement nested in another switch "
         + "statement's section is reported; a switch expression is the preferred compact form and is left alone, and a switch "
         + "inside a lambda or local function declared in a section belongs to that body rather than to the enclosing switch.";
+
+    /// <summary>The SST2254 rule description.</summary>
+    private const string UseExplicitObjectCreationTypeDescription =
+        "A target-typed 'new(...)' leaves the constructed type to be recovered from the target of the expression — the "
+        + "declared variable, the field or property, the return type, the parameter. Writing the type at the creation site, "
+        + "'new Type(...)', states what is being built where it is built, at the cost of repeating the type name. This is a "
+        + "minority preference and the inverse of the default target-typed-'new' suggestion, so it ships disabled; enable it "
+        + "in .editorconfig for a codebase that wants every object creation to name its type. Reported only when the created "
+        + "type resolves to a name that can be written in source and the explicit form provably constructs the same type, "
+        + "which the fix confirms before it is offered.";
 
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

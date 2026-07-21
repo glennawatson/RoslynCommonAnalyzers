@@ -1,6 +1,19 @@
 ; Shipped analyzer releases
 ; https://github.com/dotnet/roslyn-analyzers/blob/main/src/Microsoft.CodeAnalysis.Analyzers/ReleaseTrackingAnalyzers.Help.md
 
+## Release 3.34.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+PSH1420 | ApiSelection | Warning | Psh1420FunctionClassClientFieldAnalyzer
+PSH1506 | AspNetCore | Warning | Psh1506SynchronousBodyIoAnalyzer
+PSH1600 | Blazor | Warning | Psh1600RenderLoopDelegateAllocationAnalyzer
+PSH1601 | Blazor | Warning | Psh1601JsInteropInLoopAnalyzer
+PSH1602 | Blazor | Warning | Psh1602UnconditionalStateHasChangedAnalyzer
+PSH1603 | Blazor | Warning | Psh1603RenderLoopParameterAllocationAnalyzer
+
 ## Release 3.33.0
 
 ### New Rules

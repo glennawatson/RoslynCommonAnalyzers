@@ -1,6 +1,23 @@
 ; Shipped analyzer releases
 ; https://github.com/dotnet/roslyn-analyzers/blob/main/src/Microsoft.CodeAnalysis.Analyzers/ReleaseTrackingAnalyzers.Help.md
 
+## Release 3.34.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+SES1701 | Blazor | Warning | Ses1701RawHtmlFromNonConstantAnalyzer
+SES1702 | Blazor | Warning | Ses1702JsInteropScriptEvaluationAnalyzer
+SES1703 | Blazor | Warning | Ses1703NonRoutableComponentAuthorizationAnalyzer
+SES1704 | Blazor | Warning | Ses1704InteractiveComponentHttpContextAnalyzer
+SES1705 | Blazor | Warning | Ses1705NavigationOpenRedirectAnalyzer
+SES1706 | Blazor | Warning | Ses1706UnboundedBrowserFileReadAnalyzer
+SES1707 | Blazor | Warning | Ses1707WebAssemblySecretDisclosureAnalyzer
+SES1708 | Blazor | Warning | Ses1708CircuitDetailedErrorsAnalyzer
+SES1709 | Blazor | Warning | Ses1709SerializeAllClaimsAnalyzer
+SES1710 | Blazor | Warning | Ses1710AntiforgeryValidationDisabledAnalyzer
+
 ## Release 3.33.0
 
 ### New Rules

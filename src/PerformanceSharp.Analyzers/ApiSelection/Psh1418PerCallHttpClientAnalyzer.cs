@@ -275,7 +275,7 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
     /// client's package pays one failed lookup for it in total. The unsynchronized writes race
     /// benignly: concurrent probes of the same slot compute the same value.
     /// </remarks>
-    private sealed class ClientTypeCache
+    internal sealed class ClientTypeCache
     {
         /// <summary>The sentinel cached when a metadata name does not resolve.</summary>
         private static readonly object Absent = new();
@@ -309,6 +309,15 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
             }
 
             return cached as INamedTypeSymbol;
+        }
+
+        /// <summary>Resolves the client type whose simple name matches, probing its metadata name at most once.</summary>
+        /// <param name="simpleName">The written simple name to resolve, when the syntax spells one.</param>
+        /// <returns>The resolved client type, or <see langword="null"/> when the name is not a known client or its package is absent.</returns>
+        internal INamedTypeSymbol? ResolveBySimpleName(string? simpleName)
+        {
+            var index = GetKnownClientIndex(simpleName);
+            return index < 0 ? null : Resolve(index);
         }
     }
 }

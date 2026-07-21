@@ -33,6 +33,9 @@ internal static partial class SecurityRules
     /// <summary>AI rules (SES16xx): prompt construction and model-input trust boundaries.</summary>
     public const string Ai = "Ai";
 
+    /// <summary>Blazor rules (SES17xx): server-rendered markup trust boundaries and JavaScript interop safety.</summary>
+    public const string Blazor = "Blazor";
+
     /// <summary>Creates an enabled-by-default Warning descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

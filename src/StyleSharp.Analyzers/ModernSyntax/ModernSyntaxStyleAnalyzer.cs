@@ -44,18 +44,39 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
         var objectCreation = (ObjectCreationExpressionSyntax)context.Node;
         if (!IsLanguageVersionAtLeast(objectCreation, CSharp9)
             || objectCreation.ArgumentList is null
-            || !TryGetTargetType(objectCreation, context.SemanticModel, context.CancellationToken, out var targetType))
-        {
-            return;
-        }
-
-        var createdType = context.SemanticModel.GetTypeInfo(objectCreation, context.CancellationToken).Type;
-        if (createdType is null || !SymbolEqualityComparer.Default.Equals(createdType, targetType))
+            || !RepeatsAnExplicitTargetType(objectCreation, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.UseTargetTypedNew, objectCreation.Type.GetLocation()));
+    }
+
+    /// <summary>Returns whether the creation repeats an explicit target type that <c>new(...)</c> keeps unchanged.</summary>
+    /// <param name="objectCreation">The object creation expression.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when target-typed <c>new</c> is a conservative replacement.</returns>
+    private static bool RepeatsAnExplicitTargetType(
+        ObjectCreationExpressionSyntax objectCreation,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        // An argument carries no single syntactic type node: overload resolution decides the target, so the
+        // rewrite is confirmed by re-binding the call rather than by matching a declared type.
+        if (objectCreation.Parent is ArgumentSyntax argument)
+        {
+            return ArgumentRepeatsParameterType(objectCreation, argument, model, cancellationToken);
+        }
+
+        if (!TryGetTargetType(objectCreation, model, cancellationToken, out var targetType))
+        {
+            return false;
+        }
+
+        // TryGetTargetType only succeeds with a non-null target, so an unresolved created type compares unequal.
+        var createdType = model.GetTypeInfo(objectCreation, cancellationToken).Type;
+        return SymbolEqualityComparer.Default.Equals(createdType, targetType);
     }
 
     /// <summary>Reports array/string accesses that can use the index-from-end operator.</summary>
@@ -113,6 +134,34 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
             return targetType is not null;
         }
 
+        // A returned value's target is the enclosing member's return type. The converted type carries it
+        // (including the awaited result of an async method), so comparing it to the created type is the
+        // confirmation that 'new()' constructs the same type. A lambda's return type is inferred rather than
+        // declared, so anonymous-function bodies are excluded.
+        if (objectCreation.Parent is ReturnStatementSyntax returnStatement)
+        {
+            if (!ReturnTargetsExplicitMember(returnStatement))
+            {
+                return false;
+            }
+
+            targetType = model.GetTypeInfo(objectCreation, cancellationToken).ConvertedType;
+            return targetType is not null;
+        }
+
+        // An expression-bodied member (=> ...) targets the member's return type for the same reason, once the
+        // void and statement-shaped arrow bodies that carry no target type are excluded.
+        if (objectCreation.Parent is ArrowExpressionClauseSyntax arrow)
+        {
+            if (IsStatementArrowBody(arrow))
+            {
+                return false;
+            }
+
+            targetType = model.GetTypeInfo(objectCreation, cancellationToken).ConvertedType;
+            return targetType is not null;
+        }
+
         if (objectCreation.Parent is not AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression, Left: { } left }
             || IsDiscardAssignmentTarget(left))
         {
@@ -122,6 +171,96 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
         targetType = model.GetTypeInfo(left, cancellationToken).Type;
         return targetType is not null;
     }
+
+    /// <summary>Returns whether the created type also binds unchanged when the argument uses target-typed <c>new</c>.</summary>
+    /// <param name="objectCreation">The object creation expression passed as an argument.</param>
+    /// <param name="argument">The argument that wraps the object creation.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when the created type equals the parameter type and the call still binds to the same method.</returns>
+    private static bool ArgumentRepeatsParameterType(
+        ObjectCreationExpressionSyntax objectCreation,
+        ArgumentSyntax argument,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        if (argument.Parent is not ArgumentListSyntax { Parent: InvocationExpressionSyntax invocation })
+        {
+            return false;
+        }
+
+        var typeInfo = model.GetTypeInfo(objectCreation, cancellationToken);
+        if (typeInfo.Type is null
+            || typeInfo.ConvertedType is null
+            || !SymbolEqualityComparer.Default.Equals(typeInfo.Type, typeInfo.ConvertedType))
+        {
+            return false;
+        }
+
+        return TargetTypedNewKeepsTheSameCall(objectCreation, invocation, model, cancellationToken);
+    }
+
+    /// <summary>Returns whether rewriting an argument to target-typed <c>new</c> still binds the call to the same method.</summary>
+    /// <param name="objectCreation">The object creation argument to rewrite.</param>
+    /// <param name="invocation">The call whose overload resolution must not change.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when the speculative bind resolves to the identical symbol.</returns>
+    private static bool TargetTypedNewKeepsTheSameCall(
+        ObjectCreationExpressionSyntax objectCreation,
+        InvocationExpressionSyntax invocation,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        var boundCall = model.GetSymbolInfo(invocation, cancellationToken).Symbol;
+        var implicitNew = SyntaxFactory.ImplicitObjectCreationExpression(
+            objectCreation.NewKeyword.WithTrailingTrivia(),
+            objectCreation.ArgumentList!,
+            objectCreation.Initializer);
+        var rewritten = invocation.ReplaceNode(objectCreation, implicitNew);
+        var speculativeCall = model
+            .GetSpeculativeSymbolInfo(invocation.SpanStart, rewritten, SpeculativeBindingOption.BindAsExpression)
+            .Symbol;
+
+        // A target-typed rewrite the overloads make ambiguous has a null speculative symbol, and a call that
+        // never bound has a null original symbol; either way the equality fails and the argument stays explicit.
+        return speculativeCall is not null && SymbolEqualityComparer.Default.Equals(boundCall, speculativeCall);
+    }
+
+    /// <summary>Returns whether a return statement belongs to a member with an explicit, declared return type.</summary>
+    /// <param name="returnStatement">The return statement holding the object creation.</param>
+    /// <returns><see langword="true"/> when the nearest enclosing return scope is a member, accessor, or local function.</returns>
+    private static bool ReturnTargetsExplicitMember(ReturnStatementSyntax returnStatement)
+    {
+        var scope = returnStatement.Parent;
+        while (scope is not null
+            and not AnonymousFunctionExpressionSyntax
+            and not BaseMethodDeclarationSyntax
+            and not LocalFunctionStatementSyntax
+            and not AccessorDeclarationSyntax)
+        {
+            scope = scope.Parent;
+        }
+
+        return scope is BaseMethodDeclarationSyntax or LocalFunctionStatementSyntax or AccessorDeclarationSyntax;
+    }
+
+    /// <summary>Returns whether an expression-bodied member uses its arrow body as a statement rather than a value.</summary>
+    /// <param name="arrow">The arrow expression clause holding the object creation.</param>
+    /// <returns><see langword="true"/> for a void method or local function, or a non-<c>get</c> accessor.</returns>
+    private static bool IsStatementArrowBody(ArrowExpressionClauseSyntax arrow) => arrow.Parent switch
+    {
+        MethodDeclarationSyntax method => IsVoidReturn(method.ReturnType),
+        LocalFunctionStatementSyntax localFunction => IsVoidReturn(localFunction.ReturnType),
+        AccessorDeclarationSyntax accessor => !accessor.IsKind(SyntaxKind.GetAccessorDeclaration),
+        _ => false,
+    };
+
+    /// <summary>Returns whether a return-type node is the <c>void</c> keyword.</summary>
+    /// <param name="returnType">The return-type syntax.</param>
+    /// <returns><see langword="true"/> when the return type is <c>void</c>.</returns>
+    private static bool IsVoidReturn(TypeSyntax returnType)
+        => returnType is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword };
 
     /// <summary>Returns whether an assignment target is a discard.</summary>
     /// <param name="target">The assignment target.</param>

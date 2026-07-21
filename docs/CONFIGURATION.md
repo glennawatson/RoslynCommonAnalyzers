@@ -111,6 +111,10 @@ Some rules expose options. Current options:
 | `stylesharp.SST2438.minimum_level` | [SST2438](rules/SST2438.md) | `trace`, `debug`, `information`, `warning`, `error`, `critical` | `error` |
 | `securitysharp.SES1003.iterations` | [SES1003](rules/SES1003.md) | positive integer (minimum accepted PBKDF2 iteration count) | `100000` |
 | `securitysharp.SES1403.maxdepth` | [SES1403](rules/SES1403.md) | positive integer (highest accepted `System.Text.Json` `MaxDepth`) | `64` |
+| `securitysharp.SES1701.sanitizers` | [SES1701](rules/SES1701.md) | comma-separated method names that sanitize HTML (a value wrapped in one is not reported) | (none) |
+| `securitysharp.SES1703.exempt_types` | [SES1703](rules/SES1703.md) | comma-separated component type names exempt from the non-routable-authorization check | (none) |
+| `securitysharp.SES1705.validators` | [SES1705](rules/SES1705.md) | comma-separated method names that validate a navigation target (a URL from one is not reported) | (none) |
+| `securitysharp.SES1706.max_bytes` | [SES1706](rules/SES1706.md) | positive integer (highest accepted uploaded-file read limit, in bytes) | `10485760` |
 
 Example:
 

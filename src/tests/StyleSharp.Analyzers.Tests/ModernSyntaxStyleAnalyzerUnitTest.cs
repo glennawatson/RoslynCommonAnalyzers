@@ -315,4 +315,416 @@ public class ModernSyntaxStyleAnalyzerUnitTest
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies repeated creation types in explicitly typed field initializers are removed.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task FieldInitializerCandidateIsFixedAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+
+                              public sealed class C
+                              {
+                                  private List<int> _values = new {|SST2202:List<int>|}();
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+
+                                   public sealed class C
+                                   {
+                                       private List<int> _values = new();
+                                   }
+                                   """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies returned creations whose type matches an explicit return type are removed.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ReturnStatementCandidateIsFixedAsync()
+    {
+        const string Source = """
+                              public sealed class Person
+                              {
+                              }
+
+                              public sealed class C
+                              {
+                                  public Person FromReturn()
+                                  {
+                                      return new {|SST2202:Person|}();
+                                  }
+
+                                  public Person FromGetter
+                                  {
+                                      get
+                                      {
+                                          return new {|SST2202:Person|}();
+                                      }
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class Person
+                                   {
+                                   }
+
+                                   public sealed class C
+                                   {
+                                       public Person FromReturn()
+                                       {
+                                           return new();
+                                       }
+
+                                       public Person FromGetter
+                                       {
+                                           get
+                                           {
+                                               return new();
+                                           }
+                                       }
+                                   }
+                                   """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies expression-bodied members whose type matches the return type are removed.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ExpressionBodiedReturnCandidateIsFixedAsync()
+    {
+        const string Source = """
+                              public sealed class Person
+                              {
+                              }
+
+                              public sealed class C
+                              {
+                                  public Person ArrowMethod() => new {|SST2202:Person|}();
+
+                                  public Person ArrowProperty => new {|SST2202:Person|}();
+
+                                  public Person AccessorArrow
+                                  {
+                                      get => new {|SST2202:Person|}();
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class Person
+                                   {
+                                   }
+
+                                   public sealed class C
+                                   {
+                                       public Person ArrowMethod() => new();
+
+                                       public Person ArrowProperty => new();
+
+                                       public Person AccessorArrow
+                                       {
+                                           get => new();
+                                       }
+                                   }
+                                   """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies creations returned from a local function match the same explicit-target rule.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task LocalFunctionReturnCandidateIsFixedAsync()
+    {
+        const string Source = """
+                              public sealed class Person
+                              {
+                              }
+
+                              public sealed class C
+                              {
+                                  public Person FromBlock()
+                                  {
+                                      Person Local()
+                                      {
+                                          return new {|SST2202:Person|}();
+                                      }
+
+                                      return Local();
+                                  }
+
+                                  public Person FromArrow()
+                                  {
+                                      Person Local() => new {|SST2202:Person|}();
+                                      return Local();
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class Person
+                                   {
+                                   }
+
+                                   public sealed class C
+                                   {
+                                       public Person FromBlock()
+                                       {
+                                           Person Local()
+                                           {
+                                               return new();
+                                           }
+
+                                           return Local();
+                                       }
+
+                                       public Person FromArrow()
+                                       {
+                                           Person Local() => new();
+                                           return Local();
+                                       }
+                                   }
+                                   """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies creations passed to a parameter of the same type use target-typed new.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ArgumentCandidateIsFixedAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+
+                              public sealed class C
+                              {
+                                  public void Consume(List<int> items)
+                                  {
+                                  }
+
+                                  public void CallSimple()
+                                  {
+                                      Consume(new {|SST2202:List<int>|}());
+                                  }
+
+                                  public void CallWithInitializer()
+                                  {
+                                      Consume(new {|SST2202:List<int>|}() { 1, 2 });
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+
+                                   public sealed class C
+                                   {
+                                       public void Consume(List<int> items)
+                                       {
+                                       }
+
+                                       public void CallSimple()
+                                       {
+                                           Consume(new());
+                                       }
+
+                                       public void CallWithInitializer()
+                                       {
+                                           Consume(new() { 1, 2 });
+                                       }
+                                   }
+                                   """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the outer creation is fixed while a constructor-argument creation stays explicit.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ConstructorArgumentStaysExplicitWhileOuterIsFixedAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+
+                              public sealed class Box
+                              {
+                                  public Box(List<int> items)
+                                  {
+                                  }
+                              }
+
+                              public sealed class C
+                              {
+                                  public Box Make() => new {|SST2202:Box|}(new List<int>());
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+
+                                   public sealed class Box
+                                   {
+                                       public Box(List<int> items)
+                                       {
+                                       }
+                                   }
+
+                                   public sealed class C
+                                   {
+                                       public Box Make() => new(new List<int>());
+                                   }
+                                   """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a creation passed to a wider parameter type stays explicit.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ArgumentToDifferentParameterTypeIsCleanAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+
+                              public sealed class C
+                              {
+                                  public void Consume(IEnumerable<int> items)
+                                  {
+                                  }
+
+                                  public void Call()
+                                  {
+                                      Consume(new List<int>());
+                                  }
+                              }
+                              """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a creation whose target-typed form would be ambiguous across overloads stays explicit.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ArgumentToOverloadedMethodIsCleanAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+
+                              public sealed class C
+                              {
+                                  public void Overloaded(List<int> items)
+                                  {
+                                  }
+
+                                  public void Overloaded(HashSet<int> items)
+                                  {
+                                  }
+
+                                  public void Call()
+                                  {
+                                      Overloaded(new List<int>());
+                                  }
+                              }
+                              """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies inferred and statement-shaped targets, which carry no explicit type, stay explicit.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task InferredAndStatementTargetsAreCleanAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class Person
+                              {
+                              }
+
+                              public sealed class C
+                              {
+                                  public Person VarTarget()
+                                  {
+                                      var person = new Person();
+                                      return person;
+                                  }
+
+                                  public Func<Person> ExpressionLambda() => () => new Person();
+
+                                  public Func<Person> BlockLambda() => () =>
+                                  {
+                                      return new Person();
+                                  };
+
+                                  public void VoidArrow() => new Person();
+
+                                  public Person WriteOnly
+                                  {
+                                      set => new Person();
+                                  }
+
+                                  public void VoidLocalFunctionHost()
+                                  {
+                                      void Local() => new Person();
+                                      Local();
+                                  }
+                              }
+                              """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
 }

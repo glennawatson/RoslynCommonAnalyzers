@@ -596,3 +596,25 @@ SST2490 | Correctness | Warning | Sst2490MergeableAdjacentTryAnalyzer
 SST2508 | Testing | Warning | Sst2508IncompleteAssertionAnalyzer
 SST2509 | Testing | Warning | Sst2509InvalidTestMethodShapeAnalyzer
 SST2601 | Logging | Warning | Sst2601LoggerMemberNamingAnalyzer
+
+## Release 3.34.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+SST2254 | ModernSyntax | Disabled | Sst2254ExplicitObjectCreationTypeAnalyzer
+SST2700 | Frameworks | Warning | Sst2700RouteTemplateBackslashAnalyzer
+SST2701 | Frameworks | Warning | Sst2701JSInvokableMustBePublicAnalyzer
+SST2702 | Frameworks | Warning | Sst2702SupplyParameterFromQueryTypeAnalyzer
+SST2703 | Frameworks | Warning | Sst2703RouteConstraintTypeMismatchAnalyzer
+SST2704 | Frameworks | Warning | Sst2704ApiActionMissingHttpVerbAnalyzer
+SST2705 | Frameworks | Disabled | Sst2705BoundModelUnderpostingAnalyzer
+SST2706 | Frameworks | Warning | Sst2706StaThreadEntryPointAnalyzer
+SST2707 | Frameworks | Disabled | Sst2707FireAndForgetHttpContextAnalyzer
+SST2708 | Frameworks | Warning | Sst2708LifecycleEventSubscriptionAnalyzer
+SST2709 | Frameworks | Warning | Sst2709StateHasChangedInDisposeAnalyzer
+SST2710 | Frameworks | Warning | Sst2710TimerStateHasChangedAnalyzer
+SST2711 | Frameworks | Warning | Sst2711AsyncVoidLifecycleOverrideAnalyzer
+SST2712 | Frameworks | Warning | Sst2712SetterlessInjectedPropertyAnalyzer
+SST2713 | Frameworks | Warning | Sst2713UnstoredDotNetObjectReferenceAnalyzer

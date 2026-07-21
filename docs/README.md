@@ -154,6 +154,7 @@ async, `PSH14xx` API selection.
 | [PSH1417](rules/PSH1417.md) | An expensive argument is computed for a `Debug.Assert` that release builds compile away. |
 | [PSH1418](rules/PSH1418.md) | A shareable client (`HttpClient` or an Azure SDK service client) is constructed for a single call, so its pooled connections and caches die with it and every call pays the setup cost again. |
 | [PSH1419](rules/PSH1419.md) | A call to the TimeZoneConverter package where the built-in `TimeZoneInfo` now resolves IANA and Windows ids cross-platform (.NET 6+). Code fix rewrites `GetTimeZoneInfo` to `TimeZoneInfo.FindSystemTimeZoneById`. |
+| [PSH1420](rules/PSH1420.md) | A shareable client held in an instance field of an Azure Functions worker class is rebuilt on every invocation, leaking sockets and connections; share a static/singleton client or inject `IHttpClientFactory`. |
 
 ## AspNetCore
 
@@ -164,6 +165,16 @@ async, `PSH14xx` API selection.
 | [PSH1502](rules/PSH1502.md) | A route handler returns a deferred `IEnumerable<T>` (an `IQueryable<T>` or an un-materialized LINQ query), so the response serializer enumerates it synchronously on the request thread. |
 | [PSH1503](rules/PSH1503.md) | The legacy response-caching middleware only honors HTTP cache-control headers; output caching (.NET 7+) caches on the server under keys you control and can be invalidated. Info. |
 | [PSH1505](rules/PSH1505.md) | A class implements an MVC exception filter (`IExceptionFilter`/`IAsyncExceptionFilter`); centralized error handling belongs in an `IExceptionHandler` the pipeline runs once. Info. |
+| [PSH1506](rules/PSH1506.md) | The HTTP request or response body is read or written synchronously (`ReadToEnd`, `Body.Read`, `Body.Write`), which blocks a thread on Kestrel and buffers the whole payload; use the async overload. Code fix awaits it when the method is already async. |
+
+## Blazor
+
+| Rule | Description |
+| --- | --- |
+| [PSH1600](rules/PSH1600.md) | A delegate captured per iteration inside a component render loop reallocates on every render (measured ~128 B per row per render) and churns the diff; hoist it to a cached delegate or a precomputed per-item model. |
+| [PSH1601](rules/PSH1601.md) | A JavaScript-interop call is issued once per loop iteration; on Interactive Server each is a separate SignalR round-trip. Batch into a single call over the collection. |
+| [PSH1602](rules/PSH1602.md) | `StateHasChanged` is called unconditionally in `OnAfterRender`/`OnAfterRenderAsync`, scheduling another render every time — a runaway loop. Guard it with `firstRender` or a state flag. |
+| [PSH1603](rules/PSH1603.md) | A non-delegate allocation is used as a component-parameter value inside a render loop, allocating per item and forcing the child to re-render each pass. Sibling of PSH1600. |
 
 # StyleSharp Rule Index
 
@@ -172,8 +183,10 @@ the hundreds digit: `SST10xx` spacing, `SST11xx` readability, `SST12xx` ordering
 `SST13xx` naming, `SST14xx` maintainability, `SST15xx` layout, `SST16xx`
 documentation, `SST17xx` extensions, `SST18xx` records, `SST19xx` concurrency,
 `SST20xx` modernization, `SST21xx` collection expressions, `SST22xx` modern
-syntax, `SST23xx` design — the shape of a type's public surface — and `SST24xx`
-correctness — code that compiles and runs but does not do what it says.
+syntax, `SST23xx` design — the shape of a type's public surface — `SST24xx`
+correctness — code that compiles and runs but does not do what it says — `SST25xx`
+testing, `SST26xx` logging, and `SST27xx` frameworks (marker-gated Blazor,
+ASP.NET Core, and Windows Forms defects).
 
 Perf-motivated rules that previously lived here (SST1434, SST1900, SST2229,
 SST2230, SST2233) moved to PerformanceSharp as PSH1002, PSH1300, PSH1101,
@@ -475,6 +488,7 @@ PSH1102, and PSH1100.
 | [SST2250](rules/SST2250.md) | A bare local declared without a value and assigned once by the next straight-line statement can be joined into an initialized declaration. Code fix joins them. |
 | [SST2251](rules/SST2251.md) | A method call names type arguments that inference would supply. Code fix removes them. |
 | [SST2252](rules/SST2252.md) | A `switch` statement nested inside another `switch` statement's section; lift it into a method, a `switch` expression, or a lookup. |
+| [SST2254](rules/SST2254.md) | A target-typed `new()` is written where an explicit type reads more clearly; the code fix restores `new TypeName(...)`. Opt-in — the counterpart to SST2202's target-typed direction, so a team enables at most one. |
 
 ## Design
 
@@ -620,6 +634,29 @@ Legacy tracing in place of structured logging.
 | --- | --- |
 | [SST2600](rules/SST2600.md) | Application output is written through `Trace.Write`/`WriteLine`/`WriteIf`/`WriteLineIf` when a structured logger (`ILogger`) is available, so the message loses its level, category, and named state. Reported only when `ILogger` resolves; `Debug.*` is excluded. |
 | [SST2601](rules/SST2601.md) | An `ILogger`/`ILogger<T>` field or property is named against the logger convention (`_logger`/`_log` for a private instance one, `Logger` otherwise). Configurable via `stylesharp.SST2601.fieldname`. |
+
+## Frameworks
+
+Framework-specific defects (Blazor, ASP.NET Core MVC, Windows Forms) that compile
+cleanly but misbehave at runtime. Each rule is gated on the relevant framework
+type, so a project that does not use the framework pays nothing.
+
+| Rule | Description |
+| --- | --- |
+| [SST2700](rules/SST2700.md) | An MVC route template contains a backslash; route segments are separated by `/`, so the route is unreachable. Code fix replaces `\` with `/`. |
+| [SST2701](rules/SST2701.md) | A `[JSInvokable]` method is not public, so JavaScript interop cannot call it. Code fix makes it public. |
+| [SST2702](rules/SST2702.md) | A `[SupplyParameterFromQuery]` property has a type the framework cannot bind from the query string, which throws at runtime. |
+| [SST2703](rules/SST2703.md) | A routable component's route constraint (`{id:int}`) disagrees with the matching `[Parameter]` CLR type, so the route silently fails to match. |
+| [SST2704](rules/SST2704.md) | A public action on an `[ApiController]` declares no HTTP-verb attribute, so it answers every verb and can make routing ambiguous. |
+| [SST2705](rules/SST2705.md) | A bound model member is a non-nullable value type with no required marker, so a request that omits it binds the default with no error. Opt-in. |
+| [SST2706](rules/SST2706.md) | A Windows Forms entry point carries neither `[STAThread]` nor `[MTAThread]`; without STA, clipboard, drag-and-drop, and common dialogs misbehave. Code fix adds `[STAThread]`. |
+| [SST2707](rules/SST2707.md) | A fire-and-forget `Task.Run` in a controller captures the request's `HttpContext`, which is disposed when the request ends, so the background work throws `ObjectDisposedException`. Opt-in. |
+| [SST2708](rules/SST2708.md) | A component subscribes to an event in a lifecycle method but never unsubscribes, so the event source keeps the component alive — a per-session leak on a Server circuit. |
+| [SST2709](rules/SST2709.md) | `StateHasChanged` is called while the component is being disposed, which the renderer no longer supports and throws. |
+| [SST2710](rules/SST2710.md) | `StateHasChanged` is called directly from a timer callback, off the renderer's dispatcher; marshal it with `InvokeAsync(StateHasChanged)`. |
+| [SST2711](rules/SST2711.md) | A synchronous component lifecycle method is overridden as `async void`, which the framework never awaits; override the `…Async` twin returning `Task`. Code fix rewrites the signature. |
+| [SST2712](rules/SST2712.md) | An `[Inject]`/`[CascadingParameter]` property has no setter, so the framework's reflection-based binding leaves it null. Code fix adds a setter. |
+| [SST2713](rules/SST2713.md) | A `DotNetObjectReference.Create(this)` is passed inline and never stored, so nothing can dispose it and it leaks on the JavaScript side. |
 
 ## Naming
 
@@ -916,3 +953,21 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1604](rules/SES1604.md) | A Semantic Kernel prompt template disables the default encoding of substituted input by setting `AllowDangerouslySetContent = true` on `PromptTemplateConfig`/`InputVariable`/a template factory, re-opening prompt injection through template variables. |
 | [SES1605](rules/SES1605.md) | Sensitive AI telemetry capture is enabled (`EnableSensitiveData = true`) on a `Microsoft.Extensions.AI` OpenTelemetry instrumentation client, shipping raw prompts and model responses -- which routinely carry secrets and PII -- verbatim to the telemetry backend. |
 | [SES1606](rules/SES1606.md) | A string literal targets a model-weights file (`.onnx`, `.gguf`, `.safetensors`, `.pt`, `.pth`, `.ckpt`) over a cleartext `http://` URL, letting a network attacker swap in a tampered or backdoored model; non-loopback hosts only, and the `HttpClient`-sink case is left to SES1106. |
+
+## Blazor
+
+Component-authoring security defects specific to Blazor / Razor Components, each
+gated on the relevant framework type so a non-Blazor project pays nothing.
+
+| Rule | Description |
+| --- | --- |
+| [SES1701](rules/SES1701.md) | Raw HTML is rendered from a non-constant value (`MarkupString`/`AddMarkupContent`), bypassing automatic encoding — an XSS risk. Sanitizer allow-list via `securitysharp.SES1701.sanitizers`. |
+| [SES1702](rules/SES1702.md) | A JavaScript-interop call targets a script-evaluation primitive (`eval`, `Function`, `document.write`), turning interop into a script-injection channel. |
+| [SES1703](rules/SES1703.md) | `[Authorize]` on a non-routable component enforces nothing — authorization runs as a routing concern. Exempt types via `securitysharp.SES1703.exempt_types`. |
+| [SES1704](rules/SES1704.md) | `IHttpContextAccessor` or a cascading `HttpContext` is used in an interactively-rendered component, where it is null or frozen at circuit start. |
+| [SES1705](rules/SES1705.md) | `NavigationManager.NavigateTo` is called with a target that is not a verified relative URL — an open-redirect risk. Validator allow-list via `securitysharp.SES1705.validators`. |
+| [SES1706](rules/SES1706.md) | An uploaded file is read with an unbounded or client-chosen size limit, letting an attacker fill server memory. Threshold via `securitysharp.SES1706.max_bytes`. |
+| [SES1707](rules/SES1707.md) | A secret-shaped literal appears in code reachable as WebAssembly, which downloads to the browser in full — guaranteed disclosure. |
+| [SES1708](rules/SES1708.md) | `CircuitOptions.DetailedErrors` is enabled, shipping server exception detail to every connected client. |
+| [SES1709](rules/SES1709.md) | `SerializeAllClaims` serializes every claim into client-readable WebAssembly authentication state, exposing internal ids, tokens, and PII. |
+| [SES1710](rules/SES1710.md) | Antiforgery validation is disabled on a form (`[RequireAntiforgeryToken(required: false)]`), removing CSRF protection. |

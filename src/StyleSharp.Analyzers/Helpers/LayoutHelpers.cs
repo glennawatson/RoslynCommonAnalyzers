@@ -16,6 +16,23 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 internal static class LayoutHelpers
 {
+    /// <summary>Diagnostic-property key carrying the side ("true"/"false") a wrapped token should break on.</summary>
+    public const string BreakBeforeProperty = "break_before";
+
+    /// <summary>Diagnostic properties for a token that should lead its continuation line (break before it).</summary>
+    public static readonly ImmutableDictionary<string, string?> BreakBeforeProperties =
+        ImmutableDictionary<string, string?>.Empty.Add(BreakBeforeProperty, "true");
+
+    /// <summary>Diagnostic properties for a token that should trail the upper line (break after it).</summary>
+    public static readonly ImmutableDictionary<string, string?> BreakAfterProperties =
+        ImmutableDictionary<string, string?>.Empty.Add(BreakBeforeProperty, "false");
+
+    /// <summary>Returns the cached diagnostic properties for the requested wrapped-token side.</summary>
+    /// <param name="breakBefore">Whether the token should break before (lead its continuation line).</param>
+    /// <returns>The matching cached property set.</returns>
+    public static ImmutableDictionary<string, string?> PlacementProperties(bool breakBefore)
+        => breakBefore ? BreakBeforeProperties : BreakAfterProperties;
+
     /// <summary>Returns the zero-based line index that contains <paramref name="position"/>.</summary>
     /// <param name="text">The source text.</param>
     /// <param name="position">An absolute character position in the text.</param>
@@ -218,6 +235,84 @@ internal static class LayoutHelpers
         return new(!sharesLineWithPrevious, sharesLineWithPrevious, sharesLineWithNext);
     }
 
+    /// <summary>Returns whether a line break separates the token before <paramref name="token"/> from it.</summary>
+    /// <param name="token">The token whose leading side is inspected.</param>
+    /// <returns><see langword="true"/> when <paramref name="token"/> begins a new line relative to its predecessor.</returns>
+    public static bool HasLineBreakBefore(SyntaxToken token)
+    {
+        var previous = token.GetPreviousToken();
+        return !previous.IsKind(SyntaxKind.None)
+            && (TriviaLineBreakHelper.HasLineBreak(previous.TrailingTrivia) || TriviaLineBreakHelper.HasLineBreak(token.LeadingTrivia));
+    }
+
+    /// <summary>Returns whether a line break separates <paramref name="token"/> from the token after it.</summary>
+    /// <param name="token">The token whose trailing side is inspected.</param>
+    /// <returns><see langword="true"/> when the following token begins a new line relative to <paramref name="token"/>.</returns>
+    public static bool HasLineBreakAfter(SyntaxToken token)
+    {
+        var next = token.GetNextToken();
+        return !next.IsKind(SyntaxKind.None)
+            && (TriviaLineBreakHelper.HasLineBreak(token.TrailingTrivia) || TriviaLineBreakHelper.HasLineBreak(next.LeadingTrivia));
+    }
+
+    /// <summary>Classifies the character run between two positions as containing a line break and/or non-whitespace.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="start">The inclusive start position.</param>
+    /// <param name="end">The exclusive end position.</param>
+    /// <param name="hasLineBreak">Set when the run contains a carriage return or line feed.</param>
+    /// <param name="isCleanWhitespace">Set when the run contains only whitespace.</param>
+    public static void ClassifyGap(SourceText text, int start, int end, out bool hasLineBreak, out bool isCleanWhitespace)
+    {
+        hasLineBreak = false;
+        isCleanWhitespace = true;
+        for (var position = start; position < end; position++)
+        {
+            var character = text[position];
+            if (character is '\n' or '\r')
+            {
+                hasLineBreak = true;
+            }
+            else if (!char.IsWhiteSpace(character))
+            {
+                isCleanWhitespace = false;
+            }
+        }
+    }
+
+    /// <summary>Extracts the wrap-relevant tokens of a member-access or conditional-access chain link.</summary>
+    /// <param name="node">The <see cref="MemberAccessExpressionSyntax"/> or <see cref="ConditionalAccessExpressionSyntax"/>.</param>
+    /// <param name="leadToken">The '.'/'?' token that leads the link and carries its diagnostic location.</param>
+    /// <param name="afterToken">The token immediately before the member name (the binding '.').</param>
+    /// <param name="nameToken">The first token of the accessed member name.</param>
+    /// <returns><see langword="true"/> when the node is a chain link with a resolvable member name.</returns>
+    public static bool TryGetChainLink(SyntaxNode node, out SyntaxToken leadToken, out SyntaxToken afterToken, out SyntaxToken nameToken)
+    {
+        switch (node)
+        {
+            case MemberAccessExpressionSyntax member:
+            {
+                leadToken = member.OperatorToken;
+                afterToken = member.OperatorToken;
+                nameToken = member.Name.GetFirstToken();
+                return true;
+            }
+
+            case ConditionalAccessExpressionSyntax conditional when TryGetBindingDot(conditional.WhenNotNull, out afterToken, out nameToken):
+            {
+                leadToken = conditional.OperatorToken;
+                return true;
+            }
+
+            default:
+            {
+                leadToken = default;
+                afterToken = default;
+                nameToken = default;
+                return false;
+            }
+        }
+    }
+
     /// <summary>The control-flow statement kinds that carry a single embedded child statement.</summary>
     /// <returns>The handled control-flow kinds.</returns>
     public static ImmutableArray<SyntaxKind> EmbeddedStatementKinds() => ImmutableArrays.Of(
@@ -385,6 +480,53 @@ internal static class LayoutHelpers
         FixedStatementSyntax @fixed => @fixed.Statement,
         _ => null
     };
+
+    /// <summary>Walks a conditional-access continuation to the first member binding, unwrapping calls and indexers.</summary>
+    /// <param name="whenNotNull">The <see cref="ConditionalAccessExpressionSyntax.WhenNotNull"/> expression.</param>
+    /// <param name="dot">The binding '.' token.</param>
+    /// <param name="name">The first token of the bound member name.</param>
+    /// <returns><see langword="true"/> when a member binding is reached.</returns>
+    private static bool TryGetBindingDot(ExpressionSyntax whenNotNull, out SyntaxToken dot, out SyntaxToken name)
+    {
+        var expression = whenNotNull;
+        while (true)
+        {
+            switch (expression)
+            {
+                case MemberBindingExpressionSyntax binding:
+                {
+                    dot = binding.OperatorToken;
+                    name = binding.Name.GetFirstToken();
+                    return true;
+                }
+
+                case InvocationExpressionSyntax invocation:
+                {
+                    expression = invocation.Expression;
+                    continue;
+                }
+
+                case ElementAccessExpressionSyntax element:
+                {
+                    expression = element.Expression;
+                    continue;
+                }
+
+                case MemberAccessExpressionSyntax member:
+                {
+                    expression = member.Expression;
+                    continue;
+                }
+
+                default:
+                {
+                    dot = default;
+                    name = default;
+                    return false;
+                }
+            }
+        }
+    }
 
     /// <summary>Summarizes how a token relates to other tokens on its line.</summary>
     /// <param name="StartsLine">Whether the token is the first token on its line.</param>

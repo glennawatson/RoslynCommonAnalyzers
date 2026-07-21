@@ -1,6 +1,16 @@
 ; Shipped analyzer releases
 ; https://github.com/dotnet/roslyn-analyzers/blob/main/src/Microsoft.CodeAnalysis.Analyzers/ReleaseTrackingAnalyzers.Help.md
 
+## Release 3.36.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+PSH1022 | Allocations | Warning | Psh1022PreferEventArgsEmptyAnalyzer
+PSH1226 | Strings | Warning | Psh1226IterateStringWithoutCopyAnalyzer
+PSH1227 | Strings | Info | Psh1227PreferDedicatedCallAnalyzer
+
 ## Release 3.34.0
 
 ### New Rules

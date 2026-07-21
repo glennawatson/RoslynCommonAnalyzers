@@ -45,6 +45,7 @@ async, `PSH14xx` API selection.
 | [PSH1019](rules/PSH1019.md) | The range indexer on an array allocates a copy where a view would do. Code fix slices in place with `AsSpan` or `AsMemory`. |
 | [PSH1020](rules/PSH1020.md) | A multidimensional array is chosen where a jagged array would index on the CLR's fast path. |
 | [PSH1021](rules/PSH1021.md) | An explicit `GC.Collect` or `GC.WaitForPendingFinalizers` call forces collection the runtime tunes itself. |
+| [PSH1022](rules/PSH1022.md) | A parameterless `new EventArgs()` allocates where the shared `EventArgs.Empty` singleton would serve. Code fix uses the singleton. |
 
 ## Collections
 
@@ -107,6 +108,8 @@ async, `PSH14xx` API selection.
 | [PSH1223](rules/PSH1223.md) | A reused composite format string is re-parsed on every call. Code fix hoists it into a `static readonly CompositeFormat` field. |
 | [PSH1224](rules/PSH1224.md) | Bytes are converted to hex by building the string twice. Code fix rewrites the pair to `Convert.ToHexString`. |
 | [PSH1225](rules/PSH1225.md) | Bytes are decoded through a throwaway `char[]`. Code fix rewrites the pair to `Encoding.GetString`. |
+| [PSH1226](rules/PSH1226.md) | A string's `ToCharArray()` result is only iterated, allocating a throwaway `char[]`; iterate the string directly. Code fix drops the copy. |
+| [PSH1227](rules/PSH1227.md) | A cheaper equivalent exists — `string.CompareOrdinal` over `Compare(…, Ordinal)`, `Debug.Fail` over `Debug.Assert(false, …)`. Info. Code fix rewrites the call. |
 
 ## Concurrency (PerformanceSharp)
 
@@ -252,6 +255,11 @@ PSH1102, and PSH1100.
 | [SST1657](rules/SST1657.md) | Extension block documentation should reference a real parameter or type parameter. |
 | [SST1658](rules/SST1658.md) | Documentation prose repeats a word ("the the"). Code fix removes the repeat. |
 | [SST1659](rules/SST1659.md) | A comment has no text at all. Code fix removes it. |
+| [SST1660](rules/SST1660.md) | The `<param>` tags are not in parameter order. Code fix reorders them. Info. |
+| [SST1661](rules/SST1661.md) | A snippet uses `<c>`/`<code>` mismatched to single- vs multi-line content. Code fix swaps the tag. Info. |
+| [SST1662](rules/SST1662.md) | A thrown exception type has no `<exception>` documentation. Code fix adds the skeleton. Opt-in. |
+| [SST1663](rules/SST1663.md) | A `//` comment before a public member reads like a summary; use `///`. Code fix converts it. Opt-in. |
+| [SST1664](rules/SST1664.md) | A summary separates paragraphs with blank lines instead of `<para>`. Code fix wraps them. Opt-in. |
 
 ## Extensions
 
@@ -265,6 +273,8 @@ PSH1102, and PSH1100.
 | [SST1705](rules/SST1705.md) | A class mixes classic extension methods with extension blocks. |
 | [SST1706](rules/SST1706.md) | An extension block targets a broad receiver type such as `object` or `dynamic`. |
 | [SST1707](rules/SST1707.md) | Extension blocks in a type are not ordered by receiver type. Opt-in. |
+| [SST1708](rules/SST1708.md) | An extension method never uses its `this` receiver, so it need not be an extension. |
+| [SST1709](rules/SST1709.md) | A method in a `*Extensions` class whose first parameter lacks `this`. Code fix converts it to an extension block. Opt-in. |
 
 ## Layout
 
@@ -295,6 +305,15 @@ PSH1102, and PSH1100.
 | [SST1522](rules/SST1522.md) | A file has more code lines than the configured maximum, which defaults to 500. |
 | [SST1523](rules/SST1523.md) | A member has more code lines than the configured maximum, which defaults to 60. |
 | [SST1524](rules/SST1524.md) | A switch section has more code lines than the configured maximum, which defaults to 20. |
+| [SST1525](rules/SST1525.md) | A multi-statement `switch` section has no braces; the braces-on policy extends to switch sections. Code fix wraps it. |
+| [SST1526](rules/SST1526.md) | A wrapped binary expression places the operator inconsistently. Configurable (`before`/`after`, default before). Opt-in. |
+| [SST1527](rules/SST1527.md) | The `=>` of an expression-bodied member wraps inconsistently. Configurable. Opt-in. |
+| [SST1528](rules/SST1528.md) | The `=` of a wrapped initializer wraps inconsistently. Configurable. Opt-in. |
+| [SST1529](rules/SST1529.md) | A wrapped `?.`/`.` call chain places the break inconsistently. Configurable. Opt-in. |
+| [SST1530](rules/SST1530.md) | A newline sits between a type declaration and its base list. Code fix pulls the base list onto the declaration line. Opt-in. |
+| [SST1531](rules/SST1531.md) | A short object initializer is split across lines. Code fix collapses it when it fits. Opt-in. |
+| [SST1532](rules/SST1532.md) | A file mixes line endings. Configurable (`lf`/`crlf`, default lf). Opt-in. |
+| [SST1533](rules/SST1533.md) | A source file contains no code. Opt-in. |
 
 ## Maintainability
 
@@ -489,6 +508,24 @@ PSH1102, and PSH1100.
 | [SST2251](rules/SST2251.md) | A method call names type arguments that inference would supply. Code fix removes them. |
 | [SST2252](rules/SST2252.md) | A `switch` statement nested inside another `switch` statement's section; lift it into a method, a `switch` expression, or a lookup. |
 | [SST2254](rules/SST2254.md) | A target-typed `new()` is written where an explicit type reads more clearly; the code fix restores `new TypeName(...)`. Opt-in — the counterpart to SST2202's target-typed direction, so a team enables at most one. |
+| [SST2255](rules/SST2255.md) | A hand-written null-or-empty string test. Code fix uses `string.IsNullOrEmpty`. |
+| [SST2256](rules/SST2256.md) | An extension method called in static form. Code fix rewrites to instance form. Info. |
+| [SST2257](rules/SST2257.md) | A lambda block body that is a single `return`. Code fix uses an expression body. Info. |
+| [SST2258](rules/SST2258.md) | A redundant explicit delegate wrapper (`new EventHandler(M)`). Code fix drops it. Info. |
+| [SST2259](rules/SST2259.md) | A stray `;` after a type declaration. Code fix removes it. Info. |
+| [SST2260](rules/SST2260.md) | An `as` cast to a type the operand already has. Code fix removes it. Info. |
+| [SST2261](rules/SST2261.md) | `(x && !y) || (!x && y)` reimplements exclusive-or. Code fix uses `^` when the operands are side-effect-free. Info. |
+| [SST2262](rules/SST2262.md) | A raw string literal whose content needs no raw syntax. Code fix demotes it. Info. |
+| [SST2263](rules/SST2263.md) | An infinite loop whose body re-derives its stop condition. Code fix hoists the condition into the header. Info. |
+| [SST2264](rules/SST2264.md) | A numeric literal cast to an enum. Code fix names the member. |
+| [SST2265](rules/SST2265.md) | Consecutive fluent calls on one receiver can fold into a chain. Opt-in. |
+| [SST2266](rules/SST2266.md) | A local read exactly once can be inlined into that use. Opt-in. |
+| [SST2267](rules/SST2267.md) | Infinite loops written in mixed `while(true)`/`for(;;)` styles. Configurable. Opt-in. |
+| [SST2268](rules/SST2268.md) | Inconsistent `()` on object creation with an initializer. Configurable. Opt-in. |
+| [SST2269](rules/SST2269.md) | Inconsistent parentheses around a conditional's condition. Configurable. Opt-in. |
+| [SST2270](rules/SST2270.md) | Inconsistent explicit-vs-implicit array-creation type. Configurable. Opt-in. |
+| [SST2271](rules/SST2271.md) | `var`-vs-explicit local type per the configured preference. Configurable. Opt-in. |
+| [SST2272](rules/SST2272.md) | `[Flags]` member values written as mixed decimals and shifts. Configurable. Opt-in. |
 
 ## Design
 
@@ -526,6 +563,13 @@ conventions, and what a member exposes.
 | [SST2326](rules/SST2326.md) | An interface-typed value is narrowed to a concrete class that implements it — via a cast, `as`, or `is` test — coupling the code to one implementation. Info. |
 | [SST2327](rules/SST2327.md) | A type inspects its own runtime type against a specific class (`this is Derived`, `this as Derived`, or `this.GetType() == typeof(Derived)`) instead of dispatching through a virtual member. |
 | [SST2328](rules/SST2328.md) | A visible instance field or property hands out a raw native pointer (`IntPtr`/`UIntPtr`/`nint`/`nuint`), letting callers read, write, free, or corrupt the native memory the type owns. Keep it private behind a `SafeHandle`. |
+| [SST2329](rules/SST2329.md) | A `[Flags]` enum declares no zero-valued member. Code fix adds `None = 0`. |
+| [SST2330](rules/SST2330.md) | A `[Flags]` member is a numeric literal equal to a combination of others (`All = 7`). Code fix writes `A | B | C`. Info. |
+| [SST2331](rules/SST2331.md) | An enum leaves member values implicit, so their numbers depend on declaration order. Opt-in. |
+| [SST2332](rules/SST2332.md) | An auto-property's `private set` is only written during construction; make it get-only. |
+| [SST2333](rules/SST2333.md) | A generic comparison/equality contract is implemented without its non-generic counterpart. Opt-in. |
+| [SST2334](rules/SST2334.md) | A publicly visible type has no `[DebuggerDisplay]`. Opt-in. |
+| [SST2335](rules/SST2335.md) | Parts of a partial type disagree on the `static` modifier. Opt-in. |
 
 ## Correctness
 
@@ -610,6 +654,12 @@ Code that compiles and runs but does not do what it says.
 | [SST2488](rules/SST2488.md) | A catch logs the caught exception and then rethrows it with a bare `throw;`, so the same failure is recorded here and again where it is finally handled. |
 | [SST2489](rules/SST2489.md) | A relational comparison an integer operand's type already decides — an unsigned value `>= 0` (always true) or `< 0` (always false), or a value at its type's min/max edge such as `b <= 255` for a `byte`. |
 | [SST2490](rules/SST2490.md) | Two adjacent `try` statements in the same block repeat the same catch/finally handling, so the pair can collapse into one `try` wrapping both bodies. |
+| [SST2491](rules/SST2491.md) | A non-`async` method returns an awaitable from inside `using`/`try-finally`/`lock`, so the resource is torn down before the task completes. Code fix makes it `async`. |
+| [SST2492](rules/SST2492.md) | A null-guard throws on a parameter the signature declares may be null. |
+| [SST2493](rules/SST2493.md) | `== null`/`!= null` on an unconstrained generic `T`. Code fix uses `is null`/`is not null`. |
+| [SST2494](rules/SST2494.md) | A `??` whose left operand is a constant null, so the right is always taken. Code fix folds it. |
+| [SST2495](rules/SST2495.md) | A `[Flags]` combination includes an operand whose bits another already covers. Code fix removes it. |
+| [SST2496](rules/SST2496.md) | An explicit `Dispose`/`Close` on a resource an enclosing `using` already disposes. Code fix removes it. Info. |
 
 ## Testing
 
@@ -682,6 +732,7 @@ type, so a project that does not use the framework pays nothing.
 | [SST1318](rules/SST1318.md) | Overriding or implementing parameter names should match the base member. |
 | [SST1319](rules/SST1319.md) | An enumeration's type name holds an underscore or an all-capitals acronym. SST1300 owns its first character. |
 | [SST1320](rules/SST1320.md) | A method parameter's name is identical to its containing method's name. |
+| [SST1321](rules/SST1321.md) | A method whose name ends in `Async` returns nothing awaitable — the inverse of SST1317. Code fix (rename) drops the suffix. |
 
 ## Ordering
 
@@ -707,6 +758,8 @@ type, so a project that does not use the framework pays nothing.
 | [SST1217](rules/SST1217.md) | Using static directives should be ordered alphabetically. |
 | [SST1218](rules/SST1218.md) | Other members separate a method's overloads. Code fix moves the overload back beside its family. |
 | [SST1219](rules/SST1219.md) | A `switch` statement's `default` section is not last. Code fix moves it to the end. |
+| [SST1220](rules/SST1220.md) | An all-named argument list is in a different order than the parameters. Code fix reorders it to declaration order. Info. |
+| [SST1221](rules/SST1221.md) | `where` constraint clauses are not ordered to match the type-parameter list. Code fix reorders them. Info. |
 
 ## Readability
 
@@ -823,6 +876,7 @@ pages are retained only as historical aliases.
 | [SST1801](rules/SST1801.md) | A positional record parameter does not match the configured casing. |
 | [SST1802](rules/SST1802.md) | A record declares a settable instance property instead of an init-only property. |
 | [SST1803](rules/SST1803.md) | A record struct is not declared readonly. |
+| [SST1804](rules/SST1804.md) | A positional record has an empty `{ }` body where `;` would do. Code fix rewrites it. Info. |
 
 ## Spacing
 

@@ -185,6 +185,128 @@ internal static class LayoutRules
         "This case is {0} lines, over the maximum of {1}",
         SwitchSectionTooLongDescription);
 
+    /// <summary>SST1525 — a switch section holds several statements without wrapping them in braces.</summary>
+    public static readonly DiagnosticDescriptor SwitchSectionBraces = Create(
+        "SST1525",
+        "Switch sections with multiple statements should use braces",
+        "Wrap the body of this switch section in braces",
+        SwitchSectionBracesDescription);
+
+    /// <summary>SST1526 — a wrapped binary operator sits on the wrong side of its line break.</summary>
+    public static readonly DiagnosticDescriptor BinaryOperatorNewLine = CreateOptIn(
+        "SST1526",
+        "Wrapped binary operators should sit on the configured side of the line break",
+        "Place the binary operator '{0}' at the {1} of the wrapped line",
+        BinaryOperatorNewLineDescription);
+
+    /// <summary>SST1527 — a wrapped expression-body arrow sits on the wrong side of its line break.</summary>
+    public static readonly DiagnosticDescriptor ArrowTokenNewLine = CreateOptIn(
+        "SST1527",
+        "A wrapped expression-body arrow should sit on the configured side of the line break",
+        "Place '=>' at the {0} of the line break",
+        ArrowTokenNewLineDescription);
+
+    /// <summary>SST1528 — a wrapped initializer equals sign sits on the wrong side of its line break.</summary>
+    public static readonly DiagnosticDescriptor EqualsTokenNewLine = CreateOptIn(
+        "SST1528",
+        "A wrapped initializer '=' should sit on the configured side of the line break",
+        "Place '=' at the {0} of the line break",
+        EqualsTokenNewLineDescription);
+
+    /// <summary>SST1529 — a wrapped call-chain '.'/'?.' sits on the wrong side of its line break.</summary>
+    public static readonly DiagnosticDescriptor NullConditionalNewLine = CreateOptIn(
+        "SST1529",
+        "Wrapped call-chain operators should sit on the configured side of the line break",
+        "Place '{0}' at the {1} of the wrapped line",
+        NullConditionalNewLineDescription);
+
+    /// <summary>SST1530 — a type declaration's base list starts on its own line.</summary>
+    public static readonly DiagnosticDescriptor BaseListOnDeclarationLine = CreateOptIn(
+        "SST1530",
+        "A base list should not start on its own line",
+        "Place the base list on the same line as the type declaration",
+        BaseListOnDeclarationLineDescription);
+
+    /// <summary>SST1531 — a short initializer is split across several lines.</summary>
+    public static readonly DiagnosticDescriptor InitializerOnSingleLine = CreateOptIn(
+        "SST1531",
+        "A short initializer should be written on a single line",
+        "Collapse the initializer onto a single line",
+        InitializerOnSingleLineDescription);
+
+    /// <summary>SST1532 — the file mixes line-ending styles or uses the non-configured one.</summary>
+    public static readonly DiagnosticDescriptor ConsistentLineEndings = CreateOptIn(
+        "SST1532",
+        "Files should use consistent line endings",
+        "Use {0} line endings throughout the file",
+        ConsistentLineEndingsDescription);
+
+    /// <summary>SST1533 — a source file declares no type, only usings or comments.</summary>
+    public static readonly DiagnosticDescriptor FileWithoutCode = CreateOptIn(
+        "SST1533",
+        "A source file should declare at least one type",
+        "This file declares no type, only usings or comments",
+        FileWithoutCodeDescription);
+
+    /// <summary>The SwitchSectionBraces rule description.</summary>
+    private const string SwitchSectionBracesDescription =
+        "A switch section that carries more than one statement wraps them in a brace-delimited block. The braces give the "
+        + "section its own scope and a single closing point, so the reader sees where the case starts and ends without "
+        + "counting the labels between it and the next one. This is the switch-section form of the always-braces house "
+        + "style the control-flow rules apply to an if or a loop body.";
+
+    /// <summary>The BinaryOperatorNewLine rule description.</summary>
+    private const string BinaryOperatorNewLineDescription =
+        "When a binary expression is broken across lines, the operator has two homes: the end of the upper line or the "
+        + "start of the lower one. Either is fine; a file that mixes them is not, because the reader loses the thread of "
+        + "where one operand ends and the next begins. The whole wrapped chain is held to one placement. The default leads "
+        + "the continuation line with the operator; set 'stylesharp.binary_operator_new_line' to 'after' to trail the "
+        + "upper line instead.";
+
+    /// <summary>The ArrowTokenNewLine rule description.</summary>
+    private const string ArrowTokenNewLineDescription =
+        "An expression-bodied member whose body wraps onto its own line can keep the arrow trailing the signature or lead "
+        + "the body line with it. The default trails the signature, so the eye reaches the arrow before dropping to the "
+        + "expression; set 'stylesharp.arrow_token_new_line' to 'before' to lead the body line with the arrow instead.";
+
+    /// <summary>The EqualsTokenNewLine rule description.</summary>
+    private const string EqualsTokenNewLineDescription =
+        "A field or local whose initializer wraps onto its own line can keep the equals sign trailing the name or lead the "
+        + "value line with it. The default trails the name; set 'stylesharp.equals_token_new_line' to 'before' to lead the "
+        + "value line with the equals sign instead.";
+
+    /// <summary>The NullConditionalNewLine rule description.</summary>
+    private const string NullConditionalNewLineDescription =
+        "A fluent call chain that wraps reads as a column of steps, one member access per line, each '.' or '?.' aligned "
+        + "under the last. A step that shares a line with its neighbour, or an operator that trails the upper line while "
+        + "the rest lead the lower one, breaks the column. The default leads each continuation line with the operator; set "
+        + "'stylesharp.null_conditional_new_line' to 'after' to trail the upper line instead.";
+
+    /// <summary>The BaseListOnDeclarationLine rule description.</summary>
+    private const string BaseListOnDeclarationLineDescription =
+        "A base list pushed onto its own line separates a type from the very thing that says what it is, and leaves a lone "
+        + "colon hanging under the name. When the declaration and its bases fit within the line limit together, they belong "
+        + "on one line. A base list that only fits by wrapping is left alone.";
+
+    /// <summary>The InitializerOnSingleLine rule description.</summary>
+    private const string InitializerOnSingleLineDescription =
+        "An object or collection initializer short enough to fit on one line reads better on one line: the multi-line form "
+        + "spends four lines to say what one line says, and the extra lines carry no information. Only initializers that "
+        + "stay within the line limit once collapsed are reported, so a genuinely long initializer keeps its lines. This is "
+        + "the initializer counterpart to the rules that instead expand a collapsed statement block.";
+
+    /// <summary>The ConsistentLineEndings rule description.</summary>
+    private const string ConsistentLineEndingsDescription =
+        "Line endings that vary within a file, or differ from the project's chosen style, turn every diff into a wall of "
+        + "changed lines and make a merge fight over whitespace nobody typed. One style is enforced per file. The default "
+        + "is LF; set 'stylesharp.line_ending' to 'crlf' to require carriage-return/line-feed instead.";
+
+    /// <summary>The FileWithoutCode rule description.</summary>
+    private const string FileWithoutCodeDescription =
+        "A .cs file that carries usings or comments but declares no namespace, type, or top-level statement is a file that "
+        + "has lost its contents to a move or a delete and left its header behind. It compiles, so nothing complains, and "
+        + "it lingers as a dead entry in every file list. A genuinely empty file is left alone.";
+
     /// <summary>The LineTooLong rule description.</summary>
     private const string LineTooLongDescription =
         "A line that runs past the edge of the window is read by scrolling, and a line read by scrolling is read badly — the end of it "
@@ -218,4 +340,13 @@ internal static class LayoutRules
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
         DescriptorFactory.Create(id, title, messageFormat, "Layout", description);
+
+    /// <summary>Creates a disabled-by-default (opt-in) Layout descriptor whose help link points at the rule's docs page.</summary>
+    /// <param name="id">The diagnostic id.</param>
+    /// <param name="title">The rule title.</param>
+    /// <param name="messageFormat">The message format.</param>
+    /// <param name="description">The rule description.</param>
+    /// <returns>The descriptor.</returns>
+    private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
+        DescriptorFactory.CreateOptIn(id, title, messageFormat, "Layout", description);
 }

@@ -144,10 +144,34 @@ internal static partial class OrderingRules
         "The overloads of '{0}' are separated by other members; keep them together",
         OverloadsGroupedDescription);
 
+    /// <summary>SST1220 — an all-named argument list is supplied in a different order from the parameters.</summary>
+    public static readonly DiagnosticDescriptor NamedArgumentOrder = CreateInfo(
+        "SST1220",
+        "Named arguments should match the parameter declaration order",
+        "Order the named arguments to match the parameter declaration order",
+        NamedArgumentOrderDescription);
+
+    /// <summary>SST1221 — generic constraint clauses are not in type-parameter declaration order.</summary>
+    public static readonly DiagnosticDescriptor ConstraintClauseOrder = CreateInfo(
+        "SST1221",
+        "Constraint clauses should match the type-parameter declaration order",
+        "Order the constraint clauses to match the type-parameter declaration order",
+        ConstraintClauseOrderDescription);
+
     /// <summary>The OverloadsGrouped rule description.</summary>
     private const string OverloadsGroupedDescription =
         "Overloads are one idea with several entry points. Scattering them through a type means a reader who found one has no reason to "
         + "suspect the others exist, and a change to the family gets applied to the copy they happened to land on.";
+
+    /// <summary>The NamedArgumentOrder rule description.</summary>
+    private const string NamedArgumentOrderDescription =
+        "When every argument in a call is named, listing them in parameter-declaration order lets a reader line the call up against the signature. "
+        + "The rule stays silent unless all arguments are named, so reordering only moves names the compiler already binds by name.";
+
+    /// <summary>The ConstraintClauseOrder rule description.</summary>
+    private const string ConstraintClauseOrderDescription =
+        "The 'where' clauses of a generic declaration read most easily when they follow the order of the type parameters they constrain, "
+        + "matching how each parameter appears in the angle-bracket list.";
 
     /// <summary>Creates a Warning-severity Ordering descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
@@ -157,4 +181,21 @@ internal static partial class OrderingRules
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
         DescriptorFactory.Create(id, title, messageFormat, "Ordering", description);
+
+    /// <summary>Creates an enabled-by-default Info-severity Ordering descriptor — a readability nudge that never breaks a build.</summary>
+    /// <param name="id">The diagnostic id.</param>
+    /// <param name="title">The rule title.</param>
+    /// <param name="messageFormat">The message format.</param>
+    /// <param name="description">The rule description.</param>
+    /// <returns>The descriptor.</returns>
+    private static DiagnosticDescriptor CreateInfo(string id, string title, string messageFormat, string description) =>
+        new(
+            id,
+            title,
+            messageFormat,
+            "Ordering",
+            DiagnosticSeverity.Info,
+            isEnabledByDefault: true,
+            description: description,
+            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
 }

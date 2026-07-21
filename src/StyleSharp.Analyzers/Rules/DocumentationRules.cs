@@ -335,12 +335,96 @@ internal static class DocumentationRules
         "This documentation comment has no text; remove it or document the element",
         EmptyCommentDescription);
 
+    /// <summary>SST1660 — a member's <c>&lt;param&gt;</c> elements are not in the same order as the parameters.</summary>
+    public static readonly DiagnosticDescriptor ParameterDocumentationOrder = CreateInfo(
+        "SST1660",
+        "Parameter documentation should be ordered to match the parameters",
+        "The <param> elements for '{0}' are not in the same order as the parameters",
+        ParameterDocumentationOrderDescription);
+
+    /// <summary>SST1661 — a documentation code tag does not match the shape of its content.</summary>
+    public static readonly DiagnosticDescriptor CodeTagContent = CreateInfo(
+        "SST1661",
+        "Code documentation tag should match its content",
+        "This {0} snippet should use the '<{1}>' tag",
+        CodeTagContentDescription);
+
+    /// <summary>SST1662 — a directly-thrown exception type has no matching <c>&lt;exception&gt;</c> element (opt-in).</summary>
+    public static readonly DiagnosticDescriptor ThrownExceptionDocumentation = CreateOptIn(
+        "SST1662",
+        "Thrown exceptions should be documented",
+        "'{0}' throws an exception type that its documentation does not describe with an <exception> element",
+        ThrownExceptionDocumentationDescription);
+
+    /// <summary>SST1663 — a <c>//</c> comment above a public member reads like a summary (opt-in).</summary>
+    public static readonly DiagnosticDescriptor SummaryComment = CreateOptIn(
+        "SST1663",
+        "A summary comment should be a documentation comment",
+        "This '//' comment reads like a summary; use a '///' documentation comment",
+        SummaryCommentDescription);
+
+    /// <summary>SST1664 — a summary uses blank documentation lines instead of <c>&lt;para&gt;</c> elements (opt-in).</summary>
+    public static readonly DiagnosticDescriptor SummaryParagraph = CreateOptIn(
+        "SST1664",
+        "Summary paragraphs should use <para> elements",
+        "This summary separates paragraphs with blank documentation lines; wrap them in <para> elements",
+        SummaryParagraphDescription);
+
     /// <summary>The EmptyComment rule description.</summary>
     private const string EmptyCommentDescription =
         "A documentation comment with no text is worse than none at all: it satisfies every tool that checks whether a member is "
         + "documented, so the member is recorded as done and never comes back. The empty '///' is a leftover — a line someone meant to "
         + "write, or the remains of one they deleted. Ordinary '//' and '/* */' comments are SST1120's business; this rule is only about "
         + "documentation comments, so an empty one is reported exactly once.";
+
+    /// <summary>The ParameterDocumentationOrder rule description.</summary>
+    private const string ParameterDocumentationOrderDescription =
+        "When a member documents exactly its parameters, the <param> elements appear in the same order as the "
+        + "parameters they describe, so the signature and its documentation read together. This is checked only when the "
+        + "documented names already match the parameter set: a missing or unmatched <param> is a different concern.";
+
+    /// <summary>The CodeTagContent rule description.</summary>
+    private const string CodeTagContentDescription =
+        "The inline '<c>' tag is for a short snippet that sits on one line; the block '<code>' tag is for a sample "
+        + "spread over several lines. A one-line sample wrapped in '<code>', or a multi-line sample wrapped in '<c>', "
+        + "has the tag and the content disagreeing about which it is.";
+
+    /// <summary>The ThrownExceptionDocumentation rule description.</summary>
+    private const string ThrownExceptionDocumentationDescription =
+        "A documented member that throws describes each exception it can raise with an '<exception cref=\"...\">' "
+        + "element, so a caller learns what to catch without reading the body. Only exceptions constructed and thrown "
+        + "directly in the member body are considered; nothing is followed into called members or deferred closures. "
+        + "Off by default — a member with many throw sites can make this noisy.";
+
+    /// <summary>The SummaryComment rule description.</summary>
+    private const string SummaryCommentDescription =
+        "A '//' comment sitting on the line immediately above a public member, with no blank line between them, is "
+        + "describing that member — which is what a '/// <summary>' documentation comment is for, and only the "
+        + "documentation comment reaches the generated docs and IntelliSense. Off by default: not every such comment is a summary.";
+
+    /// <summary>The SummaryParagraph rule description.</summary>
+    private const string SummaryParagraphDescription =
+        "A '<summary>' that separates prose into paragraphs with blank documentation lines renders as one unbroken "
+        + "run of text, because the documentation pipeline treats the blank lines as insignificant whitespace. Wrapping "
+        + "each paragraph in a '<para>' element keeps the breaks in the generated output. Off by default.";
+
+    /// <summary>Creates an enabled-by-default Info-severity Documentation descriptor — a documentation nudge that is
+    /// weaker than a build-breaking Warning because the code still compiles and its meaning is clear.</summary>
+    /// <param name="id">The diagnostic id.</param>
+    /// <param name="title">The rule title.</param>
+    /// <param name="messageFormat">The message format.</param>
+    /// <param name="description">The rule description.</param>
+    /// <returns>The descriptor.</returns>
+    private static DiagnosticDescriptor CreateInfo(string id, string title, string messageFormat, string description) =>
+        new(
+            id,
+            title,
+            messageFormat,
+            "Documentation",
+            DiagnosticSeverity.Info,
+            isEnabledByDefault: true,
+            description: description,
+            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
 
     /// <summary>Creates a Warning-severity Documentation descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

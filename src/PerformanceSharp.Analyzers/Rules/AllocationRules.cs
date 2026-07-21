@@ -165,6 +165,19 @@ internal static class AllocationRules
         "Remove this 'GC.{0}' call; forcing collection stalls every thread and defeats the self-tuning garbage collector",
         AvoidForcedGarbageCollectionDescription);
 
+    /// <summary>PSH1022 — a parameterless <c>new EventArgs()</c> should reuse the shared <c>EventArgs.Empty</c> singleton.</summary>
+    public static readonly DiagnosticDescriptor PreferEventArgsEmpty = Create(
+        "PSH1022",
+        "Use EventArgs.Empty instead of allocating a new EventArgs",
+        "Use 'EventArgs.Empty' instead of allocating a new 'EventArgs'",
+        PreferEventArgsEmptyDescription);
+
+    /// <summary>The PSH1022 rule description.</summary>
+    private const string PreferEventArgsEmptyDescription =
+        "A parameterless 'new EventArgs()' carries no state, so every raise allocates an object indistinguishable from the shared "
+        + "'EventArgs.Empty' singleton the runtime exposes for exactly this; reusing it makes raising an event allocation-free. A derived "
+        + "EventArgs that carries data is a different type and is never reported.";
+
     /// <summary>The PSH1009 rule description.</summary>
     private const string UnboundedStackallocDescription =
         "A stackalloc whose length comes from data can blow the stack on adversarial or unexpected input; the resilient shape tests the "

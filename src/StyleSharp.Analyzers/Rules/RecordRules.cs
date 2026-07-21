@@ -40,6 +40,13 @@ internal static class RecordRules
         "Make record struct '{0}' readonly",
         "A record struct is declared 'readonly record struct' so the value type cannot mutate in place, matching how records are intended to be used.");
 
+    /// <summary>SST1804 — a positional record has an empty body where a semicolon would do.</summary>
+    public static readonly DiagnosticDescriptor EmptyPositionalRecordBody = CreateInfo(
+        "SST1804",
+        "Empty positional record bodies should be a semicolon",
+        "Replace the empty '{ }' body of this positional record with a semicolon",
+        "A positional record with an empty body adds nothing over a semicolon-terminated declaration; 'record Point(int X, int Y);' is the idiomatic form.");
+
     /// <summary>Creates a Warning-severity Records descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>
@@ -48,6 +55,23 @@ internal static class RecordRules
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
         DescriptorFactory.Create(id, title, messageFormat, "Records", description);
+
+    /// <summary>Creates an enabled-by-default Info-severity Records descriptor — an idiomatic nudge that never breaks a build.</summary>
+    /// <param name="id">The diagnostic id.</param>
+    /// <param name="title">The rule title.</param>
+    /// <param name="messageFormat">The message format.</param>
+    /// <param name="description">The rule description.</param>
+    /// <returns>The descriptor.</returns>
+    private static DiagnosticDescriptor CreateInfo(string id, string title, string messageFormat, string description) =>
+        new(
+            id,
+            title,
+            messageFormat,
+            "Records",
+            DiagnosticSeverity.Info,
+            isEnabledByDefault: true,
+            description: description,
+            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
 
     /// <summary>Creates a Records descriptor that is disabled by default (opt-in via .editorconfig).</summary>
     /// <param name="id">The diagnostic id.</param>

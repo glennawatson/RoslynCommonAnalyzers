@@ -618,3 +618,61 @@ SST2710 | Frameworks | Warning | Sst2710TimerStateHasChangedAnalyzer
 SST2711 | Frameworks | Warning | Sst2711AsyncVoidLifecycleOverrideAnalyzer
 SST2712 | Frameworks | Warning | Sst2712SetterlessInjectedPropertyAnalyzer
 SST2713 | Frameworks | Warning | Sst2713UnstoredDotNetObjectReferenceAnalyzer
+
+## Release 3.36.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+SST1220 | Ordering | Info | Sst1220NamedArgumentOrderAnalyzer
+SST1221 | Ordering | Info | Sst1221ConstraintClauseOrderAnalyzer
+SST1321 | Naming | Warning | MethodNamingAnalyzer
+SST1525 | Layout | Warning | Sst1525SwitchSectionBracesAnalyzer
+SST1526 | Layout | Disabled | Sst1526BinaryOperatorNewLineAnalyzer
+SST1527 | Layout | Disabled | Sst1527ArrowTokenNewLineAnalyzer
+SST1528 | Layout | Disabled | Sst1528EqualsTokenNewLineAnalyzer
+SST1529 | Layout | Disabled | Sst1529NullConditionalNewLineAnalyzer
+SST1530 | Layout | Disabled | Sst1530BaseListOnDeclarationLineAnalyzer
+SST1531 | Layout | Disabled | Sst1531InitializerOnSingleLineAnalyzer
+SST1532 | Layout | Disabled | Sst1532ConsistentLineEndingsAnalyzer
+SST1533 | Layout | Disabled | Sst1533FileWithoutCodeAnalyzer
+SST1660 | Documentation | Info | Sst1660ParameterDocumentationOrderAnalyzer
+SST1661 | Documentation | Info | Sst1661CodeTagContentAnalyzer
+SST1662 | Documentation | Disabled | Sst1662ThrownExceptionDocumentationAnalyzer
+SST1663 | Documentation | Disabled | Sst1663SummaryCommentAnalyzer
+SST1664 | Documentation | Disabled | Sst1664SummaryParagraphAnalyzer
+SST1708 | Extensions | Warning | Sst1708UnusedExtensionReceiverAnalyzer
+SST1709 | Extensions | Disabled | Sst1709AlmostExtensionMethodAnalyzer
+SST1804 | Records | Info | RecordAnalyzer
+SST2255 | ModernSyntax | Warning | Sst2255UseIsNullOrEmptyAnalyzer
+SST2256 | ModernSyntax | Info | Sst2256UseInstanceExtensionInvocationAnalyzer
+SST2257 | ModernSyntax | Info | Sst2257SimplifyLambdaBodyAnalyzer
+SST2258 | ModernSyntax | Info | Sst2258RemoveRedundantDelegateCreationAnalyzer
+SST2259 | ModernSyntax | Info | Sst2259RemoveStrayEmptyStatementAnalyzer
+SST2260 | ModernSyntax | Info | Sst2260RemoveRedundantAsCastAnalyzer
+SST2261 | ModernSyntax | Info | Sst2261UseExclusiveOrAnalyzer
+SST2262 | ModernSyntax | Info | Sst2262UseRegularStringLiteralAnalyzer
+SST2263 | ModernSyntax | Info | Sst2263HoistLoopConditionAnalyzer
+SST2264 | ModernSyntax | Warning | Sst2264UseNamedEnumMemberAnalyzer
+SST2265 | ModernSyntax | Disabled | Sst2265FoldFluentCallChainAnalyzer
+SST2266 | ModernSyntax | Disabled | Sst2266InlineSingleUseLocalAnalyzer
+SST2267 | ModernSyntax | Disabled | Sst2267InfiniteLoopStyleAnalyzer
+SST2268 | ModernSyntax | Disabled | Sst2268ObjectCreationParenthesesAnalyzer
+SST2269 | ModernSyntax | Disabled | Sst2269ConditionalConditionParenthesesAnalyzer
+SST2270 | ModernSyntax | Disabled | Sst2270ArrayCreationTypeStyleAnalyzer
+SST2271 | ModernSyntax | Disabled | Sst2271VarStyleAnalyzer
+SST2272 | ModernSyntax | Disabled | Sst2272EnumFlagValueStyleAnalyzer
+SST2329 | Design | Warning | Sst2329FlagsEnumMissingZeroValueAnalyzer
+SST2330 | Design | Info | Sst2330FlagsCombinationLiteralAnalyzer
+SST2331 | Design | Disabled | Sst2331ImplicitEnumValueAnalyzer
+SST2332 | Design | Warning | Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzer
+SST2333 | Design | Disabled | Sst2333NonGenericContractAnalyzer
+SST2334 | Design | Disabled | Sst2334MissingDebuggerDisplayAnalyzer
+SST2335 | Design | Disabled | Sst2335PartialStaticMismatchAnalyzer
+SST2491 | Correctness | Warning | Sst2491AwaitableReturnedFromTeardownAnalyzer
+SST2492 | Correctness | Warning | Sst2492GuardOnNullableParameterAnalyzer
+SST2493 | Correctness | Warning | Sst2493NullComparisonOnUnconstrainedGenericAnalyzer
+SST2494 | Correctness | Warning | Sst2494ConstantNullCoalesceAnalyzer
+SST2495 | Correctness | Warning | Sst2495RedundantFlagsOperandAnalyzer
+SST2496 | Correctness | Info | Sst2496RedundantDisposeAnalyzer

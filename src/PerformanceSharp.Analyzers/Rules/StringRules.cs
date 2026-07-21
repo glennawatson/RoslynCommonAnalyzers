@@ -192,6 +192,20 @@ internal static class StringRules
         "Use '{0}' instead of decoding into a char buffer and building the string from it",
         UseEncodingGetStringDescription);
 
+    /// <summary>PSH1226 — a <c>char[]</c> copy of a string is stored only to iterate it.</summary>
+    public static readonly DiagnosticDescriptor IterateStringWithoutCopy = Create(
+        "PSH1226",
+        "Iterate a string without copying it to a char array",
+        "'{0}' is copied to a char array that is only iterated; iterate the string directly",
+        IterateStringWithoutCopyDescription);
+
+    /// <summary>PSH1227 — a general-purpose call should be the purpose-built one that says the same thing more cheaply.</summary>
+    public static readonly DiagnosticDescriptor PreferDedicatedCall = CreateInfo(
+        "PSH1227",
+        "Use the purpose-built call",
+        "Use '{0}' instead of '{1}'",
+        PreferDedicatedCallDescription);
+
     /// <summary>The PSH1208 rule description.</summary>
     private const string UseUtf8LiteralDescription =
         "Encoding.UTF8.GetBytes on a constant string re-encodes and heap-allocates the same bytes on every call; a u8 literal (C# 11+) "
@@ -301,6 +315,24 @@ internal static class StringRules
         + "'Encoding.GetString' produces the string directly. The span-taking overload does not exist on every target, so it is suggested "
         + "only where it does.";
 
+    /// <summary>The PSH1226 rule description.</summary>
+    private const string IterateStringWithoutCopyDescription =
+        "'text.ToCharArray()' allocates and copies a 'char[]'. When that array is stored in a local whose every use is iteration — a "
+        + "'foreach', a 'Length' read, or an index read — the copy buys nothing, because a string is already indexable and enumerable and "
+        + "does both without a copy. Dropping the 'ToCharArray()' iterates the string in place. A local that is mutated ('chars[i] = ...'), "
+        + "reassigned, returned, or passed anywhere that wants a real array is left alone, because a string cannot stand in for it. This "
+        + "reports the stored-array shape; a 'ToCharArray()' handed straight to the thing that consumes it is a different, already-reported "
+        + "shape.";
+
+    /// <summary>The PSH1227 rule description.</summary>
+    private const string PreferDedicatedCallDescription =
+        "Some calls are a general-purpose API configured to do one particular thing, when a purpose-built call names that thing directly and "
+        + "does a little less work. 'string.Compare(a, b, StringComparison.Ordinal)' selects the ordinal comparison at run time and then "
+        + "compares; 'string.CompareOrdinal(a, b)' is that comparison with nothing to select. 'Debug.Assert(false, message)' tests a "
+        + "condition that is always false only to fail; 'Debug.Fail(message)' is the failure with no condition. The dedicated call is the "
+        + "clearer statement of intent and never slower. Comparisons of a 'string.Compare' result against zero are a separate, "
+        + "already-reported shape and are left to it.";
+
     /// <summary>Creates a Warning-severity Strings descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>
@@ -309,4 +341,24 @@ internal static class StringRules
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
         DescriptorFactory.Create(id, title, messageFormat, "Strings", description);
+
+    /// <summary>
+    /// Creates an enabled-by-default Info descriptor in the Strings category — a nudge toward the clearer, slightly
+    /// cheaper call where the general-purpose form is still correct, so a build-breaking Warning would be too strong.
+    /// </summary>
+    /// <param name="id">The diagnostic id.</param>
+    /// <param name="title">The rule title.</param>
+    /// <param name="messageFormat">The message format.</param>
+    /// <param name="description">The rule description.</param>
+    /// <returns>The descriptor.</returns>
+    private static DiagnosticDescriptor CreateInfo(string id, string title, string messageFormat, string description) =>
+        new(
+            id,
+            title,
+            messageFormat,
+            "Strings",
+            DiagnosticSeverity.Info,
+            isEnabledByDefault: true,
+            description: description,
+            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
 }

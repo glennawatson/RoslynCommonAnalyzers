@@ -151,6 +151,13 @@ internal static class NamingRules
         "Parameter '{0}' has the same name as its method; rename it so the call site stays readable",
         "A parameter whose name equals its method's name reads as a copy-paste slip and makes a named argument at the call site ambiguous. Rename it for its role; the match is case-sensitive.");
 
+    /// <summary>SST1321 — a method name ends with <c>Async</c> but its return type is not awaitable.</summary>
+    public static readonly DiagnosticDescriptor AsyncSuffixWithoutAwaitableReturn = Create(
+        "SST1321",
+        "Synchronous method names should not end with 'Async'",
+        "Rename '{0}' to drop the 'Async' suffix",
+        AsyncSuffixWithoutAwaitableReturnDescription);
+
     /// <summary>Every fixable naming id, for the shared rename code fix.</summary>
     public static readonly ImmutableArray<string> AllFixableIds = ImmutableArrays.Of(
         "SST1300",
@@ -166,7 +173,14 @@ internal static class NamingRules
         "SST1315",
         "SST1317",
         "SST1318",
-        "SST1319");
+        "SST1319",
+        "SST1321");
+
+    /// <summary>The AsyncSuffixWithoutAwaitableReturn rule description.</summary>
+    private const string AsyncSuffixWithoutAwaitableReturnDescription =
+        "A method whose name ends with 'Async' but whose return type is not awaitable — not Task, ValueTask, IAsyncEnumerable<T>, or a type exposing "
+        + "GetAwaiter — misleads a caller into awaiting a value that is already computed. Overrides and interface implementations are skipped, since their "
+        + "names follow the base member.";
 
     /// <summary>Creates a Warning-severity Naming descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

@@ -66,6 +66,31 @@ internal static class ExtensionRules
         "Order this extension block by its receiver type",
         "Extension blocks within a type are ordered by receiver type so they are easy to scan. Off by default — block ordering is a matter of preference.");
 
+    /// <summary>SST1708 — an extension method never uses its receiver parameter.</summary>
+    public static readonly DiagnosticDescriptor UnusedExtensionReceiver = Create(
+        "SST1708",
+        "Extension methods should use their receiver parameter",
+        "Extension method '{0}' never uses its receiver parameter '{1}'; it does not need to be an extension",
+        UnusedExtensionReceiverDescription);
+
+    /// <summary>SST1709 — a static helper in an '…Extensions' class omits the <c>this</c> modifier on its first parameter (opt-in).</summary>
+    public static readonly DiagnosticDescriptor AlmostExtensionMethod = CreateOptIn(
+        "SST1709",
+        "Static helpers in an extension container should be extensions",
+        "'{0}' looks like an extension but its first parameter has no 'this' modifier; make it an extension block member",
+        AlmostExtensionMethodDescription);
+
+    /// <summary>The UnusedExtensionReceiver rule description.</summary>
+    private const string UnusedExtensionReceiverDescription =
+        "An extension method exists to add behaviour to its receiver. A 'this'-parameter the body never reads gains nothing from extension syntax and reads "
+        + "as a plain static helper wearing the wrong hat; dropping 'this' is not offered automatically because it would break the instance-syntax call sites.";
+
+    /// <summary>The AlmostExtensionMethod rule description.</summary>
+    private const string AlmostExtensionMethodDescription =
+        "A public or internal static method in a class named '…Extensions' whose first parameter has no 'this' modifier reads as an extension that was never "
+        + "wired up. Off by default — legitimate plain helpers live in these classes too. The fix converts it into an 'extension(Receiver) { … }' block, the "
+        + "modern extension-member form.";
+
     /// <summary>Creates a Warning-severity Extensions descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>

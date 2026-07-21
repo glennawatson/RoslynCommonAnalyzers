@@ -130,4 +130,101 @@ internal static class LayoutFixHelpers
         changes.Add(new(TextSpan.FromBounds(header.Span.End, statement.SpanStart), newLine + ownerIndent + "{" + newLine + childIndent));
         changes.Add(new(new(statement.Span.End, 0), newLine + ownerIndent + "}"));
     }
+
+    /// <summary>Appends the inserts that wrap a switch section's statements in braces on their own lines.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="firstStatement">The first statement of the section body.</param>
+    /// <param name="lastStatement">The last statement of the section body.</param>
+    /// <param name="newLine">The document newline sequence.</param>
+    /// <param name="changes">The change set to append to.</param>
+    /// <returns><see langword="true"/> when the rewrite is safe; <see langword="false"/> when a comment blocks it.</returns>
+    public static bool TryAppendSwitchSectionBraceWrap(
+        SourceText text,
+        StatementSyntax firstStatement,
+        StatementSyntax lastStatement,
+        string newLine,
+        List<TextChange> changes)
+    {
+        var label = firstStatement.GetFirstToken().GetPreviousToken();
+        var labelIndent = IndentOfLine(text, label.SpanStart);
+        var bodyIndent = labelIndent + IndentStep;
+        if (!IsWhitespaceBetween(text, label.Span.End, firstStatement.SpanStart))
+        {
+            return false;
+        }
+
+        changes.Add(new(TextSpan.FromBounds(label.Span.End, firstStatement.SpanStart), newLine + labelIndent + "{" + newLine + bodyIndent));
+        changes.Add(new(new(lastStatement.Span.End, 0), newLine + labelIndent + "}"));
+        return true;
+    }
+
+    /// <summary>Moves the single adjacent line break to the chosen side of an operator or delimiter token.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="token">The token whose line-break placement is normalised.</param>
+    /// <param name="breakBefore">Whether the break currently precedes the token.</param>
+    /// <param name="wantBreakBefore">Whether the break should precede the token.</param>
+    /// <param name="newLine">The document newline sequence.</param>
+    /// <param name="changes">The change set to append to.</param>
+    /// <returns><see langword="true"/> when the two surrounding gaps are clean whitespace and were rewritten.</returns>
+    public static bool TryAppendTokenBreakMove(
+        SourceText text,
+        SyntaxToken token,
+        bool breakBefore,
+        bool wantBreakBefore,
+        string newLine,
+        List<TextChange> changes)
+    {
+        var previous = token.GetPreviousToken();
+        var next = token.GetNextToken();
+        if (previous.IsKind(SyntaxKind.None) || next.IsKind(SyntaxKind.None))
+        {
+            return false;
+        }
+
+        var beforeStart = previous.Span.End;
+        var afterEnd = next.SpanStart;
+        if (!IsWhitespaceBetween(text, beforeStart, token.SpanStart) || !IsWhitespaceBetween(text, token.Span.End, afterEnd))
+        {
+            return false;
+        }
+
+        // The operand that currently begins a line fixes the continuation indent the token inherits.
+        var continuationIndent = IndentOfLine(text, breakBefore ? token.SpanStart : next.SpanStart);
+        var breakGap = newLine + continuationIndent;
+        changes.Add(new(TextSpan.FromBounds(beforeStart, token.SpanStart), wantBreakBefore ? breakGap : " "));
+        changes.Add(new(TextSpan.FromBounds(token.Span.End, afterEnd), wantBreakBefore ? " " : breakGap));
+        return true;
+    }
+
+    /// <summary>Moves the single adjacent line break to the chosen side of a member-access chain link.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="leadToken">The '.'/'?' token that leads the link.</param>
+    /// <param name="afterToken">The binding token immediately before the member name.</param>
+    /// <param name="nameToken">The first token of the accessed member name.</param>
+    /// <param name="breakBefore">Whether the break currently precedes the link.</param>
+    /// <param name="wantBreakBefore">Whether the break should precede the link.</param>
+    /// <param name="changes">The change set to append to.</param>
+    /// <returns><see langword="true"/> when the surrounding gaps are clean whitespace and were rewritten.</returns>
+    public static bool TryAppendChainLinkBreakMove(
+        SourceText text,
+        SyntaxToken leadToken,
+        SyntaxToken afterToken,
+        SyntaxToken nameToken,
+        bool breakBefore,
+        bool wantBreakBefore,
+        List<TextChange> changes)
+    {
+        var beforeStart = leadToken.GetPreviousToken().Span.End;
+        var afterEnd = nameToken.SpanStart;
+        if (!IsWhitespaceBetween(text, beforeStart, leadToken.SpanStart) || !IsWhitespaceBetween(text, afterToken.Span.End, afterEnd))
+        {
+            return false;
+        }
+
+        var continuationIndent = IndentOfLine(text, breakBefore ? leadToken.SpanStart : nameToken.SpanStart);
+        var breakGap = DetectNewLine(text) + continuationIndent;
+        changes.Add(new(TextSpan.FromBounds(beforeStart, leadToken.SpanStart), wantBreakBefore ? breakGap : string.Empty));
+        changes.Add(new(TextSpan.FromBounds(afterToken.Span.End, afterEnd), wantBreakBefore ? string.Empty : breakGap));
+        return true;
+    }
 }

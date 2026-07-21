@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.Text;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -9,10 +11,11 @@ namespace StyleSharp.Analyzers;
 /// <c>record</c> / <c>record struct</c> declaration: a record class that is
 /// neither sealed nor abstract (SST1800, opt-in), a positional parameter whose
 /// casing does not match the configured convention (SST1801), a settable instance
-/// property where <c>init</c> is expected (SST1802), and a record struct that is
-/// not declared <c>readonly</c> (SST1803). Records are uncommon, so the registered
-/// callback fires rarely; the configurable casing is read only when a declaration
-/// actually has positional parameters.
+/// property where <c>init</c> is expected (SST1802), a record struct that is
+/// not declared <c>readonly</c> (SST1803), and a positional record whose empty
+/// <c>{ }</c> body could be a semicolon (SST1804). Records are uncommon, so the
+/// registered callback fires rarely; the configurable casing is read only when a
+/// declaration actually has positional parameters.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class RecordAnalyzer : DiagnosticAnalyzer
@@ -28,7 +31,8 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         RecordRules.SealRecordClass,
         RecordRules.PositionalParameterNaming,
         RecordRules.InitOnlyProperty,
-        RecordRules.ReadonlyRecordStruct);
+        RecordRules.ReadonlyRecordStruct,
+        RecordRules.EmptyPositionalRecordBody);
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -123,6 +127,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         CheckSealedClass(context, record);
         CheckPositionalParameters(context, record, parameterConventionCache);
         CheckProperties(context, record);
+        CheckEmptyPositionalBody(context, record);
     }
 
     /// <summary>Applies the record-struct rules to a single record-struct declaration.</summary>
@@ -134,6 +139,24 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         CheckReadonlyStruct(context, record);
         CheckPositionalParameters(context, record, parameterConventionCache);
         CheckProperties(context, record);
+        CheckEmptyPositionalBody(context, record);
+    }
+
+    /// <summary>Reports SST1804 when a positional record has an empty <c>{ }</c> body that a semicolon could replace.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="record">The record declaration.</param>
+    private static void CheckEmptyPositionalBody(SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
+    {
+        if (record.ParameterList is null
+            || record.Members.Count != 0
+            || record.OpenBraceToken.IsKind(SyntaxKind.None)
+            || record.CloseBraceToken.IsKind(SyntaxKind.None))
+        {
+            return;
+        }
+
+        var span = TextSpan.FromBounds(record.OpenBraceToken.SpanStart, record.CloseBraceToken.Span.End);
+        context.ReportDiagnostic(DiagnosticHelper.Create(RecordRules.EmptyPositionalRecordBody, record.SyntaxTree, span));
     }
 
     /// <summary>Reports SST1803 when a record struct is not declared readonly.</summary>

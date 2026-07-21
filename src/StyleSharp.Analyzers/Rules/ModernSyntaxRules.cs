@@ -364,6 +364,268 @@ internal static class ModernSyntaxRules
         "Name the created type '{0}' in this object creation instead of a target-typed 'new'",
         UseExplicitObjectCreationTypeDescription);
 
+    /// <summary>SST2255 — a null-or-empty string test is written out by hand.</summary>
+    public static readonly DiagnosticDescriptor UseIsNullOrEmpty = Create(
+        "SST2255",
+        "Use string.IsNullOrEmpty",
+        "Replace this hand-written null-or-empty test with 'string.IsNullOrEmpty'",
+        UseIsNullOrEmptyDescription);
+
+    /// <summary>SST2256 — a static-form extension call reads better in instance form.</summary>
+    public static readonly DiagnosticDescriptor UseInstanceExtensionInvocation = CreateInfo(
+        "SST2256",
+        "Call extension methods in instance form",
+        "Call '{0}' in instance form on its first argument",
+        UseInstanceExtensionInvocationDescription);
+
+    /// <summary>SST2257 — a lambda block body is a single return statement.</summary>
+    public static readonly DiagnosticDescriptor SimplifyLambdaBody = CreateInfo(
+        "SST2257",
+        "Keep single-return lambdas expression-shaped",
+        "Rewrite this lambda's block body as an expression body",
+        SimplifyLambdaBodyDescription);
+
+    /// <summary>SST2258 — a delegate is wrapped in an explicit delegate creation the target already supplies.</summary>
+    public static readonly DiagnosticDescriptor RemoveRedundantDelegateCreation = CreateInfo(
+        "SST2258",
+        "Drop a redundant delegate wrapper",
+        "Remove the explicit '{0}' wrapper and use the method group directly",
+        RemoveRedundantDelegateCreationDescription);
+
+    /// <summary>SST2259 — a stray empty statement follows a declaration.</summary>
+    public static readonly DiagnosticDescriptor RemoveStrayEmptyStatement = CreateInfo(
+        "SST2259",
+        "Remove a stray semicolon after a declaration",
+        "Remove this stray ';' after the declaration",
+        RemoveStrayEmptyStatementDescription);
+
+    /// <summary>SST2260 — an <c>as</c> cast targets a type the operand already has.</summary>
+    public static readonly DiagnosticDescriptor RemoveRedundantAsCast = CreateInfo(
+        "SST2260",
+        "Remove an 'as' cast to a type the value already has",
+        "Remove the 'as {0}' cast; the value already has that type",
+        RemoveRedundantAsCastDescription);
+
+    /// <summary>SST2261 — an exclusive-or is spelled out with <c>&amp;&amp;</c>/<c>||</c> (or <c>&amp;</c>/<c>|</c>).</summary>
+    public static readonly DiagnosticDescriptor UseExclusiveOr = CreateInfo(
+        "SST2261",
+        "Use the exclusive-or operator",
+        "Replace this exclusive-or reimplementation with '^'",
+        UseExclusiveOrDescription);
+
+    /// <summary>SST2262 — a raw string literal carries no content raw syntax is for.</summary>
+    public static readonly DiagnosticDescriptor UseRegularStringLiteral = CreateInfo(
+        "SST2262",
+        "Use a regular string literal",
+        "Write this raw string literal as a regular \"...\" literal",
+        UseRegularStringLiteralDescription);
+
+    /// <summary>SST2263 — an infinite loop guards its body with a condition that belongs in the header.</summary>
+    public static readonly DiagnosticDescriptor HoistLoopCondition = CreateInfo(
+        "SST2263",
+        "Hoist a loop's guard condition into its header",
+        "Move this loop's guard condition into a 'while' header",
+        HoistLoopConditionDescription);
+
+    /// <summary>SST2264 — a numeric literal is cast to an enum instead of naming the member.</summary>
+    public static readonly DiagnosticDescriptor UseNamedEnumMember = Create(
+        "SST2264",
+        "Name the enum member instead of casting a number",
+        "Replace the numeric cast with '{0}'",
+        UseNamedEnumMemberDescription);
+
+    /// <summary>SST2265 — consecutive fluent calls on one receiver can fold into a chain.</summary>
+    public static readonly DiagnosticDescriptor FoldFluentCallChain = CreateOptIn(
+        "SST2265",
+        "Fold consecutive fluent calls into one chain",
+        "Fold these consecutive calls on '{0}' into a single fluent chain",
+        FoldFluentCallChainDescription);
+
+    /// <summary>SST2266 — a local read exactly once can be inlined into that use.</summary>
+    public static readonly DiagnosticDescriptor InlineSingleUseLocal = CreateOptIn(
+        "SST2266",
+        "Inline a local that is read once",
+        "Inline '{0}' into its single use",
+        InlineSingleUseLocalDescription);
+
+    /// <summary>SST2267 — an infinite loop is written in the non-configured style.</summary>
+    public static readonly DiagnosticDescriptor NormalizeInfiniteLoopStyle = CreateOptIn(
+        "SST2267",
+        "Write infinite loops in one consistent style",
+        "Write this infinite loop as '{0}'",
+        NormalizeInfiniteLoopStyleDescription);
+
+    /// <summary>SST2268 — an object creation with an initializer carries the non-configured parentheses style.</summary>
+    public static readonly DiagnosticDescriptor NormalizeObjectCreationParentheses = CreateOptIn(
+        "SST2268",
+        "Keep object-creation parentheses consistent",
+        "Write this object creation in the configured '{0}' parentheses style",
+        NormalizeObjectCreationParenthesesDescription);
+
+    /// <summary>SST2269 — a conditional condition carries the non-configured parentheses style.</summary>
+    public static readonly DiagnosticDescriptor NormalizeConditionalConditionParentheses = CreateOptIn(
+        "SST2269",
+        "Keep conditional-condition parentheses consistent",
+        "Write this conditional condition in the configured '{0}' parentheses style",
+        NormalizeConditionalConditionParenthesesDescription);
+
+    /// <summary>SST2270 — an array creation names its element type in the non-configured style.</summary>
+    public static readonly DiagnosticDescriptor NormalizeArrayCreationTypeStyle = CreateOptIn(
+        "SST2270",
+        "Keep array-creation element types consistent",
+        "Write this array creation with an {0} element type",
+        NormalizeArrayCreationTypeStyleDescription);
+
+    /// <summary>SST2271 — a local (or foreach) variable type does not match the configured var style.</summary>
+    public static readonly DiagnosticDescriptor NormalizeVarStyle = CreateOptIn(
+        "SST2271",
+        "Keep the var-versus-explicit choice consistent",
+        "Use '{0}' for this variable declaration",
+        NormalizeVarStyleDescription);
+
+    /// <summary>SST2272 — a Flags-enum single-bit member value is written in the non-configured style.</summary>
+    public static readonly DiagnosticDescriptor NormalizeEnumFlagValueStyle = CreateOptIn(
+        "SST2272",
+        "Keep Flags-enum values in one consistent style",
+        "Write this flag value as '{0}'",
+        NormalizeEnumFlagValueStyleDescription);
+
+    /// <summary>The SST2255 rule description.</summary>
+    private const string UseIsNullOrEmptyDescription =
+        "A disjunction such as 'value == null || value.Length == 0' — or the '== \"\"' variant, or the negated "
+        + "'value != null && value.Length != 0' — is the null-or-empty test 'string.IsNullOrEmpty' already names. "
+        + "The helper reads at a glance, evaluates the value once instead of twice, and cannot get the short-circuit "
+        + "order wrong. Reported only when the checked value is a side-effect-free string expression, so folding the "
+        + "two reads into one changes nothing.";
+
+    /// <summary>The SST2256 rule description.</summary>
+    private const string UseInstanceExtensionInvocationDescription =
+        "An extension method called in static form — 'Type.Extension(receiver, arg)' — hides that 'receiver' is the "
+        + "value the method extends. Calling it as 'receiver.Extension(arg)' puts the receiver where the eye expects "
+        + "it and lets the call chain read left to right. Reported only when the first argument binds to the "
+        + "extension's 'this' parameter and the instance form provably resolves to the same method, which the fix "
+        + "confirms before it is offered.";
+
+    /// <summary>The SST2257 rule description.</summary>
+    private const string SimplifyLambdaBodyDescription =
+        "A lambda whose block body is a single 'return expr;' — 'x => { return expr; }' — wraps one expression in a "
+        + "block, a return keyword, and a pair of braces. The expression-bodied form 'x => expr' says the same thing "
+        + "with none of the ceremony. The rewrite is pure syntax and never changes what the lambda computes.";
+
+    /// <summary>The SST2258 rule description.</summary>
+    private const string RemoveRedundantDelegateCreationDescription =
+        "Subscribing or assigning with 'Changed += new EventHandler(OnChanged)' wraps a method group in an explicit "
+        + "delegate creation the target type already supplies. 'Changed += OnChanged' converts the same method group "
+        + "to the same delegate with nothing spelled out. Reported only when the wrapped argument is a method group "
+        + "and dropping the wrapper provably binds to the same delegate, which the fix confirms before it is offered.";
+
+    /// <summary>The SST2259 rule description.</summary>
+    private const string RemoveStrayEmptyStatementDescription =
+        "A declaration that already ends in a brace body — 'class Foo { };' or 'void M() { };' — can carry a trailing "
+        + "';' the grammar permits but nothing needs. The semicolon states an empty statement that does nothing and "
+        + "only invites the reader to wonder what it is for. The fix removes it and keeps the surrounding trivia.";
+
+    /// <summary>The SST2260 rule description.</summary>
+    private const string RemoveRedundantAsCastDescription =
+        "An 'as' conversion to a type the operand already has — 'value as string' where 'value' is statically a "
+        + "'string' — can never return null and never changes the value or its type. It only adds a conversion the "
+        + "reader has to check. The fix drops the 'as' and keeps the operand. Reported only when the operand's static "
+        + "type is exactly the target type.";
+
+    /// <summary>The SST2261 rule description.</summary>
+    private const string UseExclusiveOrDescription =
+        "'(x && !y) || (!x && y)' — and the bitwise '(x & !y) | (!x & y)' — is exclusive-or written the long way, "
+        + "evaluating each operand twice and asking the reader to confirm the two conjuncts are mirror images. "
+        + "'x ^ y' says it once. Reported only when 'x' and 'y' are side-effect-free boolean expressions, because the "
+        + "long form reads each of them twice and '^' reads each once; a value with a side effect is left alone.";
+
+    /// <summary>The SST2262 rule description.</summary>
+    private const string UseRegularStringLiteralDescription =
+        "A single-line raw string literal whose content holds no quote and no backslash — '\"\"\"plain text\"\"\"' — "
+        + "buys nothing over a regular '\"plain text\"' literal, which is what raw syntax exists to avoid escaping. "
+        + "The regular literal is shorter and needs no escapes because the content has none to escape. The inverse of "
+        + "promoting a literal to raw syntax when doubled quotes or line breaks are what make raw pay off.";
+
+    /// <summary>The SST2263 rule description.</summary>
+    private const string HoistLoopConditionDescription =
+        "'while (true)' and 'for (;;)' whose body is 'if (cond) { work } else break;' — or a leading 'if (!cond) break;' "
+        + "guard before the work — spend the loop header on 'true' and then re-derive the real stopping condition "
+        + "inside the body. Moving that condition into the header, 'while (cond) { work }', puts the loop's exit where "
+        + "a reader looks for it. Reported only for the condition-hoist shape; an empty guarded body or an else-only "
+        + "guard is left to the rules that own those shapes.";
+
+    /// <summary>The SST2264 rule description.</summary>
+    private const string UseNamedEnumMemberDescription =
+        "A numeric literal cast to an enum — '(RegexOptions)1' — hides which member it means behind its underlying "
+        + "value, so the reader has to know the enum's numbering to read the code. Naming the member, "
+        + "'RegexOptions.IgnoreCase', states the intent and survives a renumbering of the enum. Reported only when the "
+        + "literal resolves to exactly one named member; a value that combines members or names none is left alone.";
+
+    /// <summary>The SST2265 rule description.</summary>
+    private const string FoldFluentCallChainDescription =
+        "Two or more consecutive statements that each call a member on the same receiver and get that receiver "
+        + "back — 'builder.Append(a); builder.Append(b);' — are one fluent chain written as separate statements. "
+        + "Folding them into 'builder.Append(a).Append(b);' names the receiver once and reads as the single "
+        + "operation it is. This is a house-style preference, so it ships disabled; reported only when the receiver "
+        + "is a side-effect-free name and every call in the run returns that receiver's own type, so the chain binds "
+        + "the same way and the receiver is evaluated once.";
+
+    /// <summary>The SST2266 rule description.</summary>
+    private const string InlineSingleUseLocalDescription =
+        "A local that is assigned once and read exactly once holds a name the reader must carry to a single "
+        + "downstream use. Inlining the initializer into that use removes the hop. Reported only when the local has "
+        + "one initializer and one read, the initializer has no side effect that inlining would move or duplicate, "
+        + "and the local is neither captured, aliased by 'ref'/'out', nor referenced by name elsewhere. Off by "
+        + "default because a well-named intermediate local is often kept deliberately for readability.";
+
+    /// <summary>The SST2267 rule description.</summary>
+    private const string NormalizeInfiniteLoopStyleDescription =
+        "A loop meant to run forever is written two ways — 'for (;;)' and 'while (true)' — and a codebase that "
+        + "mixes them makes the reader notice the difference where there is none. This rule normalizes to one form, "
+        + "chosen by 'stylesharp.infinite_loop_style' ('while' by default, or 'for'). Off by default because it is "
+        + "a pure preference; the two forms compile identically.";
+
+    /// <summary>The SST2268 rule description.</summary>
+    private const string NormalizeObjectCreationParenthesesDescription =
+        "An object creation that carries an initializer can be written with or without the empty argument "
+        + "parentheses — 'new T() { ... }' or 'new T { ... }'. This rule normalizes to one form, chosen by "
+        + "'stylesharp.object_creation_parentheses' ('omit' by default, or 'include'). Only creations that already "
+        + "have an initializer are considered; a creation with real constructor arguments is never touched. Off by "
+        + "default because it is a pure preference.";
+
+    /// <summary>The SST2269 rule description.</summary>
+    private const string NormalizeConditionalConditionParenthesesDescription =
+        "The condition of a conditional expression is sometimes wrapped in parentheses — '(ready) ? a : b' — and "
+        + "sometimes not — 'ready ? a : b'. When the condition is a single simple token the parentheses add "
+        + "nothing. This rule normalizes to one form, chosen by 'stylesharp.conditional_condition_parentheses' "
+        + "('omit_when_single_token' by default, or 'include'). Off by default because it is a pure preference.";
+
+    /// <summary>The SST2270 rule description.</summary>
+    private const string NormalizeArrayCreationTypeStyleDescription =
+        "An array creation with an initializer can name its element type — 'new string[] { a, b }' — or let the "
+        + "compiler infer it — 'new[] { a, b }'. This rule normalizes to one form, chosen by "
+        + "'stylesharp.array_creation_type_style' ('explicit', 'implicit', or 'implicit_when_obvious'). It governs "
+        + "only the element-type axis and never suggests a collection expression. Reported only when the rewritten "
+        + "form binds to the same array type, which the fix confirms before it is offered. Off by default because "
+        + "it is a pure preference.";
+
+    /// <summary>The SST2271 rule description.</summary>
+    private const string NormalizeVarStyleDescription =
+        "A local declaration and a 'foreach' variable can name their type explicitly or use 'var'. This rule "
+        + "normalizes to one choice, set by 'stylesharp.use_var' ('always', 'never', or 'when_obvious', where "
+        + "'obvious' means the type is already named on the right-hand side by a 'new', a cast, or a literal). "
+        + "Reported only when the type can be resolved and the rewritten declaration binds to the same type, which "
+        + "the fix confirms. Off by default because whether 'var' or the type reads better is a house-style call.";
+
+    /// <summary>The SST2272 rule description.</summary>
+    private const string NormalizeEnumFlagValueStyleDescription =
+        "The single-bit members of a '[Flags]' enum can be written as decimal values — '4' — or as bit shifts — "
+        + "'1 << 2'. A codebase that mixes them obscures which members are single flags. This rule normalizes the "
+        + "single-bit members to one form, chosen by 'stylesharp.enum_flag_value_style' ('shift' by default, or "
+        + "'decimal'). Only members whose constant value is a single set bit — a power of two, or zero — are "
+        + "touched; a combined value such as '3' or 'Read | Write' is left alone. Off by default because it is a "
+        + "pure preference.";
+
     /// <summary>The SST2243 rule description.</summary>
     private const string UseRawStringLiteralDescription =
         "A verbatim string full of doubled-quote escapes, or one spanning multiple lines, reads with less escape noise as a raw string "
@@ -450,6 +712,26 @@ internal static class ModernSyntaxRules
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
         DescriptorFactory.Create(id, title, messageFormat, "ModernSyntax", description);
+
+    /// <summary>
+    /// Creates an enabled-by-default Info-severity ModernSyntax descriptor — a modernization nudge where the code
+    /// still compiles and runs correctly, so a build-breaking Warning would be too strong.
+    /// </summary>
+    /// <param name="id">The diagnostic id.</param>
+    /// <param name="title">The rule title.</param>
+    /// <param name="messageFormat">The message format.</param>
+    /// <param name="description">The rule description.</param>
+    /// <returns>The descriptor.</returns>
+    private static DiagnosticDescriptor CreateInfo(string id, string title, string messageFormat, string description) =>
+        new(
+            id,
+            title,
+            messageFormat,
+            "ModernSyntax",
+            DiagnosticSeverity.Info,
+            isEnabledByDefault: true,
+            description: description,
+            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
 
     /// <summary>Creates a ModernSyntax descriptor that is disabled by default (opt-in via .editorconfig).</summary>
     /// <param name="id">The diagnostic id.</param>

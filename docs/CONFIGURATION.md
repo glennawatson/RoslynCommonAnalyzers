@@ -109,6 +109,17 @@ Some rules expose options. Current options:
 | `file_header_template` | [SST1633](rules/SST1633.md) | header text (`\n` separates lines, `{fileName}` substituted), or `unset` | `unset` |
 | `stylesharp.file_naming_convention` | [SST1402](rules/SST1402.md) / [SST1649](rules/SST1649.md) code fixes | `braces` (`Widget{T}.cs`), `metadata` (`Widget`1.cs`) | `braces` |
 | `stylesharp.SST2438.minimum_level` | [SST2438](rules/SST2438.md) | `trace`, `debug`, `information`, `warning`, `error`, `critical` | `error` |
+| `stylesharp.binary_operator_new_line` | [SST1526](rules/SST1526.md) | `before`, `after` | `before` |
+| `stylesharp.arrow_token_new_line` | [SST1527](rules/SST1527.md) | `after`, `before` | `after` |
+| `stylesharp.equals_token_new_line` | [SST1528](rules/SST1528.md) | `after`, `before` | `after` |
+| `stylesharp.null_conditional_new_line` | [SST1529](rules/SST1529.md) | `before`, `after` | `before` |
+| `stylesharp.line_ending` | [SST1532](rules/SST1532.md) | `lf`, `crlf` | `lf` |
+| `stylesharp.infinite_loop_style` | [SST2267](rules/SST2267.md) | `while`, `for` | `while` |
+| `stylesharp.object_creation_parentheses` | [SST2268](rules/SST2268.md) | `omit`, `include` | `omit` |
+| `stylesharp.conditional_condition_parentheses` | [SST2269](rules/SST2269.md) | `omit_when_single_token`, `include` | `omit_when_single_token` |
+| `stylesharp.array_creation_type_style` | [SST2270](rules/SST2270.md) | `explicit`, `implicit`, `implicit_when_obvious` | `implicit_when_obvious` |
+| `stylesharp.use_var` | [SST2271](rules/SST2271.md) | `always`, `never`, `when_obvious` | `when_obvious` |
+| `stylesharp.enum_flag_value_style` | [SST2272](rules/SST2272.md) | `shift`, `decimal` | `shift` |
 | `securitysharp.SES1003.iterations` | [SES1003](rules/SES1003.md) | positive integer (minimum accepted PBKDF2 iteration count) | `100000` |
 | `securitysharp.SES1403.maxdepth` | [SES1403](rules/SES1403.md) | positive integer (highest accepted `System.Text.Json` `MaxDepth`) | `64` |
 | `securitysharp.SES1701.sanitizers` | [SES1701](rules/SES1701.md) | comma-separated method names that sanitize HTML (a value wrapped in one is not reported) | (none) |

@@ -219,6 +219,48 @@ public class ModernSyntaxPreferenceAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a get-only property's sole block-bodied getter is left to the whole-member expression-body rule.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task GetOnlyPropertyDefersToWholeMemberExpressionBodyAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  private int _value;
+
+                                  public int Value
+                                  {
+                                      get { return _value; }
+                                  }
+                              }
+                              """;
+        var test = CreateNet80Test(Source, Source);
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a get-only indexer's sole block-bodied getter is left to the whole-member expression-body rule.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task GetOnlyIndexerDefersToWholeMemberExpressionBodyAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  private readonly int[] _items = new int[4];
+
+                                  public int this[int index]
+                                  {
+                                      get { return _items[index]; }
+                                  }
+                              }
+                              """;
+        var test = CreateNet80Test(Source, Source);
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Creates a .NET 8 verifier test.</summary>
     /// <param name="source">The source.</param>
     /// <param name="fixedSource">The fixed source.</param>

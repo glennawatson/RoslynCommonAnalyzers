@@ -497,6 +497,76 @@ internal static class ModernSyntaxRules
         "Invert this trailing 'if' into an early-exit guard so the wrapped work runs at the outer level",
         PreferGuardClauseDescription);
 
+    /// <summary>SST2274 — an <c>as</c> assignment paired with a null check can use an <c>is</c> declaration pattern.</summary>
+    public static readonly DiagnosticDescriptor ConvertAsAssignmentToIsPattern = Create(
+        "SST2274",
+        "Convert an as assignment and null check to an is pattern",
+        "Match '{0}' with an 'is' pattern instead of an 'as' assignment and a separate null check",
+        ConvertAsAssignmentToIsPatternDescription);
+
+    /// <summary>SST2275 — a single-statement method body can be an expression body.</summary>
+    public static readonly DiagnosticDescriptor UseExpressionBodyForMethod = CreateInfo(
+        "SST2275",
+        "Keep a single-statement method expression-shaped",
+        "Rewrite this method's block body as an expression body",
+        UseExpressionBodyForMethodDescription);
+
+    /// <summary>SST2276 — a single-call constructor body can be an expression body.</summary>
+    public static readonly DiagnosticDescriptor UseExpressionBodyForConstructor = CreateOptIn(
+        "SST2276",
+        "Keep a single-statement constructor expression-shaped",
+        "Rewrite this constructor's block body as an expression body",
+        UseExpressionBodyForConstructorDescription);
+
+    /// <summary>SST2277 — a single-return operator body can be an expression body.</summary>
+    public static readonly DiagnosticDescriptor UseExpressionBodyForOperator = CreateOptIn(
+        "SST2277",
+        "Keep a single-return operator expression-shaped",
+        "Rewrite this operator's block body as an expression body",
+        UseExpressionBodyForOperatorDescription);
+
+    /// <summary>SST2278 — a single-return conversion operator body can be an expression body.</summary>
+    public static readonly DiagnosticDescriptor UseExpressionBodyForConversionOperator = CreateOptIn(
+        "SST2278",
+        "Keep a single-return conversion operator expression-shaped",
+        "Rewrite this conversion operator's block body as an expression body",
+        UseExpressionBodyForConversionOperatorDescription);
+
+    /// <summary>SST2279 — a get-only property with a single-return getter can be an expression body.</summary>
+    public static readonly DiagnosticDescriptor UseExpressionBodyForProperty = CreateInfo(
+        "SST2279",
+        "Keep a get-only property expression-shaped",
+        "Rewrite this get-only property as an expression body",
+        UseExpressionBodyForPropertyDescription);
+
+    /// <summary>SST2280 — a get-only indexer with a single-return getter can be an expression body.</summary>
+    public static readonly DiagnosticDescriptor UseExpressionBodyForIndexer = CreateInfo(
+        "SST2280",
+        "Keep a get-only indexer expression-shaped",
+        "Rewrite this get-only indexer as an expression body",
+        UseExpressionBodyForIndexerDescription);
+
+    /// <summary>SST2281 — a single-statement local function body can be an expression body.</summary>
+    public static readonly DiagnosticDescriptor UseExpressionBodyForLocalFunction = CreateInfo(
+        "SST2281",
+        "Keep a single-statement local function expression-shaped",
+        "Rewrite this local function's block body as an expression body",
+        UseExpressionBodyForLocalFunctionDescription);
+
+    /// <summary>SST2282 — a <c>ReferenceEquals</c> check against <see langword="null"/> reads more directly as an is-null pattern.</summary>
+    public static readonly DiagnosticDescriptor UseNullPatternOverReferenceEquals = Create(
+        "SST2282",
+        "Use an is-null pattern instead of ReferenceEquals against null",
+        "Use '{0}' instead of a 'ReferenceEquals' check against null",
+        UseNullPatternOverReferenceEqualsDescription);
+
+    /// <summary>SST2283 — a null guard that throws before assigning the guarded value can fold into a throw expression.</summary>
+    public static readonly DiagnosticDescriptor FoldGuardIntoAssignedValue = Create(
+        "SST2283",
+        "Fold a preceding null guard into the assigned value",
+        "Fold this null guard into the following assignment as a throw expression",
+        FoldGuardIntoAssignedValueDescription);
+
     /// <summary>The SST2255 rule description.</summary>
     private const string UseIsNullOrEmptyDescription =
         "A disjunction such as 'value == null || value.Length == 0' — or the '== \"\"' variant, or the negated "
@@ -723,6 +793,97 @@ internal static class ModernSyntaxRules
         + "in .editorconfig for a codebase that wants every object creation to name its type. Reported only when the created "
         + "type resolves to a name that can be written in source and the explicit form provably constructs the same type, "
         + "which the fix confirms before it is offered.";
+
+    /// <summary>The SST2274 rule description.</summary>
+    private const string ConvertAsAssignmentToIsPatternDescription =
+        "A local assigned from an 'as' conversion and then tested for null — 'var s = o as T; if (s != null) "
+        + "{ ...uses of s... }' — splits one type test across a declaration and a separate null check. An 'is' "
+        + "declaration pattern, 'if (o is T s) { ...uses of s... }', states the test and the binding in one place. "
+        + "The mirror early-exit shape 'var s = o as T; if (s == null) return;' becomes 'if (o is not T s) return;', "
+        + "and the later uses of 's' are left unchanged. Reported only when the conversion targets a reference type "
+        + "(a nullable value type such as 'o as int?' is left alone because 'o is int s' would bind a non-null value "
+        + "of a different type), the local has a single declarator and is never reassigned, the null check is the "
+        + "statement immediately after the declaration, the 'as' operand is side-effect-free so it can be re-read at "
+        + "the test, and every use of the local still resolves against the pattern variable — which the fix confirms "
+        + "before it is offered.";
+
+    /// <summary>The SST2275 rule description.</summary>
+    private const string UseExpressionBodyForMethodDescription =
+        "A method whose block body does nothing but return one expression — 'int Area() { return width * height; }' — "
+        + "or run one call — 'void Log() { _sink.Write(line); }' — wraps that single expression in a pair of braces "
+        + "and, for the returning form, a 'return' keyword. The expression-bodied form 'int Area() => width * height;' "
+        + "says the same thing with none of the ceremony. The rewrite is pure syntax and never changes what the method "
+        + "computes, and it also settles any single-line-block warning by removing the block. Enabled at Info as a "
+        + "gentle nudge.";
+
+    /// <summary>The SST2276 rule description.</summary>
+    private const string UseExpressionBodyForConstructorDescription =
+        "A constructor whose block body is a single call — 'public C(int x) { Configure(x); }' — can be written with an "
+        + "expression body 'public C(int x) => Configure(x);'. Whether a constructor reads better on one line is more "
+        + "contested than for a plain method, so the rule ships disabled; enable it in .editorconfig for a codebase "
+        + "that prefers it. Reported only when the constructor has no ': this(...)' or ': base(...)' initializer, so "
+        + "nothing is lost in the rewrite.";
+
+    /// <summary>The SST2277 rule description.</summary>
+    private const string UseExpressionBodyForOperatorDescription =
+        "An operator whose block body is a single 'return expr;' — 'public static V operator +(V a, V b) { return "
+        + "new V(a.X + b.X); }' — can use an expression body '... => new V(a.X + b.X);'. Whether operators read better "
+        + "on one line is a house-style call, so the rule ships disabled. The rewrite is pure syntax and never changes "
+        + "what the operator computes.";
+
+    /// <summary>The SST2278 rule description.</summary>
+    private const string UseExpressionBodyForConversionOperatorDescription =
+        "A conversion operator whose block body is a single 'return expr;' — 'public static implicit operator int(V v) "
+        + "{ return v.X; }' — can use an expression body '... => v.X;'. Like the arithmetic-operator rule it ships "
+        + "disabled, because whether a conversion reads better on one line is a preference. The rewrite is pure syntax "
+        + "and never changes the conversion.";
+
+    /// <summary>The SST2279 rule description.</summary>
+    private const string UseExpressionBodyForPropertyDescription =
+        "A property with a single 'get' accessor whose block body is one 'return expr;' — 'public int Count { get "
+        + "{ return _items.Length; } }' — can be written as a whole-member expression body 'public int Count => "
+        + "_items.Length;'. Reported only for a get-only property: a property with a setter, an 'init' accessor, or "
+        + "more than one accessor keeps its per-accessor shape. An accessor carrying its own attributes or modifiers "
+        + "is left alone, because the whole-member form cannot hold them. Converting also settles any single-line-block "
+        + "warning on the accessor.";
+
+    /// <summary>The SST2280 rule description.</summary>
+    private const string UseExpressionBodyForIndexerDescription =
+        "An indexer with a single 'get' accessor whose block body is one 'return expr;' — 'public T this[int i] { get "
+        + "{ return _items[i]; } }' — can be written as a whole-member expression body 'public T this[int i] => "
+        + "_items[i];'. Reported only for a get-only indexer; a setter, an 'init' accessor, or an accessor with its "
+        + "own attributes or modifiers keeps the block form. Converting also settles any single-line-block warning on "
+        + "the accessor.";
+
+    /// <summary>The SST2281 rule description.</summary>
+    private const string UseExpressionBodyForLocalFunctionDescription =
+        "A local function whose block body does nothing but return one expression, or run one call, can use an "
+        + "expression body — 'int Double(int n) { return n * 2; }' becomes 'int Double(int n) => n * 2;'. The rewrite "
+        + "is pure syntax and never changes what the local function computes, and it also settles any single-line-block "
+        + "warning by removing the block. Enabled at Info as a gentle nudge.";
+
+    /// <summary>The SST2282 rule description.</summary>
+    private const string UseNullPatternOverReferenceEqualsDescription =
+        "'object.ReferenceEquals(value, null)' — in either argument order — is a reference comparison against null "
+        + "written as a static call. 'value is null' states the same check as a pattern that reads left to right and "
+        + "needs no receiver; the negated '!ReferenceEquals(value, null)' becomes 'value is not null'. Reported only "
+        + "when the call binds to 'System.Object.ReferenceEquals' and the non-null operand is a reference type or an "
+        + "unconstrained type parameter, where 'is null' is legal. A value-type operand is left alone: 'ReferenceEquals' "
+        + "boxes it, so rewriting the shape would change what runs — a separate concern. The negated form is reported "
+        + "only where the language supports the 'is not null' pattern (C# 9); the plain form needs the constant null "
+        + "pattern (C# 7).";
+
+    /// <summary>The SST2283 rule description.</summary>
+    private const string FoldGuardIntoAssignedValueDescription =
+        "A null guard whose one statement throws, immediately followed by assigning the guarded value to a field, "
+        + "property, or local — 'if (x is null) throw new SomeException(); _x = x;' — holds the guard and the value "
+        + "apart. Folding the throw into the assignment, '_x = x ?? throw new SomeException();', states the contract in "
+        + "one place and evaluates the value once. Reported only when the guarded value is a side-effect-free local or "
+        + "parameter of a reference type — so the coalescing throw is legal and identical — the throw carries an "
+        + "expression, the assignment target is a simple name or a 'this' member with no receiver of its own, and "
+        + "nothing sits between the guard and the assignment. The guard-then-return shape, the assign-then-check shape, "
+        + "and the argument-null guard whose throw is better expressed as a runtime null-check helper are each left to "
+        + "the rule that owns them, so this rule never fires on a guard another already covers.";
 
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

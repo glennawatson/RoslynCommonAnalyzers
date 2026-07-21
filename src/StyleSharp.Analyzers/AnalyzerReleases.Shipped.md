@@ -684,3 +684,20 @@ SST2496 | Correctness | Info | Sst2496RedundantDisposeAnalyzer
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 SST2273 | ModernSyntax | Disabled | Sst2273PreferGuardClauseAnalyzer
+
+## Release 3.38.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+SST2274 | ModernSyntax | Warning | Sst2274AsAssignmentToIsPatternAnalyzer
+SST2275 | ModernSyntax | Info | ExpressionBodyAnalyzer
+SST2276 | ModernSyntax | Disabled | ExpressionBodyAnalyzer
+SST2277 | ModernSyntax | Disabled | ExpressionBodyAnalyzer
+SST2278 | ModernSyntax | Disabled | ExpressionBodyAnalyzer
+SST2279 | ModernSyntax | Info | ExpressionBodyAnalyzer
+SST2280 | ModernSyntax | Info | ExpressionBodyAnalyzer
+SST2281 | ModernSyntax | Info | ExpressionBodyAnalyzer
+SST2282 | ModernSyntax | Warning | Sst2282ReferenceEqualsNullPatternAnalyzer
+SST2283 | ModernSyntax | Warning | Sst2283FoldGuardIntoAssignedValueAnalyzer

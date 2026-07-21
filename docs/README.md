@@ -527,6 +527,16 @@ PSH1102, and PSH1100.
 | [SST2271](rules/SST2271.md) | `var`-vs-explicit local type per the configured preference. Configurable. Opt-in. |
 | [SST2272](rules/SST2272.md) | `[Flags]` member values written as mixed decimals and shifts. Configurable. Opt-in. |
 | [SST2273](rules/SST2273.md) | A function or loop body wraps its work in a trailing `if` that could be an early-exit guard clause. Code fix inverts it. Configurable threshold. Opt-in. |
+| [SST2274](rules/SST2274.md) | A value assigned with `as` and then null-checked is an `is` declaration pattern in one step. Code fix rewrites it. |
+| [SST2275](rules/SST2275.md) | A method whose block body is a single statement can use an expression body `=> expr`. Code fix rewrites it. |
+| [SST2276](rules/SST2276.md) | A constructor whose block body is a single statement can use an expression body. Code fix rewrites it. Opt-in. |
+| [SST2277](rules/SST2277.md) | An operator whose block body is a single `return` can use an expression body. Code fix rewrites it. Opt-in. |
+| [SST2278](rules/SST2278.md) | A conversion operator whose block body is a single `return` can use an expression body. Code fix rewrites it. Opt-in. |
+| [SST2279](rules/SST2279.md) | A get-only property whose getter is a single `return` can use a whole-member expression body. Code fix rewrites it. |
+| [SST2280](rules/SST2280.md) | A get-only indexer whose getter is a single `return` can use a whole-member expression body. Code fix rewrites it. |
+| [SST2281](rules/SST2281.md) | A local function whose block body is a single statement can use an expression body. Code fix rewrites it. |
+| [SST2282](rules/SST2282.md) | A reference-type `ReferenceEquals` check against `null` reads as an `is null` / `is not null` pattern. Code fix rewrites it. |
+| [SST2283](rules/SST2283.md) | A null guard that throws right before assigning the guarded value can fold into the assignment as `?? throw`. Code fix rewrites it. |
 
 ## Design
 

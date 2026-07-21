@@ -114,13 +114,27 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
         }
 
         var accessor = (AccessorDeclarationSyntax)context.Node;
-        if (!TryGetAccessorExpression(accessor, out _))
+        if (!TryGetAccessorExpression(accessor, out _)
+            || DefersToWholeMemberExpressionBody(accessor))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.SimplifyPropertyAccessor, accessor.Keyword.GetLocation()));
     }
+
+    /// <summary>Returns whether the sole <c>get</c> of a property or indexer is already reported at the whole-member level.</summary>
+    /// <param name="accessor">The accessor being considered for an expression body.</param>
+    /// <returns><see langword="true"/> when SST2279 or SST2280 reports the same collapse, so this accessor rule stands down.</returns>
+    /// <remarks>
+    /// A get-only property or indexer with one block-bodied <c>get</c> can collapse to a whole-member expression body
+    /// (<c>P =&gt; expr;</c>), which SST2279/SST2280 already report. Suppressing the accessor-level suggestion here keeps
+    /// a single diagnostic on that shape and steers the fix toward the cleaner member form. A <c>set</c>/<c>init</c>
+    /// accessor, or a <c>get</c> that shares its property with another accessor, has no whole-member form and still reports.
+    /// </remarks>
+    private static bool DefersToWholeMemberExpressionBody(AccessorDeclarationSyntax accessor)
+        => accessor.IsKind(SyntaxKind.GetAccessorDeclaration)
+            && ExpressionBodyAnalyzer.AccessorListCollapsesToExpressionBody(accessor.Parent as AccessorListSyntax);
 
     /// <summary>Returns whether syntax already supplies a direct explicit target for the lambda.</summary>
     /// <param name="lambda">The lambda.</param>

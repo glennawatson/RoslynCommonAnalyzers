@@ -347,6 +347,14 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
+        // A call reached through a conditional access cannot be speculatively rebound: detaching the outer call
+        // to test the copy-elision rewrite orphans its member or element binding and Roslyn's binder then
+        // dereferences null. The rewrite stays unverified, so the sequence copy is left in place.
+        if (ConditionalAccessSpeculation.ReachedThroughConditionalAccess(outer.Expression))
+        {
+            return null;
+        }
+
         var receiver = ((MemberAccessExpressionSyntax)invocation.Expression).Expression;
         var rewritten = outer.ReplaceNode(invocation, receiver);
         if (model.GetSpeculativeSymbolInfo(outer.SpanStart, rewritten, SpeculativeBindingOption.BindAsExpression).Symbol is not IMethodSymbol resolved

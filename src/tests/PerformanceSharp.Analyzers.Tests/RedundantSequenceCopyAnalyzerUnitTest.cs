@@ -364,6 +364,25 @@ public class RedundantSequenceCopyAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a sequence copy reached through a conditional access is not reported — rebinding the detached call would orphan its member binding.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalAccessSequenceCopyIsLeftAloneAsync()
+        => await VerifyAsync(
+            """
+            public sealed class C
+            {
+                public void Consume(char[] values)
+                {
+                }
+
+                public void Run(C c, string text)
+                {
+                    c?.Consume(text.ToCharArray());
+                }
+            }
+            """);
+
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
     /// <param name="fixedSource">The expected fixed source, when a fix should apply.</param>

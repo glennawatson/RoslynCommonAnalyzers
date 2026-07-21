@@ -270,6 +270,23 @@ public class SearchWithStartIndexAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a search reached through a conditional access is not reported — rebinding the detached slice would orphan its member binding.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalAccessSearchIsLeftAloneAsync()
+        => await VerifyAsync(
+            """
+            public sealed class C
+            {
+                public string Text = "";
+
+                public void Use(C c)
+                {
+                    var index = c?.Text.Substring(1).IndexOf('x');
+                }
+            }
+            """);
+
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
     /// <param name="fixedSource">The expected fixed source, when a fix should apply.</param>

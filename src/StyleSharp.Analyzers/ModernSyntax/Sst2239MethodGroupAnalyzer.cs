@@ -92,6 +92,14 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
+        // A call reached through a conditional access cannot be speculatively rebound: detaching it to test the
+        // method-group rewrite orphans its member or element binding and Roslyn's binder then dereferences null.
+        // The rewrite stays unverified, so the lambda is left in place.
+        if (ConditionalAccessSpeculation.ReachedThroughConditionalAccess(enclosing.Expression))
+        {
+            return false;
+        }
+
         var model = context.SemanticModel;
         var cancellationToken = context.CancellationToken;
         if (model.GetSymbolInfo(enclosing, cancellationToken).Symbol is not { } before)

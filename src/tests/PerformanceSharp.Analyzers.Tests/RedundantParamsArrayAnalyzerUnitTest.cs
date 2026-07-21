@@ -342,6 +342,25 @@ public class RedundantParamsArrayAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a params array reached through a conditional access is not reported — rebinding the detached call would orphan its member binding.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalAccessParamsArrayIsLeftAloneAsync()
+        => await VerifyAsync(
+            """
+            public sealed class C
+            {
+                public void Log(params object[] values)
+                {
+                }
+
+                public void Use(C c, object a, object b)
+                {
+                    c?.Log(new object[] { a, b });
+                }
+            }
+            """);
+
     /// <summary>Runs a verification against the .NET 9 reference assemblies and C# 13.</summary>
     /// <param name="source">The test source.</param>
     /// <param name="fixedSource">The expected fixed source, when a fix should apply.</param>

@@ -261,6 +261,33 @@ public class ModernSyntaxPreferenceAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies explicit lambda parameter types reached through a conditional access are left alone.</summary>
+    /// <remarks>
+    /// Detaching the invocation to rebind it without the explicit types speculatively orphans the
+    /// conditional-access binding and crashes the binder, so the rule stays silent on the
+    /// <c>receiver?.M(...)</c> form.
+    /// </remarks>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ConditionalAccessExplicitLambdaParameterTypesAreLeftAloneAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              public sealed class C
+                              {
+                                  public void Use(List<string> items)
+                                  {
+                                      var result = items?.Where((string x) => x.Length > 0);
+                                  }
+                              }
+                              """;
+        var test = CreateNet80Test(Source, Source);
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Creates a .NET 8 verifier test.</summary>
     /// <param name="source">The source.</param>
     /// <param name="fixedSource">The fixed source.</param>

@@ -203,6 +203,30 @@ public class MethodGroupAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a forwarding lambda reached through a conditional access is left alone.</summary>
+    /// <remarks>
+    /// Detaching the invocation to rebind the method group speculatively orphans the conditional-access
+    /// binding and crashes the binder, so the rule stays silent on the <c>receiver?.M(...)</c> form.
+    /// </remarks>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ConditionalAccessForwardingLambdaIsLeftAloneAsync()
+        => await RunAsync(
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+
+            public sealed class C
+            {
+                private static bool Filter(string value) => true;
+
+                public void Use(List<string> items)
+                {
+                    var result = items?.Where(x => Filter(x));
+                }
+            }
+            """);
+
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>
     /// <returns>A task representing the asynchronous operation.</returns>

@@ -356,6 +356,27 @@ public class SynchronousBodyIoAnalyzerUnitTest
         await VerifyCodeFixAsync(Source, Source);
     }
 
+    /// <summary>Verifies a body read reached through a conditional access is reported but offered no fix — rebinding the detached call would orphan its member binding.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalAccessBodyReadReportsWithoutOfferingAFixAsync()
+    {
+        const string Source = """
+                              using System.Threading.Tasks;
+                              using Microsoft.AspNetCore.Http;
+
+                              public class Handler
+                              {
+                                  public async Task HandleAsync(HttpRequest req, byte[] buffer)
+                                  {
+                                      req?{|PSH1506:.Body.Read(buffer, 0, buffer.Length)|};
+                                      await Task.Yield();
+                                  }
+                              }
+                              """ + AspNetStubs;
+        await VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Runs an analyzer-only verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

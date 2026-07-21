@@ -71,6 +71,14 @@ public sealed class Psh1506SynchronousBodyIoCodeFixProvider : CodeFixProvider, I
     /// <returns>The sibling invocation, or <see langword="null"/> when it cannot be resolved or bound.</returns>
     private static InvocationExpressionSyntax? TryBuildSiblingCall(SemanticModel model, InvocationExpressionSyntax invocation)
     {
+        // A call reached through a conditional access cannot be speculatively rebound: detaching it to test the
+        // async-sibling rewrite orphans its member or element binding and Roslyn's binder then dereferences null.
+        // The diagnostic still reports on the `?.` form; only the automatic fix stands down there.
+        if (ConditionalAccessSpeculation.ReachedThroughConditionalAccess(invocation.Expression))
+        {
+            return null;
+        }
+
         if (invocation.Expression is not MemberAccessExpressionSyntax access
             || AsyncSiblingResolver.TaskTypes.Create(model.Compilation) is not { } tasks
             || model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol sync

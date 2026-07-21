@@ -178,6 +178,15 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
+        // A call reached through a conditional access cannot be speculatively rebound: detaching it to test the
+        // implicit-parameter-types rewrite orphans its member or element binding and Roslyn's binder then
+        // dereferences null. The rewrite stays unverified, so the parameter types are left explicit.
+        if (call is InvocationExpressionSyntax invocation
+            && ConditionalAccessSpeculation.ReachedThroughConditionalAccess(invocation.Expression))
+        {
+            return false;
+        }
+
         var replacement = RemoveLambdaParameterTypes(lambda);
         var rewrittenCall = call.ReplaceNode(lambda, replacement);
         var rewrittenSymbol = SymbolResolution.GetSingleSymbol(model.GetSpeculativeSymbolInfo(

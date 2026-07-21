@@ -222,6 +222,27 @@ public class CallAsyncInAsyncContextAnalyzerUnitTest
         await VerifyNet90Async(Source, Source);
     }
 
+    /// <summary>Verifies a synchronous call reached through a conditional access is reported but offered no fix — rebinding the detached call would orphan its member binding.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalAccessSyncCallReportsWithoutOfferingAFixAsync()
+    {
+        const string Source = """
+                              using System.Threading;
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public async Task Run(SemaphoreSlim gate)
+                                  {
+                                      gate?{|PSH1313:.Wait()|};
+                                      await Task.Yield();
+                                  }
+                              }
+                              """;
+        await VerifyNet90Async(Source, Source);
+    }
+
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected fixed source.</param>

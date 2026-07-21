@@ -260,6 +260,14 @@ public sealed class Psh1018RedundantParamsArrayAnalyzer : DiagnosticAnalyzer
             }
         }
 
+        // A call reached through a conditional access cannot be speculatively rebound: detaching it to test the
+        // unwrapped argument list orphans its member or element binding and Roslyn's binder then dereferences
+        // null. The unwrap stays unverified, so the explicit params array is left in place.
+        if (ConditionalAccessSpeculation.ReachedThroughConditionalAccess(invocation.Expression))
+        {
+            return false;
+        }
+
         var unwrapped = invocation.WithArgumentList(BuildUnwrappedArgumentList(invocation.ArgumentList, elements));
         var speculative = context.SemanticModel.GetSpeculativeSymbolInfo(invocation.SpanStart, unwrapped, SpeculativeBindingOption.BindAsExpression);
         return SymbolEqualityComparer.Default.Equals(speculative.Symbol, method);

@@ -238,6 +238,14 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
         // cancellable overload of it, so the token is honoured on the way in instead.
         cancellationToken.ThrowIfCancellationRequested();
 
+        // A call reached through a conditional access cannot be speculatively rebound: detaching the outer call
+        // to test the span rewrite orphans its member or element binding and Roslyn's binder then dereferences
+        // null. The rewrite stays unverified, so the search call keeps its start-index form.
+        if (ConditionalAccessSpeculation.ReachedThroughConditionalAccess(outer.Expression))
+        {
+            return false;
+        }
+
         var sliceName = ((MemberAccessExpressionSyntax)slice.Expression).Name;
         var rewritten = outer.ReplaceNode(sliceName, SyntaxFactory.IdentifierName(AsSpanMethodName));
         if (model.GetSpeculativeSymbolInfo(outer.SpanStart, rewritten, SpeculativeBindingOption.BindAsExpression).Symbol

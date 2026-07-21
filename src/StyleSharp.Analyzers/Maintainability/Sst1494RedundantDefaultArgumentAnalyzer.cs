@@ -84,6 +84,15 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
+        // A call reached through a conditional access cannot be speculatively rebound: detaching it to test the
+        // shortened argument list orphans its member or element binding and Roslyn's binder then dereferences
+        // null. The omission stays unverified, so the trailing default argument is left in place.
+        if (call is InvocationExpressionSyntax conditionalCall
+            && ConditionalAccessSpeculation.ReachedThroughConditionalAccess(conditionalCall.Expression))
+        {
+            return false;
+        }
+
         var shortened = TruncateAt(list, index);
         var speculative = call switch
         {

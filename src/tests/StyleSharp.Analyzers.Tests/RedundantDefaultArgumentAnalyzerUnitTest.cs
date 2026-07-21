@@ -295,4 +295,27 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
                 public void Use() => Send(0, 0);
             }
             """);
+
+    /// <summary>Verifies a trailing default argument on a conditional-access call is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Shortening the call means detaching and rebinding it, which orphans the conditional-access binding
+    /// and crashes the binder, so the rule stays silent on the <c>receiver?.M(...)</c> form.
+    /// </remarks>
+    [Test]
+    public async Task ConditionalAccessTrailingDefaultIsLeftAloneAsync()
+        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public void M(int a, int b = 0)
+                {
+                }
+
+                public void Use(C c)
+                {
+                    c?.M(1, 0);
+                }
+            }
+            """);
 }

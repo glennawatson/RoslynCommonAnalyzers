@@ -676,3 +676,11 @@ SST2493 | Correctness | Warning | Sst2493NullComparisonOnUnconstrainedGenericAna
 SST2494 | Correctness | Warning | Sst2494ConstantNullCoalesceAnalyzer
 SST2495 | Correctness | Warning | Sst2495RedundantFlagsOperandAnalyzer
 SST2496 | Correctness | Info | Sst2496RedundantDisposeAnalyzer
+
+## Release 3.37.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+SST2273 | ModernSyntax | Disabled | Sst2273PreferGuardClauseAnalyzer

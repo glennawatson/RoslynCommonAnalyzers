@@ -120,6 +120,7 @@ Some rules expose options. Current options:
 | `stylesharp.array_creation_type_style` | [SST2270](rules/SST2270.md) | `explicit`, `implicit`, `implicit_when_obvious` | `implicit_when_obvious` |
 | `stylesharp.use_var` | [SST2271](rules/SST2271.md) | `always`, `never`, `when_obvious` | `when_obvious` |
 | `stylesharp.enum_flag_value_style` | [SST2272](rules/SST2272.md) | `shift`, `decimal` | `shift` |
+| `stylesharp.min_wrapped_statements` | [SST2273](rules/SST2273.md) | positive integer (minimum wrapped statements before a trailing-guard `if` is reported) | `2` |
 | `securitysharp.SES1003.iterations` | [SES1003](rules/SES1003.md) | positive integer (minimum accepted PBKDF2 iteration count) | `100000` |
 | `securitysharp.SES1403.maxdepth` | [SES1403](rules/SES1403.md) | positive integer (highest accepted `System.Text.Json` `MaxDepth`) | `64` |
 | `securitysharp.SES1701.sanitizers` | [SES1701](rules/SES1701.md) | comma-separated method names that sanitize HTML (a value wrapped in one is not reported) | (none) |

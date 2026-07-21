@@ -490,6 +490,13 @@ internal static class ModernSyntaxRules
         "Write this flag value as '{0}'",
         NormalizeEnumFlagValueStyleDescription);
 
+    /// <summary>SST2273 — a trailing wrapping <c>if</c> can be inverted into an early-exit guard clause.</summary>
+    public static readonly DiagnosticDescriptor PreferGuardClause = CreateOptIn(
+        "SST2273",
+        "Prefer a guard clause over a trailing wrapping if",
+        "Invert this trailing 'if' into an early-exit guard so the wrapped work runs at the outer level",
+        PreferGuardClauseDescription);
+
     /// <summary>The SST2255 rule description.</summary>
     private const string UseIsNullOrEmptyDescription =
         "A disjunction such as 'value == null || value.Length == 0' — or the '== \"\"' variant, or the negated "
@@ -625,6 +632,19 @@ internal static class ModernSyntaxRules
         + "'decimal'). Only members whose constant value is a single set bit — a power of two, or zero — are "
         + "touched; a combined value such as '3' or 'Read | Write' is left alone. Off by default because it is a "
         + "pure preference.";
+
+    /// <summary>The SST2273 rule description.</summary>
+    private const string PreferGuardClauseDescription =
+        "A method, constructor, accessor, local function, or 'for'/'foreach'/'while' loop whose real work is the "
+        + "last thing it does — wrapped in a single trailing 'if (cond) { work }' with no 'else' — reads with one "
+        + "less level of nesting as an early-exit guard: 'if (!cond) return;' (or 'continue;' inside a loop) "
+        + "followed by the unwrapped work. The guard states the exit up front and lets the body run at the outer "
+        + "level. This is a house-style preference, so it ships disabled; enable it in .editorconfig for a codebase "
+        + "that writes its exits as guards. Reported only when the guard can actually be expressed — a void or "
+        + "async-Task-returning member, a constructor, a value-free accessor, or a loop 'continue' — and never when "
+        + "a value would have to be produced on the guard path. The wrapped work must hold at least "
+        + "'stylesharp.SST2273.min_wrapped_statements' statements (2 by default), so a one-line 'if (x) Do();' is "
+        + "left alone.";
 
     /// <summary>The SST2243 rule description.</summary>
     private const string UseRawStringLiteralDescription =

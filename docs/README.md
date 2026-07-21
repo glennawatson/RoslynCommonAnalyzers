@@ -526,6 +526,7 @@ PSH1102, and PSH1100.
 | [SST2270](rules/SST2270.md) | Inconsistent explicit-vs-implicit array-creation type. Configurable. Opt-in. |
 | [SST2271](rules/SST2271.md) | `var`-vs-explicit local type per the configured preference. Configurable. Opt-in. |
 | [SST2272](rules/SST2272.md) | `[Flags]` member values written as mixed decimals and shifts. Configurable. Opt-in. |
+| [SST2273](rules/SST2273.md) | A function or loop body wraps its work in a trailing `if` that could be an early-exit guard clause. Code fix inverts it. Configurable threshold. Opt-in. |
 
 ## Design
 

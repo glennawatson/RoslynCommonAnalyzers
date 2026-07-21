@@ -150,4 +150,43 @@ public class InferableTypeArgumentsAnalyzerUnitTest
                                    """;
         await VerifyInferableTypeArguments.VerifyCodeFixAsync(Source, FixedSource);
     }
+
+    /// <summary>
+    /// Verifies a generic call reached through a conditional-access chain does not crash the analyzer and is
+    /// left alone. Regression: dropping the type arguments and speculatively binding the detached call made
+    /// Roslyn look for an enclosing conditional access that no longer existed and throw a NullReferenceException.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task GenericCallThroughConditionalAccessChainIsNotReportedAsync()
+    {
+        const string Source = """
+                              #nullable enable
+
+                              public sealed class Inner
+                              {
+                                  public int Do<T>(int value) => value;
+                              }
+
+                              public sealed class Box
+                              {
+                                  public Inner Prop = new();
+
+                                  public Inner this[int index] => Prop;
+                              }
+
+                              public sealed class C
+                              {
+                                  private Box? _box;
+
+                                  public void M()
+                                  {
+                                      var a = _box?.Prop.Do<C>(1);
+                                      var b = _box?[0].Do<C>(1);
+                                      var c = _box?.Prop!.Do<C>(1);
+                                  }
+                              }
+                              """;
+        await VerifyInferableTypeArguments.VerifyAnalyzerAsync(Source);
+    }
 }

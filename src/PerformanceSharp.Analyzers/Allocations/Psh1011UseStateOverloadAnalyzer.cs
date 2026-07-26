@@ -6,8 +6,8 @@ namespace PerformanceSharp.Analyzers;
 
 /// <summary>
 /// Flags capturing lambdas passed to methods whose own overload set has a state-taking twin
-/// (PSH1011): the same member with one extra parameter typed <c>object</c> or a method-level
-/// type parameter, whose callback delegate can receive the captured data instead —
+/// (PSH1011): the same member with one extra by-value parameter typed <c>object</c> or a
+/// method-level type parameter, whose callback delegate can receive the captured data instead —
 /// <c>ContinueWith(static (t, state) => ..., state)</c>, <c>UnsafeRegister</c>,
 /// <c>QueueUserWorkItem</c>, and scheduler-style APIs. A static lambda plus state allocates
 /// neither closure nor per-call delegate. The capture analysis runs last, only after a
@@ -134,7 +134,7 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Counts the parameters an overload could pass to its callback as caller-supplied state.</summary>
     /// <param name="method">The method definition to scan.</param>
-    /// <returns>The number of <c>object</c> or method-type-parameter parameters.</returns>
+    /// <returns>The number of by-value <c>object</c> or method-type-parameter parameters.</returns>
     /// <remarks>
     /// Counted on the original definition so an inferred type argument cannot turn a
     /// <c>TState</c> parameter into a concrete type and hide it.
@@ -144,8 +144,9 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
         var count = 0;
         foreach (var parameter in method.Parameters)
         {
-            if (parameter.Type.SpecialType == SpecialType.System_Object
-                || parameter.Type is ITypeParameterSymbol { DeclaringMethod: not null })
+            if (parameter.RefKind == RefKind.None
+                && (parameter.Type.SpecialType == SpecialType.System_Object
+                    || parameter.Type is ITypeParameterSymbol { DeclaringMethod: not null }))
             {
                 count++;
             }

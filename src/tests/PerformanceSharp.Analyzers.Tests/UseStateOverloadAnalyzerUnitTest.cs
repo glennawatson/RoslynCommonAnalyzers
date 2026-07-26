@@ -76,6 +76,26 @@ public class UseStateOverloadAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies LazyInitializer's sync-lock overload is not mistaken for a state overload.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task LazyInitializerFactoryIsCleanAsync()
+        => await VerifyAsync(
+            """
+            #nullable enable
+            using System.Threading;
+
+            public sealed class C
+            {
+                private object? _value;
+
+                public object Initialize(object state)
+                    => LazyInitializer.EnsureInitialized(ref _value, () => Create(state));
+
+                private static object Create(object state) => state;
+            }
+            """);
+
     /// <summary>Verifies a recursive scheduler callback is clean when no recursive state overload exists.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

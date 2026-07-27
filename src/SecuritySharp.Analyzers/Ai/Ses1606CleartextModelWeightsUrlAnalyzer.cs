@@ -27,9 +27,6 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The cleartext scheme prefix the rule matches, compared case-insensitively.</summary>
-    private const string HttpSchemePrefix = "http://";
-
     /// <summary>The metadata name of the HTTP client whose request sinks are deferred to the transport rule.</summary>
     private const string HttpClientMetadataName = "System.Net.Http.HttpClient";
 
@@ -109,8 +106,8 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
     private static bool IsCleartextWeightsUrl(string text, out string host)
     {
         host = string.Empty;
-        if (text.Length <= HttpSchemePrefix.Length
-            || !text.StartsWith(HttpSchemePrefix, StringComparison.OrdinalIgnoreCase))
+        if (text.Length <= CleartextUrl.HttpSchemePrefix.Length
+            || !text.StartsWith(CleartextUrl.HttpSchemePrefix, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -122,8 +119,8 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var parsedHost = ExtractHost(text);
-        if (parsedHost.Length == 0 || IsLoopbackHost(parsedHost))
+        var parsedHost = CleartextUrl.ExtractHost(text);
+        if (parsedHost.Length == 0 || CleartextUrl.IsLoopbackHost(parsedHost))
         {
             return false;
         }
@@ -138,7 +135,7 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
     private static int FindPathStart(string text)
     {
         // Walk the authority; it ends at the first '/', '?' or '#'. Only a '/' opens a path with an extension.
-        for (var i = HttpSchemePrefix.Length; i < text.Length; i++)
+        for (var i = CleartextUrl.HttpSchemePrefix.Length; i < text.Length; i++)
         {
             var c = text[i];
             if (c == '/')
@@ -184,51 +181,6 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
-    }
-
-    /// <summary>Extracts the host of a URL text cheaply, without allocating a <c>Uri</c>.</summary>
-    /// <param name="text">The full URL text, already known to start with <c>http://</c>.</param>
-    /// <returns>The host segment; a bracketed IPv6 authority is returned without its brackets.</returns>
-    private static string ExtractHost(string text)
-    {
-        var start = HttpSchemePrefix.Length;
-
-        // A bracketed IPv6 authority (e.g. '[::1]') carries colons, so read the inner address to the closing bracket.
-        if (text[start] == '[')
-        {
-            var inner = start + 1;
-            var close = text.IndexOf(']', inner);
-            return close < 0 ? text.Substring(inner) : text.Substring(inner, close - inner);
-        }
-
-        var end = start;
-        while (end < text.Length)
-        {
-            var c = text[end];
-            if (c is '/' or ':' or '?' or '#')
-            {
-                break;
-            }
-
-            end++;
-        }
-
-        return text.Substring(start, end - start);
-    }
-
-    /// <summary>Returns whether a parsed host is a loopback address that does not warrant a cleartext warning.</summary>
-    /// <param name="host">The parsed host.</param>
-    /// <returns><see langword="true"/> for a loopback or <c>*.localhost</c> host.</returns>
-    private static bool IsLoopbackHost(string host)
-    {
-        if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(host, "127.0.0.1", StringComparison.Ordinal)
-            || string.Equals(host, "::1", StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        return host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Returns whether a matched literal is the URL of an <c>HttpClient</c> request or <c>BaseAddress</c> assignment.</summary>

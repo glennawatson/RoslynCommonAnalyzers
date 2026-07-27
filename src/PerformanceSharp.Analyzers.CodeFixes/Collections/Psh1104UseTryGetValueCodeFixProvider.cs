@@ -48,7 +48,10 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { } invocation)
+            // The shape is re-checked here, not only inside Apply: without it a stale diagnostic offers a
+            // fix that then does nothing, where the fix-all path correctly skips it.
+            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { } invocation
+                || !Psh1104UseTryGetValueAnalyzer.TryGetGuardShape(invocation, out _))
             {
                 continue;
             }

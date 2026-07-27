@@ -248,6 +248,58 @@ internal static class LayoutRules
         "This file declares no type, only usings or comments",
         FileWithoutCodeDescription);
 
+    /// <summary>SST1534 — a statement follows a closing brace with no blank line between them.</summary>
+    public static readonly DiagnosticDescriptor BlankLineAfterBlock = Create(
+        "SST1534",
+        "A block should be separated from the statement after it",
+        "Leave a blank line between this block and the statement after it",
+        BlankLineAfterBlockDescription);
+
+    /// <summary>SST1535 — a blank line follows a constructor initializer's colon.</summary>
+    public static readonly DiagnosticDescriptor BlankLineAfterConstructorInitializerColon = Create(
+        "SST1535",
+        "A constructor initializer colon should not be followed by a blank line",
+        "Remove the blank line after this constructor initializer's ':'",
+        BlankLineAfterConstructorInitializerColonDescription);
+
+    /// <summary>SST1536 — a blank line follows a conditional expression's '?' or ':'.</summary>
+    public static readonly DiagnosticDescriptor BlankLineAfterConditionalToken = Create(
+        "SST1536",
+        "A conditional operator token should not be followed by a blank line",
+        "Remove the blank line after this '{0}'",
+        BlankLineAfterConditionalTokenDescription);
+
+    /// <summary>SST1537 — a blank line follows an expression body's arrow.</summary>
+    public static readonly DiagnosticDescriptor BlankLineAfterArrow = Create(
+        "SST1537",
+        "An expression-body arrow should not be followed by a blank line",
+        "Remove the blank line after this '=>'",
+        BlankLineAfterArrowDescription);
+
+    /// <summary>The BlankLineAfterBlock rule description.</summary>
+    private const string BlankLineAfterBlockDescription =
+        "A brace-delimited block ends a unit of work, and the statement written hard against its closing brace reads as though it were "
+        + "still inside it. The blank line is what tells the eye the block is over. This is the counterpart to the rules that forbid a "
+        + "blank line just inside a brace: space goes between constructs, not within them.";
+
+    /// <summary>The BlankLineAfterConstructorInitializerColon rule description.</summary>
+    private const string BlankLineAfterConstructorInitializerColonDescription =
+        "The ':' of a constructor initializer binds the base or this call to the declaration above it. A blank line after the colon "
+        + "splits that one declaration in two on the page, so the initializer reads as an unrelated fragment. Wrap the initializer onto "
+        + "its own line if the line is long, but do not leave the colon dangling above empty space.";
+
+    /// <summary>The BlankLineAfterConditionalToken rule description.</summary>
+    private const string BlankLineAfterConditionalTokenDescription =
+        "A conditional operator is one expression. A blank line after its '?' or ':' separates the condition from the branch it selects, "
+        + "so the reader has to carry the condition across empty space to reach the value it produces. Wrapping a long conditional across "
+        + "lines is fine; leaving a gap inside it is not.";
+
+    /// <summary>The BlankLineAfterArrow rule description.</summary>
+    private const string BlankLineAfterArrowDescription =
+        "An expression-bodied member is a declaration and its single expression. A blank line after the '=>' pushes the expression away "
+        + "from the member it belongs to and makes the member look unfinished. Wrap after the arrow when the expression is long, but keep "
+        + "the two on consecutive lines.";
+
     /// <summary>The SwitchSectionBraces rule description.</summary>
     private const string SwitchSectionBracesDescription =
         "A switch section that carries more than one statement wraps them in a brace-delimited block. The braces give the "

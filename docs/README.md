@@ -563,7 +563,7 @@ conventions, and what a member exposes.
 | [SST2315](rules/SST2315.md) | A type creates and keeps a disposable but is not `IDisposable` - a static factory field, an auto-property `new`, or a collection of disposables. Code fix implements it. |
 | [SST2316](rules/SST2316.md) | A type declares a public `Dispose`/`DisposeAsync` but not the matching interface, so owners that dispose through the interface never call it. `ref struct` exempt. Code fix adds the interface. |
 | [SST2317](rules/SST2317.md) | A disposable owns a raw native handle with no finalizer, so it leaks when `Dispose` is not called. The message promotes a `SafeHandle`. |
-| [SST2318](rules/SST2318.md) | Two methods in one type have token-identical, non-trivial bodies, usually a copy-paste that was meant to differ. Off by default. |
+| [SST2318](rules/SST2318.md) | Two methods in one type take the same parameter types and have token-identical, non-trivial bodies, usually a copy-paste that was meant to differ. Off by default. |
 | [SST2319](rules/SST2319.md) | An optional parameter's default can never bind because a same-named overload already takes exactly its required prefix. |
 | [SST2320](rules/SST2320.md) | An interface inherits the same member from two unrelated base interfaces, so every consumer that accesses it gets an ambiguity error. |
 | [SST2321](rules/SST2321.md) | A class library calls `Environment.Exit` or `Environment.FailFast`, ending the whole host process instead of throwing. |

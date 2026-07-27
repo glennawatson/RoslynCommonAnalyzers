@@ -21,6 +21,14 @@ namespace StyleSharp.Analyzers;
 /// alone.
 /// </para>
 /// <para>
+/// Only methods that take the same parameter types are compared. The rule's remedy is to have one method call
+/// the other, which is impossible when the second cannot supply the first's arguments, and matching tokens do
+/// not mean matching work once the names in them bind to different types — two event handlers that both read
+/// <c>e.PropertyName</c> off a different <c>EventArgs</c> are not a copy-paste. Parameter <em>names</em> are
+/// deliberately not part of the comparison, so two methods that differ only in what they call an argument
+/// still match.
+/// </para>
+/// <para>
 /// Bodies are compared by their normalized token stream, so whitespace and comments do not matter and only the
 /// second of a matching pair is reported. Methods with no body at all — <c>abstract</c>, <c>extern</c>, and
 /// unimplemented <c>partial</c> declarations — never qualify. The clean path is a single count of eligible
@@ -32,6 +40,9 @@ public sealed class Sst2318DuplicateMemberBodyAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>Separates adjacent tokens in a body key so two short tokens cannot spell one longer one.</summary>
     private const char TokenSeparator = (char)1;
+
+    /// <summary>Separates one parameter from the next, and the signature from the body, in a body key.</summary>
+    private const char SectionSeparator = (char)2;
 
     /// <summary>The number of matching methods a type needs before a duplicate body is possible.</summary>
     private const int MinimumDuplicateCandidates = 2;
@@ -139,22 +150,58 @@ public sealed class Sst2318DuplicateMemberBodyAnalyzer : DiagnosticAnalyzer
             or ThrowExpressionSyntax
             or DefaultExpressionSyntax;
 
-    /// <summary>Builds a whitespace-insensitive key from a method body's token stream.</summary>
+    /// <summary>Builds a whitespace-insensitive key from a method's parameter types and body token stream.</summary>
     /// <param name="method">The method whose body is keyed.</param>
     /// <returns>The normalized token key.</returns>
     /// <remarks>
     /// Only the tokens are read, so trivia — whitespace and comments — is ignored, and a separator between
-    /// tokens keeps adjacent names from colliding with a single longer one.
+    /// tokens keeps adjacent names from colliding with a single longer one. The parameter types lead the key so
+    /// that two bodies only match when one method could actually call the other.
     /// </remarks>
     private static string BuildBodyKey(MethodDeclarationSyntax method)
     {
-        SyntaxNode body = method.Body is { } block ? block : method.ExpressionBody!.Expression;
         var builder = new StringBuilder();
+        AppendParameterTypes(method.ParameterList, builder);
+        builder.Append(SectionSeparator);
+
+        SyntaxNode body = method.Body is { } block ? block : method.ExpressionBody!.Expression;
         foreach (var token in body.DescendantTokens())
         {
             builder.Append(token.ValueText).Append(TokenSeparator);
         }
 
         return builder.ToString();
+    }
+
+    /// <summary>Appends each parameter's modifiers and type to a body key.</summary>
+    /// <param name="parameters">The method's parameter list.</param>
+    /// <param name="builder">The key being built.</param>
+    /// <remarks>
+    /// Parameter names are left out on purpose: two methods that differ only in what they call an argument can
+    /// still delegate to one another, so they stay comparable. Modifiers are included because an <c>out</c> or
+    /// <c>ref</c> parameter changes what a caller can hand over.
+    /// </remarks>
+    private static void AppendParameterTypes(ParameterListSyntax parameters, StringBuilder builder)
+    {
+        var list = parameters.Parameters;
+        for (var i = 0; i < list.Count; i++)
+        {
+            var parameter = list[i];
+            var modifiers = parameter.Modifiers;
+            for (var m = 0; m < modifiers.Count; m++)
+            {
+                builder.Append(modifiers[m].ValueText).Append(TokenSeparator);
+            }
+
+            if (parameter.Type is { } type)
+            {
+                foreach (var token in type.DescendantTokens())
+                {
+                    builder.Append(token.ValueText).Append(TokenSeparator);
+                }
+            }
+
+            builder.Append(SectionSeparator);
+        }
     }
 }

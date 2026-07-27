@@ -120,6 +120,82 @@ public class Sst2318DuplicateMemberBodyAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies identical bodies are not reported when the parameter types differ.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task IdenticalBodiesWithDifferentParameterTypesAreCleanAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            public sealed class Left
+            {
+                public int Value { get; set; }
+            }
+
+            public sealed class Right
+            {
+                public int Value { get; set; }
+            }
+
+            public sealed class C
+            {
+                private void OnLeft(object sender, Left e) => Forward(e.Value);
+
+                private void OnRight(object sender, Right e) => Forward(e.Value);
+
+                private void Forward(int value)
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies identical bodies are still reported when only the parameter names differ.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task IdenticalBodiesWithDifferentParameterNamesReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public int First(int a, int b)
+                {
+                    var x = Seed();
+                    return x * 2;
+                }
+
+                public int {|SST2318:Second|}(int c, int d)
+                {
+                    var x = Seed();
+                    return x * 2;
+                }
+
+                private static int Seed() => 3;
+            }
+            """);
+
+    /// <summary>Verifies identical bodies are not reported when one parameter is passed by reference.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task IdenticalBodiesWithDifferingParameterModifiersAreCleanAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public int First(int a)
+                {
+                    var x = Seed();
+                    return x * 2;
+                }
+
+                public int Second(ref int a)
+                {
+                    var x = Seed();
+                    return x * 2;
+                }
+
+                private static int Seed() => 3;
+            }
+            """);
+
     /// <summary>Verifies a single-throw body counts as trivial and is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

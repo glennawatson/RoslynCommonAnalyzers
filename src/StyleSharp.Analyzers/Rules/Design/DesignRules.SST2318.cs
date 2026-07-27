@@ -17,8 +17,10 @@ internal static partial class DesignRules
 
     /// <summary>The DuplicateMemberBody rule description.</summary>
     private const string DuplicateMemberBodyDescription =
-        "Two methods declared in the same type have exactly the same body, token for token. That is almost always a copy-paste where the "
-        + "second method was meant to do something different and never got changed, so it silently does the first one's work. If the shared "
-        + "body is intentional, call one method from the other so the logic lives in one place; otherwise the duplicate hides a bug. Off by "
-        + "default: identical bodies are sometimes legitimate, so this reports only as a deliberate opt-in.";
+        "Two methods declared in the same type take the same parameter types and have exactly the same body, token for token. That is almost "
+        + "always a copy-paste where the second method was meant to do something different and never got changed, so it silently does the "
+        + "first one's work. If the shared body is intentional, call one method from the other so the logic lives in one place; otherwise the "
+        + "duplicate hides a bug. Methods whose parameter types differ are not compared, because neither could call the other and the same "
+        + "tokens mean different work once they bind to different types. Off by default: identical bodies are sometimes legitimate, so this "
+        + "reports only as a deliberate opt-in.";
 }

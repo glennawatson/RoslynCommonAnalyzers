@@ -46,6 +46,7 @@ async, `PSH14xx` API selection.
 | [PSH1020](rules/PSH1020.md) | A multidimensional array is chosen where a jagged array would index on the CLR's fast path. |
 | [PSH1021](rules/PSH1021.md) | An explicit `GC.Collect` or `GC.WaitForPendingFinalizers` call forces collection the runtime tunes itself. |
 | [PSH1022](rules/PSH1022.md) | A parameterless `new EventArgs()` allocates where the shared `EventArgs.Empty` singleton would serve. Code fix uses the singleton. |
+| [PSH1023](rules/PSH1023.md) | A local anonymous type whose uses are all member reads allocates where a tuple would not. Code fix rewrites it as a tuple. |
 
 ## Collections
 

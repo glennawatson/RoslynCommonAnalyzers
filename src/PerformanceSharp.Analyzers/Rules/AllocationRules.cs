@@ -172,11 +172,25 @@ internal static class AllocationRules
         "Use 'EventArgs.Empty' instead of allocating a new 'EventArgs'",
         PreferEventArgsEmptyDescription);
 
+    /// <summary>PSH1023 — a local anonymous type allocates where a tuple would not.</summary>
+    public static readonly DiagnosticDescriptor PreferTupleOverAnonymousType = Create(
+        "PSH1023",
+        "Use a tuple instead of an anonymous type for a local value",
+        "Use a tuple instead of allocating an anonymous type",
+        PreferTupleOverAnonymousTypeDescription);
+
     /// <summary>The PSH1022 rule description.</summary>
     private const string PreferEventArgsEmptyDescription =
         "A parameterless 'new EventArgs()' carries no state, so every raise allocates an object indistinguishable from the shared "
         + "'EventArgs.Empty' singleton the runtime exposes for exactly this; reusing it makes raising an event allocation-free. A derived "
         + "EventArgs that carries data is a different type and is never reported.";
+
+    /// <summary>The PSH1023 rule description.</summary>
+    private const string PreferTupleOverAnonymousTypeDescription =
+        "An anonymous type is a class, so every 'new { A = ..., B = ... }' is a heap allocation and a garbage-collector visit later. A "
+        + "tuple carrying the same named members is a struct that lives on the stack, and it deconstructs, which the anonymous type cannot. "
+        + "The rule reports only a local that stays inside its method, where the type is a private detail and the swap is safe; an anonymous "
+        + "type that reaches a query provider, a serializer, or anything typed as 'object' is left alone.";
 
     /// <summary>The PSH1009 rule description.</summary>
     private const string UnboundedStackallocDescription =

@@ -130,7 +130,7 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
         var model = context.SemanticModel;
         if (!BindsToStringTrim(model, trim, context.CancellationToken)
             || !IsBlankTest(model, reported!, other, kind, context.CancellationToken)
-            || IsInsideExpressionTree(reported!, model, context.CancellationToken))
+            || SpanRewriteGuard.IsInsideExpressionTree(reported!, model, context.CancellationToken))
         {
             return;
         }
@@ -318,43 +318,6 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
             if (members[i] is IMethodSymbol { IsStatic: true, Parameters.Length: 1 })
             {
                 return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a test sits inside a lambda converted to an expression tree.</summary>
-    /// <param name="node">The reported test.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when a query provider, not this process, runs the test.</returns>
-    private static bool IsInsideExpressionTree(SyntaxNode node, SemanticModel model, CancellationToken cancellationToken)
-    {
-        for (var current = node.Parent; current is not null; current = current.Parent)
-        {
-            if (current is QueryExpressionSyntax)
-            {
-                return true;
-            }
-
-            if (current is AnonymousFunctionExpressionSyntax
-                && model.GetTypeInfo(current, cancellationToken).ConvertedType is INamedTypeSymbol
-                {
-                    Name: "Expression",
-                    ContainingNamespace:
-                    {
-                        Name: "Expressions",
-                        ContainingNamespace: { Name: "Linq", ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true } },
-                    },
-                })
-            {
-                return true;
-            }
-
-            if (current is MemberDeclarationSyntax)
-            {
-                return false;
             }
         }
 

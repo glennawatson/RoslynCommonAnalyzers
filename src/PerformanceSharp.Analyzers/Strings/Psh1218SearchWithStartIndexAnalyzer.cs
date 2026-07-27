@@ -118,7 +118,7 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
             || search.ContainingType.SpecialType != SpecialType.System_String
             || !PreservesComparison(search)
             || !RewriteBindsToSpanSearch(model, outer, slice!, search, context.CancellationToken)
-            || IsInsideExpressionTree(outer, model, context.CancellationToken))
+            || SpanRewriteGuard.IsInsideExpressionTree(outer, model, context.CancellationToken))
         {
             return;
         }
@@ -261,48 +261,5 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
                 Name: MemoryExtensionsTypeName,
                 ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true },
             };
-    }
-
-    /// <summary>Returns whether a call sits inside an expression tree.</summary>
-    /// <param name="node">The search invocation.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when a span may not be introduced here.</returns>
-    /// <remarks>
-    /// An expression tree cannot hold a <c>ref struct</c>, so an <c>AsSpan</c> slice inside one stops
-    /// compiling (CS8640) even though the same slice is fine everywhere else. A LINQ query expression
-    /// is skipped too: its lambdas are hidden, and an <c>IQueryable</c> source turns them into
-    /// expression trees.
-    /// </remarks>
-    private static bool IsInsideExpressionTree(SyntaxNode node, SemanticModel model, CancellationToken cancellationToken)
-    {
-        for (var current = node.Parent; current is not null; current = current.Parent)
-        {
-            if (current is QueryExpressionSyntax)
-            {
-                return true;
-            }
-
-            if (current is LambdaExpressionSyntax
-                && model.GetTypeInfo(current, cancellationToken).ConvertedType is INamedTypeSymbol
-                {
-                    Name: "Expression",
-                    ContainingNamespace:
-                    {
-                        Name: "Expressions",
-                        ContainingNamespace: { Name: "Linq", ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true } },
-                    },
-                })
-            {
-                return true;
-            }
-
-            if (current is MemberDeclarationSyntax)
-            {
-                return false;
-            }
-        }
-
-        return false;
     }
 }

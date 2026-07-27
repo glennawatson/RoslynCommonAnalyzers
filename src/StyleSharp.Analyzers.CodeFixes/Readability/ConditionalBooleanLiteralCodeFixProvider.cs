@@ -16,36 +16,22 @@ public sealed class ConditionalBooleanLiteralCodeFixProvider : CodeFixProvider, 
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not ConditionalExpressionSyntax conditional)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use the condition directly",
-                    _ => Task.FromResult(Apply(context.Document, root, conditional)),
-                    equivalenceKey: nameof(ConditionalBooleanLiteralCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use the condition directly", nameof(ConditionalBooleanLiteralCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Resolves the reported node and builds its replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ConditionalExpressionSyntax conditional)
+        if (root.FindNode(diagnostic.Location.SourceSpan) is not ConditionalExpressionSyntax conditional)
         {
-            return;
+            return null;
         }
 
         var condition = conditional.Condition.WithoutTrivia();
@@ -53,22 +39,7 @@ public sealed class ConditionalBooleanLiteralCodeFixProvider : CodeFixProvider, 
             ? condition
             : Negate(condition);
 
-        editor.ReplaceNode(conditional, replacement.WithTriviaFrom(conditional));
-    }
-
-    /// <summary>Replaces the conditional with the condition, negating it when the branches are swapped.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="conditional">The conditional expression returning boolean literals.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ConditionalExpressionSyntax conditional)
-    {
-        var condition = conditional.Condition.WithoutTrivia();
-        var replacement = conditional.WhenTrue.IsKind(SyntaxKind.TrueLiteralExpression)
-            ? condition
-            : Negate(condition);
-
-        return document.WithSyntaxRoot(root.ReplaceNode(conditional, replacement.WithTriviaFrom(conditional)));
+        return new NodeReplacement(conditional, replacement.WithTriviaFrom(conditional));
     }
 
     /// <summary>Negates a boolean condition, unwrapping a double negation and parenthesizing when needed.</summary>

@@ -16,53 +16,27 @@ public sealed class UseDefaultLiteralCodeFixProvider : CodeFixProvider, IBatchFi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not DefaultExpressionSyntax defaultExpression)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use the 'default' literal",
-                    _ => Task.FromResult(Apply(context.Document, root, defaultExpression)),
-                    equivalenceKey: nameof(UseDefaultLiteralCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Use the 'default' literal", nameof(UseDefaultLiteralCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Resolves the reported node and builds its replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not DefaultExpressionSyntax defaultExpression)
+        if (root.FindNode(diagnostic.Location.SourceSpan) is not DefaultExpressionSyntax defaultExpression)
         {
-            return;
+            return null;
         }
 
         var literal = SyntaxFactory.LiteralExpression(SyntaxKind.DefaultLiteralExpression, SyntaxFactory.Token(SyntaxKind.DefaultKeyword))
             .WithTriviaFrom(defaultExpression);
-        editor.ReplaceNode(defaultExpression, literal);
-    }
 
-    /// <summary>Swaps the explicit <c>default(T)</c> for the target-typed <c>default</c> literal.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="defaultExpression">The explicit default expression.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, DefaultExpressionSyntax defaultExpression)
-    {
-        var literal = SyntaxFactory.LiteralExpression(SyntaxKind.DefaultLiteralExpression, SyntaxFactory.Token(SyntaxKind.DefaultKeyword))
-            .WithTriviaFrom(defaultExpression);
-
-        return document.WithSyntaxRoot(root.ReplaceNode(defaultExpression, literal));
+        return new NodeReplacement(defaultExpression, literal);
     }
 }

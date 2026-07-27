@@ -16,61 +16,24 @@ public sealed class DoubledNegationCodeFixProvider : CodeFixProvider, IBatchFixa
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not PrefixUnaryExpressionSyntax unary)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the doubled operator",
-                    _ => Task.FromResult(Apply(context.Document, root, unary)),
-                    equivalenceKey: nameof(DoubledNegationCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Remove the doubled operator", nameof(DoubledNegationCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not PrefixUnaryExpressionSyntax unary)
-        {
-            return;
-        }
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
-        var count = 0;
-        ExpressionSyntax current = unary;
-        while (ExpressionSimplificationAnalyzer.Unwrap(current) is PrefixUnaryExpressionSyntax peeled && peeled.IsKind(unary.Kind()))
-        {
-            count++;
-            current = peeled.Operand;
-        }
-
-        var operand = ExpressionSimplificationAnalyzer.Unwrap(current).WithoutTrivia();
-        ExpressionSyntax replacement = count % 2 == 0
-            ? operand
-            : SyntaxFactory.PrefixUnaryExpression(unary.Kind(), operand);
-
-        editor.ReplaceNode(unary, replacement.WithTriviaFrom(unary));
-    }
-
-    /// <summary>Peels every consecutive same-kind operator, keeping one only for an odd count.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported node and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="unary">The outermost negation operator.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, PrefixUnaryExpressionSyntax unary)
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
+        if (root.FindNode(diagnostic.Location.SourceSpan) is not PrefixUnaryExpressionSyntax unary)
+        {
+            return null;
+        }
+
         var count = 0;
         ExpressionSyntax current = unary;
         while (ExpressionSimplificationAnalyzer.Unwrap(current) is PrefixUnaryExpressionSyntax peeled && peeled.IsKind(unary.Kind()))
@@ -84,6 +47,6 @@ public sealed class DoubledNegationCodeFixProvider : CodeFixProvider, IBatchFixa
             ? operand
             : SyntaxFactory.PrefixUnaryExpression(unary.Kind(), operand);
 
-        return document.WithSyntaxRoot(root.ReplaceNode(unary, replacement.WithTriviaFrom(unary)));
+        return new NodeReplacement(unary, replacement.WithTriviaFrom(unary));
     }
 }

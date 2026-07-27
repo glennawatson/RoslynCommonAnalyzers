@@ -8,12 +8,11 @@ using Microsoft.CodeAnalysis.Text;
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Puts a blank line where one construct ends and the next begins (SST1534), and takes one out from inside
-/// a construct that should read as one thing (SST1535, SST1536, SST1537).
+/// Removes a blank line left inside a construct that should read as one thing (SST1535, SST1536, SST1537).
 /// </summary>
 /// <remarks>
-/// Both directions are pure whitespace edits, so the fix works on the source text rather than the tree: it
-/// never has to rebuild a node, and the surrounding trivia is left exactly as written.
+/// The edit is pure whitespace, so the fix works on the source text rather than the tree: it never has to
+/// rebuild a node, and the surrounding trivia is left exactly as written.
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(BlankLineSeparationCodeFixProvider))]
 [Shared]
@@ -21,7 +20,6 @@ public sealed class BlankLineSeparationCodeFixProvider : CodeFixProvider, ITextC
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
-        LayoutRules.BlankLineAfterBlock.Id,
         LayoutRules.BlankLineAfterConstructorInitializerColon.Id,
         LayoutRules.BlankLineAfterConditionalToken.Id,
         LayoutRules.BlankLineAfterArrow.Id);
@@ -31,7 +29,7 @@ public sealed class BlankLineSeparationCodeFixProvider : CodeFixProvider, ITextC
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => TextChangeCodeFix.RegisterAsync(context, TitleFor(context.Diagnostics[0]), nameof(BlankLineSeparationCodeFixProvider), TryAppendChanges);
+        => TextChangeCodeFix.RegisterAsync(context, "Remove the blank line", nameof(BlankLineSeparationCodeFixProvider), TryAppendChanges);
 
     /// <inheritdoc/>
     void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
@@ -44,31 +42,7 @@ public sealed class BlankLineSeparationCodeFixProvider : CodeFixProvider, ITextC
     /// <param name="changes">The list the edit is appended to.</param>
     /// <returns><see langword="true"/> when an edit was appended.</returns>
     private static bool TryAppendChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-        => diagnostic.Id == LayoutRules.BlankLineAfterBlock.Id
-            ? TryAppendInsertion(text, diagnostic, changes)
-            : TryAppendDeletion(text, diagnostic, changes);
-
-    /// <summary>Adds the blank line that should separate a block from the statement after it.</summary>
-    /// <param name="text">The document's source text.</param>
-    /// <param name="diagnostic">The diagnostic reported on the crowding statement.</param>
-    /// <param name="changes">The list the edit is appended to.</param>
-    /// <returns><see langword="true"/> when an edit was appended.</returns>
-    private static bool TryAppendInsertion(SourceText text, Diagnostic diagnostic, List<TextChange> changes)
-    {
-        var line = text.Lines.GetLineFromPosition(diagnostic.Location.SourceSpan.Start);
-        changes.Add(new TextChange(new TextSpan(line.Start, 0), LineEndingOf(text, line)));
-        return true;
-    }
-
-    /// <summary>Reads the line ending a line actually uses, so the edit matches the file's style.</summary>
-    /// <param name="text">The document's source text.</param>
-    /// <param name="line">The line to read.</param>
-    /// <returns>The line's own ending, or a line feed when it is the last line.</returns>
-    private static string LineEndingOf(SourceText text, TextLine line)
-    {
-        var ending = text.ToString(TextSpan.FromBounds(line.End, line.EndIncludingLineBreak));
-        return ending.Length == 0 ? "\n" : ending;
-    }
+        => TryAppendDeletion(text, diagnostic, changes);
 
     /// <summary>Deletes the blank lines between the reported token and whatever follows it.</summary>
     /// <param name="text">The document's source text.</param>
@@ -113,10 +87,4 @@ public sealed class BlankLineSeparationCodeFixProvider : CodeFixProvider, ITextC
 
         return true;
     }
-
-    /// <summary>Gets the code action title matching the direction of the fix.</summary>
-    /// <param name="diagnostic">The diagnostic being fixed.</param>
-    /// <returns>The title.</returns>
-    private static string TitleFor(Diagnostic diagnostic)
-        => diagnostic.Id == LayoutRules.BlankLineAfterBlock.Id ? "Add the separating blank line" : "Remove the blank line";
 }

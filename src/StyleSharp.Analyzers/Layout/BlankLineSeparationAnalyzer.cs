@@ -7,18 +7,17 @@ using Microsoft.CodeAnalysis.Text;
 namespace StyleSharp.Analyzers;
 
 /// <summary>
-/// Reports blank lines that fall in the wrong place: missing where one construct ends and the next begins,
-/// and present inside a construct that should read as one thing.
+/// Reports a blank line left inside a construct that should read as one thing.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Reports SST1534 (a statement crowds the closing brace of the block before it), SST1535 (a blank line
-/// follows a constructor initializer's <c>:</c>), SST1536 (a blank line follows a conditional operator's
-/// <c>?</c> or <c>:</c>), and SST1537 (a blank line follows an expression body's <c>=&gt;</c>).
+/// Reports SST1535 (a blank line follows a constructor initializer's <c>:</c>), SST1536 (a blank line
+/// follows a conditional operator's <c>?</c> or <c>:</c>), and SST1537 (a blank line follows an expression
+/// body's <c>=&gt;</c>).
 /// </para>
 /// <para>
-/// The four ids share one analyzer because they ask the same question — how many lines separate two
-/// adjacent tokens — and answering it once per declaration beats four separate walks. Each check is a pair
+/// The three ids share one analyzer because they ask the same question — how many lines separate two
+/// adjacent tokens — and answering it once per declaration beats three separate walks. Each check is a pair
 /// of line-table lookups, which are binary searches over a cached table rather than allocations, so a file
 /// with no findings does no work beyond those lookups.
 /// </para>
@@ -31,7 +30,6 @@ public sealed class BlankLineSeparationAnalyzer : DiagnosticAnalyzer
 
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
-        LayoutRules.BlankLineAfterBlock,
         LayoutRules.BlankLineAfterConstructorInitializerColon,
         LayoutRules.BlankLineAfterConditionalToken,
         LayoutRules.BlankLineAfterArrow);
@@ -42,42 +40,9 @@ public sealed class BlankLineSeparationAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterSyntaxNodeAction(AnalyzeBlock, SyntaxKind.Block);
         context.RegisterSyntaxNodeAction(AnalyzeConstructorInitializer, SyntaxKind.BaseConstructorInitializer, SyntaxKind.ThisConstructorInitializer);
         context.RegisterSyntaxNodeAction(AnalyzeConditional, SyntaxKind.ConditionalExpression);
         context.RegisterSyntaxNodeAction(AnalyzeArrow, SyntaxKind.ArrowExpressionClause);
-    }
-
-    /// <summary>Reports each statement that begins on the line after a multi-line block closes (SST1534).</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeBlock(SyntaxNodeAnalysisContext context)
-    {
-        var statements = ((BlockSyntax)context.Node).Statements;
-        if (statements.Count < BlankLineDelta)
-        {
-            return;
-        }
-
-        var text = context.Node.SyntaxTree.GetText(context.CancellationToken);
-        for (var i = 1; i < statements.Count; i++)
-        {
-            var previous = statements[i - 1];
-            if (!EndsWithBlock(previous))
-            {
-                continue;
-            }
-
-            var closeLine = LayoutHelpers.EndLine(text, previous.GetLastToken());
-            var startLine = LayoutHelpers.StartLine(text, statements[i].GetFirstToken());
-
-            // Same line is a different concern, and a gap already satisfies the rule.
-            if (startLine - closeLine == 1)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    LayoutRules.BlankLineAfterBlock,
-                    statements[i].GetFirstToken().GetLocation()));
-            }
-        }
     }
 
     /// <summary>Reports a blank line after a constructor initializer's colon (SST1535).</summary>
@@ -161,24 +126,5 @@ public sealed class BlankLineSeparationAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(argument is null
             ? Diagnostic.Create(descriptor, token.GetLocation())
             : Diagnostic.Create(descriptor, token.GetLocation(), argument));
-    }
-
-    /// <summary>Returns whether a statement's own text ends with a brace-delimited block.</summary>
-    /// <param name="statement">The statement to test.</param>
-    /// <returns><see langword="true"/> when the statement closes with a block's brace.</returns>
-    /// <remarks>
-    /// A single-line block (<c>if (x) { return; }</c>) is left alone: the rule is about a block that spans
-    /// lines, where the closing brace is what tells the reader the construct ended.
-    /// </remarks>
-    private static bool EndsWithBlock(StatementSyntax statement)
-    {
-        var last = statement.GetLastToken();
-        if (!last.IsKind(SyntaxKind.CloseBraceToken))
-        {
-            return false;
-        }
-
-        var lines = statement.GetLocation().GetLineSpan();
-        return lines.StartLinePosition.Line != lines.EndLinePosition.Line;
     }
 }

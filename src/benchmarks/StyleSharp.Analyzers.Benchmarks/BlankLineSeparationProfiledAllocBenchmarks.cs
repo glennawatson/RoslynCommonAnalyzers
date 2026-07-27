@@ -7,7 +7,7 @@ using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
-/// <summary>Allocation-profile benchmarks for blank-line separation analysis (SST1534-SST1537).</summary>
+/// <summary>Allocation-profile benchmarks for blank-line separation analysis (SST1535-SST1537).</summary>
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class BlankLineSeparationProfiledAllocBenchmarks

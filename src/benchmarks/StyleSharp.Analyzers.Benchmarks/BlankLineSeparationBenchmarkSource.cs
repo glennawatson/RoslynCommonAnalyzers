@@ -4,7 +4,7 @@
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
-/// <summary>Builds synthetic source for the blank-line separation benchmarks (SST1534-SST1537).</summary>
+/// <summary>Builds synthetic source for the blank-line separation benchmarks (SST1535-SST1537).</summary>
 internal static class BlankLineSeparationBenchmarkSource
 {
     /// <summary>Builds a compilation unit whose members are correctly or incorrectly spaced.</summary>
@@ -12,9 +12,8 @@ internal static class BlankLineSeparationBenchmarkSource
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
     /// <remarks>
-    /// Each type exercises all four ids at once — a block followed by a statement, a constructor
-    /// initializer, a conditional operator, and an expression body — so the measured cost is the whole
-    /// analyzer rather than one of its four callbacks.
+    /// Each type exercises all three ids at once — a constructor initializer, a conditional operator, and
+    /// an expression body — so the measured cost is the whole analyzer rather than one of its callbacks.
     /// </remarks>
     public static string Generate(int types, bool violating)
         => $$"""

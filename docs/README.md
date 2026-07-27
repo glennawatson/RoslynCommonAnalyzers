@@ -315,7 +315,6 @@ PSH1102, and PSH1100.
 | [SST1531](rules/SST1531.md) | A short object initializer is split across lines. Code fix collapses it when it fits. Opt-in. |
 | [SST1532](rules/SST1532.md) | A file mixes line endings. Configurable (`lf`/`crlf`, default lf). Opt-in. |
 | [SST1533](rules/SST1533.md) | A source file contains no code. Opt-in. |
-| [SST1534](rules/SST1534.md) | A statement begins on the line after a multi-line block closes. Code fix adds the blank line. |
 | [SST1535](rules/SST1535.md) | A blank line follows a constructor initializer's `:`. Code fix removes it. |
 | [SST1536](rules/SST1536.md) | A blank line follows a conditional operator's `?` or `:`. Code fix removes it. |
 | [SST1537](rules/SST1537.md) | A blank line follows an expression body's `=>`. Code fix removes it. |

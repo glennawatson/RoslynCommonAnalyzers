@@ -248,13 +248,6 @@ internal static class LayoutRules
         "This file declares no type, only usings or comments",
         FileWithoutCodeDescription);
 
-    /// <summary>SST1534 — a statement follows a closing brace with no blank line between them.</summary>
-    public static readonly DiagnosticDescriptor BlankLineAfterBlock = Create(
-        "SST1534",
-        "A block should be separated from the statement after it",
-        "Leave a blank line between this block and the statement after it",
-        BlankLineAfterBlockDescription);
-
     /// <summary>SST1535 — a blank line follows a constructor initializer's colon.</summary>
     public static readonly DiagnosticDescriptor BlankLineAfterConstructorInitializerColon = Create(
         "SST1535",
@@ -275,12 +268,6 @@ internal static class LayoutRules
         "An expression-body arrow should not be followed by a blank line",
         "Remove the blank line after this '=>'",
         BlankLineAfterArrowDescription);
-
-    /// <summary>The BlankLineAfterBlock rule description.</summary>
-    private const string BlankLineAfterBlockDescription =
-        "A brace-delimited block ends a unit of work, and the statement written hard against its closing brace reads as though it were "
-        + "still inside it. The blank line is what tells the eye the block is over. This is the counterpart to the rules that forbid a "
-        + "blank line just inside a brace: space goes between constructs, not within them.";
 
     /// <summary>The BlankLineAfterConstructorInitializerColon rule description.</summary>
     private const string BlankLineAfterConstructorInitializerColonDescription =

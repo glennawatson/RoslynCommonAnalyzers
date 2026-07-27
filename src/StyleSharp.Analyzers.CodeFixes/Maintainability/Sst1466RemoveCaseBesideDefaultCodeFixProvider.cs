@@ -20,82 +20,25 @@ public sealed class Sst1466RemoveCaseBesideDefaultCodeFixProvider : CodeFixProvi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetLabel(root, diagnostic, out var label))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove redundant case label",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, label!)),
-                    equivalenceKey: nameof(Sst1466RemoveCaseBesideDefaultCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => RemoveNodeCodeFix.RegisterAsync(context, "Remove redundant case label", nameof(Sst1466RemoveCaseBesideDefaultCodeFixProvider), TrySelect);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetLabel(editor.OriginalRoot, diagnostic, out var label))
-        {
-            return;
-        }
+        => RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TrySelect);
 
-        editor.RemoveNode(label!, RemoveOptionsFor(label!));
-    }
-
-    /// <summary>Removes the reported case label from its switch section.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="label">The reported case label.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, SwitchLabelSyntax label)
-        => document.WithSyntaxRoot(root.RemoveNode(label, RemoveOptionsFor(label)) ?? root);
-
-    /// <summary>Resolves the diagnostic's span to its switch label.</summary>
+    /// <summary>Resolves the diagnostic's span to the non-default case label it reports.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <param name="label">The reported label when found.</param>
-    /// <returns><see langword="true"/> when a non-default label was found.</returns>
-    private static bool TryGetLabel(SyntaxNode root, Diagnostic diagnostic, out SwitchLabelSyntax? label)
+    /// <returns>The node to remove, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeRemoval? TrySelect(SyntaxNode root, Diagnostic diagnostic)
     {
-        label = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)
-            .FirstAncestorOrSelf<SwitchLabelSyntax>();
-        return label?.IsKind(SyntaxKind.DefaultSwitchLabel) == false;
-    }
-
-    /// <summary>Chooses removal options that keep comment banners and preprocessor structure intact.</summary>
-    /// <param name="label">The label being removed.</param>
-    /// <returns>The removal options.</returns>
-    private static SyntaxRemoveOptions RemoveOptionsFor(SwitchLabelSyntax label)
-        => HasSignificantLeadingTrivia(label)
-            ? SyntaxRemoveOptions.KeepLeadingTrivia | SyntaxRemoveOptions.KeepUnbalancedDirectives
-            : SyntaxRemoveOptions.KeepUnbalancedDirectives;
-
-    /// <summary>Returns whether the label's leading trivia carries content worth keeping.</summary>
-    /// <param name="label">The label being removed.</param>
-    /// <returns><see langword="true"/> when comments or preprocessor directives lead the label.</returns>
-    private static bool HasSignificantLeadingTrivia(SwitchLabelSyntax label)
-    {
-        foreach (var trivia in label.GetLeadingTrivia())
+        if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<SwitchLabelSyntax>() is not { } label
+            || label.IsKind(SyntaxKind.DefaultSwitchLabel))
         {
-            if (!trivia.IsKind(SyntaxKind.WhitespaceTrivia) && !trivia.IsKind(SyntaxKind.EndOfLineTrivia))
-            {
-                return true;
-            }
+            return null;
         }
 
-        return false;
+        return NodeRemoval.PreservingLeadingContent(label);
     }
 }

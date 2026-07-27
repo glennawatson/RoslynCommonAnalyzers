@@ -16,49 +16,10 @@ public sealed class RedundantDefaultSwitchSectionCodeFixProvider : CodeFixProvid
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<SwitchSectionSyntax>() is not { } section)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the redundant 'default' section",
-                    _ => Task.FromResult(Apply(context.Document, root, section)),
-                    equivalenceKey: nameof(RedundantDefaultSwitchSectionCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => RemoveNodeCodeFix.RegisterAsync(context, "Remove the redundant 'default' section", nameof(RedundantDefaultSwitchSectionCodeFixProvider), RemoveNodeCodeFix.Ancestor<SwitchSectionSyntax>);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<SwitchSectionSyntax>() is not { } section)
-        {
-            return;
-        }
-
-        editor.RemoveNode(section, SyntaxRemoveOptions.KeepNoTrivia);
-    }
-
-    /// <summary>Removes the redundant <c>default:</c> section from its switch.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="section">The redundant switch section.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, SwitchSectionSyntax section)
-    {
-        var updated = root.RemoveNode(section, SyntaxRemoveOptions.KeepNoTrivia);
-        return document.WithSyntaxRoot(updated!);
-    }
+        => RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Ancestor<SwitchSectionSyntax>);
 }

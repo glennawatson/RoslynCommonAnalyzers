@@ -16,49 +16,10 @@ public sealed class RedundantConstructorCodeFixProvider : CodeFixProvider, IBatc
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ConstructorDeclarationSyntax>() is not { } constructor)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the redundant constructor",
-                    _ => Task.FromResult(Apply(context.Document, root, constructor)),
-                    equivalenceKey: nameof(RedundantConstructorCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => RemoveNodeCodeFix.RegisterAsync(context, "Remove the redundant constructor", nameof(RedundantConstructorCodeFixProvider), RemoveNodeCodeFix.Ancestor<ConstructorDeclarationSyntax>);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ConstructorDeclarationSyntax>() is not { } constructor)
-        {
-            return;
-        }
-
-        editor.RemoveNode(constructor, SyntaxRemoveOptions.KeepNoTrivia);
-    }
-
-    /// <summary>Removes the redundant constructor so the compiler supplies the default.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="constructor">The redundant constructor.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ConstructorDeclarationSyntax constructor)
-    {
-        var updated = root.RemoveNode(constructor, SyntaxRemoveOptions.KeepNoTrivia);
-        return document.WithSyntaxRoot(updated!);
-    }
+        => RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Ancestor<ConstructorDeclarationSyntax>);
 }

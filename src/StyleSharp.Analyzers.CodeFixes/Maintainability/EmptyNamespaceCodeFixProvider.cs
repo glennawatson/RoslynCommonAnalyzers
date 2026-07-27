@@ -16,49 +16,10 @@ public sealed class EmptyNamespaceCodeFixProvider : CodeFixProvider, IBatchFixab
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<BaseNamespaceDeclarationSyntax>() is not { } declaration)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the empty namespace",
-                    _ => Task.FromResult(Apply(context.Document, root, declaration)),
-                    equivalenceKey: nameof(EmptyNamespaceCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => RemoveNodeCodeFix.RegisterAsync(context, "Remove the empty namespace", nameof(EmptyNamespaceCodeFixProvider), RemoveNodeCodeFix.Ancestor<BaseNamespaceDeclarationSyntax>);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<BaseNamespaceDeclarationSyntax>() is not { } declaration)
-        {
-            return;
-        }
-
-        editor.RemoveNode(declaration, SyntaxRemoveOptions.KeepNoTrivia);
-    }
-
-    /// <summary>Removes the empty namespace declaration.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="declaration">The empty namespace declaration.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BaseNamespaceDeclarationSyntax declaration)
-    {
-        var updated = root.RemoveNode(declaration, SyntaxRemoveOptions.KeepNoTrivia);
-        return document.WithSyntaxRoot(updated!);
-    }
+        => RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Ancestor<BaseNamespaceDeclarationSyntax>);
 }

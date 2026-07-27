@@ -16,49 +16,10 @@ public sealed class Psh1002EmptyFinalizerCodeFixProvider : CodeFixProvider, IBat
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<DestructorDeclarationSyntax>() is not { } finalizer)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the empty finalizer",
-                    _ => Task.FromResult(Apply(context.Document, root, finalizer)),
-                    equivalenceKey: nameof(Psh1002EmptyFinalizerCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => RemoveNodeCodeFix.RegisterAsync(context, "Remove the empty finalizer", nameof(Psh1002EmptyFinalizerCodeFixProvider), RemoveNodeCodeFix.Ancestor<DestructorDeclarationSyntax>);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<DestructorDeclarationSyntax>() is not { } finalizer)
-        {
-            return;
-        }
-
-        editor.RemoveNode(finalizer, SyntaxRemoveOptions.KeepNoTrivia);
-    }
-
-    /// <summary>Removes the empty finalizer.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="finalizer">The empty finalizer.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, DestructorDeclarationSyntax finalizer)
-    {
-        var updated = root.RemoveNode(finalizer, SyntaxRemoveOptions.KeepNoTrivia);
-        return document.WithSyntaxRoot(updated!);
-    }
+        => RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Ancestor<DestructorDeclarationSyntax>);
 }

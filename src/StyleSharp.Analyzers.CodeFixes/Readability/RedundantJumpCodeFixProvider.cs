@@ -16,49 +16,10 @@ public sealed class RedundantJumpCodeFixProvider : CodeFixProvider, IBatchFixabl
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not StatementSyntax statement)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the redundant statement",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, statement)),
-                    equivalenceKey: nameof(RedundantJumpCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => RemoveNodeCodeFix.RegisterAsync(context, "Remove the redundant statement", nameof(RedundantJumpCodeFixProvider), RemoveNodeCodeFix.Node<StatementSyntax>);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not StatementSyntax statement)
-        {
-            return;
-        }
-
-        editor.RemoveNode(statement, SyntaxRemoveOptions.KeepNoTrivia);
-    }
-
-    /// <summary>Removes the redundant jump statement, dropping its line.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="statement">The redundant statement to remove.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, StatementSyntax statement)
-    {
-        var updated = root.RemoveNode(statement, SyntaxRemoveOptions.KeepNoTrivia);
-        return document.WithSyntaxRoot(updated!);
-    }
+        => RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Node<StatementSyntax>);
 }

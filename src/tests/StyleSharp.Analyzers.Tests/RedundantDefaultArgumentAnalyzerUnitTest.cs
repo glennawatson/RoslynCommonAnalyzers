@@ -296,6 +296,46 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a floating-point argument that spells the default differently is still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task EqualFloatingPointValueIsReportedAsync()
+        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public void Scale(double factor = 1.5)
+                {
+                }
+
+                public void Use()
+                {
+                    Scale({|SST1494:1.5|});
+                    Scale({|SST1494:1.50|});
+                }
+            }
+            """);
+
+    /// <summary>Verifies negative zero is not treated as the same argument as positive zero.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The two compare equal, but dropping the argument would change the value the callee sees — the sign
+    /// survives in the result of a division — so the call is not redundant.
+    /// </remarks>
+    [Test]
+    public async Task NegativeZeroAgainstPositiveZeroDefaultIsCleanAsync()
+        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public void Scale(double factor = 0.0)
+                {
+                }
+
+                public void Use() => Scale(-0.0);
+            }
+            """);
+
     /// <summary>Verifies a trailing default argument on a conditional-access call is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

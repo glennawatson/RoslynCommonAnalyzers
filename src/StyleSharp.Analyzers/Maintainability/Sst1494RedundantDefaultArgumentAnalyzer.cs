@@ -270,6 +270,9 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
     /// Boxed constants of different widths are not <see cref="object.Equals(object, object)"/>-equal — an
     /// <c>int</c> literal <c>0</c> passed to a <c>long</c> parameter defaulting to <c>0</c> arrives as a
     /// boxed <see cref="int"/> against a boxed <see cref="long"/> — so numeric values are compared by value.
+    /// Numbers never fall back to <see cref="object.Equals(object)"/>, which would let a boxed
+    /// <see cref="double"/> answer for the whole comparison and call <c>-0.0</c> the same argument as
+    /// <c>0.0</c>.
     /// </remarks>
     private static bool ConstantsMatch(object? argumentValue, object? defaultValue)
     {
@@ -278,8 +281,9 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
             return argumentValue is null && defaultValue is null;
         }
 
-        return argumentValue.Equals(defaultValue)
-            || (IsNumeric(argumentValue) && IsNumeric(defaultValue) && NumbersMatch(argumentValue, defaultValue));
+        return IsNumeric(argumentValue) && IsNumeric(defaultValue)
+            ? NumbersMatch(argumentValue, defaultValue)
+            : argumentValue.Equals(defaultValue);
     }
 
     /// <summary>Returns whether a boxed constant is one of the numeric primitives.</summary>
@@ -305,7 +309,10 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
     {
         if (left is float or double || right is float or double)
         {
-            return Convert.ToDouble(left, CultureInfo.InvariantCulture).Equals(Convert.ToDouble(right, CultureInfo.InvariantCulture));
+            // Bit patterns, not ==: the argument is only redundant when it denotes the very same value, and
+            // -0.0 is a different argument from 0.0 even though the two compare equal.
+            return BitConverter.DoubleToInt64Bits(Convert.ToDouble(left, CultureInfo.InvariantCulture))
+                == BitConverter.DoubleToInt64Bits(Convert.ToDouble(right, CultureInfo.InvariantCulture));
         }
 
         return Convert.ToDecimal(left, CultureInfo.InvariantCulture) == Convert.ToDecimal(right, CultureInfo.InvariantCulture);

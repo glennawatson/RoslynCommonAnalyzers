@@ -445,6 +445,7 @@ PSH1102, and PSH1100.
 | [SST2016](rules/SST2016.md) | A `DateTime` is the type of an externally visible field, property, parameter or return type, so the offset is lost at the boundary. |
 | [SST2017](rules/SST2017.md) | A `.Date` or `.TimeOfDay` read proves the value is only a date, or only a time of day: use `DateOnly` / `TimeOnly`. |
 | [SST2018](rules/SST2018.md) | A null check sits beside an `is` type pattern that already excludes null. Code fix removes the null check. |
+| [SST2019](rules/SST2019.md) | A value is tested against `object` where the question is whether it is null. Code fix rewrites it as a null pattern. |
 
 ## Collection Expressions
 

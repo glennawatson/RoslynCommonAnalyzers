@@ -139,6 +139,20 @@ internal static partial class ModernizationRules
         "Use '{0}.FromDateTime(...)' instead of '.{1}'",
         UseDateOnlyOrTimeOnlyDescription);
 
+    /// <summary>SST2019 — a value is tested against 'object' where the question is really whether it is null.</summary>
+    public static readonly DiagnosticDescriptor NullCheckOverTypeCheck = Create(
+        "SST2019",
+        "Test for null rather than for object",
+        "Use '{0}' instead of testing against 'object'",
+        NullCheckOverTypeCheckDescription);
+
+    /// <summary>The NullCheckOverTypeCheck rule description.</summary>
+    private const string NullCheckOverTypeCheckDescription =
+        "Every reference and every boxed value is an object, so 'x is object' answers only one question: is x non-null. Writing it as a "
+        + "type test makes the reader stop and work out which types could fail it, and the answer is none. 'x is not null' says the same "
+        + "thing in the words of the question being asked. The rule stays silent when the operand is a non-nullable value type, where the "
+        + "test is constant and the compiler already has something to say about it.";
+
     /// <summary>The SST2009 rule description.</summary>
     private const string UseExceptionFilterDescription =
         "A catch block that immediately tests a condition and rethrows on the losing branch is an exception filter written by hand; "

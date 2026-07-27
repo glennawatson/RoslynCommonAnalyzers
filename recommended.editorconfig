@@ -381,6 +381,9 @@ dotnet_diagnostic.SST1525.severity = warning # Switch sections with multiple sta
 # dotnet_diagnostic.SST1531.severity = warning # A short initializer should be written on a single line (opt-in)
 # dotnet_diagnostic.SST1532.severity = warning # Files should use consistent line endings (opt-in)
 # dotnet_diagnostic.SST1533.severity = warning # A source file should declare at least one type (opt-in)
+dotnet_diagnostic.SST1535.severity = warning # A constructor initializer colon should not be followed by a blank line
+dotnet_diagnostic.SST1536.severity = warning # A conditional operator token should not be followed by a blank line
+dotnet_diagnostic.SST1537.severity = warning # An expression-body arrow should not be followed by a blank line
 
 # Documentation
 dotnet_diagnostic.SST1600.severity = warning # Elements should be documented
@@ -481,6 +484,7 @@ dotnet_diagnostic.SST2015.severity = warning # Do not bury an increment inside a
 dotnet_diagnostic.SST2016.severity = warning # Expose DateTimeOffset rather than DateTime
 dotnet_diagnostic.SST2017.severity = warning # Use DateOnly or TimeOnly when only a date or a time of day is meant
 dotnet_diagnostic.SST2018.severity = warning # A null check beside a type pattern is redundant
+dotnet_diagnostic.SST2019.severity = warning # Test for null rather than for object
 
 # CollectionExpressions
 dotnet_diagnostic.SST2100.severity = warning # Use an empty collection expression

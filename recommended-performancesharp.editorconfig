@@ -45,6 +45,7 @@ dotnet_diagnostic.PSH1019.severity = warning # Slice arrays with AsSpan instead 
 dotnet_diagnostic.PSH1020.severity = warning # Prefer a jagged array over a multidimensional one
 dotnet_diagnostic.PSH1021.severity = warning # Do not force garbage collection
 dotnet_diagnostic.PSH1022.severity = warning # Use EventArgs.Empty instead of allocating a new EventArgs
+dotnet_diagnostic.PSH1023.severity = warning # Use a tuple instead of an anonymous type for a local value
 
 # Collections
 # dotnet_diagnostic.PSH1100.severity = warning # Avoid LINQ calls on hot paths (opt-in)

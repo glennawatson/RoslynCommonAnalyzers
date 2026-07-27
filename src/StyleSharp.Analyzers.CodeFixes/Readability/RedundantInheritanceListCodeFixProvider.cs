@@ -16,53 +16,28 @@ public sealed class RedundantInheritanceListCodeFixProvider : CodeFixProvider, I
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseTypeSyntax>() is not { Parent: BaseListSyntax } baseType)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the redundant base type",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, baseType)),
-                    equivalenceKey: nameof(RedundantInheritanceListCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => ReplaceNodeCodeFix.RegisterAsync(context, "Remove the redundant base type", nameof(RedundantInheritanceListCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Resolves the reported base type and builds the declaration without it.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseTypeSyntax>() is not { Parent: BaseListSyntax } baseType)
+        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseTypeSyntax>() is not { Parent: BaseListSyntax } baseType)
         {
-            return;
+            return null;
         }
 
         var baseList = (BaseListSyntax)baseType.Parent!;
         var typeDeclaration = baseList.Parent!;
-        editor.ReplaceNode(typeDeclaration, Rewrite(typeDeclaration, baseList));
-    }
 
-    /// <summary>Removes the base type, dropping the whole base list when it was the only entry.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="baseType">The redundant base type to remove.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BaseTypeSyntax baseType)
-    {
-        var baseList = (BaseListSyntax)baseType.Parent!;
-        var typeDeclaration = baseList.Parent!;
-        return document.WithSyntaxRoot(root.ReplaceNode(typeDeclaration, Rewrite(typeDeclaration, baseList)));
+        return new NodeReplacement(typeDeclaration, Rewrite(typeDeclaration, baseList));
     }
 
     /// <summary>Builds the type declaration with the redundant base type removed.</summary>

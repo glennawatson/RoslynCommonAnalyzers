@@ -119,7 +119,8 @@ public sealed class Sst2271VarStyleAnalyzer : DiagnosticAnalyzer
         };
 
         var typeSyntax = declaration.Type;
-        if (typeSyntax.IsVar == shouldBeVar || context.SemanticModel.GetTypeInfo(typeSyntax).Type is not { } declaredType)
+        if (typeSyntax.IsVar == shouldBeVar
+            || context.SemanticModel.GetTypeInfo(typeSyntax, context.CancellationToken).Type is not { } declaredType)
         {
             return;
         }
@@ -159,7 +160,7 @@ public sealed class Sst2271VarStyleAnalyzer : DiagnosticAnalyzer
         if (toVar)
         {
             var safe = initializer is null
-                ? SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetTypeInfo(typeSyntax).Type, resolvedType)
+                ? SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetTypeInfo(typeSyntax, context.CancellationToken).Type, resolvedType)
                 : VarInfersSameType(context.SemanticModel, initializer, resolvedType);
             if (!safe)
             {

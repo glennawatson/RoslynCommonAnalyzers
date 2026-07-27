@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -29,55 +28,12 @@ public sealed class TokenLineBreakCodeFixProvider : CodeFixProvider, ITextChange
     public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var text = await context.Document.GetTextAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var probe = new List<TextChange>(2);
-            if (!TryAppendChanges(text, root, diagnostic, probe))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Move the line break to the other side",
-                    cancellationToken => MoveAsync(context.Document, diagnostic, cancellationToken),
-                    equivalenceKey: nameof(TokenLineBreakCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+        => TextChangeCodeFix.RegisterAsync(context, "Move the line break to the other side", nameof(TokenLineBreakCodeFixProvider), TryAppendChanges);
 
     /// <inheritdoc/>
     void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
         => TryAppendChanges(text, root, diagnostic, changes);
-
-    /// <summary>Rewrites the two gaps around the token so its break sits on the configured side.</summary>
-    /// <param name="document">The document to fix.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The updated document.</returns>
-    private static async Task<Document> MoveAsync(Document document, Diagnostic diagnostic, CancellationToken cancellationToken)
-    {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return document;
-        }
-
-        var changes = new List<TextChange>(2);
-        return TryAppendChanges(text, root, diagnostic, changes)
-            ? document.WithText(text.WithChanges(changes))
-            : document;
-    }
 
     /// <summary>Appends the break-moving changes when the token carries exactly one break on the wrong side.</summary>
     /// <param name="text">The source text.</param>

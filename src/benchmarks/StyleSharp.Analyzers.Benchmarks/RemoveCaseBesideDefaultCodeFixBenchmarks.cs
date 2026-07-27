@@ -6,6 +6,8 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+using RoslynCommon.Analyzers.CodeFixes;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the case-beside-default code-fix path.</summary>
@@ -65,7 +67,8 @@ public class RemoveCaseBesideDefaultCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> RemoveCaseBesideDefault_ApplyFixAsync()
     {
-        var updated = Sst1466RemoveCaseBesideDefaultCodeFixProvider.Apply(_document, _root, _label);
+        var removal = NodeRemoval.PreservingLeadingContent(_label);
+        var updated = _document.WithSyntaxRoot(_root.RemoveNode(removal.Node, removal.Options)!);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

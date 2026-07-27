@@ -52,7 +52,7 @@ public sealed class Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesCod
                    static inner => inner.ArgumentList?.Arguments,
                    (inner, arguments) => inner.WithArgumentList(
                        SyntaxFactory.BracketedArgumentList(arguments)
-                           .WithOpenBracketToken(inner.ArgumentList!.OpenBracketToken.WithTrailingTrivia(endOfLine))))
+                           .WithOpenBracketToken(inner.ArgumentList.OpenBracketToken.WithTrailingTrivia(endOfLine))))
                ?? node;
     }
 }

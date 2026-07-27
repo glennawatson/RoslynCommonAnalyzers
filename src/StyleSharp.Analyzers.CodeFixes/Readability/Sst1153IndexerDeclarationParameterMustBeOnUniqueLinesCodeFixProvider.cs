@@ -52,7 +52,7 @@ public sealed class Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesCodeFix
                    static inner => inner.ParameterList?.Parameters,
                    (inner, parameters) => inner.WithParameterList(
                        SyntaxFactory.BracketedParameterList(parameters)
-                           .WithOpenBracketToken(inner.ParameterList!.OpenBracketToken.WithTrailingTrivia(endOfLine))))
+                           .WithOpenBracketToken(inner.ParameterList.OpenBracketToken.WithTrailingTrivia(endOfLine))))
                ?? node;
     }
 }

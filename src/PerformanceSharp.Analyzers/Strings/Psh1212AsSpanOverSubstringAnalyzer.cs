@@ -68,7 +68,7 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var index = argumentList.Arguments.IndexOf((ArgumentSyntax)invocation.Parent!);
+        var index = argumentList.Arguments.IndexOf((ArgumentSyntax)invocation.Parent);
         if (index >= method.Parameters.Length
             || method.Parameters[index].Type.SpecialType != SpecialType.System_String
             || !HasSpanOverload(method, index)

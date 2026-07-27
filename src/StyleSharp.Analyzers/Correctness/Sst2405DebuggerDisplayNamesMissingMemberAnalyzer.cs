@@ -78,17 +78,17 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
         var index = 0;
         while (TryReadNextMemberName(text, ref index, out var name, out var offset))
         {
-            if (DeclaresMember(type, name!))
+            if (DeclaresMember(type, name))
             {
                 continue;
             }
 
-            var span = new Microsoft.CodeAnalysis.Text.TextSpan(start + offset, name!.Length);
+            var span = new Microsoft.CodeAnalysis.Text.TextSpan(start + offset, name.Length);
             context.ReportDiagnostic(DiagnosticHelper.Create(
                 CorrectnessRules.DebuggerDisplayNamesMissingMember,
                 Location.Create(literal.SyntaxTree, span),
                 DebuggerDisplayName,
-                name!,
+                name,
                 type.Name));
         }
     }
@@ -105,7 +105,7 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     /// string. A backslash escapes the character after it, which is how a display string writes a literal
     /// brace.
     /// </remarks>
-    private static bool TryReadNextMemberName(string text, ref int index, out string? name, out int offset)
+    private static bool TryReadNextMemberName(string text, ref int index, [NotNullWhen(true)] out string? name, out int offset)
     {
         while (index < text.Length)
         {
@@ -147,7 +147,7 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     /// <param name="name">The member name when the expression is one.</param>
     /// <param name="offset">The name's offset into the literal's text.</param>
     /// <returns><see langword="true"/> when the expression is a plain member name.</returns>
-    private static bool TryReadMemberName(string text, int open, int close, out string? name, out int offset)
+    private static bool TryReadMemberName(string text, int open, int close, [NotNullWhen(true)] out string? name, out int offset)
     {
         name = null;
         offset = 0;

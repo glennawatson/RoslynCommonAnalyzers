@@ -2,13 +2,12 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace SecuritySharp.Analyzers;
+namespace RoslynCommon.Analyzers;
 
 /// <summary>
-/// Reads editorconfig settings with the package's rule-specific-then-project-wide fallback,
-/// shared by the option records the rules expose. Each read prefers the rule-specific key
-/// (<c>securitysharp.&lt;RuleId&gt;.&lt;option&gt;</c>) and only then the general key
-/// (<c>securitysharp.&lt;option&gt;</c>), matching the CA-analyzer key convention.
+/// Reads editorconfig settings with the rule-specific-then-project-wide fallback every package's
+/// option records use. Each read prefers the rule-specific key (<c>&lt;package&gt;.&lt;RuleId&gt;.&lt;option&gt;</c>)
+/// and only then the general key (<c>&lt;package&gt;.&lt;option&gt;</c>), matching the CA-analyzer key convention.
 /// </summary>
 internal static class AnalyzerOptionReader
 {

@@ -291,6 +291,83 @@ public class MefContractAnalyzerUnitTest
         await VerifyAsync(Source);
     }
 
+    /// <summary>Verifies a creation policy alongside a derived export attribute is not reported (MEF2).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Deriving a custom attribute from <c>ExportAttribute</c> is how MEF is meant to be extended, and
+    /// the container honours the derived attribute exactly like its base. Roslyn's own
+    /// <c>ExportCodeFixProvider</c> is the canonical example, so treating a derived attribute as "not
+    /// an export" would fire on every code-fix provider ever written.
+    /// </remarks>
+    [Test]
+    public async Task CreationPolicyWithDerivedExportMef2IsSilentAsync()
+    {
+        const string Source = """
+                              using System;
+                              using System.Composition;
+
+                              [AttributeUsage(AttributeTargets.Class)]
+                              public sealed class ExportPluginAttribute : ExportAttribute
+                              {
+                                  public ExportPluginAttribute(string name) { }
+                              }
+
+                              [ExportPlugin("thing")]
+                              [Shared]
+                              public class Plugin { }
+                              """;
+        await VerifyAsync(Source);
+    }
+
+    /// <summary>Verifies a creation policy alongside a derived export attribute is not reported (MEF1).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CreationPolicyWithDerivedExportIsSilentAsync()
+    {
+        const string Source = """
+                              using System;
+                              using System.ComponentModel.Composition;
+
+                              [AttributeUsage(AttributeTargets.Class)]
+                              public sealed class ExportPluginAttribute : ExportAttribute
+                              {
+                                  public ExportPluginAttribute() { }
+                              }
+
+                              [ExportPlugin]
+                              [PartCreationPolicy(CreationPolicy.Shared)]
+                              public class Plugin { }
+                              """;
+        await VerifyAsync(Source);
+    }
+
+    /// <summary>Verifies a shared part exported by a derived attribute is still caught when constructed directly.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SharedPartExportedByDerivedAttributeConstructedDirectlyIsReportedAsync()
+    {
+        const string Source = """
+                              using System;
+                              using System.Composition;
+
+                              [AttributeUsage(AttributeTargets.Class)]
+                              public sealed class ExportPluginAttribute : ExportAttribute
+                              {
+                                  public ExportPluginAttribute() { }
+                              }
+
+                              [ExportPlugin]
+                              [Shared]
+                              public class Plugin { }
+
+                              public class Consumer
+                              {
+                                  public Plugin Make() => {|SST2473:new Plugin()|};
+                              }
+                              """;
+        await VerifyAsync(Source);
+    }
+
     /// <summary>Verifies all three shapes stay silent when no MEF assembly is referenced.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

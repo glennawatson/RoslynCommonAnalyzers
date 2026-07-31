@@ -379,16 +379,27 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
             return new MefContractSymbols(mef1Export, mef1PartCreationPolicy, mef2Export, mef2Shared, sharedPolicyValue);
         }
 
-        /// <summary>Returns whether an attribute class is one of the resolved export attributes.</summary>
+        /// <summary>Returns whether an attribute class is, or derives from, a resolved export attribute.</summary>
         /// <param name="attributeClass">The bound attribute class.</param>
         /// <returns><see langword="true"/> for a MEF export attribute.</returns>
+        /// <remarks>
+        /// Deriving a custom attribute from <c>ExportAttribute</c> is a supported way to extend MEF, and
+        /// the container treats the derived attribute as the export it inherits. Matching the exact type
+        /// alone would classify such a part as unexported, which is wrong twice over: the creation-policy
+        /// rule would report a policy that does govern something, and the direct-construction rule would
+        /// miss a shared part that really is composed. Roslyn's own <c>ExportCodeFixProvider</c> is the
+        /// most widely written example of the pattern.
+        /// </remarks>
         public bool IsExport(INamedTypeSymbol attributeClass)
-            => SymbolEqualityComparer.Default.Equals(attributeClass, _mef1Export)
-                || SymbolEqualityComparer.Default.Equals(attributeClass, _mef2Export);
+            => InheritsMarker(attributeClass, _mef1Export) || InheritsMarker(attributeClass, _mef2Export);
 
         /// <summary>Returns whether an attribute class is one of the resolved creation-policy attributes.</summary>
         /// <param name="attributeClass">The bound attribute class.</param>
         /// <returns><see langword="true"/> for a MEF creation-policy or shared attribute.</returns>
+        /// <remarks>
+        /// Exact equality is right here, unlike for exports: both flavors seal their creation-policy
+        /// attribute, so no derived form can exist to match.
+        /// </remarks>
         public bool IsCreationPolicy(INamedTypeSymbol attributeClass)
             => SymbolEqualityComparer.Default.Equals(attributeClass, _mef1PartCreationPolicy)
                 || SymbolEqualityComparer.Default.Equals(attributeClass, _mef2Shared);
@@ -430,6 +441,30 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
                 }
 
                 if (SymbolEqualityComparer.Default.Equals(attributeClass, _mef1PartCreationPolicy) && IsSharedPolicy(attributes[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Returns whether an attribute class is, or inherits, a marker attribute.</summary>
+        /// <param name="attributeClass">The bound attribute class.</param>
+        /// <param name="marker">The marker attribute, when it resolved.</param>
+        /// <returns><see langword="true"/> when the attribute class is or derives from the marker.</returns>
+        private static bool InheritsMarker(INamedTypeSymbol attributeClass, INamedTypeSymbol? marker)
+        {
+            if (marker is null)
+            {
+                return false;
+            }
+
+            // An attribute hierarchy is a handful of links at most, so the walk stays cheap even on
+            // the object-creation path where it runs per constructed type.
+            for (var current = attributeClass; current is not null; current = current.BaseType)
+            {
+                if (SymbolEqualityComparer.Default.Equals(current, marker))
                 {
                     return true;
                 }

@@ -196,7 +196,8 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
                 Expression: AssignmentExpressionSyntax
                 {
                     RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
-                    Left: MemberAccessExpressionSyntax memberAccess
+                    Left: MemberAccessExpressionSyntax memberAccess,
+                    Right: { } assignedValue
                 }
             })
         {
@@ -204,6 +205,7 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         }
 
         return IsIdentifier(memberAccess.Expression, variableName)
+            && !Mentions(assignedValue, variableName)
             && model.GetSymbolInfo(memberAccess.Name, cancellationToken).Symbol is IPropertySymbol or IFieldSymbol;
     }
 
@@ -226,7 +228,42 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         }
 
         return receiver.Identifier.ValueText == variableName
+            && !Mentions(invocation.ArgumentList, variableName)
             && model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { Name: "Add" };
+    }
+
+    /// <summary>
+    /// Returns whether a subtree reads a name. An initializer runs before its own local exists, so a
+    /// value that names the local cannot be folded into one (CS0841) and the shape is left alone.
+    /// </summary>
+    /// <param name="node">The subtree to search.</param>
+    /// <param name="name">The name to look for.</param>
+    /// <returns><see langword="true"/> when the name appears.</returns>
+    private static bool Mentions(SyntaxNode node, string name)
+    {
+        if (node is IdentifierNameSyntax self && self.Identifier.ValueText == name)
+        {
+            return true;
+        }
+
+        var scan = new NameScan(name);
+        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(node, ref scan, VisitName);
+        return scan.Found;
+    }
+
+    /// <summary>Records whether an identifier is the name being looked for.</summary>
+    /// <param name="identifier">The identifier being visited.</param>
+    /// <param name="scan">The scan state.</param>
+    /// <returns><see langword="false"/> once the name is found, which stops the walk.</returns>
+    private static bool VisitName(IdentifierNameSyntax identifier, ref NameScan scan)
+    {
+        if (identifier.Identifier.ValueText != scan.Name)
+        {
+            return true;
+        }
+
+        scan.Found = true;
+        return false;
     }
 
     /// <summary>Returns whether a type supports collection initializer syntax.</summary>
@@ -524,6 +561,14 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>The state threaded through a name search.</summary>
+    /// <param name="Name">The name being looked for.</param>
+    private record struct NameScan(string Name)
+    {
+        /// <summary>Gets or sets a value indicating whether the name was found.</summary>
+        public bool Found { get; set; }
     }
 
     /// <summary>Parts of a null-conditional expression shape.</summary>

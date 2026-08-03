@@ -83,6 +83,108 @@ public class LanguageStyleAnalyzerUnitTest
         await VerifyLanguageStyle.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies an assignment whose value reads the new local is left alone, because an initializer cannot name it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task MemberAssignmentReadingTheNewLocalIsCleanAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class SerialHandle
+                              {
+                                  public IDisposable Current { get; set; }
+
+                                  public object Owner { get; set; }
+                              }
+
+                              public sealed class Watcher : IDisposable
+                              {
+                                  private readonly SerialHandle _handle;
+
+                                  public Watcher(SerialHandle handle) => _handle = handle;
+
+                                  public void Dispose() => _handle.Current = null;
+                              }
+
+                              public sealed class C
+                              {
+                                  public SerialHandle Watch()
+                                  {
+                                      var handle = new SerialHandle();
+                                      handle.Current = new Watcher(handle);
+                                      return handle;
+                                  }
+
+                                  public SerialHandle OwnItself()
+                                  {
+                                      var handle = new SerialHandle();
+                                      handle.Owner = handle;
+                                      return handle;
+                                  }
+                              }
+                              """;
+        await VerifyLanguageStyle.VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies an assignment whose lambda captures the new local is left alone, because an initializer cannot name it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task MemberAssignmentCapturingTheNewLocalIsCleanAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class Timer
+                              {
+                                  public Action Elapsed { get; set; }
+
+                                  public void Stop()
+                                  {
+                                  }
+                              }
+
+                              public sealed class C
+                              {
+                                  public Timer StartOneShot()
+                                  {
+                                      var timer = new Timer();
+                                      timer.Elapsed = () => timer.Stop();
+                                      return timer;
+                                  }
+                              }
+                              """;
+        await VerifyLanguageStyle.VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies an added item that reads the new local is left alone, because an initializer cannot name it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AddedItemReadingTheNewLocalIsCleanAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+
+                              public sealed class Node
+                              {
+                                  public Node(List<Node> siblings) => Siblings = siblings;
+
+                                  public List<Node> Siblings { get; }
+                              }
+
+                              public sealed class C
+                              {
+                                  public List<Node> BuildRing()
+                                  {
+                                      var nodes = new List<Node>();
+                                      nodes.Add(new Node(nodes));
+                                      return nodes;
+                                  }
+                              }
+                              """;
+        await VerifyLanguageStyle.VerifyAnalyzerAsync(Source);
+    }
+
     /// <summary>Verifies null-coalescing conditional expressions are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

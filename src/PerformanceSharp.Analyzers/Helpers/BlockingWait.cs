@@ -237,20 +237,46 @@ internal static class BlockingWait
                 ? initializer
                 : access.Expression;
 
-        if (awaiterExpression is not InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } awaiterCall
-            || awaiterCall.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: GetAwaiterMethodName } awaiter)
+        if (awaiterExpression is InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } awaiterCall
+            && awaiterCall.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: GetAwaiterMethodName } awaiter)
         {
-            return null;
+            var awaited = awaiter.Expression;
+            var target = UnwrapConfigureAwait(awaited);
+            return GetTypeOf(target, model, cancellationToken) is { } type && AsyncSiblingResolver.IsAwaitable(type, tasks)
+                ? new Site(Kind.SingleTask, awaited, target, GetResultMethodName, AwaitIsEquivalent: true)
+                : null;
         }
 
-        var awaited = awaiter.Expression;
-        var target = UnwrapConfigureAwait(awaited);
-        if (GetTypeOf(target, model, cancellationToken) is not { } type || !AsyncSiblingResolver.IsAwaitable(type, tasks))
+        // The awaiter can reach this call from anywhere — a field, a property, a parameter. Its type
+        // still says a thread is being parked. There is no task expression to rewrite to, so the wait
+        // is reported without a fix rather than rewritten into something that means something else.
+        return GetTypeOf(access.Expression, model, cancellationToken) is { } receiver && IsTaskAwaiter(receiver)
+            ? new Site(Kind.SingleTask, access.Expression, access.Expression, GetResultMethodName, AwaitIsEquivalent: false)
+            : null;
+    }
+
+    /// <summary>Returns whether a type is one of the awaiters the task types hand out.</summary>
+    /// <param name="type">The receiver's type.</param>
+    /// <returns><see langword="true"/> for a BCL task or value-task awaiter, configured or not.</returns>
+    /// <remarks>
+    /// The set is closed on purpose: it names exactly the awaiters of the four types this rule covers,
+    /// so a custom awaitable's own awaiter — whose <c>GetResult</c> is required by the awaiter pattern
+    /// to be synchronous — is never mistaken for a blocking wait.
+    /// </remarks>
+    private static bool IsTaskAwaiter(ITypeSymbol type)
+    {
+        if (type.Name is not ("TaskAwaiter" or "ValueTaskAwaiter" or "ConfiguredTaskAwaiter" or "ConfiguredValueTaskAwaiter"))
         {
-            return null;
+            return false;
         }
 
-        return new Site(Kind.SingleTask, awaited, target, GetResultMethodName, AwaitIsEquivalent: true);
+        // A configured awaiter is nested inside its awaitable, which is the type carrying the namespace.
+        var owner = type.ContainingType ?? type;
+        return owner.ContainingNamespace is
+        {
+            Name: "CompilerServices",
+            ContainingNamespace: { Name: "Runtime", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } }
+        };
     }
 
     /// <summary>Returns the value a local was declared with, when it has exactly one declaration.</summary>

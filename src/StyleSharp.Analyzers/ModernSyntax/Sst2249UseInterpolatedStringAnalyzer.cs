@@ -55,8 +55,9 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!SupportsInterpolation(invocation.SyntaxTree)
             || !InterpolatedStringConversion.IsFormatShape(invocation)
-            || InterpolatedStringConversion.TryConvertFormat(context.SemanticModel, invocation, context.CancellationToken) is null
-            || IsLoggingTemplateArgument(context.SemanticModel, invocation, loggerExtensions, context.CancellationToken))
+            || InterpolatedStringConversion.TryConvertFormat(context.SemanticModel, invocation, context.CancellationToken) is not { } converted
+            || IsLoggingTemplateArgument(context.SemanticModel, invocation, loggerExtensions, context.CancellationToken)
+            || !RewrittenLineFits(context, invocation, converted))
         {
             return;
         }
@@ -72,13 +73,43 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!SupportsInterpolation(binary.SyntaxTree)
             || !InterpolatedStringConversion.IsConcatenationCandidate(binary)
-            || InterpolatedStringConversion.TryConvertConcatenation(context.SemanticModel, binary, context.CancellationToken) is null
-            || IsLoggingTemplateArgument(context.SemanticModel, binary, loggerExtensions, context.CancellationToken))
+            || InterpolatedStringConversion.TryConvertConcatenation(context.SemanticModel, binary, context.CancellationToken) is not { } converted
+            || IsLoggingTemplateArgument(context.SemanticModel, binary, loggerExtensions, context.CancellationToken)
+            || !RewrittenLineFits(context, binary, converted))
         {
             return;
         }
 
         context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.UseInterpolatedString, binary.GetLocation(), ConcatenationSourceDescription));
+    }
+
+    /// <summary>Returns whether the one-line interpolated form would still fit the line-length budget.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="original">The call or chain that would be replaced.</param>
+    /// <param name="converted">The interpolated string that would replace it.</param>
+    /// <returns><see langword="true"/> when the rewritten line fits, or when no budget is in force.</returns>
+    /// <remarks>
+    /// An interpolated string cannot be split across lines, so a message that only fits when its
+    /// concatenation is wrapped has no rewrite that satisfies the maximum-line-length rule as well. The
+    /// text the chain currently spans is replaced by one expression, so the resulting line is what sits
+    /// before the chain, the interpolated string, and what follows the chain.
+    /// </remarks>
+    private static bool RewrittenLineFits(
+        SyntaxNodeAnalysisContext context,
+        ExpressionSyntax original,
+        InterpolatedStringExpressionSyntax converted)
+    {
+        var tree = original.SyntaxTree;
+        var lines = tree.GetText(context.CancellationToken).Lines;
+        var prefix = original.SpanStart - lines.GetLineFromPosition(original.SpanStart).Start;
+        var suffix = lines.GetLineFromPosition(original.Span.End).End - original.Span.End;
+
+        return LineLengthBudget.Fits(
+            prefix + converted.Span.Length + suffix,
+            tree,
+            context.Options,
+            context.Compilation,
+            context.CancellationToken);
     }
 
     /// <summary>Returns whether an expression is the structured-logging message template of a logging call.</summary>

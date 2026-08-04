@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Text;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -75,75 +74,6 @@ public sealed class Sst1653SingleLineSummaryCodeFixProvider : CodeFixProvider, I
     private static TextChange BuildChange(SourceText text, XmlElementSyntax summary)
     {
         var innerSpan = TextSpan.FromBounds(summary.StartTag.Span.End, summary.EndTag.Span.Start);
-        return new TextChange(summary.Span, "<summary>" + Collapse(text, innerSpan) + "</summary>");
-    }
-
-    /// <summary>Strips <c>///</c> exteriors and collapses whitespace runs to single spaces, trimming the ends.</summary>
-    /// <param name="text">The source text.</param>
-    /// <param name="innerSpan">The raw span between the summary tags.</param>
-    /// <returns>The single-line inner text.</returns>
-    private static string Collapse(SourceText text, TextSpan innerSpan)
-    {
-        const string Exterior = "///";
-
-        var builder = new StringBuilder(innerSpan.Length);
-        var started = false;
-        var pendingSpace = false;
-        var i = innerSpan.Start;
-        var end = innerSpan.End;
-
-        while (i < end)
-        {
-            // Skip the '///' documentation exterior that prefixes each line.
-            if (StartsWith(text, i, end, Exterior))
-            {
-                i += Exterior.Length;
-                continue;
-            }
-
-            var character = text[i];
-            i++;
-
-            if (char.IsWhiteSpace(character))
-            {
-                pendingSpace = started;
-                continue;
-            }
-
-            if (pendingSpace)
-            {
-                builder.Append(' ');
-                pendingSpace = false;
-            }
-
-            builder.Append(character);
-            started = true;
-        }
-
-        return builder.ToString();
-    }
-
-    /// <summary>Returns whether <paramref name="text"/> contains <paramref name="value"/> starting at <paramref name="index"/>.</summary>
-    /// <param name="text">The text to test.</param>
-    /// <param name="index">The position to test at.</param>
-    /// <param name="end">The exclusive end position of the tested span.</param>
-    /// <param name="value">The substring to look for.</param>
-    /// <returns><see langword="true"/> on a match.</returns>
-    private static bool StartsWith(SourceText text, int index, int end, string value)
-    {
-        if (index + value.Length > end)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < value.Length; i++)
-        {
-            if (text[index + i] != value[i])
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return new TextChange(summary.Span, "<summary>" + SummaryCollapse.Collapse(text, innerSpan) + "</summary>");
     }
 }

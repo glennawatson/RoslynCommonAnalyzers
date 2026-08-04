@@ -98,6 +98,74 @@ public class SingleLineSummaryAnalyzerUnitTest
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a summary stays wrapped when collapsing it would push the line past the length budget.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SummaryTooLongToCollapseWithinTheLineBudgetIsNotReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary>
+            /// Returns the fully materialized projection for the supplied query, including every dependent value.
+            /// </summary>
+            public class C { }
+            """);
+
+    /// <summary>Verifies a summary is still collapsed when the resulting line exactly fills the budget.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SummaryThatExactlyFillsTheLineBudgetIsCollapsedAsync()
+    {
+        const string Source = """
+                              /// {|SST1653:<summary>
+                              /// Returns the fully materialized projection for the supplied query, including all dependent values.
+                              /// </summary>|}
+                              public class C { }
+                              """;
+        const string FixedSource = """
+                                   /// <summary>Returns the fully materialized projection for the supplied query, including all dependent values.</summary>
+                                   public class C { }
+                                   """;
+
+        await Verify.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a raised line budget lets a longer summary collapse again.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RaisedLineBudgetAllowsCollapseAsync()
+    {
+        var test = new Verify.Test
+        {
+            TestCode = """
+                       /// {|SST1653:<summary>
+                       /// Returns the fully materialized projection for the supplied query, including every dependent value.
+                       /// </summary>|}
+                       public class C { }
+                       """,
+            FixedCode = """
+                        /// <summary>Returns the fully materialized projection for the supplied query, including every dependent value.</summary>
+                        public class C { }
+                        """
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.max_line_length = 200
+
+            """));
+        test.FixedState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.max_line_length = 200
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies lowering the limit via editorconfig stops a short summary from being reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

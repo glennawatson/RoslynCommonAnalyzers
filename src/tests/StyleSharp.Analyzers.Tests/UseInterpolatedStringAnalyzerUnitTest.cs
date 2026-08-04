@@ -48,6 +48,62 @@ public class UseInterpolatedStringAnalyzerUnitTest
         await VerifyUseInterpolatedString.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a split concatenation stays split when the interpolated form would not fit one line.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConcatenationTooLongToInterpolateWithinTheLineBudgetIsNotReportedAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public string Describe(string customer, string reference, string status)
+                                      => "Order for customer " + customer
+                                          + " with reference " + reference
+                                          + " is currently " + status
+                                          + " and cannot be modified until it is released.";
+                              }
+                              """;
+        await VerifyUseInterpolatedString.VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies the same concatenation is reported once the line budget is wide enough to hold the rewrite.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConcatenationIsReportedWhenTheLineBudgetHoldsTheRewriteAsync()
+    {
+        const string EditorConfig = """
+                                    root = true
+                                    [*.cs]
+                                    stylesharp.max_line_length = 200
+
+                                    """;
+        var test = new VerifyUseInterpolatedString.Test
+        {
+            TestCode = """
+                       public sealed class C
+                       {
+                           public string Describe(string customer, string reference, string status)
+                               => {|SST2249:"Order for customer " + customer
+                                   + " with reference " + reference
+                                   + " is currently " + status
+                                   + " and cannot be modified until it is released."|};
+                       }
+                       """,
+            FixedCode = """
+                        public sealed class C
+                        {
+                            public string Describe(string customer, string reference, string status)
+                                => $"Order for customer {customer} with reference {reference} is currently {status} and cannot be modified until it is released.";
+                        }
+                        """
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies alignment and a format specifier are reproduced in the interpolation hole.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

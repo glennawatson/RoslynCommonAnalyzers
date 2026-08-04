@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.Text;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -62,7 +64,34 @@ public sealed class Sst1653SingleLineSummaryAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        if (!CollapsedLineFits(context, summary, lineSpan.StartLinePosition.Character))
+        {
+            return;
+        }
+
         context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.SingleLineSummary, summary.GetLocation()));
+    }
+
+    /// <summary>Returns whether the collapsed summary would still sit within the line-length budget.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="summary">The summary element.</param>
+    /// <param name="indentation">The column the summary's opening tag starts at.</param>
+    /// <returns><see langword="true"/> when the one-line form fits, or when no budget is in force.</returns>
+    /// <remarks>
+    /// Collapsing a summary that then breaks the maximum-line-length rule leaves no layout that satisfies
+    /// both rules, so the summary keeps its wrapped form. The length is measured through the same routine
+    /// the code fix builds with, so the prediction and the rewrite cannot disagree.
+    /// </remarks>
+    private static bool CollapsedLineFits(SyntaxNodeAnalysisContext context, XmlElementSyntax summary, int indentation)
+    {
+        var tree = summary.SyntaxTree;
+        var innerSpan = TextSpan.FromBounds(summary.StartTag.Span.End, summary.EndTag.Span.Start);
+        var collapsedLength = indentation
+            + summary.StartTag.Span.Length
+            + SummaryCollapse.CollapsedLength(tree.GetText(context.CancellationToken), innerSpan)
+            + summary.EndTag.Span.Length;
+
+        return LineLengthBudget.Fits(collapsedLength, tree, context.Options, context.Compilation, context.CancellationToken);
     }
 
     /// <summary>Returns the first <c>&lt;summary&gt;</c> element in a documentation comment, or <see langword="null"/>.</summary>

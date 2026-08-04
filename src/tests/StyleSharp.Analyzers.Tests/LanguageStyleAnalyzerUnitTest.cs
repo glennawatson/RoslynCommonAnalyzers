@@ -465,6 +465,52 @@ public class LanguageStyleAnalyzerUnitTest
         await VerifyLanguageStyle.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies types that cannot be a <c>nameof</c> operand are left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TypeofNameOnATypeNameofCannotTakeIsCleanAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+
+                              public sealed class C
+                              {
+                                  public string Keyword() => typeof(string).Name;
+
+                                  public string Numeric() => typeof(int).Name;
+
+                                  public string Nullable() => typeof(int?).Name;
+
+                                  public string Array() => typeof(int[]).Name;
+
+                                  public string Tuple() => typeof((int First, int Second)).Name;
+
+                                  public string Generic() => typeof(List<int>).Name;
+                              }
+                              """;
+        await VerifyLanguageStyle.VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies a qualified type name is still reported, since <c>nameof</c> accepts it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TypeofNameOnAQualifiedNameIsReportedAsync()
+    {
+        const string Source = """
+                              public sealed class Widget
+                              {
+                              }
+
+                              public sealed class C
+                              {
+                                  public string Qualified() => {|SST1199:typeof(global::Widget).Name|};
+
+                                  public string Plain() => {|SST1199:typeof(Widget).Name|};
+                              }
+                              """;
+        await VerifyLanguageStyle.VerifyAnalyzerAsync(Source);
+    }
+
     /// <summary>Verifies <c>typeof(T).Name</c> on a type parameter is left alone, since <c>nameof(T)</c> says something else.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -125,7 +125,7 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         var memberAccess = (MemberAccessExpressionSyntax)context.Node;
         if (memberAccess.Name.Identifier.ValueText != "Name"
             || memberAccess.Expression is not TypeOfExpressionSyntax { Type: { } type }
-            || ContainsGenericSyntax(type))
+            || !CanBeNameofOperand(type))
         {
             return;
         }
@@ -549,26 +549,31 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
     private static bool IsIdentifier(ExpressionSyntax expression, string value)
         => expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == value;
 
-    /// <summary>Returns whether the type syntax contains generic syntax unsupported by <c>nameof</c>.</summary>
+    /// <summary>Returns whether a type can be written as the operand of <c>nameof</c>.</summary>
     /// <param name="type">The type syntax to inspect.</param>
-    /// <returns><see langword="true"/> when the type syntax contains a generic name.</returns>
-    private static bool ContainsGenericSyntax(TypeSyntax type)
-    {
-        if (type is GenericNameSyntax)
+    /// <returns><see langword="true"/> only for a plain, possibly qualified, non-generic name.</returns>
+    /// <remarks>
+    /// <c>nameof</c> takes a name, so only an identifier — optionally qualified or alias-qualified —
+    /// can be its operand. Everything else in type position is written with syntax <c>nameof</c> does
+    /// not accept, and suggesting it would hand the reader code that does not compile: a predefined
+    /// keyword (<c>typeof(string)</c>), a nullable, array, pointer or tuple type, and a generic name,
+    /// whose type arguments <c>nameof</c> would drop anyway.
+    /// <para>
+    /// The keyword case has no rewrite worth reaching for either. <c>nameof(String)</c> would compile
+    /// and produce the same text, but only with <c>using System;</c> in scope, and SST1121 asks for the
+    /// alias back — leaving two rules pulling in opposite directions over a name that will never be
+    /// renamed, which is the whole reason this rule prefers <c>nameof</c>.
+    /// </para>
+    /// </remarks>
+    private static bool CanBeNameofOperand(TypeSyntax type)
+        => type switch
         {
-            return true;
-        }
-
-        foreach (var node in type.DescendantNodes(static node => node is not GenericNameSyntax))
-        {
-            if (node is GenericNameSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+            GenericNameSyntax => false,
+            IdentifierNameSyntax => true,
+            QualifiedNameSyntax qualified => CanBeNameofOperand(qualified.Left) && CanBeNameofOperand(qualified.Right),
+            AliasQualifiedNameSyntax alias => CanBeNameofOperand(alias.Name),
+            _ => false
+        };
 
     /// <summary>The state threaded through a name search.</summary>
     /// <param name="Name">The name being looked for.</param>

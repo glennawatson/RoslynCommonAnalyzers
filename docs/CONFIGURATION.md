@@ -79,6 +79,7 @@ Some rules expose options. Current options:
 | `stylesharp.count_external_types` | [SST1446](rules/SST1446.md) | `true`, `false` | `false` |
 | `stylesharp.max_property_cognitive_complexity` | [SST1443](rules/SST1443.md) | positive integer | `3` |
 | `stylesharp.allowed_hungarian_prefixes` | [SST1305](rules/SST1305.md) | comma-separated prefixes | built-in list only |
+| `stylesharp.check_constant_returning_catch` | [SST1429](rules/SST1429.md) | `true`, `false` | `false` |
 | `stylesharp.magic_number_allowed_values` | [SST1471](rules/SST1471.md) | comma-separated numbers | `-1, 0, 1` |
 | `stylesharp.max_parameters` | [SST1472](rules/SST1472.md) | positive integer | `7` |
 | `stylesharp.check_positional_records` | [SST1472](rules/SST1472.md) | `true`, `false` | `false` |

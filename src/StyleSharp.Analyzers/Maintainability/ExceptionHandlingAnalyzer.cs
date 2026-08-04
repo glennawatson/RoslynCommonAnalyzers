@@ -56,14 +56,14 @@ public sealed class ExceptionHandlingAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    /// <summary>Reports SST1429 for a <c>catch</c> of the base exception type with an empty body.</summary>
+    /// <summary>Reports SST1429 for a <c>catch</c> of the base exception type whose body handles nothing.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeCatchClause(SyntaxNodeAnalysisContext context)
     {
         var catchClause = (CatchClauseSyntax)context.Node;
 
-        // A 'when' filter, or any statement at all, means the author handled the exception deliberately.
-        if (catchClause.Block.Statements.Count != 0 || catchClause.Filter is not null)
+        // A 'when' filter means the author picked which exceptions reach this clause deliberately.
+        if (catchClause.Filter is not null || !SwallowsEveryError(catchClause, context))
         {
             return;
         }
@@ -77,6 +77,41 @@ public sealed class ExceptionHandlingAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.NoEmptyCatchOfBaseException, catchClause.CatchKeyword.GetLocation()));
     }
+
+    /// <summary>Returns whether a catch body discards the error rather than handling it.</summary>
+    /// <param name="catchClause">The catch clause.</param>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <returns><see langword="true"/> for an empty body, or an opted-in constant-returning body.</returns>
+    /// <remarks>
+    /// An empty body discards the error outright. A body that only hands back a constant discards it just as
+    /// completely — the caller cannot tell a failure from a legitimate result — but that shape is also how a
+    /// Try-style member reports "no value", so it is only reported where the codebase has asked for it.
+    /// </remarks>
+    private static bool SwallowsEveryError(CatchClauseSyntax catchClause, SyntaxNodeAnalysisContext context)
+    {
+        var statements = catchClause.Block.Statements;
+        if (statements.Count == 0)
+        {
+            return true;
+        }
+
+        if (statements.Count != 1 || statements[0] is not ReturnStatementSyntax returnStatement)
+        {
+            return false;
+        }
+
+        var options = ExceptionHandlingOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(catchClause.SyntaxTree));
+        return options.CheckConstantReturningCatch && IsConstantResult(returnStatement.Expression, context);
+    }
+
+    /// <summary>Returns whether a returned expression carries no information about the error.</summary>
+    /// <param name="expression">The returned expression, or <see langword="null"/> for a bare <c>return;</c>.</param>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <returns><see langword="true"/> when the value is a constant or a default.</returns>
+    private static bool IsConstantResult(ExpressionSyntax? expression, SyntaxNodeAnalysisContext context)
+        => expression is null
+        || expression is DefaultExpressionSyntax or LiteralExpressionSyntax
+        || context.SemanticModel.GetConstantValue(expression, context.CancellationToken).HasValue;
 
     /// <summary>Reports SST1430 for a <c>throw ex;</c> that re-throws the caught exception variable.</summary>
     /// <param name="context">The syntax node analysis context.</param>

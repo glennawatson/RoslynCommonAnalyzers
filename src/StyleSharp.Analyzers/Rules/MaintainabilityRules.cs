@@ -212,12 +212,12 @@ internal static class MaintainabilityRules
         "Make this constructor 'protected'; only a derived type can call it",
         "An abstract type cannot be instantiated directly, so a 'public' constructor is misleading. A 'protected' (or private) constructor states that only derived types call it.");
 
-    /// <summary>SST1429 — a <c>catch</c> clause swallows the base <see cref="Exception"/> with an empty body.</summary>
+    /// <summary>SST1429 — a <c>catch</c> clause swallows the base <see cref="Exception"/> instead of handling it.</summary>
     public static readonly DiagnosticDescriptor NoEmptyCatchOfBaseException = Create(
         "SST1429",
-        "Empty catch clauses should not swallow the base exception",
-        "Handle, rethrow, or narrow this catch; an empty catch of the base exception hides failures",
-        "A 'catch (Exception) { }' (or bare 'catch { }') with an empty body silently discards every error, including ones the code is not prepared for. Handle it, rethrow, or catch a narrower type.");
+        "A catch of the base exception should not swallow it",
+        "Handle, rethrow, or narrow this catch; it discards every error, including ones this code is not prepared for",
+        NoEmptyCatchOfBaseExceptionDescription);
 
     /// <summary>SST1430 — <c>throw ex;</c> in a catch resets the captured stack trace instead of preserving it.</summary>
     public static readonly DiagnosticDescriptor PreserveStackTraceOnRethrow = Create(
@@ -694,6 +694,13 @@ internal static class MaintainabilityRules
         "Do not expose a mutable static field",
         "'{0}' is static, visible and mutable; any caller can change it for every caller",
         MutableStaticFieldDescription);
+
+    /// <summary>The SST1429 rule description.</summary>
+    private const string NoEmptyCatchOfBaseExceptionDescription =
+        "A 'catch (Exception)' (or bare 'catch') whose body is empty silently discards every error, including ones the code is not "
+        + "prepared for. A body that only returns a constant discards them just as completely, since the caller cannot tell a failure "
+        + "from a legitimate result; that wider shape is reported where 'stylesharp.check_constant_returning_catch' is enabled. Handle "
+        + "the exception, rethrow it, or catch a narrower type.";
 
     /// <summary>The SST1472 rule description.</summary>
     private const string TooManyParametersDescription =

@@ -54,15 +54,22 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies a <c>public</c> field inside an <c>internal</c> class is reported.</summary>
+    /// <summary>Verifies a <c>public</c> field or property inside an <c>internal</c> class is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Reflection reads a member's own accessibility whatever its containing type's is, and the default
+    /// contract of every serializer and binder picks data members by exactly that. Narrowing one does not
+    /// remove dead surface; it removes the member from every payload while still compiling.
+    /// </remarks>
     [Test]
-    public async Task PublicFieldInInternalTypeIsReportedAsync()
+    public async Task PublicDataMemberInInternalTypeIsNotReportedAsync()
         => await Verify.VerifyAnalyzerAsync(
             """
             internal class Container
             {
-                {|SST2324:public|} int Value;
+                public int Value;
+
+                public string Name { get; set; }
             }
             """);
 
@@ -352,7 +359,9 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
                     [Microsoft.AspNetCore.Components.Parameter]
                     public int Captured { get; set; }
 
-                    {|SST2324:public|} int Other { get; set; }
+                    {|SST2324:public|} void Other()
+                    {
+                    }
                 }
             }
             """);

@@ -115,7 +115,8 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         for (var i = 0; i < members.Length; i++)
         {
             var member = members[i];
-            if (WideningModifierLocation(member, type, containerReach, publicMandatingAttributes, inheritedInterfaceImplementations, context.CancellationToken) is not { } location)
+            if (CarriesDataToReflection(member)
+                || WideningModifierLocation(member, type, containerReach, publicMandatingAttributes, inheritedInterfaceImplementations, context.CancellationToken) is not { } location)
             {
                 continue;
             }
@@ -128,6 +129,19 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
                 ReachKeyword(containerReach)));
         }
     }
+
+    /// <summary>Returns whether a member is one that reflection reads by accessibility.</summary>
+    /// <param name="member">The declared member.</param>
+    /// <returns><see langword="true"/> for a property or a field.</returns>
+    /// <remarks>
+    /// A member's accessibility is visible to reflection whatever its containing type's is, and the
+    /// default contract of every reflection-based consumer — <c>System.Text.Json</c>, Newtonsoft,
+    /// model binding, mapping — selects data members by exactly that. Narrowing a public property on
+    /// an internal wrapper therefore does not remove unreachable surface; it removes the member from
+    /// every payload, silently, while still compiling. A method is safe: nothing serializes one.
+    /// </remarks>
+    private static bool CarriesDataToReflection(ISymbol member)
+        => member is IPropertySymbol or IFieldSymbol;
 
     /// <summary>Returns the modifier location to report for a member wider than its container, or null to leave it alone.</summary>
     /// <param name="member">The declared member.</param>

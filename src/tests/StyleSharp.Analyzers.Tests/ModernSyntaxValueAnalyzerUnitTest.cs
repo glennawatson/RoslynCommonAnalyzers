@@ -364,16 +364,60 @@ public class ModernSyntaxValueAnalyzerUnitTest
         const string Source = """
                               public sealed class C
                               {
-                                  public object M(int id, string name) => {|SST2224:new|} { id, Label = name };
+                                  public int M(int id, string name)
+                                  {
+                                      var bundle = {|SST2224:new|} { id, Label = name };
+                                      return bundle.id + bundle.Label.Length;
+                                  }
                               }
                               """;
         const string FixedSource = """
                                    public sealed class C
                                    {
-                                       public object M(int id, string name) => (id, Label: name);
+                                       public int M(int id, string name)
+                                       {
+                                           var bundle = (id, Label: name);
+                                           return bundle.id + bundle.Label.Length;
+                                       }
                                    }
                                    """;
         var test = CreateNet80Test(Source, FixedSource);
+        Enable(test, "SST2224");
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies an anonymous object that leaves the method is left alone.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// A tuple's element names are compile-time metadata and its members are fields, so anything that
+    /// reads the value reflectively sees something else — a serializer writes <c>{}</c>. Escaping the
+    /// method is what puts it in reach of those readers.
+    /// </remarks>
+    [Test]
+    public async Task AnonymousObjectThatEscapesTheMethodIsCleanAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public object Returned(int id, string name) => new { id, Label = name };
+
+                                  public object Boxed(int id, string name)
+                                  {
+                                      var bundle = new { id, Label = name };
+                                      return bundle;
+                                  }
+
+                                  public string Serialized(int id, string name)
+                                  {
+                                      var bundle = new { id, Label = name };
+                                      return Write(bundle);
+                                  }
+
+                                  private static string Write<T>(T value) => value!.ToString()!;
+                              }
+                              """;
+        var test = CreateNet80Test(Source, Source);
         Enable(test, "SST2224");
 
         await test.RunAsync(CancellationToken.None);

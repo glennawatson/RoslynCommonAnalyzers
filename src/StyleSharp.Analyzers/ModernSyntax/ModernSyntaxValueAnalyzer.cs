@@ -354,7 +354,58 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             }
         }
 
+        if (!IsConfinedToMemberReads(anonymous))
+        {
+            return;
+        }
+
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.ConvertAnonymousObjectToTuple, anonymous.NewKeyword.GetLocation()));
+    }
+
+    /// <summary>Returns whether the value never leaves the method except by reading its members.</summary>
+    /// <param name="anonymous">The anonymous object creation.</param>
+    /// <returns><see langword="true"/> when the rewrite cannot be observed from outside.</returns>
+    /// <remarks>
+    /// A tuple's element names exist only in metadata the compiler writes at the use site; at run time
+    /// the members are <c>Item1</c>, <c>Item2</c>, and they are fields rather than properties. Anything
+    /// that reads the value by reflection therefore sees something else entirely — a serializer emits
+    /// <c>{}</c>, model binding and mapping find nothing — while the code still compiles. The value has
+    /// to stay in the method and be read by name for the two forms to mean the same thing, so it is
+    /// reported only when it is a local whose every use is a member access. Passing it anywhere,
+    /// including to a generic method such as <c>Serialize&lt;T&gt;</c>, is an escape.
+    /// </remarks>
+    private static bool IsConfinedToMemberReads(AnonymousObjectCreationExpressionSyntax anonymous)
+    {
+        if (anonymous.Parent is not EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
+            || declarator.Parent is not VariableDeclarationSyntax { Parent: LocalDeclarationStatementSyntax }
+            || anonymous.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
+        {
+            return false;
+        }
+
+        var scan = new LocalEscapeScan(declarator.Identifier.ValueText);
+        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, LocalEscapeScan>(scope, ref scan, VisitLocalUse);
+        return !scan.Escapes;
+    }
+
+    /// <summary>Records a use of the local that is not a member read.</summary>
+    /// <param name="identifier">The identifier being visited.</param>
+    /// <param name="scan">The scan state.</param>
+    /// <returns><see langword="false"/> once an escape is found, which stops the walk.</returns>
+    private static bool VisitLocalUse(IdentifierNameSyntax identifier, ref LocalEscapeScan scan)
+    {
+        if (identifier.Identifier.ValueText != scan.Name)
+        {
+            return true;
+        }
+
+        if (identifier.Parent is MemberAccessExpressionSyntax access && access.Expression == identifier)
+        {
+            return true;
+        }
+
+        scan.Escapes = true;
+        return false;
     }
 
     /// <summary>Reports foreach statements that hide runtime element casts.</summary>
@@ -1196,6 +1247,14 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         }
 
         return highest;
+    }
+
+    /// <summary>The state threaded through the scan for uses of an anonymous-object local.</summary>
+    /// <param name="Name">The local's name.</param>
+    private record struct LocalEscapeScan(string Name)
+    {
+        /// <summary>Gets or sets a value indicating whether the local is used as anything but a member read.</summary>
+        public bool Escapes { get; set; }
     }
 
     /// <summary>The state threaded through a local's escape scan.</summary>

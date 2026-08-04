@@ -337,6 +337,15 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
             return false;
         }
 
+        // A void call has no value to assign, and '_ = VoidCall();' is CS8209. The analyzer already
+        // withholds those, but the fix re-derives its own statement from the reported span, so it
+        // confirms the type here rather than trusting that the two agree.
+        var type = model.GetTypeInfo(statement.Expression, cancellationToken).Type;
+        if (type is null || type.SpecialType == SpecialType.System_Void || type.TypeKind == TypeKind.Error)
+        {
+            return false;
+        }
+
         foreach (var symbol in model.LookupSymbols(statement.SpanStart, name: "_"))
         {
             cancellationToken.ThrowIfCancellationRequested();

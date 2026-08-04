@@ -79,6 +79,60 @@ public class ModernSyntaxValueAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies void statements beside ignored values are never assigned to the discard.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// A void call has no value to assign, so '_ = Act();' is CS8209. Several diagnostics in one document
+    /// go through the batch path, where each edit re-derives its statement from a span, and the void
+    /// statements sit between the reported ones.
+    /// </remarks>
+    [Test]
+    public async Task VoidStatementsBesideIgnoredValuesAreLeftAloneAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      Act();
+                                      {|SST2221:Compute()|};
+                                      Act();
+                                      {|SST2221:Compute()|};
+                                      Act();
+                                  }
+
+                                  private int Compute() => 1;
+
+                                  private void Act()
+                                  {
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public void M()
+                                       {
+                                           Act();
+                                           _ = Compute();
+                                           Act();
+                                           _ = Compute();
+                                           Act();
+                                       }
+
+                                       private int Compute() => 1;
+
+                                       private void Act()
+                                       {
+                                       }
+                                   }
+                                   """;
+        var test = CreateNet80Test(Source, FixedSource);
+        Enable(test, "SST2221");
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies duplicate ignored-value diagnostics register only one batch edit.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

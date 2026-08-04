@@ -698,6 +698,8 @@ dotnet_diagnostic.SST2493.severity = warning # Compare an unconstrained type par
 dotnet_diagnostic.SST2494.severity = warning # Null-coalescing over a constant null always takes the right operand
 dotnet_diagnostic.SST2495.severity = warning # A flags combination should not repeat bits another operand already sets
 dotnet_diagnostic.SST2496.severity = suggestion # Do not dispose a value an enclosing using already disposes
+dotnet_diagnostic.SST2497.severity = warning # Do not forward a member to itself
+dotnet_diagnostic.SST2498.severity = warning # Do not use nameof on a type parameter
 
 # Testing
 dotnet_diagnostic.SST2500.severity = warning # A test method should verify something

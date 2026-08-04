@@ -225,8 +225,19 @@ internal static class BlockingWait
         in AsyncSiblingResolver.TaskTypes tasks,
         CancellationToken cancellationToken)
     {
-        if (invocation.ArgumentList.Arguments.Count != 0
-            || access.Expression is not InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } awaiterCall
+        if (invocation.ArgumentList.Arguments.Count != 0)
+        {
+            return null;
+        }
+
+        // Parking the awaiter in a local splits the same wait over two statements and blocks exactly
+        // as hard, so the local is followed back to what it was given.
+        var awaiterExpression = access.Expression is IdentifierNameSyntax identifier
+            && TryGetLocalInitializer(identifier, model, cancellationToken) is { } initializer
+                ? initializer
+                : access.Expression;
+
+        if (awaiterExpression is not InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } awaiterCall
             || awaiterCall.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: GetAwaiterMethodName } awaiter)
         {
             return null;
@@ -241,6 +252,24 @@ internal static class BlockingWait
 
         return new Site(Kind.SingleTask, awaited, target, GetResultMethodName, AwaitIsEquivalent: true);
     }
+
+    /// <summary>Returns the value a local was declared with, when it has exactly one declaration.</summary>
+    /// <param name="identifier">The identifier naming the local.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The initializer expression, or <see langword="null"/>.</returns>
+    /// <remarks>
+    /// Only reached once a <c>GetResult()</c> has already been found on a bare identifier, so the
+    /// symbol lookup never costs a file that does not block.
+    /// </remarks>
+    private static ExpressionSyntax? TryGetLocalInitializer(
+        IdentifierNameSyntax identifier,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+        => model.GetSymbolInfo(identifier, cancellationToken).Symbol is ILocalSymbol { DeclaringSyntaxReferences.Length: 1 } local
+            && local.DeclaringSyntaxReferences[0].GetSyntax(cancellationToken) is VariableDeclaratorSyntax { Initializer.Value: { } value }
+                ? value
+                : null;
 
     /// <summary>Matches a <c>t.Wait(…)</c> call on a task.</summary>
     /// <param name="invocation">The <c>Wait</c> invocation.</param>

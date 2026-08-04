@@ -16,6 +16,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The message description for a caller-member-name parameter.</summary>
+    private const string MemberNameDescription = "member name";
+
     /// <summary>The metadata name of the caller-member-name attribute.</summary>
     private const string CallerMemberNameMetadataName = "System.Runtime.CompilerServices.CallerMemberNameAttribute";
 
@@ -90,7 +93,7 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            if (IsCallerInfoForwarding(argument.Expression, attributes, context))
+            if (!IsRedundant(argument.Expression, description, attributes, context))
             {
                 continue;
             }
@@ -101,6 +104,79 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
                 argument.Span,
                 description));
         }
+    }
+
+    /// <summary>Returns whether removing the argument would leave the call meaning the same thing.</summary>
+    /// <param name="expression">The argument expression.</param>
+    /// <param name="description">The caller-info kind the parameter carries.</param>
+    /// <param name="attributes">The compilation's caller-info attribute symbols.</param>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <returns><see langword="true"/> when the argument states what the compiler would supply anyway.</returns>
+    private static bool IsRedundant(
+        ExpressionSyntax expression,
+        string description,
+        CallerInfoAttributes attributes,
+        SyntaxNodeAnalysisContext context)
+        => !IsCallerInfoForwarding(expression, attributes, context)
+        && (description != MemberNameDescription || SuppliesTheSameMemberName(expression, context));
+
+    /// <summary>Returns whether the compiler would supply exactly the text the argument states.</summary>
+    /// <param name="expression">The argument expression.</param>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <returns><see langword="true"/> only when removing the argument would preserve the value.</returns>
+    /// <remarks>
+    /// The rule's premise is that the argument is redundant, and that holds only where the enclosing
+    /// member is the name being passed. A call inside a constructor is handed <c>.ctor</c>, so
+    /// <c>Register(nameof(Width))</c> there is not redundant at all — dropping it collapses every such
+    /// call onto one name. The same gap opens for an accessor calling a helper about another member,
+    /// and for any argument that simply states something else.
+    /// </remarks>
+    private static bool SuppliesTheSameMemberName(ExpressionSyntax expression, SyntaxNodeAnalysisContext context)
+        => context.SemanticModel.GetConstantValue(expression, context.CancellationToken) is { HasValue: true, Value: string stated }
+        && GetEnclosingCallerMemberName(context) is { } supplied
+        && string.Equals(stated, supplied, StringComparison.Ordinal);
+
+    /// <summary>Returns the text <c>[CallerMemberName]</c> receives at this position.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <returns>The supplied name, or <see langword="null"/> where it cannot be determined.</returns>
+    /// <remarks>
+    /// A lambda and a local function do not carry a name of their own — the value comes from the
+    /// member containing them — so the walk continues through both. Anything this does not recognise
+    /// yields <see langword="null"/> and the argument is left alone, since guessing wrong here is what
+    /// produces the defect.
+    /// </remarks>
+    private static string? GetEnclosingCallerMemberName(SyntaxNodeAnalysisContext context)
+    {
+        var symbol = context.SemanticModel.GetEnclosingSymbol(context.Node.SpanStart, context.CancellationToken);
+        for (; symbol is not null; symbol = symbol.ContainingSymbol)
+        {
+            switch (symbol)
+            {
+                case IMethodSymbol { MethodKind: MethodKind.LocalFunction or MethodKind.AnonymousFunction }:
+                    continue;
+
+                case IMethodSymbol { MethodKind: MethodKind.Constructor }:
+                    return ".ctor";
+
+                case IMethodSymbol { MethodKind: MethodKind.StaticConstructor }:
+                    return ".cctor";
+
+                case IMethodSymbol { MethodKind: MethodKind.Destructor }:
+                    return "Finalize";
+
+                // An accessor reports the property or event it belongs to; an indexer's is 'Item'.
+                case IMethodSymbol { AssociatedSymbol: { } associated }:
+                    return associated.MetadataName;
+
+                case IMethodSymbol method:
+                    return method.MetadataName;
+
+                default:
+                    return null;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -150,7 +226,7 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
                 var attributeClass = parameterAttributes[i].AttributeClass;
                 if (SymbolEqualityComparer.Default.Equals(attributeClass, _memberName))
                 {
-                    return "member name";
+                    return MemberNameDescription;
                 }
 
                 if (SymbolEqualityComparer.Default.Equals(attributeClass, _filePath))

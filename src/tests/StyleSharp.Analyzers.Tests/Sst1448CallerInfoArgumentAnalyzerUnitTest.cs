@@ -21,7 +21,7 @@ public class Sst1448CallerInfoArgumentAnalyzerUnitTest
             {
             }
 
-            public void M() => Log("text", {|SST1448:"MyCaller"|});
+            public void M() => Log("text", {|SST1448:"M"|});
         }
         """;
 
@@ -112,6 +112,87 @@ public class Sst1448CallerInfoArgumentAnalyzerUnitTest
                 }
 
                 public void M() => Log("text", 5);
+            }
+            """);
+
+    /// <summary>Verifies a name stated inside a constructor is clean, since the compiler supplies <c>.ctor</c>.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MemberNameStatedInAConstructorIsCleanAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            using System.Runtime.CompilerServices;
+
+            public class C
+            {
+                public C()
+                {
+                    Width = Register(nameof(Width));
+                    Height = Register(nameof(Height));
+                }
+
+                public string Width { get; }
+
+                public string Height { get; }
+
+                private static string Register([CallerMemberName] string name = "") => name;
+            }
+            """);
+
+    /// <summary>Verifies a name stated about another member is clean, since the compiler supplies this one.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MemberNameStatedAboutAnotherMemberIsCleanAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            using System.Runtime.CompilerServices;
+
+            public class C
+            {
+                public string Width => Register(nameof(Height));
+
+                public string Height => "";
+
+                private static string Register([CallerMemberName] string name = "") => name;
+            }
+            """);
+
+    /// <summary>Verifies an accessor stating its own property is still reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MemberNameStatedInItsOwnAccessorIsReportedAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            using System.Runtime.CompilerServices;
+
+            public class C
+            {
+                public string Width => Register({|SST1448:nameof(Width)|});
+
+                private static string Register([CallerMemberName] string name = "") => name;
+            }
+            """);
+
+    /// <summary>Verifies a lambda takes the name from the member containing it.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MemberNameStatedInsideALambdaFollowsTheEnclosingMemberAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            using System;
+            using System.Runtime.CompilerServices;
+
+            public class C
+            {
+                public void Run()
+                {
+                    Action inside = () => Register({|SST1448:"Run"|});
+                    Action other = () => Register("Elsewhere");
+                    inside();
+                    other();
+                }
+
+                private static string Register([CallerMemberName] string name = "") => name;
             }
             """);
 

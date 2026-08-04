@@ -45,6 +45,38 @@ public class NameSimplificationAnalyzerUnitTest
         await VerifyNameSimplification.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a name two imported namespaces both answer to is left qualified, because the short form is ambiguous.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task QualifiedNameAmbiguousAcrossImportedNamespacesIsNotReportedAsync()
+    {
+        const string Source = """
+                              using Alpha.Serialization;
+                              using Beta.Serialization;
+
+                              namespace Alpha.Serialization
+                              {
+                                  public sealed class PayloadException
+                                  {
+                                  }
+                              }
+
+                              namespace Beta.Serialization
+                              {
+                                  public sealed class PayloadException
+                                  {
+                                  }
+                              }
+
+                              public sealed class C
+                              {
+                                  public string Describe(Alpha.Serialization.PayloadException alpha, Beta.Serialization.PayloadException beta)
+                                      => alpha.ToString() + beta.ToString();
+                              }
+                              """;
+        await VerifyNameSimplification.VerifyAnalyzerAsync(Source);
+    }
+
     /// <summary>Verifies a redundant this-qualified member access is shortened.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

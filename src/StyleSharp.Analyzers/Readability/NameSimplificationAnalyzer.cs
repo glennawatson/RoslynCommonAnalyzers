@@ -458,6 +458,12 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
     /// <param name="originalSymbol">The symbol bound by the original spelling.</param>
     /// <param name="binds">Whether lookup proved the replacement keeps the same symbol.</param>
     /// <returns><see langword="true"/> when lookup produced a decisive answer.</returns>
+    /// <remarks>
+    /// The short name has to be the <i>only</i> answer at this position, not merely one of them. Two
+    /// imported namespaces that both declare the name make the short spelling ambiguous — writing it is
+    /// CS0104 — and a nearer declaration of the same name would capture it instead. Finding the original
+    /// symbol somewhere in the candidate set proves neither, so the whole set is weighed.
+    /// </remarks>
     private static bool TryLookupSameTypeOrNamespace(
         SemanticModel model,
         int position,
@@ -477,17 +483,34 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
+        // Only a candidate of the same arity answers to the bare name; a second one of those makes it ambiguous.
+        var arity = GetArity(originalSymbol);
+        ISymbol? sole = null;
         for (var i = 0; i < candidates.Length; i++)
         {
-            if (SymbolEqualityComparer.Default.Equals(candidates[i], originalSymbol))
+            var candidate = candidates[i];
+            if (GetArity(candidate) != arity || SymbolEqualityComparer.Default.Equals(candidate, sole))
             {
-                binds = true;
+                continue;
+            }
+
+            if (sole is not null)
+            {
                 return true;
             }
+
+            sole = candidate;
         }
 
+        binds = SymbolEqualityComparer.Default.Equals(sole, originalSymbol);
         return true;
     }
+
+    /// <summary>Returns the generic arity a name must match to bind to a symbol.</summary>
+    /// <param name="symbol">The candidate or original symbol.</param>
+    /// <returns>The type's arity, or zero for a namespace.</returns>
+    private static int GetArity(ISymbol symbol)
+        => symbol is INamedTypeSymbol namedType ? namedType.Arity : 0;
 
     /// <summary>Uses symbol lookup for unqualified member-access candidates before speculative binding.</summary>
     /// <param name="model">The semantic model.</param>

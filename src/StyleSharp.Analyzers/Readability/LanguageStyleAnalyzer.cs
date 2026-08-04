@@ -130,6 +130,13 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // On a type parameter the two spellings say different things: typeof(T).Name is the substituted
+        // type's name, nameof(T) the literal "T". Suggesting one for the other would be a wrong answer.
+        if (context.SemanticModel.GetTypeInfo(type, context.CancellationToken).Type is ITypeParameterSymbol)
+        {
+            return;
+        }
+
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.UseNameofType, memberAccess.GetLocation(), type.ToString()));
     }
 

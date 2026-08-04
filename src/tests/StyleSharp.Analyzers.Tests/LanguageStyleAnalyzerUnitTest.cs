@@ -465,6 +465,22 @@ public class LanguageStyleAnalyzerUnitTest
         await VerifyLanguageStyle.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies <c>typeof(T).Name</c> on a type parameter is left alone, since <c>nameof(T)</c> says something else.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TypeofNameOnTypeParameterIsCleanAsync()
+    {
+        const string Source = """
+                              public sealed class C<T>
+                              {
+                                  public string TypeName() => typeof(T).Name;
+
+                                  public string MethodTypeName<TValue>() => typeof(TValue).Name;
+                              }
+                              """;
+        await VerifyLanguageStyle.VerifyAnalyzerAsync(Source);
+    }
+
     /// <summary>Verifies risky or already-modern shapes are clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

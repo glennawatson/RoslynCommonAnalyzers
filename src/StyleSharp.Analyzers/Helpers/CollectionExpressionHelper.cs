@@ -70,7 +70,7 @@ internal static class CollectionExpressionHelper
         out ITypeSymbol? converted)
     {
         converted = null;
-        if (!HasExplicitTarget(expression))
+        if (!HasExplicitTarget(expression) || SuppliesAnInferredTypeArgument(context, expression))
         {
             return false;
         }
@@ -89,6 +89,66 @@ internal static class CollectionExpressionHelper
             ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true },
             Name: "Span" or "ReadOnlySpan"
         };
+
+    /// <summary>Returns whether the expression is the argument a generic call infers a type argument from.</summary>
+    /// <param name="context">The syntax analysis context.</param>
+    /// <param name="expression">The candidate expression.</param>
+    /// <returns><see langword="true"/> when replacing the expression would leave inference nothing to work from.</returns>
+    /// <remarks>
+    /// A collection expression has no type of its own — it takes one from its target. So where the target
+    /// is a method type parameter, the "target type" the model reports was inferred from this very
+    /// expression, and removing it takes the only evidence inference had: the call then fails with CS0411
+    /// or CS0311. The parameter is read in its original definition, because after a successful inference
+    /// the substituted parameter type is the concrete type inference produced, which looks like an
+    /// explicit target. A type parameter of the containing type is fine — the receiver already fixed it.
+    /// </remarks>
+    private static bool SuppliesAnInferredTypeArgument(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
+    {
+        if (expression.Parent is not ArgumentSyntax argument
+            || argument.Parent is not ArgumentListSyntax argumentList
+            || argumentList.Parent is not SyntaxNode call
+            || context.SemanticModel.GetSymbolInfo(call, context.CancellationToken).Symbol is not IMethodSymbol method
+            || method.TypeParameters.Length == 0)
+        {
+            return false;
+        }
+
+        var index = argumentList.Arguments.IndexOf(argument);
+        return index >= 0
+            && ArgumentBinding.FindParameter(method, argumentList.Arguments, index) is { } parameter
+            && MentionsMethodTypeParameter(parameter.OriginalDefinition.Type);
+    }
+
+    /// <summary>Returns whether a type mentions a type parameter declared by the method itself.</summary>
+    /// <param name="type">The parameter's declared type.</param>
+    /// <returns><see langword="true"/> when inference has to pin the type down.</returns>
+    private static bool MentionsMethodTypeParameter(ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol { TypeParameterKind: TypeParameterKind.Method }:
+                return true;
+
+            case IArrayTypeSymbol array:
+                return MentionsMethodTypeParameter(array.ElementType);
+
+            case INamedTypeSymbol named:
+            {
+                for (var i = 0; i < named.TypeArguments.Length; i++)
+                {
+                    if (MentionsMethodTypeParameter(named.TypeArguments[i]))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            default:
+                return false;
+        }
+    }
 
     /// <summary>Returns whether an expression appears in a context with an explicit target type.</summary>
     /// <param name="expression">The candidate expression.</param>

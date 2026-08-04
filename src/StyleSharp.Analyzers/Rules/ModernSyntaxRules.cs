@@ -245,12 +245,12 @@ internal static class ModernSyntaxRules
         "Rewrite this tail-position using block as a using declaration",
         "A using block that is already the last statement in its containing block can use a using declaration without extending the disposal lifetime.");
 
-    /// <summary>SST2237 — a single block-scoped namespace can use file-scoped namespace syntax.</summary>
+    /// <summary>SST2237 — a namespace is declared in the form the project does not use.</summary>
     public static readonly DiagnosticDescriptor UseFileScopedNamespace = Create(
         "SST2237",
-        "Use file-scoped namespace syntax",
-        "Rewrite namespace '{0}' as a file-scoped namespace",
-        "A file with one block-scoped namespace and no sibling declarations can use file-scoped namespace syntax to remove one indentation level.");
+        "Use the configured namespace declaration form",
+        "Rewrite namespace '{0}' as a {1} namespace",
+        UseFileScopedNamespaceDescription);
 
     /// <summary>SST2238 — nested property patterns can be flattened with extended property-pattern syntax.</summary>
     public static readonly DiagnosticDescriptor SimplifyNestedPropertyPattern = Create(
@@ -566,6 +566,13 @@ internal static class ModernSyntaxRules
         "Fold a preceding null guard into the assigned value",
         "Fold this null guard into the following assignment as a throw expression",
         FoldGuardIntoAssignedValueDescription);
+
+    /// <summary>The SST2237 rule description.</summary>
+    private const string UseFileScopedNamespaceDescription =
+        "A file with one namespace and no sibling declarations can be written either way, and a codebase reads better when "
+        + "every file picks the same one. Which one is 'stylesharp.namespace_declaration_style', defaulting to file_scoped, "
+        + "which removes an indentation level. One setting holds both directions on purpose: a rule per direction can have "
+        + "both switched on, and then converting to either form immediately trips the other.";
 
     /// <summary>The SST2255 rule description.</summary>
     private const string UseIsNullOrEmptyDescription =

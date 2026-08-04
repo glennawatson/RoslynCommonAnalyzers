@@ -31,6 +31,9 @@ internal static class ModernSyntaxStyleOptions
     /// <summary>The project-wide Flags-enum value-style key.</summary>
     public const string EnumFlagValueStyleGeneralKey = "stylesharp.enum_flag_value_style";
 
+    /// <summary>The project-wide namespace declaration-style key.</summary>
+    public const string NamespaceDeclarationStyleGeneralKey = "stylesharp.namespace_declaration_style";
+
     /// <summary>The rule-specific infinite-loop style key.</summary>
     private const string InfiniteLoopStyleSpecificKey = "stylesharp.SST2267.infinite_loop_style";
 
@@ -48,6 +51,9 @@ internal static class ModernSyntaxStyleOptions
 
     /// <summary>The rule-specific Flags-enum value-style key.</summary>
     private const string EnumFlagValueStyleSpecificKey = "stylesharp.SST2272.enum_flag_value_style";
+
+    /// <summary>The rule-specific namespace declaration-style key.</summary>
+    private const string NamespaceDeclarationStyleSpecificKey = "stylesharp.SST2237.namespace_declaration_style";
 
     /// <summary>Reads the configured infinite-loop style, defaulting to <see cref="InfiniteLoopStyle.While"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
@@ -115,6 +121,17 @@ internal static class ModernSyntaxStyleOptions
             "decimal" => EnumFlagValueStyle.Decimal,
             "shift" => EnumFlagValueStyle.Shift,
             _ => EnumFlagValueStyle.Shift,
+        };
+
+    /// <summary>Reads the configured namespace declaration style, defaulting to <see cref="NamespaceDeclarationStyle.FileScoped"/>.</summary>
+    /// <param name="options">The analyzer config options for the tree.</param>
+    /// <returns>The resolved style.</returns>
+    public static NamespaceDeclarationStyle ReadNamespaceDeclarationStyle(AnalyzerConfigOptions options)
+        => Read(options, NamespaceDeclarationStyleSpecificKey, NamespaceDeclarationStyleGeneralKey) switch
+        {
+            "block_scoped" => NamespaceDeclarationStyle.BlockScoped,
+            "file_scoped" => NamespaceDeclarationStyle.FileScoped,
+            _ => NamespaceDeclarationStyle.FileScoped,
         };
 
     /// <summary>Reads the raw value of an option, preferring the rule-specific key, lowercased and trimmed.</summary>

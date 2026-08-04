@@ -58,6 +58,7 @@
 # stylesharp.equals_token_new_line = after               # SST1528
 # stylesharp.null_conditional_new_line = before          # SST1529
 # stylesharp.line_ending = lf                            # SST1532
+# stylesharp.namespace_declaration_style = file_scoped   # SST2237
 # stylesharp.infinite_loop_style = while                 # SST2267
 # stylesharp.object_creation_parentheses = omit          # SST2268
 # stylesharp.conditional_condition_parentheses = omit_when_single_token  # SST2269
@@ -529,7 +530,7 @@ dotnet_diagnostic.SST2232.severity = warning # Omit generic arguments inside nam
 dotnet_diagnostic.SST2234.severity = warning # Use the T? shorthand for nullable value types
 dotnet_diagnostic.SST2235.severity = warning # Make local functions static when they do not capture
 dotnet_diagnostic.SST2236.severity = warning # Use a simple using declaration
-dotnet_diagnostic.SST2237.severity = warning # Use file-scoped namespace syntax
+dotnet_diagnostic.SST2237.severity = warning # Use the configured namespace declaration form
 dotnet_diagnostic.SST2238.severity = warning # Simplify nested property patterns
 dotnet_diagnostic.SST2239.severity = warning # Use a method group
 dotnet_diagnostic.SST2240.severity = warning # Use conditional delegate invocation

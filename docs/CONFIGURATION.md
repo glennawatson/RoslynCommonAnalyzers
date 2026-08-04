@@ -115,6 +115,7 @@ Some rules expose options. Current options:
 | `stylesharp.equals_token_new_line` | [SST1528](rules/SST1528.md) | `after`, `before` | `after` |
 | `stylesharp.null_conditional_new_line` | [SST1529](rules/SST1529.md) | `before`, `after` | `before` |
 | `stylesharp.line_ending` | [SST1532](rules/SST1532.md) | `lf`, `crlf` | `lf` |
+| `stylesharp.namespace_declaration_style` | [SST2237](rules/SST2237.md) | `file_scoped`, `block_scoped` | `file_scoped` |
 | `stylesharp.infinite_loop_style` | [SST2267](rules/SST2267.md) | `while`, `for` | `while` |
 | `stylesharp.object_creation_parentheses` | [SST2268](rules/SST2268.md) | `omit`, `include` | `omit` |
 | `stylesharp.conditional_condition_parentheses` | [SST2269](rules/SST2269.md) | `omit_when_single_token`, `include` | `omit_when_single_token` |

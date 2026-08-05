@@ -315,6 +315,71 @@ public class ThisEscapesConstructorAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a closure handed to a configured method is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ClosureHandedToAnAllowedMethodIsNotReportedAsync()
+    {
+        var test = new VerifyThisEscapes.Test
+        {
+            TestCode = """
+                       using System;
+
+                       public static class Activation
+                       {
+                           public static IDisposable WhenActivated(this object source, Action<object> block) => throw new NotImplementedException();
+
+                           public static IDisposable Subscribe(this object source, Action<object> block) => throw new NotImplementedException();
+                       }
+
+                       public sealed class C
+                       {
+                           public C()
+                           {
+                               this.WhenActivated(d => this.Refresh());
+                               this.Subscribe({|SST2403:d => this.Refresh()|});
+                           }
+
+                           private void Refresh()
+                           {
+                           }
+                       }
+                       """
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.SST2403.allowed_escape_methods = WhenActivated
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the same closure is reported when nothing is configured.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ClosureHandedToAnUnconfiguredMethodIsReportedAsync()
+        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public static class Activation
+            {
+                public static IDisposable WhenActivated(this object source, Action<object> block) => throw new NotImplementedException();
+            }
+
+            public sealed class C
+            {
+                public C() => this.WhenActivated({|SST2403:d => this.Refresh()|});
+
+                private void Refresh()
+                {
+                }
+            }
+            """);
+
     /// <summary>Verifies a call result stored anywhere but this object is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

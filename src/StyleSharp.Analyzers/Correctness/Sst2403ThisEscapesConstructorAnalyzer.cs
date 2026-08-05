@@ -70,7 +70,10 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
     private static bool VisitThis(ThisExpressionSyntax thisExpression, ref EscapeScan state)
     {
         var escaping = GetEscapingExpression(thisExpression, state.Body);
-        if (escaping is null || !IsHandedOver(escaping, state.Context) || IsTakenBackByOwnMember(escaping, state.Context))
+        if (escaping is null
+            || !IsHandedOver(escaping, state.Context)
+            || IsTakenBackByOwnMember(escaping, state.Context)
+            || IsHandedToAnAllowedMethod(escaping, state.Context))
         {
             return true;
         }
@@ -80,6 +83,45 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
             escaping.GetLocation(),
             state.TypeName));
         return true;
+    }
+
+    /// <summary>Returns whether the escape goes to a method the codebase has named as safe.</summary>
+    /// <param name="escaping">The expression that would carry the object out.</param>
+    /// <param name="context">The syntax node context.</param>
+    /// <returns><see langword="true"/> when the invoked method is on the configured list.</returns>
+    /// <remarks>
+    /// The structural exemptions cover an escape whose reference comes straight back to the object. A
+    /// callback handed to a framework does not: <c>WhenActivated(d =&gt; …)</c> returns a disposable
+    /// nobody keeps, and the closure is invoked long after construction — but nothing in the source says
+    /// so, and a closure passed to any other method is a real escape the rule must keep reporting. The
+    /// difference is a fact about the callee, so it is configured rather than guessed.
+    /// </remarks>
+    private static bool IsHandedToAnAllowedMethod(ExpressionSyntax escaping, SyntaxNodeAnalysisContext context)
+        => EnclosingInvokedName(escaping) is { } name
+        && ThisEscapeOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(escaping.SyntaxTree)).Allows(name);
+
+    /// <summary>Returns the simple name of the nearest call the expression sits inside.</summary>
+    /// <param name="escaping">The expression that would carry the object out.</param>
+    /// <returns>The invoked method's simple name, or <see langword="null"/>.</returns>
+    private static string? EnclosingInvokedName(ExpressionSyntax escaping)
+    {
+        for (SyntaxNode? node = escaping; node is not null and not MemberDeclarationSyntax; node = node.Parent)
+        {
+            if (node is not InvocationExpressionSyntax invocation)
+            {
+                continue;
+            }
+
+            return invocation.Expression switch
+            {
+                MemberAccessExpressionSyntax { Name: { } accessed } => accessed.Identifier.ValueText,
+                MemberBindingExpressionSyntax { Name: { } bound } => bound.Identifier.ValueText,
+                SimpleNameSyntax simple => simple.Identifier.ValueText,
+                _ => null
+            };
+        }
+
+        return null;
     }
 
     /// <summary>Returns whether the only thing built from the escape is stored straight back on this object.</summary>

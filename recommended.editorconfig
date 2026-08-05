@@ -58,6 +58,7 @@
 # stylesharp.equals_token_new_line = after               # SST1528
 # stylesharp.null_conditional_new_line = before          # SST1529
 # stylesharp.line_ending = lf                            # SST1532
+# stylesharp.allowed_escape_methods = WhenActivated      # SST2403
 # stylesharp.namespace_declaration_style = file_scoped   # SST2237
 # stylesharp.infinite_loop_style = while                 # SST2267
 # stylesharp.object_creation_parentheses = omit          # SST2268

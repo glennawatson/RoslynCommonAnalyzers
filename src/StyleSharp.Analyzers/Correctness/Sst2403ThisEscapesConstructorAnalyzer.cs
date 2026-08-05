@@ -70,7 +70,7 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
     private static bool VisitThis(ThisExpressionSyntax thisExpression, ref EscapeScan state)
     {
         var escaping = GetEscapingExpression(thisExpression, state.Body);
-        if (escaping is null || !IsHandedOver(escaping, state.Context))
+        if (escaping is null || !IsHandedOver(escaping, state.Context) || IsTakenBackByOwnMember(escaping, state.Context))
         {
             return true;
         }
@@ -80,6 +80,44 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
             escaping.GetLocation(),
             state.TypeName));
         return true;
+    }
+
+    /// <summary>Returns whether the only thing built from the escape is stored straight back on this object.</summary>
+    /// <param name="escaping">The expression that would carry the object out.</param>
+    /// <param name="context">The syntax node context.</param>
+    /// <returns><see langword="true"/> when the call's result is assigned to a member of the same instance.</returns>
+    /// <remarks>
+    /// A constructor that hands itself to a call and assigns the result to one of its own members keeps
+    /// the reference inside the object it came from — the observing/property-helper shape that MVVM
+    /// frameworks document, where the receiver holds the host only to raise notifications after
+    /// construction. This is a deliberate narrowing rather than a proof: the callee could publish the
+    /// reference somewhere else as well, and nothing here can see that. It buys the idiom back without
+    /// naming any framework, and a genuine publish still has to store the object somewhere other than
+    /// its own member to be worth reporting.
+    /// </remarks>
+    private static bool IsTakenBackByOwnMember(ExpressionSyntax escaping, SyntaxNodeAnalysisContext context)
+    {
+        // A constructor runs before the result can be stored, so it can dereference the half-built
+        // object there and then. Only a call that returns something keeps the reference until after.
+        if (escaping.Parent is not ArgumentSyntax { Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax } })
+        {
+            return false;
+        }
+
+        SyntaxNode? node = escaping;
+        for (; node is ExpressionSyntax or ArgumentSyntax or ArgumentListSyntax; node = node.Parent)
+        {
+            if (node is not AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression, Left: { } left })
+            {
+                continue;
+            }
+
+            var target = left is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: { } name } ? name : left;
+            return context.SemanticModel.GetSymbolInfo(target, context.CancellationToken).Symbol
+                is IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false };
+        }
+
+        return false;
     }
 
     /// <summary>Gets the expression that would carry the object out, if this one were handed over.</summary>

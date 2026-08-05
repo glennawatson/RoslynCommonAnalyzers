@@ -279,4 +279,65 @@ public class ThisEscapesConstructorAnalyzerUnitTest
                 public C() => _sink = new({|SST2403:this|});
             }
             """);
+
+    /// <summary>Verifies a call whose result is stored back on this object is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The property-helper shape MVVM frameworks document: the receiver is handed the host only to
+    /// raise notifications once construction is over, and the reference it returns is kept by the
+    /// object it came from. A constructor is not exempted, since it runs before the result can be
+    /// stored and can dereference the half-built object there and then.
+    /// </remarks>
+    [Test]
+    public async Task CallResultStoredBackOnThisObjectIsNotReportedAsync()
+        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+            """
+            public sealed class Helper
+            {
+            }
+
+            public static class Extensions
+            {
+                public static Helper ToHelper(this object source, object host) => new Helper();
+            }
+
+            public sealed class C
+            {
+                private readonly Helper _helper;
+
+                private readonly Helper _chained;
+
+                public C()
+                {
+                    _helper = Extensions.ToHelper("value", this);
+                    _chained = "value".ToHelper(this);
+                }
+            }
+            """);
+
+    /// <summary>Verifies a call result stored anywhere but this object is still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CallResultStoredElsewhereIsStillReportedAsync()
+        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+            """
+            public sealed class Helper
+            {
+            }
+
+            public static class Extensions
+            {
+                public static Helper ToHelper(this object source, object host) => new Helper();
+            }
+
+            public sealed class C
+            {
+                private static Helper _shared;
+
+                public C()
+                {
+                    _shared = Extensions.ToHelper("value", {|SST2403:this|});
+                }
+            }
+            """);
 }

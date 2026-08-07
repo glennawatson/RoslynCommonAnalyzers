@@ -72,6 +72,179 @@ public class InlineSingleUseLocalAnalyzerUnitTest
         await RunAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies an inlined operator initializer keeps its parentheses inside an argument list.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task OperatorInitializerIsNotParenthesizedInAnArgumentAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(int a, int b)
+                                  {
+                                      var {|SST2266:sum|} = a + b;
+                                      return Use(sum);
+                                  }
+
+                                  private static int Use(int value) => value;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public int M(int a, int b)
+                                       {
+                                           return Use(a + b);
+                                       }
+
+                                       private static int Use(int value) => value;
+                                   }
+                                   """;
+        await RunAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies an inlined operator initializer takes no parentheses in a return statement.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task OperatorInitializerIsNotParenthesizedInAReturnAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(int a, int b)
+                                  {
+                                      var {|SST2266:sum|} = a + b;
+                                      return sum;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public int M(int a, int b)
+                                       {
+                                           return a + b;
+                                       }
+                                   }
+                                   """;
+        await RunAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies an inlined operator initializer takes no parentheses in another initializer.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task OperatorInitializerIsNotParenthesizedInAnInitializerAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(int a, int b)
+                                  {
+                                      var {|SST2266:sum|} = a + b;
+                                      var total = sum;
+                                      return total + total;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public int M(int a, int b)
+                                       {
+                                           var total = a + b;
+                                           return total + total;
+                                       }
+                                   }
+                                   """;
+        await RunAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies an inlined operator initializer takes no parentheses on the right of an assignment.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task OperatorInitializerIsNotParenthesizedInAnAssignmentAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(int a, int b)
+                                  {
+                                      var total = 0;
+                                      var {|SST2266:sum|} = a + b;
+                                      total = sum;
+                                      return total;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public int M(int a, int b)
+                                       {
+                                           var total = 0;
+                                           total = a + b;
+                                           return total;
+                                       }
+                                   }
+                                   """;
+        await RunAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies an inlined operator initializer takes no parentheses inside existing ones.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task OperatorInitializerIsNotParenthesizedInsideParenthesesAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(int a, int b)
+                                  {
+                                      var {|SST2266:sum|} = a + b;
+                                      return (sum);
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public int M(int a, int b)
+                                       {
+                                           return (a + b);
+                                       }
+                                   }
+                                   """;
+        await RunAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a local whose reads cannot all be counted is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The second read is inside an inactive <c>#if</c> region, so it is trivia rather than a node. Inlining
+    /// on the strength of the one visible read would break every other configuration of the file.
+    /// </remarks>
+    [Test]
+    public async Task LocalAlsoReadFromAnInactiveRegionIsCleanAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public string M()
+                                  {
+                                      var value = _text;
+                              #if SOME_FLAG
+                                      return value + value;
+                              #else
+                                      return value;
+                              #endif
+                                  }
+
+                                  private readonly string _text = "x";
+                              }
+                              """;
+        await VerifyCleanAsync(Source);
+    }
+
     /// <summary>Verifies a local whose initializer has side effects is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -27,6 +27,44 @@ public class SuspiciousShiftCountAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a zero shift that spells out a flag's bit position is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// <c>1 &lt;&lt; 0</c> names the first bit rather than computing anything, and it is what a consistent
+    /// shift style writes there — so the enum member form needs no setting to stay quiet. A count that is out
+    /// of range is still a defect in an enum, and is still reported.
+    /// </remarks>
+    [Test]
+    public async Task ZeroCountInAnEnumMemberIsCleanAsync()
+        => await VerifyShift.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            [Flags]
+            public enum Access
+            {
+                None = 0,
+                Read = 1 << 0,
+                Write = 1 << 1,
+                Execute = 1 << 2,
+            }
+
+            public enum Broken
+            {
+                Overflowed = {|SST1478:1 << 32|},
+            }
+
+            public sealed class C
+            {
+                private readonly int _packed = {|SST1478:1 << 0|};
+
+                public int Pack(int value)
+                {
+                    return {|SST1478:value << 0|};
+                }
+            }
+            """);
+
     /// <summary>Verifies a shift by a constant zero is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

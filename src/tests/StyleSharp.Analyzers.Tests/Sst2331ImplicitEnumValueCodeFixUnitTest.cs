@@ -51,6 +51,60 @@ public class Sst2331ImplicitEnumValueCodeFixUnitTest
         }
         """;
 
+    /// <summary>An enum whose last member has no trailing comma, so its line break is its own trivia.</summary>
+    private const string NoTrailingCommaSource = """
+        public enum {|SST2331:Level|}
+        {
+            Low = 10,
+            Medium,
+            High
+        }
+        """;
+
+    /// <summary>The enum after the fix, with the closing brace still on its own line.</summary>
+    private const string NoTrailingCommaFixed = """
+        public enum Level
+        {
+            Low = 10,
+            Medium = 11,
+            High = 12
+        }
+        """;
+
+    /// <summary>An enum whose last member carries a trailing comment.</summary>
+    private const string TrailingCommentSource = """
+        public enum {|SST2331:Level|}
+        {
+            Low = 10,
+            High // the top of the range
+        }
+        """;
+
+    /// <summary>The enum after the fix, with the comment still after the value.</summary>
+    private const string TrailingCommentFixed = """
+        public enum Level
+        {
+            Low = 10,
+            High = 11 // the top of the range
+        }
+        """;
+
+    /// <summary>Verifies the last member keeps the line break that separates it from the closing brace.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// Without a separating comma that break is the identifier's own trailing trivia, so a fix that clears the
+    /// identifier's trivia pulls the brace up onto the member's line.
+    /// </remarks>
+    [Test]
+    public async Task LastMemberWithoutTrailingCommaKeepsItsLineBreakAsync()
+        => await VerifyImplicit.VerifyCodeFixAsync(NoTrailingCommaSource, NoTrailingCommaFixed);
+
+    /// <summary>Verifies a comment after the last member survives the fix.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task TrailingCommentSurvivesTheFixAsync()
+        => await VerifyImplicit.VerifyCodeFixAsync(TrailingCommentSource, TrailingCommentFixed);
+
     /// <summary>Verifies the fix assigns each member the value the compiler currently gives it.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

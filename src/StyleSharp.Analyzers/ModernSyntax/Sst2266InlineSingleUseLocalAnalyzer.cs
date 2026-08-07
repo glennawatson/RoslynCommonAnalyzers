@@ -37,17 +37,46 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether an inlined initializer needs parentheses to preserve its meaning.</summary>
     /// <param name="expression">The initializer expression.</param>
-    /// <returns><see langword="true"/> for an operator expression whose precedence could change when spliced in.</returns>
-    internal static bool NeedsParentheses(ExpressionSyntax expression)
-        => expression is BinaryExpressionSyntax or ConditionalExpressionSyntax or CastExpressionSyntax or PrefixUnaryExpressionSyntax;
+    /// <param name="reference">The reference the initializer is spliced into.</param>
+    /// <returns><see langword="true"/> when an operator expression lands where a neighbouring operator could bind into it.</returns>
+    internal static bool NeedsParentheses(ExpressionSyntax expression, SyntaxNode reference)
+        => expression is BinaryExpressionSyntax or ConditionalExpressionSyntax or CastExpressionSyntax or PrefixUnaryExpressionSyntax
+            && !IsAlreadyDelimited(reference);
+
+    /// <summary>Returns whether a reference sits somewhere punctuation already bounds the expression.</summary>
+    /// <param name="reference">The reference being replaced.</param>
+    /// <returns><see langword="true"/> when no neighbouring operator can bind into the spliced expression.</returns>
+    /// <remarks>
+    /// Only positions that are provably delimited are listed. Anything unrecognised keeps its parentheses,
+    /// so a missed shape costs a redundant pair rather than a changed meaning.
+    /// </remarks>
+    internal static bool IsAlreadyDelimited(SyntaxNode reference) => reference.Parent switch
+    {
+        ArgumentSyntax => true,
+        EqualsValueClauseSyntax => true,
+        ReturnStatementSyntax => true,
+        ParenthesizedExpressionSyntax => true,
+        AssignmentExpressionSyntax assignment => assignment.Right == reference,
+        _ => false,
+    };
 
     /// <summary>Finds the single reference to a local within a block, or reports there is not exactly one.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="block">The block holding the local's scope.</param>
     /// <param name="local">The local symbol.</param>
     /// <returns>The single reference, or <see langword="null"/> when there is not exactly one.</returns>
+    /// <remarks>
+    /// A block holding an inactive <c>#if</c> region reports no reference at all. The identifiers in that
+    /// region are trivia rather than nodes, so they cannot be counted — and a local that reads once here and
+    /// several times there would lose its declaration for every other configuration.
+    /// </remarks>
     internal static IdentifierNameSyntax? FindSingleReference(SemanticModel model, BlockSyntax block, ILocalSymbol local)
     {
+        if (HasInactiveRegion(block))
+        {
+            return null;
+        }
+
         IdentifierNameSyntax? reference = null;
         var count = 0;
         foreach (var descendant in block.DescendantNodes())
@@ -105,6 +134,27 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         foreach (var node in statement.DescendantNodes())
         {
             if (node.Span.End <= referenceStart && IsSideEffecting(node))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a block holds source that this configuration compiled out.</summary>
+    /// <param name="block">The block holding the local's scope.</param>
+    /// <returns><see langword="true"/> when an inactive <c>#if</c> region falls inside the block.</returns>
+    private static bool HasInactiveRegion(BlockSyntax block)
+    {
+        if (!block.ContainsDirectives)
+        {
+            return false;
+        }
+
+        foreach (var trivia in block.DescendantTrivia(descendIntoTrivia: true))
+        {
+            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia))
             {
                 return true;
             }

@@ -87,7 +87,7 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
         }
 
         var value = equalsValue.Value;
-        ExpressionSyntax inlined = Sst2266InlineSingleUseLocalAnalyzer.NeedsParentheses(value)
+        ExpressionSyntax inlined = Sst2266InlineSingleUseLocalAnalyzer.NeedsParentheses(value, reference)
             ? SyntaxFactory.ParenthesizedExpression(value.WithoutTrivia())
             : value.WithoutTrivia();
 

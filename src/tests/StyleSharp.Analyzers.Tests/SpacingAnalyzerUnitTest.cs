@@ -777,6 +777,33 @@ public class SpacingAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies SST1010 (enabled) leaves the space before an indexed initializer element alone ('{ ["a"] = 1 }').</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task IndexedInitializerOuterSpaceAllowedAsync()
+    {
+        var test = new VerifySpacing.Test
+        {
+            TestCode = """
+                       using System.Collections.Generic;
+
+                       internal class C
+                       {
+                           private static Dictionary<string, int> Make() => new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 };
+                       }
+                       """
+        };
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies SST1010 (enabled) leaves the outer space before a list-pattern '[' alone ('x is [1, 2]').</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

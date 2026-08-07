@@ -14,6 +14,48 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the single-line comment spacing rules (SST1512/SST1515).</summary>
 public class LayoutCommentUnitTest
 {
+    /// <summary>Verifies a comment that opens an expression body is not reported (SST1515).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The comment heads the body rather than trailing the signature above it, and there is nowhere to put a
+    /// blank line — one after the arrow is what SST1537 reports, so requiring it here would leave the two
+    /// rules unable to agree.
+    /// </remarks>
+    [Test]
+    public async Task CommentOpeningAnExpressionBodyIsCleanAsync()
+        => await VerifyComment.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private int Value =>
+                    // the answer
+                    42;
+
+                private int Twice(int x) =>
+                    // doubled on purpose
+                    x * 2;
+            }
+            """);
+
+    /// <summary>Verifies a comment after a line that merely ends in '>' is still reported (SST1515).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CommentAfterAGenericCloseIsStillReportedAsync()
+        => await VerifyComment.VerifyAnalyzerAsync(
+            """
+            using System.Collections.Generic;
+
+            internal class C
+            {
+                private void M()
+                {
+                    var items = new List<int>();
+                    {|SST1515:// still a trailing comment|}
+                    items.Add(1);
+                }
+            }
+            """);
+
     /// <summary>Verifies a comment not preceded by a blank line is reported (SST1515) and separated.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

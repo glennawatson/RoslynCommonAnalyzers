@@ -15,7 +15,8 @@ namespace StyleSharp.Analyzers;
 /// Explicit-to-<c>var</c> is offered only when <c>var</c> would infer the identical type — the initializer's
 /// natural type must equal the declared type, so an interface- or base-typed local such as
 /// <c>IList&lt;int&gt; x = new List&lt;int&gt;()</c> is left alone — and never for a target-typed initializer
-/// (<c>new()</c>, a collection expression, or <c>default</c>) that <c>var</c> cannot infer.
+/// (<c>new()</c>, a collection expression, <c>default</c>, or a <c>stackalloc</c>) whose type the declared
+/// type decides rather than <c>var</c>.
 /// </para>
 /// <para>
 /// <c>var</c>-to-explicit names the inferred type, gated on that type having a source-expressible name and on
@@ -70,16 +71,59 @@ public sealed class Sst2271VarStyleAnalyzer : DiagnosticAnalyzer
     /// <param name="initializer">The initializer expression.</param>
     /// <param name="declaredType">The declared type of the local.</param>
     /// <returns><see langword="true"/> when the initializer's natural type equals the declared type.</returns>
+    /// <remarks>
+    /// The semantic model hands back the type the initializer was <em>converted</em> to, which for a
+    /// target-typed initializer is the declared type — so the two agreeing proves nothing on its own. Every
+    /// shape whose type is decided by the target is therefore excluded up front rather than compared.
+    /// </remarks>
     internal static bool VarInfersSameType(SemanticModel model, ExpressionSyntax initializer, ITypeSymbol declaredType)
     {
         if (initializer is ImplicitObjectCreationExpressionSyntax or CollectionExpressionSyntax
-            || (initializer is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.DefaultLiteralExpression)))
+            || (initializer is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.DefaultLiteralExpression))
+            || IsTargetTypedStackAlloc(initializer))
         {
             return false;
         }
 
         var natural = model.GetTypeInfo(initializer).Type;
         return natural is not null && SymbolEqualityComparer.Default.Equals(natural, declaredType);
+    }
+
+    /// <summary>Returns whether an initializer yields a <c>stackalloc</c> whose type the target decides.</summary>
+    /// <param name="expression">The initializer expression, or a branch of one.</param>
+    /// <returns><see langword="true"/> when a <c>stackalloc</c> reaches the initializer position.</returns>
+    /// <remarks>
+    /// A <c>stackalloc</c> is a <c>Span&lt;T&gt;</c> only because the declared type says so; under <c>var</c>
+    /// it is a <c>T*</c>, which needs an unsafe context and does not convert back. Its branches are followed
+    /// because a conditional or <c>switch</c> takes its type from the arms.
+    /// </remarks>
+    internal static bool IsTargetTypedStackAlloc(ExpressionSyntax expression)
+    {
+        switch (expression)
+        {
+            case StackAllocArrayCreationExpressionSyntax:
+            case ImplicitStackAllocArrayCreationExpressionSyntax:
+                return true;
+            case ParenthesizedExpressionSyntax parenthesized:
+                return IsTargetTypedStackAlloc(parenthesized.Expression);
+            case ConditionalExpressionSyntax conditional:
+                return IsTargetTypedStackAlloc(conditional.WhenTrue) || IsTargetTypedStackAlloc(conditional.WhenFalse);
+            case SwitchExpressionSyntax switchExpression:
+            {
+                foreach (var arm in switchExpression.Arms)
+                {
+                    if (IsTargetTypedStackAlloc(arm.Expression))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            default:
+                return false;
+        }
     }
 
     /// <summary>Returns whether a minimally-qualified type name binds back to the intended type at a position.</summary>

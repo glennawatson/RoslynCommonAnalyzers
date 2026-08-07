@@ -11,8 +11,9 @@ namespace StyleSharp.Analyzers;
 /// that is not preceded by a blank line (SST1515) and a block that is followed by a blank
 /// line (SST1512). Consecutive comment lines form one block; the first line carries the
 /// preceding-blank check and the last line the following-blank check. A comment that opens
-/// a block (directly after an opening brace), follows a preprocessor directive (e.g. the first
-/// line inside an <c>#if</c>/<c>#else</c> branch), or begins the file is exempt from SST1515.
+/// a body (directly after an opening brace or an expression-body <c>=&gt;</c>), follows a
+/// preprocessor directive (e.g. the first line inside an <c>#if</c>/<c>#else</c> branch), or
+/// begins the file is exempt from SST1515.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
@@ -118,7 +119,7 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="firstTokenStart">The start position of the first token in the file.</param>
     private static void ReportBlock(SyntaxTreeAnalysisContext context, SourceText text, int start, int end, SyntaxTrivia first, SyntaxTrivia last, int firstTokenStart)
     {
-        if (start > 0 && !LayoutHelpers.IsBlankLine(text, start - 1) && !PreviousLineOpensBlock(text, start - 1) && !PreviousLineIsDirective(text, start - 1))
+        if (start > 0 && !LayoutHelpers.IsBlankLine(text, start - 1) && !PreviousLineOpensBody(text, start - 1) && !PreviousLineIsDirective(text, start - 1))
         {
             context.ReportDiagnostic(Diagnostic.Create(LayoutRules.SingleLineCommentPrecededByBlankLine, Location.Create(context.Tree, first.Span)));
         }
@@ -158,11 +159,16 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether the last non-whitespace character of the line is an opening brace.</summary>
+    /// <summary>Returns whether the line ends by opening a body the comment introduces.</summary>
     /// <param name="text">The source text.</param>
     /// <param name="lineIndex">The line to inspect.</param>
-    /// <returns><see langword="true"/> when the line ends with an opening brace.</returns>
-    private static bool PreviousLineOpensBlock(SourceText text, int lineIndex)
+    /// <returns><see langword="true"/> when the line ends with an opening brace or an expression-body arrow.</returns>
+    /// <remarks>
+    /// An arrow counts for the same reason a brace does: the comment below it heads the body rather than
+    /// trailing the code above, and there is nowhere to put a blank line — one after the arrow is itself
+    /// reported by SST1537.
+    /// </remarks>
+    private static bool PreviousLineOpensBody(SourceText text, int lineIndex)
     {
         var lineSpan = text.Lines[lineIndex];
         for (var position = lineSpan.End - 1; position >= lineSpan.Start; position--)
@@ -172,7 +178,8 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            return text[position] == '{';
+            return text[position] == '{'
+                || (text[position] == '>' && position > lineSpan.Start && text[position - 1] == '=');
         }
 
         return false;

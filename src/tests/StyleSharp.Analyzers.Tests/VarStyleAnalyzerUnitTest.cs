@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.Testing;
+
 using VerifyVarStyle = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2271VarStyleAnalyzer,
     StyleSharp.Analyzers.Sst2271VarStyleCodeFixProvider>;
@@ -178,6 +180,134 @@ public class VarStyleAnalyzerUnitTest
         await VerifyCleanAsync(Source, style: "always");
     }
 
+    /// <summary>Verifies a <c>stackalloc</c> local is never converted to <c>var</c>, which would make it a pointer.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task StackAllocLocalIsCleanWhenAlwaysAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public int M()
+                                  {
+                                      Span<char> buffer = stackalloc char[32];
+                                      return buffer.Length;
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source, style: "always", ReferenceAssemblies.Net.Net80);
+    }
+
+    /// <summary>Verifies an implicitly typed <c>stackalloc</c> local is never converted to <c>var</c>.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ImplicitStackAllocLocalIsCleanWhenAlwaysAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public int M()
+                                  {
+                                      Span<int> values = stackalloc[] { 1, 2 };
+                                      return values.Length;
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source, style: "always", ReferenceAssemblies.Net.Net80);
+    }
+
+    /// <summary>Verifies a conditional whose branches are <c>stackalloc</c> is never converted to <c>var</c>.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalStackAllocLocalIsCleanWhenAlwaysAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public int M(bool small)
+                                  {
+                                      Span<char> buffer = small ? stackalloc char[4] : stackalloc char[32];
+                                      return buffer.Length;
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source, style: "always", ReferenceAssemblies.Net.Net80);
+    }
+
+    /// <summary>Verifies a parenthesized <c>stackalloc</c> is never converted to <c>var</c>.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ParenthesizedStackAllocLocalIsCleanWhenAlwaysAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public int M()
+                                  {
+                                      Span<char> buffer = (stackalloc char[32]);
+                                      return buffer.Length;
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source, style: "always", ReferenceAssemblies.Net.Net80);
+    }
+
+    /// <summary>Verifies a <c>switch</c> expression over <c>stackalloc</c> arms is never converted to <c>var</c>.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SwitchExpressionStackAllocLocalIsCleanWhenAlwaysAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public int M(bool small)
+                                  {
+                                      Span<char> buffer = small switch { true => stackalloc char[4], false => stackalloc char[32] };
+                                      return buffer.Length;
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source, style: "always", ReferenceAssemblies.Net.Net80);
+    }
+
+    /// <summary>Verifies a <c>default(T)</c> initializer, whose type does not depend on the target, still converts.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ExplicitDefaultExpressionBecomesVarWhenAlwaysAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M()
+                                  {
+                                      {|SST2271:int|} value = default(int);
+                                      return value;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public int M()
+                                       {
+                                           var value = default(int);
+                                           return value;
+                                       }
+                                   }
+                                   """;
+        await RunAsync(Source, FixedSource, style: "always");
+    }
+
     /// <summary>Verifies an explicit foreach variable becomes <c>var</c> when the style is <c>always</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -277,10 +407,16 @@ public class VarStyleAnalyzerUnitTest
     /// <summary>Runs a verification that expects no diagnostics.</summary>
     /// <param name="source">The source with no markup.</param>
     /// <param name="style">The <c>use_var</c> value, or <see langword="null"/> to leave it unset.</param>
+    /// <param name="references">The reference assemblies to compile against, or <see langword="null"/> for the default set.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyCleanAsync(string source, string? style)
+    private static async Task VerifyCleanAsync(string source, string? style, ReferenceAssemblies? references = null)
     {
         var test = CreateTest(source, style);
+        if (references is not null)
+        {
+            test.ReferenceAssemblies = references;
+        }
+
         await test.RunAsync(CancellationToken.None);
     }
 

@@ -15,6 +15,82 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class ExpressionBodyAnalyzerUnitTest
 {
+    /// <summary>Verifies a comment on the line above the statement keeps a void method as a block (SST2275).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The comment is the leading trivia of the expression's own first token, so it sits inside the
+    /// expression's full span while the collapse — which splices the expression in without its trivia — drops
+    /// it. Nothing that would be lost may be reported.
+    /// </remarks>
+    [Test]
+    public async Task VoidMethodWithACommentAboveTheStatementIsCleanAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                public void Add(System.Collections.Generic.List<int> sink, int value)
+                {
+                    // the caller relies on the order here
+                    sink.Add(value);
+                }
+            }
+            """);
+
+    /// <summary>Verifies a comment on the line above the assignment keeps a constructor as a block (SST2276).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConstructorWithACommentAboveTheStatementIsCleanAsync()
+    {
+        var test = new Verify.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private readonly int _value;
+
+                           public C(int value)
+                           {
+                               // keep the value for later
+                               _value = value;
+                           }
+                       }
+                       """
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST2276.severity = warning
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a comment between the expression's own tokens, which survives, still allows the collapse (SST2275).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task MethodWithACommentInsideTheExpressionIsFlaggedAndFixedAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  public int {|SST2275:Sum|}(int a, int b)
+                                  {
+                                      return a + /* the second */ b;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       public int Sum(int a, int b) => a + /* the second */ b;
+                                   }
+                                   """;
+        await Verify.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a value-returning method's single-return block becomes an expression body (SST2275).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

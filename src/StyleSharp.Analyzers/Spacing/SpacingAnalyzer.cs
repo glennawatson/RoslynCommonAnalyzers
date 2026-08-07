@@ -221,6 +221,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
             || !current.IsKind(SyntaxKind.OpenBracketToken)
             || current.Parent is AttributeListSyntax
             || IsCollectionLikeBracket(current.Parent)
+            || IsIndexedInitializerBracket(current)
             || previous.IsKind(SyntaxKind.NewKeyword)
             || previous.IsKind(SyntaxKind.StackAllocKeyword))
         {
@@ -229,6 +230,17 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
 
         Report(context, SpacingRules.OpeningSquareBracket, current, RemoveBefore);
     }
+
+    /// <summary>Returns whether a '[' opens an indexed element of an object initializer.</summary>
+    /// <param name="open">The candidate opening bracket.</param>
+    /// <returns><see langword="true"/> for the '[' of <c>{ ["a"] = 1 }</c>.</returns>
+    /// <remarks>
+    /// There is no receiver to sit tight against — the bracket opens a new expression after the '{' or the
+    /// comma, which is the outer-space case the rule allows. The inner spacing stays tight, because this is
+    /// not a collection expression and the padding option does not reach it.
+    /// </remarks>
+    private static bool IsIndexedInitializerBracket(SyntaxToken open)
+        => open.Parent?.Parent is ImplicitElementAccessSyntax;
 
     /// <summary>Applies the configured collection-expression inner-spacing style to the space after '['.</summary>
     /// <param name="context">The syntax tree analysis context.</param>

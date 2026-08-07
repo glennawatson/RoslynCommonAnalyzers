@@ -24,7 +24,7 @@ public sealed class NullableSyntaxCleanupAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxTreeAction(AnalyzeNullableDirectives);
     }
 
-    /// <summary>Reports a null-forgiving operator that is applied to an already non-null expression.</summary>
+    /// <summary>Reports a null-forgiving operator applied to a value that cannot be null.</summary>
     /// <param name="context">The syntax node context.</param>
     private static void AnalyzeNullForgiving(SyntaxNodeAnalysisContext context)
     {
@@ -35,7 +35,7 @@ public sealed class NullableSyntaxCleanupAnalyzer : DiagnosticAnalyzer
         }
 
         var typeInfo = context.SemanticModel.GetTypeInfo(suppression.Operand, context.CancellationToken);
-        if (!IsAlreadyNonNull(typeInfo, suppression.Operand, context.SemanticModel, context.CancellationToken))
+        if (!IsProvablyNonNull(typeInfo, suppression.Operand))
         {
             return;
         }
@@ -89,49 +89,41 @@ public sealed class NullableSyntaxCleanupAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>Returns whether nullable flow already treats the operand as non-null.</summary>
+    /// <summary>Returns whether the operand cannot be null whatever the surrounding flow decided.</summary>
     /// <param name="typeInfo">The operand type information.</param>
     /// <param name="operand">The suppressed expression.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> when suppressing nullability has no effect.</returns>
-    private static bool IsAlreadyNonNull(
-        TypeInfo typeInfo,
-        ExpressionSyntax operand,
-        SemanticModel model,
-        CancellationToken cancellationToken)
-    {
-        if (typeInfo.Type is { IsValueType: true, OriginalDefinition.SpecialType: not SpecialType.System_Nullable_T })
-        {
-            return true;
-        }
+    /// <remarks>
+    /// The operand's own flow state cannot answer this. Nullable analysis applies the suppression to the
+    /// operand itself, so asking the model about it always reports the operand as not-null — including for the
+    /// load-bearing case, where removing the <c>!</c> would produce a warning. Only shapes that are non-null
+    /// by construction are reported.
+    /// </remarks>
+    private static bool IsProvablyNonNull(TypeInfo typeInfo, ExpressionSyntax operand)
+        => typeInfo.Type is { IsValueType: true, OriginalDefinition.SpecialType: not SpecialType.System_Nullable_T }
+            || CreatesANewInstance(operand)
+            || ProducesAConstantOrSelf(operand);
 
-        if (DeclaredNullableAnnotation(operand, model, cancellationToken) == NullableAnnotation.Annotated)
-        {
-            return false;
-        }
+    /// <summary>Returns whether an expression allocates the value it yields.</summary>
+    /// <param name="operand">The suppressed expression.</param>
+    /// <returns><see langword="true"/> for an object, array, or collection creation.</returns>
+    private static bool CreatesANewInstance(ExpressionSyntax operand) => operand
+        is ObjectCreationExpressionSyntax
+        or ImplicitObjectCreationExpressionSyntax
+        or AnonymousObjectCreationExpressionSyntax
+        or ArrayCreationExpressionSyntax
+        or ImplicitArrayCreationExpressionSyntax
+        or CollectionExpressionSyntax;
 
-        return typeInfo.Nullability.FlowState == NullableFlowState.NotNull
-            && typeInfo.Nullability.Annotation == NullableAnnotation.NotAnnotated;
-    }
-
-    /// <summary>Gets the declared nullable annotation for a simple symbol operand.</summary>
-    /// <param name="operand">The operand expression.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels analysis.</param>
-    /// <returns>The symbol's declared nullable annotation, or <see langword="null"/>.</returns>
-    private static NullableAnnotation? DeclaredNullableAnnotation(
-        ExpressionSyntax operand,
-        SemanticModel model,
-        CancellationToken cancellationToken)
-        => model.GetSymbolInfo(operand, cancellationToken).Symbol switch
-        {
-            ILocalSymbol local => local.NullableAnnotation,
-            IParameterSymbol parameter => parameter.NullableAnnotation,
-            IFieldSymbol field => field.NullableAnnotation,
-            IPropertySymbol property => property.NullableAnnotation,
-            _ => null
-        };
+    /// <summary>Returns whether an expression yields a value the language guarantees is present.</summary>
+    /// <param name="operand">The suppressed expression.</param>
+    /// <returns><see langword="true"/> for a literal, an interpolated string, a <c>typeof</c>, or the enclosing instance.</returns>
+    private static bool ProducesAConstantOrSelf(ExpressionSyntax operand) => operand
+        is LiteralExpressionSyntax
+        or InterpolatedStringExpressionSyntax
+        or TypeOfExpressionSyntax
+        or ThisExpressionSyntax
+        or BaseExpressionSyntax;
 
     /// <summary>Builds a compact comparable key for a nullable directive state.</summary>
     /// <param name="directive">The nullable directive.</param>

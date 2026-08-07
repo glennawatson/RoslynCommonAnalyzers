@@ -322,10 +322,14 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
     /// <remarks>
     /// Runs only after the single-statement shape has matched, so the clean path never reaches it. The trailing
     /// trivia after the container is carried onto the new semicolon, so a comment there is not counted as dropped.
+    /// The expression's own <see cref="SyntaxNode.Span"/> is the measure, not its full span: the fix splices the
+    /// expression in with its leading and trailing trivia removed, so a comment sitting in either — such as one
+    /// on the line above the statement — is lost even though the full span covers it. Trivia between the
+    /// expression's own tokens survives and is inside the span, so it is correctly not counted.
     /// </remarks>
     private static bool WouldDropComment(SyntaxNode container, ExpressionSyntax expression)
     {
-        var expressionSpan = expression.FullSpan;
+        var expressionSpan = expression.Span;
         var containerEnd = container.Span.End;
         foreach (var trivia in container.DescendantTrivia())
         {

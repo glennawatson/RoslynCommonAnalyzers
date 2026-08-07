@@ -124,7 +124,7 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (count == 0 && GetOptions(context, optionsByTree).AllowZeroShift)
+        if (count == 0 && (DeclaresAnEnumMember(shift) || GetOptions(context, optionsByTree).AllowZeroShift))
         {
             return;
         }
@@ -135,6 +135,34 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
             width.ToString(CultureInfo.InvariantCulture),
             count.ToString(CultureInfo.InvariantCulture),
             DescribeEffect(count, width)));
+    }
+
+    /// <summary>Returns whether a shift spells out the value of an enum member.</summary>
+    /// <param name="shift">The shift expression.</param>
+    /// <returns><see langword="true"/> when the shift sits in an enum member's value.</returns>
+    /// <remarks>
+    /// <c>Read = 1 &lt;&lt; 0</c> is not arithmetic that got masked away — it names the bit position of the
+    /// first flag, and it reads that way only because its siblings are written the same. Shifting by zero is
+    /// the whole point there, so it is left alone without needing a setting. A negative or over-wide count is
+    /// still a defect wherever it appears, so only the zero case is exempt.
+    /// </remarks>
+    private static bool DeclaresAnEnumMember(SyntaxNode shift)
+    {
+        for (var node = shift.Parent; node is not null; node = node.Parent)
+        {
+            switch (node)
+            {
+                case EnumMemberDeclarationSyntax:
+                    return true;
+                case MemberDeclarationSyntax:
+                case StatementSyntax:
+                    return false;
+                default:
+                    continue;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reads the settings for the shift's tree, parsing each tree's options at most once.</summary>

@@ -40,7 +40,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        public void M(bool ready)
                                        {
                                            if (!ready)
+                                           {
                                                return;
+                                           }
+
                                            System.Console.WriteLine("a");
                                            System.Console.WriteLine("b");
                                        }
@@ -82,7 +85,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                            foreach (var i in items)
                                            {
                                                if (!(i > 0))
+                                               {
                                                    continue;
+                                               }
+
                                                System.Console.WriteLine(i);
                                                System.Console.WriteLine(i + 1);
                                            }
@@ -116,7 +122,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        public void M(int x)
                                        {
                                            if (x != 0)
+                                           {
                                                return;
+                                           }
+
                                            System.Console.WriteLine("a");
                                            System.Console.WriteLine("b");
                                        }
@@ -149,7 +158,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        public void M(bool ready)
                                        {
                                            if (ready)
+                                           {
                                                return;
+                                           }
+
                                            System.Console.WriteLine("a");
                                            System.Console.WriteLine("b");
                                        }
@@ -184,7 +196,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        {
                                            var y = x + 1;
                                            if (!(x > 0))
+                                           {
                                                return;
+                                           }
+
                                            System.Console.WriteLine(y);
                                            System.Console.WriteLine(x);
                                        }
@@ -221,7 +236,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        public async Task M(bool ready)
                                        {
                                            if (!ready)
+                                           {
                                                return;
+                                           }
+
                                            await Task.Yield();
                                            System.Console.WriteLine("a");
                                        }
@@ -263,7 +281,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                            set
                                            {
                                                if (!value)
+                                               {
                                                    return;
+                                               }
+
                                                _enabled = value;
                                                System.Console.WriteLine("set");
                                            }
@@ -297,7 +318,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        public C(bool ready)
                                        {
                                            if (!ready)
+                                           {
                                                return;
+                                           }
+
                                            System.Console.WriteLine("a");
                                            System.Console.WriteLine("b");
                                        }
@@ -339,7 +363,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                            void Inner()
                                            {
                                                if (!ready)
+                                               {
                                                    return;
+                                               }
+
                                                System.Console.WriteLine("a");
                                                System.Console.WriteLine("b");
                                            }
@@ -378,7 +405,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                            for (int i = 0; i < n; i++)
                                            {
                                                if (i != 3)
+                                               {
                                                    continue;
+                                               }
+
                                                System.Console.WriteLine("a");
                                                System.Console.WriteLine("b");
                                            }
@@ -412,7 +442,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        public void M(int x)
                                        {
                                            if (x == 0)
+                                           {
                                                return;
+                                           }
+
                                            System.Console.WriteLine("a");
                                            System.Console.WriteLine("b");
                                        }
@@ -480,7 +513,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                            {
                                                n--;
                                                if (n != 3)
+                                               {
                                                    continue;
+                                               }
+
                                                System.Console.WriteLine("a");
                                                System.Console.WriteLine("b");
                                            }
@@ -514,7 +550,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        public async System.Threading.Tasks.Task M(bool ready)
                                        {
                                            if (!ready)
+                                           {
                                                return;
+                                           }
+
                                            await System.Threading.Tasks.Task.Yield();
                                            System.Console.WriteLine("a");
                                        }
@@ -556,7 +595,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        public void M1(bool a)
                                        {
                                            if (!a)
+                                           {
                                                return;
+                                           }
+
                                            System.Console.WriteLine("1a");
                                            System.Console.WriteLine("1b");
                                        }
@@ -564,7 +606,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        public void M2(bool b)
                                        {
                                            if (!b)
+                                           {
                                                return;
+                                           }
+
                                            System.Console.WriteLine("2a");
                                            System.Console.WriteLine("2b");
                                        }
@@ -594,7 +639,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        public void M(bool ready)
                                        {
                                            if (!ready)
+                                           {
                                                return;
+                                           }
+
                                            System.Console.WriteLine("a");
                                        }
                                    }
@@ -645,7 +693,10 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        public void M(bool ready)
                                        {
                                            if (!ready)
+                                           {
                                                return;
+                                           }
+
                                            System.Console.WriteLine("a");
                                        }
                                    }

@@ -87,12 +87,44 @@ public sealed class Sst2331ImplicitEnumValueCodeFixProvider : CodeFixProvider
     /// <param name="member">The enum member.</param>
     /// <param name="value">The value text to assign.</param>
     /// <returns>The member with an explicit value.</returns>
+    /// <remarks>
+    /// Whatever followed the name now follows the value instead. The last member of an enum has no separating
+    /// comma, so its line break is the identifier's own trailing trivia — dropping it would pull the closing
+    /// brace up onto the member's line.
+    /// </remarks>
     private static EnumMemberDeclarationSyntax WithExplicitValue(EnumMemberDeclarationSyntax member, string value)
     {
         var equalsToken = SyntaxFactory.Token(SyntaxKind.EqualsToken)
             .WithLeadingTrivia(SyntaxFactory.Space)
             .WithTrailingTrivia(SyntaxFactory.Space);
-        var equalsValue = SyntaxFactory.EqualsValueClause(equalsToken, SyntaxFactory.ParseExpression(value));
-        return member.WithIdentifier(member.Identifier.WithTrailingTrivia()).WithEqualsValue(equalsValue);
+        var assigned = SyntaxFactory.ParseExpression(value).WithTrailingTrivia(TrailingAfterValue(member.Identifier.TrailingTrivia));
+        return member.WithIdentifier(member.Identifier.WithTrailingTrivia()).WithEqualsValue(SyntaxFactory.EqualsValueClause(equalsToken, assigned));
+    }
+
+    /// <summary>Moves the trivia that followed the member's name so it follows its value.</summary>
+    /// <param name="trailing">The identifier's trailing trivia.</param>
+    /// <returns>The same trivia with the indentation that used to precede a comma or brace dropped.</returns>
+    private static SyntaxTriviaList TrailingAfterValue(SyntaxTriviaList trailing)
+    {
+        var kept = new List<SyntaxTrivia>(trailing.Count + 1);
+        foreach (var trivia in trailing)
+        {
+            if (kept.Count == 0)
+            {
+                if (trivia.IsKind(SyntaxKind.WhitespaceTrivia))
+                {
+                    continue;
+                }
+
+                if (!trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+                {
+                    kept.Add(SyntaxFactory.Space);
+                }
+            }
+
+            kept.Add(trivia);
+        }
+
+        return SyntaxFactory.TriviaList(kept);
     }
 }

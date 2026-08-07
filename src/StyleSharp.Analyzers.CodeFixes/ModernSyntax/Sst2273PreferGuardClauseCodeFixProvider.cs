@@ -8,8 +8,8 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Inverts a trailing wrapping <c>if</c> into an early-exit guard (SST2273): the condition is negated to head
-/// a <c>if (!cond) return;</c> (or <c>continue;</c> inside a loop), and the previously wrapped work is lifted
-/// to the outer block. The rewritten block is formatter-annotated so the lifted work is re-indented.
+/// a <c>if (!cond) { return; }</c> (or <c>continue;</c> inside a loop), and the previously wrapped work is
+/// lifted to the outer block. The rewritten block is formatter-annotated so the lifted work is re-indented.
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2273PreferGuardClauseCodeFixProvider))]
 [Shared]
@@ -56,17 +56,22 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
         return new NodeReplacement(block, newBlock);
     }
 
-    /// <summary>Builds the guard <c>if (!cond) return;</c> / <c>if (!cond) continue;</c>.</summary>
+    /// <summary>Builds the guard <c>if (!cond) { return; }</c> / <c>if (!cond) { continue; }</c>.</summary>
     /// <param name="ifStatement">The original trailing <c>if</c>, used for its leading trivia.</param>
     /// <param name="jumpKind">The jump kind for the guard.</param>
     /// <returns>The formatter-friendly guard statement.</returns>
+    /// <remarks>
+    /// The jump is braced, and the guard carries a trailing line break, so the result satisfies the brace and
+    /// blank-line rules a project may have enabled rather than trading one diagnostic for two.
+    /// </remarks>
     private static IfStatementSyntax BuildGuard(IfStatementSyntax ifStatement, SyntaxKind jumpKind)
     {
         StatementSyntax jump = jumpKind == SyntaxKind.ContinueStatement
             ? SyntaxFactory.ContinueStatement()
             : SyntaxFactory.ReturnStatement();
-        return SyntaxFactory.IfStatement(Negate(ifStatement.Condition), jump)
-            .WithLeadingTrivia(ifStatement.GetLeadingTrivia());
+        return SyntaxFactory.IfStatement(Negate(ifStatement.Condition), SyntaxFactory.Block(jump))
+            .WithLeadingTrivia(ifStatement.GetLeadingTrivia())
+            .WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
     }
 
     /// <summary>Negates a condition: strips a leading <c>!</c>, flips an equality comparison, else wraps <c>!(condition)</c>.</summary>

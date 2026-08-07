@@ -272,7 +272,10 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        if (node is not IdentifierNameSyntax identifier)
+        // Any unqualified name, not just a bare identifier. A call to a generic instance member is written
+        // 'Wrap<int>()', whose name is a GenericNameSyntax — reading only identifiers walked straight past it
+        // and left the caller looking free of 'this', so making it static was CS0120 rather than a cleanup.
+        if (node is not SimpleNameSyntax identifier)
         {
             return true;
         }

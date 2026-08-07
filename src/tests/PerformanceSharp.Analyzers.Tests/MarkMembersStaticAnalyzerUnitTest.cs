@@ -15,6 +15,54 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Unit tests for PSH1414 (mark members that do not touch instance state as static) and its code fix.</summary>
 public class MarkMembersStaticAnalyzerUnitTest
 {
+    /// <summary>Verifies a member calling an instance method unqualified is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The call is an implicit read of <c>this</c>, so making the caller static is CS0120 rather than a
+    /// cleanup. The unqualified spelling has to count the same as writing the receiver out.
+    /// </remarks>
+    [Test]
+    public async Task MemberCallingAnInstanceMethodUnqualifiedIsCleanAsync()
+        => await VerifyReportedNet90Async(
+            """
+            public class C
+            {
+                private int _seed;
+
+                public int Use() => Compute();
+
+                private int Compute() => Helper() + 1;
+
+                private int Helper() => _seed;
+            }
+            """);
+
+    /// <summary>Verifies unqualified reads of an instance property and a generic instance method are not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A generic member is called through a <c>GenericNameSyntax</c> rather than a bare identifier, so a scan
+    /// that only reads identifiers walks past it and leaves the caller looking free of <c>this</c>.
+    /// </remarks>
+    [Test]
+    public async Task UnqualifiedInstanceMemberUsesAreCleanAsync()
+        => await VerifyReportedNet90Async(
+            """
+            public class C
+            {
+                private int _seed;
+
+                private int Seed => _seed;
+
+                public int Use() => Compute() + Generic();
+
+                private int Compute() => Seed + 1;
+
+                private int Generic() => Wrap<int>() + 1;
+
+                private int Wrap<T>() => _seed;
+            }
+            """);
+
     /// <summary>Verifies a private method that never reads this is reported and made static.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -54,6 +54,54 @@ public class AggressiveInliningAnalyzerUnitTest
         await VerifyOptInAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a file with no CompilerServices import gets the same fully qualified attribute on any framework.</summary>
+    /// <param name="framework">The target framework whose reference assemblies the source is compiled against.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The spelling is chosen from the file's using directives, not from what the semantic model can bind. A
+    /// multi-targeted project compiles one linked file once per framework, and a model-driven choice can pick
+    /// a different spelling in each — which leaves the linked-document merge with two versions of the file and
+    /// writes conflict markers into the source. Running the same source against two frameworks pins that the
+    /// emitted attribute does not move.
+    /// </remarks>
+    [Test]
+    [Arguments("net8.0")]
+    [Arguments("netstandard2.0")]
+    public async Task UnimportedNamespaceGetsTheSameQualifiedAttributeOnEveryFrameworkAsync(string framework)
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private readonly int _value;
+
+                                  public C(int value) => _value = value;
+
+                                  public int {|PSH1410:GetValue|}() => _value;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       private readonly int _value;
+
+                                       public C(int value) => _value = value;
+
+                                       [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                                       public int GetValue() => _value;
+                                   }
+                                   """;
+        var test = new Verify.Test
+        {
+            TestCode = Source,
+            FixedCode = FixedSource,
+            ReferenceAssemblies = framework == "net8.0" ? ReferenceAssemblies.Net.Net80 : ReferenceAssemblies.NetStandard.NetStandard20
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a member that already carries an attribute keeps one copy of its doc comment.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

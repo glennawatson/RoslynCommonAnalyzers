@@ -23,9 +23,6 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider, 
     private const string QualifiedAttributeText =
         "[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]";
 
-    /// <summary>The simple name looked up to pick the spelling.</summary>
-    private const string MethodImplAttributeName = "MethodImplAttribute";
-
     /// <summary>The namespace the short spelling requires.</summary>
     private const string CompilerServicesNamespace = "System.Runtime.CompilerServices";
 
@@ -56,7 +53,7 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider, 
             return null;
         }
 
-        var text = ResolvesMethodImpl(model, declaration.SpanStart) ? SimpleAttributeText : QualifiedAttributeText;
+        var text = ImportsCompilerServices(declaration) ? SimpleAttributeText : QualifiedAttributeText;
         var leading = declaration.GetLeadingTrivia();
         var attributeList = ((MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration($"{text} void P();")!).AttributeLists[0]
             .WithLeadingTrivia(leading)
@@ -77,17 +74,35 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider, 
             ? leading[leading.Count - 1]
             : SyntaxFactory.Whitespace(string.Empty);
 
-    /// <summary>Returns whether the attribute type resolves by short name at a position.</summary>
-    /// <param name="model">The semantic model for the document.</param>
-    /// <param name="position">The lookup position.</param>
-    /// <returns><see langword="true"/> when the short spelling binds.</returns>
-    private static bool ResolvesMethodImpl(SemanticModel model, int position)
+    /// <summary>Returns whether the member's file imports the attribute's namespace.</summary>
+    /// <param name="declaration">The member being rewritten.</param>
+    /// <returns><see langword="true"/> when a <c>using</c> in scope makes the short spelling bind.</returns>
+    /// <remarks>
+    /// Decided from the using directives rather than by asking the semantic model what binds. A multi-targeted
+    /// project compiles the same file once per framework, and a model-driven choice can pick a different
+    /// spelling in each — leaving Roslyn's linked-document merge with two versions of one file to reconcile,
+    /// which it writes into the source as conflict markers. The syntax is the same in every compilation.
+    /// </remarks>
+    private static bool ImportsCompilerServices(SyntaxNode declaration)
     {
-        foreach (var candidate in model.LookupNamespacesAndTypes(position, name: MethodImplAttributeName))
+        for (var node = declaration.Parent; node is not null; node = node.Parent)
         {
-            if (candidate is INamedTypeSymbol named && named.ContainingNamespace.ToDisplayString() == CompilerServicesNamespace)
+            var usings = node switch
             {
-                return true;
+                CompilationUnitSyntax unit => unit.Usings,
+                BaseNamespaceDeclarationSyntax @namespace => @namespace.Usings,
+                _ => default,
+            };
+
+            for (var i = 0; i < usings.Count; i++)
+            {
+                var directive = usings[i];
+                if (directive.Alias is null
+                    && directive.StaticKeyword.IsKind(SyntaxKind.None)
+                    && directive.Name?.ToString() == CompilerServicesNamespace)
+                {
+                    return true;
+                }
             }
         }
 

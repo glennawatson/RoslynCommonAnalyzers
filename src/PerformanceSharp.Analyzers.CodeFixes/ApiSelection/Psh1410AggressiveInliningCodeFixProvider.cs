@@ -9,22 +9,25 @@ namespace PerformanceSharp.Analyzers;
 /// (PSH1410). The attribute goes on its own line above the member and takes over the member's
 /// leading trivia — its doc comment and any surrounding directives move, rather than being
 /// copied, so a member that already carries an attribute keeps exactly one of each. The
-/// attribute is spelled fully qualified when the System.Runtime.CompilerServices import does
-/// not make the short form resolve.
+/// attribute is always spelled fully qualified, so the same member gets the same syntax in
+/// every compilation of the file.
 /// </summary>
+/// <remarks>
+/// The spelling is unconditional on purpose. A multi-targeted project compiles one linked file
+/// once per framework, and Roslyn has to reconcile the results into a single document; where
+/// they differ it writes conflict markers into the source instead. Anything that decides the
+/// spelling per compilation diverges — the semantic model because what binds depends on the
+/// framework, and the using directives because a <c>using</c> inside an <c>#if</c> is a node in
+/// one compilation and inactive text in another. The qualified form needs no import, so it is
+/// correct everywhere and identical everywhere.
+/// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1410AggressiveInliningCodeFixProvider))]
 [Shared]
 public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
-    /// <summary>The short attribute text.</summary>
-    private const string SimpleAttributeText = "[MethodImpl(MethodImplOptions.AggressiveInlining)]";
-
-    /// <summary>The fully qualified attribute text.</summary>
-    private const string QualifiedAttributeText =
+    /// <summary>The attribute text, always fully qualified so every compilation emits the same syntax.</summary>
+    private const string AttributeText =
         "[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]";
-
-    /// <summary>The namespace the short spelling requires.</summary>
-    private const string CompilerServicesNamespace = "System.Runtime.CompilerServices";
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ApiSelectionRules.InlineTrivialForwarders.Id);
@@ -53,9 +56,8 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider, 
             return null;
         }
 
-        var text = ImportsCompilerServices(declaration) ? SimpleAttributeText : QualifiedAttributeText;
         var leading = declaration.GetLeadingTrivia();
-        var attributeList = ((MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration($"{text} void P();")!).AttributeLists[0]
+        var attributeList = ((MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration($"{AttributeText} void P();")!).AttributeLists[0]
             .WithLeadingTrivia(leading)
             .WithTrailingTrivia(LineEndingHelper.GetLineBreak(declaration), GetIndentation(leading));
 
@@ -73,39 +75,4 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider, 
         => leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
             ? leading[leading.Count - 1]
             : SyntaxFactory.Whitespace(string.Empty);
-
-    /// <summary>Returns whether the member's file imports the attribute's namespace.</summary>
-    /// <param name="declaration">The member being rewritten.</param>
-    /// <returns><see langword="true"/> when a <c>using</c> in scope makes the short spelling bind.</returns>
-    /// <remarks>
-    /// Decided from the using directives rather than by asking the semantic model what binds. A multi-targeted
-    /// project compiles the same file once per framework, and a model-driven choice can pick a different
-    /// spelling in each — leaving Roslyn's linked-document merge with two versions of one file to reconcile,
-    /// which it writes into the source as conflict markers. The syntax is the same in every compilation.
-    /// </remarks>
-    private static bool ImportsCompilerServices(SyntaxNode declaration)
-    {
-        for (var node = declaration.Parent; node is not null; node = node.Parent)
-        {
-            var usings = node switch
-            {
-                CompilationUnitSyntax unit => unit.Usings,
-                BaseNamespaceDeclarationSyntax @namespace => @namespace.Usings,
-                _ => default,
-            };
-
-            for (var i = 0; i < usings.Count; i++)
-            {
-                var directive = usings[i];
-                if (directive.Alias is null
-                    && directive.StaticKeyword.IsKind(SyntaxKind.None)
-                    && directive.Name?.ToString() == CompilerServicesNamespace)
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
 }

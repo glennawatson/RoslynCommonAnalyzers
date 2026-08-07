@@ -47,7 +47,7 @@ public class AggressiveInliningAnalyzerUnitTest
 
                                        public C(int value) => _value = value;
 
-                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                                       [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                                        public int GetValue() => _value;
                                    }
                                    """;
@@ -58,11 +58,9 @@ public class AggressiveInliningAnalyzerUnitTest
     /// <param name="framework">The target framework whose reference assemblies the source is compiled against.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
-    /// The spelling is chosen from the file's using directives, not from what the semantic model can bind. A
-    /// multi-targeted project compiles one linked file once per framework, and a model-driven choice can pick
-    /// a different spelling in each — which leaves the linked-document merge with two versions of the file and
-    /// writes conflict markers into the source. Running the same source against two frameworks pins that the
-    /// emitted attribute does not move.
+    /// The spelling is unconditional. A multi-targeted project compiles one linked file once per framework and
+    /// Roslyn reconciles the results into one document; where they differ it writes conflict markers into the
+    /// source. Running the same source against two frameworks pins that the emitted attribute does not move.
     /// </remarks>
     [Test]
     [Arguments("net8.0")]
@@ -102,6 +100,48 @@ public class AggressiveInliningAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a conditional import does not change the attribute the fix emits.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A <c>using</c> inside an <c>#if</c> is a syntax node in the framework that defines the symbol and
+    /// inactive text in the one that does not, so reading the import to pick the spelling diverges across a
+    /// multi-targeted project exactly as asking the semantic model does. Neither decides it.
+    /// </remarks>
+    [Test]
+    public async Task ConditionalImportStillGetsTheQualifiedAttributeAsync()
+    {
+        const string Source = """
+                              #if !NETSTANDARD
+                              using System.Runtime.CompilerServices;
+                              #endif
+
+                              public class C
+                              {
+                                  private readonly int _value;
+
+                                  public C(int value) => _value = value;
+
+                                  public int {|PSH1410:GetValue|}() => _value;
+                              }
+                              """;
+        const string FixedSource = """
+                                   #if !NETSTANDARD
+                                   using System.Runtime.CompilerServices;
+                                   #endif
+
+                                   public class C
+                                   {
+                                       private readonly int _value;
+
+                                       public C(int value) => _value = value;
+
+                                       [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                                       public int GetValue() => _value;
+                                   }
+                                   """;
+        await VerifyOptInAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a member that already carries an attribute keeps one copy of its doc comment.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
@@ -137,7 +177,7 @@ public class AggressiveInliningAnalyzerUnitTest
                                        public C(int value) => _value = value;
 
                                        /// <summary>Reads the value.</summary>
-                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                                       [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                                        [SuppressMessage("Design", "CA1000", Justification = "test")]
                                        public int GetValue() => _value;
                                    }
@@ -176,7 +216,7 @@ public class AggressiveInliningAnalyzerUnitTest
 
                                    #if !NETSTANDARD
                                        /// <summary>Reads the value.</summary>
-                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                                       [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                                        public int GetValue() => _value;
                                    #endif
                                    }

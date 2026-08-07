@@ -25,7 +25,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     outputs:
       version: ${{ steps.ver.outputs.version }}
       tag: ${{ steps.ver.outputs.tag }}
@@ -44,7 +44,7 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Compute next version + create tag
+      - name: Compute next version
         id: ver
         env:
           BUMP: ${{ inputs.bump }}
@@ -64,11 +64,11 @@ jobs:
           echo "Latest RTM tag: $LAST -> next: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+          # The tag is not created here. Everything after this point can still fail, and
+          # a tag pushed up front outlives the failure -- it has to be hunted down and
+          # deleted before the run can be retried. Creating it with the release instead
+          # means a version is only marked once it has actually shipped.
           echo "MINVERVERSIONOVERRIDE=$VERSION" >> "$GITHUB_ENV"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git tag "$VERSION"
-          git push origin "$VERSION"
 
       - name: Restore
         working-directory: src
@@ -283,4 +283,11 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ needs.build.outputs.tag }}" --repo "${{ github.repository }}" --title "${{ needs.build.outputs.version }}" --notes-file release-notes.md
+        # Creates the tag as well, at the commit this run built rather than wherever the
+        # branch has since moved to.
+        run: |
+          gh release create "${{ needs.build.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "${{ needs.build.outputs.version }}" \
+            --notes-file release-notes.md

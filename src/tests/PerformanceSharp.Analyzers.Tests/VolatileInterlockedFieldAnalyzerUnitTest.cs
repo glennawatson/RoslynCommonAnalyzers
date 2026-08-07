@@ -13,6 +13,40 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1307VolatileInterlockedFieldAnalyzer"/> (PSH1307 volatile interlocked fields).</summary>
 public class VolatileInterlockedFieldAnalyzerUnitTest
 {
+    /// <summary>Verifies a field declared volatile is not reported, since its plain accesses already are.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The <c>volatile</c> modifier gives every plain read and write of the field the acquire/release
+    /// semantics this rule asks <c>Volatile.Read</c>/<c>Volatile.Write</c> to supply, so there is nothing
+    /// left to change and the suggestion would be noise. Reported as issue #51.
+    /// </remarks>
+    [Test]
+    public async Task VolatileFieldIsCleanAsync()
+        => await VerifyAsync(
+            """
+            using System.Threading;
+
+            public struct RefCount
+            {
+                private volatile int _count;
+
+                public int Increment()
+                {
+                    for (var current = _count; ;)
+                    {
+                        var newCount = current + 1;
+                        var oldCount = Interlocked.CompareExchange(ref _count, newCount, current);
+                        if (oldCount == current)
+                        {
+                            return newCount;
+                        }
+
+                        current = oldCount;
+                    }
+                }
+            }
+            """);
+
     /// <summary>Verifies a plain read of an interlocked field is flagged and wrapped in Volatile.Read.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

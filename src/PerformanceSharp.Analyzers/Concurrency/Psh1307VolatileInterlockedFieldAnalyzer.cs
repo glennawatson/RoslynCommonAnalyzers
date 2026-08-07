@@ -11,7 +11,9 @@ namespace PerformanceSharp.Analyzers;
 /// syntax-only pass collects <c>Interlocked.*(ref field, ...)</c> calls — most types have
 /// none and bail with no binding — and only then are the remaining references classified.
 /// Constructor and initializer accesses, ref and out arguments, <c>nameof</c> operands, and
-/// accesses inside lock statements are not reported. Instance-field reads reached through a
+/// accesses inside lock statements are not reported. A field declared <c>volatile</c> is not
+/// reported either: the modifier already gives every plain read and write the acquire/release
+/// semantics the rule is asking for, so there is nothing to change. Instance-field reads reached through a
 /// readonly <c>this</c> — inside a <c>readonly</c> member or a <c>readonly struct</c> — are
 /// not reported either, because <c>Volatile.Read(ref field)</c> cannot take a writable ref
 /// through a readonly receiver (CS1605). Every reported access is bound to a field of the
@@ -233,8 +235,7 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
         {
             if (!targets.Contains(GetUsageName(usage))
                 || context.SemanticModel.GetSymbolInfo(usage, context.CancellationToken).Symbol is not IFieldSymbol field
-                || !SymbolEqualityComparer.Default.Equals(field.ContainingType, typeSymbol)
-                || !HasVolatileOverload(field.Type)
+                || !IsReportableField(field, typeSymbol)
                 || (!field.IsStatic && IsThroughReadOnlyThis(containingType, usage)))
             {
                 continue;
@@ -248,6 +249,19 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
                 IsWriteAccess(usage) ? VolatileWriteSpelling : VolatileReadSpelling));
         }
     }
+
+    /// <summary>Returns whether a field is one this rule can suggest a volatile accessor for.</summary>
+    /// <param name="field">The bound field.</param>
+    /// <param name="typeSymbol">The type whose interlocked usage is being measured.</param>
+    /// <returns><see langword="true"/> when the field belongs to the type and still needs the accessor.</returns>
+    /// <remarks>
+    /// A field declared <c>volatile</c> already reads and writes with acquire/release semantics, so wrapping
+    /// its accesses in <c>Volatile.Read</c>/<c>Volatile.Write</c> changes nothing and the suggestion is noise.
+    /// </remarks>
+    private static bool IsReportableField(IFieldSymbol field, INamedTypeSymbol typeSymbol)
+        => SymbolEqualityComparer.Default.Equals(field.ContainingType, typeSymbol)
+            && !field.IsVolatile
+            && HasVolatileOverload(field.Type);
 
     /// <summary>Returns whether a field type has a matching Volatile.Read/Write overload.</summary>
     /// <param name="type">The field type.</param>

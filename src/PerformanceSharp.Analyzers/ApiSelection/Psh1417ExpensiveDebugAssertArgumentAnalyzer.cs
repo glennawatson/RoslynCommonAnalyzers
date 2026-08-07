@@ -5,17 +5,23 @@
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
-/// Flags an argument to <c>Debug.Assert</c> that costs real work to produce (PSH1417). The call
-/// itself carries <c>[Conditional("DEBUG")]</c> and is compiled away in release builds — but the
-/// arguments are evaluated <em>before</em> the call, so the work that produced them is not. An
-/// assertion whose message interpolates state, or whose condition calls something costly, pays
-/// that cost in production for a check that no longer runs.
+/// Flags a <c>Debug.Assert</c> message that is built on every call, including the calls that pass
+/// (PSH1417). <c>[Conditional("DEBUG")]</c> removes the whole call in a release build, arguments
+/// included, so nothing is paid there. The cost is in the debug build, where a message argument is
+/// evaluated before the call and then thrown away by every assertion that holds.
 /// <para>
-/// An argument is expensive when it is a non-constant interpolated string (it interpolates state,
-/// which allocates and may box) or when it contains a call or an object creation anywhere in its
-/// subtree. Anything the compiler folds to a constant is free and never reported, which is what
-/// keeps <c>nameof(x)</c> — an invocation in syntax only — and constant interpolated strings
-/// clean.
+/// Only the message is measured. The condition is never reported: a release build removes it with
+/// everything else, and a debug build has to evaluate it for the assertion to mean anything. A
+/// message is reported when it contains a call or an object creation anywhere in its subtree.
+/// Anything the compiler folds to a constant is free and never reported, which is what keeps
+/// <c>nameof(x)</c> — an invocation in syntax only — and constant interpolated strings clean.
+/// </para>
+/// <para>
+/// An interpolated message is left alone where the framework can defer it. The
+/// <c>Debug.Assert(bool, AssertInterpolatedStringHandler)</c> overload builds the string only once
+/// the condition has already failed, so a passing assertion pays nothing and interpolation is the
+/// shape to move towards. That overload is probed in the compilation rather than assumed: on a
+/// framework without it the interpolation runs eagerly like any other argument and is reported.
 /// </para>
 /// <para>
 /// There is no code fix: hoisting the work behind <c>#if DEBUG</c>, or restructuring the
@@ -31,6 +37,9 @@ public sealed class Psh1417ExpensiveDebugAssertArgumentAnalyzer : DiagnosticAnal
 
     /// <summary>The receiver type name the syntax gate requires.</summary>
     internal const string DebugTypeName = "Debug";
+
+    /// <summary>The nested handler type whose presence means an interpolated message is deferred.</summary>
+    private const string AssertHandlerTypeName = "AssertInterpolatedStringHandler";
 
     /// <summary>The metadata name of the debug type that hosts Assert.</summary>
     private const string DebugMetadataName = "System.Diagnostics.Debug";
@@ -105,11 +114,14 @@ public sealed class Psh1417ExpensiveDebugAssertArgumentAnalyzer : DiagnosticAnal
             return;
         }
 
+        // The condition is skipped. In a release build the whole call, arguments included, is compiled
+        // away; in a debug build the condition has to run for the assertion to mean anything. Only a
+        // message argument can be work that is done and then thrown away.
         var arguments = invocation.ArgumentList.Arguments;
-        for (var i = 0; i < arguments.Count; i++)
+        for (var i = 1; i < arguments.Count; i++)
         {
             var argument = arguments[i].Expression;
-            if (!IsExpensive(context.SemanticModel, argument, context.CancellationToken))
+            if (!IsExpensive(context.SemanticModel, argument, DefersInterpolation(debugType), context.CancellationToken))
             {
                 continue;
             }
@@ -121,14 +133,35 @@ public sealed class Psh1417ExpensiveDebugAssertArgumentAnalyzer : DiagnosticAnal
         }
     }
 
-    /// <summary>Returns whether an argument costs work to produce at every call.</summary>
+    /// <summary>Returns whether the assertion's message is built even on the calls that pass.</summary>
     /// <param name="model">The semantic model.</param>
-    /// <param name="argument">The argument expression.</param>
+    /// <param name="argument">The message argument expression.</param>
+    /// <param name="defersInterpolation">Whether the framework holds an interpolated message back until the assertion fails.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the argument is not a constant and either interpolates state or runs code.</returns>
-    private static bool IsExpensive(SemanticModel model, ExpressionSyntax argument, CancellationToken cancellationToken)
-        => !model.GetConstantValue(argument, cancellationToken).HasValue
-            && (argument is InterpolatedStringExpressionSyntax || ContainsCall(argument));
+    /// <returns><see langword="true"/> when producing the message runs code that a passing assertion throws away.</returns>
+    /// <remarks>
+    /// Where the interpolated-string overload exists the framework builds the message only once the condition
+    /// has already failed, so an interpolated message costs nothing on the calls that pass and is the shape to
+    /// move towards — it is not reported. Where that overload does not exist the interpolation runs eagerly
+    /// like any other argument, so it is reported alongside the rest.
+    /// </remarks>
+    private static bool IsExpensive(SemanticModel model, ExpressionSyntax argument, bool defersInterpolation, CancellationToken cancellationToken)
+    {
+        if (model.GetConstantValue(argument, cancellationToken).HasValue)
+        {
+            return false;
+        }
+
+        return argument is InterpolatedStringExpressionSyntax interpolated
+            ? !defersInterpolation && (ContainsCall(interpolated) || interpolated.Contents.Count > 0)
+            : ContainsCall(argument);
+    }
+
+    /// <summary>Returns whether the framework defers an interpolated assertion message until the check fails.</summary>
+    /// <param name="debugType">The <c>System.Diagnostics.Debug</c> type in the current compilation.</param>
+    /// <returns><see langword="true"/> when the interpolated-handler overload is present.</returns>
+    private static bool DefersInterpolation(INamedTypeSymbol debugType)
+        => debugType.GetTypeMembers(AssertHandlerTypeName).Length > 0;
 
     /// <summary>Returns whether a node is itself a call or an object creation.</summary>
     /// <param name="node">The node to classify.</param>

@@ -12,10 +12,15 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1417ExpensiveDebugAssertArgumentAnalyzer"/> (PSH1417 expensive assertion arguments).</summary>
 public class ExpensiveDebugAssertArgumentAnalyzerUnitTest
 {
-    /// <summary>Verifies a method call in the assertion condition is reported.</summary>
+    /// <summary>Verifies a call in the assertion condition is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A release build compiles the whole call away, arguments included, so nothing is paid there; a debug
+    /// build has to evaluate the condition for the assertion to mean anything. Either way the condition is
+    /// not work that gets thrown away. Reported as issue #52.
+    /// </remarks>
     [Test]
-    public async Task CallInConditionIsReportedAsync()
+    public async Task CallInConditionIsNotReportedAsync()
         => await VerifyAsync(
             """
             using System.Collections.Generic;
@@ -25,29 +30,18 @@ public class ExpensiveDebugAssertArgumentAnalyzerUnitTest
             public class C
             {
                 public void M(IEnumerable<int> source)
-                    => Debug.Assert({|PSH1417:source.Any(x => x > 0)|});
+                    => Debug.Assert(source.Any(x => x > 0));
             }
             """);
 
-    /// <summary>Verifies an interpolated message that interpolates state is reported.</summary>
+    /// <summary>Verifies an interpolated message is not reported where the framework defers it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The interpolated-string overload hands the framework a handler that only builds the message once the
+    /// condition has already failed, so a passing assertion pays nothing. It is the shape to move towards.
+    /// </remarks>
     [Test]
-    public async Task InterpolatedMessageIsReportedAsync()
-        => await VerifyAsync(
-            """
-            using System.Diagnostics;
-
-            public class C
-            {
-                public void M(int value)
-                    => Debug.Assert(value > 0, {|PSH1417:$"value was {value}"|});
-            }
-            """);
-
-    /// <summary>Verifies a call inside an interpolated message is reported.</summary>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
-    [Test]
-    public async Task CallInsideInterpolatedMessageIsReportedAsync()
+    public async Task InterpolatedMessageIsNotReportedAsync()
         => await VerifyAsync(
             """
             using System.Diagnostics;
@@ -55,7 +49,23 @@ public class ExpensiveDebugAssertArgumentAnalyzerUnitTest
             public class C
             {
                 public void M(object value)
-                    => Debug.Assert(value != null, {|PSH1417:$"value was {value.ToString()}"|});
+                    => Debug.Assert(value != null, $"value was {value.ToString()}");
+            }
+            """);
+
+    /// <summary>Verifies a message built by a call is reported, because a passing assertion still builds it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CallInMessageIsReportedAsync()
+        => await VerifyAsync(
+            """
+            using System.Collections.Generic;
+            using System.Diagnostics;
+
+            public class C
+            {
+                public void M(List<string> items)
+                    => Debug.Assert(items.Count > 0, {|PSH1417:string.Join(",", items)|});
             }
             """);
 

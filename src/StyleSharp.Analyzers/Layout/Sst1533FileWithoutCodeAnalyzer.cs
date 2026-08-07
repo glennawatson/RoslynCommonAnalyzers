@@ -7,8 +7,10 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Reports a source file that carries usings or comments but declares no namespace, type, or top-level
 /// statement (SST1533). A file with assembly-level attributes, or one that is genuinely empty, is left
-/// alone; generated files are excluded from analysis. There is no code fix — what the file should contain,
-/// or whether it should be deleted, is a judgement the analyzer cannot make.
+/// alone; generated files are excluded from analysis. A file whose content sits inside an inactive
+/// <c>#if</c> region is left alone too — a polyfill declares its type on the frameworks that need it and
+/// looks empty only on the ones that do not. There is no code fix — what the file should contain, or
+/// whether it should be deleted, is a judgement the analyzer cannot make.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1533FileWithoutCodeAnalyzer : DiagnosticAnalyzer
@@ -31,7 +33,8 @@ public sealed class Sst1533FileWithoutCodeAnalyzer : DiagnosticAnalyzer
     {
         if (context.Tree.GetRoot(context.CancellationToken) is not CompilationUnitSyntax root
             || root.Members.Count != 0
-            || root.AttributeLists.Count != 0)
+            || root.AttributeLists.Count != 0
+            || DeclaresSomethingInAnotherConfiguration(root))
         {
             return;
         }
@@ -58,6 +61,32 @@ public sealed class Sst1533FileWithoutCodeAnalyzer : DiagnosticAnalyzer
             context.ReportDiagnostic(Diagnostic.Create(LayoutRules.FileWithoutCode, trivia.GetLocation()));
             return;
         }
+    }
+
+    /// <summary>Returns whether the file has source that this compilation happens to have compiled out.</summary>
+    /// <param name="root">The compilation unit.</param>
+    /// <returns><see langword="true"/> when an inactive <c>#if</c> region holds the file's content.</returns>
+    /// <remarks>
+    /// A polyfill guarded by <c>#if</c> looks empty on the target frameworks that already have the API, and
+    /// declares its type on the ones that do not. The file is not the empty shell it appears to be here, and
+    /// reporting it would ask for a deletion that breaks every other framework the project builds.
+    /// </remarks>
+    private static bool DeclaresSomethingInAnotherConfiguration(CompilationUnitSyntax root)
+    {
+        if (!root.ContainsDirectives)
+        {
+            return false;
+        }
+
+        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+        {
+            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether a trivia kind is one of the comment forms.</summary>

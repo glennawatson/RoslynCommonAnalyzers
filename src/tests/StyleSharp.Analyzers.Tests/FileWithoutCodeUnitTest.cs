@@ -38,6 +38,57 @@ public class FileWithoutCodeUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a polyfill whose type is compiled out for this framework is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The file declares its type on the frameworks that lack the API and looks empty on the ones that
+    /// already have it. Reporting it here asks for a deletion that breaks every other framework built.
+    /// </remarks>
+    [Test]
+    public async Task PolyfillCompiledOutForThisFrameworkIsCleanAsync()
+    {
+        var test = new VerifyFileWithoutCode.Test
+        {
+            TestCode = """
+                       using System;
+
+                       #if NETSTANDARD2_0
+                       namespace System.Runtime.CompilerServices
+                       {
+                           internal static class IsExternalInit
+                           {
+                           }
+                       }
+                       #endif
+
+                       """
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EnableConfig));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a file whose only content is an empty directive region is still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>The exemption is for a region that holds source, not for the presence of a directive.</remarks>
+    [Test]
+    public async Task EmptyDirectiveRegionIsStillReportedAsync()
+    {
+        var test = new VerifyFileWithoutCode.Test
+        {
+            TestCode = """
+                       {|SST1533:using System;|}
+
+                       #if NETSTANDARD2_0
+                       #endif
+
+                       """
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EnableConfig));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a file that declares a type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

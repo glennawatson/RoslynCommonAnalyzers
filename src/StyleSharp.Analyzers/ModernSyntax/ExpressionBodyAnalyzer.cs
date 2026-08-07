@@ -329,6 +329,11 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static bool WouldDropComment(SyntaxNode container, ExpressionSyntax expression)
     {
+        if (SpansAConditionalRegion(container))
+        {
+            return true;
+        }
+
         var expressionSpan = expression.Span;
         var containerEnd = container.Span.End;
         foreach (var trivia in container.DescendantTrivia())
@@ -341,6 +346,34 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
             }
 
             return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a body is split across preprocessor branches.</summary>
+    /// <param name="container">The block or accessor list being collapsed.</param>
+    /// <returns><see langword="true"/> when an inactive <c>#if</c> region falls inside the body.</returns>
+    /// <remarks>
+    /// The single-statement shape is only what this compilation can see. Another framework takes the other
+    /// branch, where the body may be several statements and no expression body fits — and the two shapes
+    /// cannot both be written. Collapsing on the strength of the visible branch also starts a fight with the
+    /// rules that inline a redundant local: introducing one to satisfy them restores this diagnostic, and
+    /// nothing satisfies both at once. A body that is only partly visible is left as a block.
+    /// </remarks>
+    private static bool SpansAConditionalRegion(SyntaxNode container)
+    {
+        if (!container.ContainsDirectives)
+        {
+            return false;
+        }
+
+        foreach (var trivia in container.DescendantTrivia(descendIntoTrivia: true))
+        {
+            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia))
+            {
+                return true;
+            }
         }
 
         return false;

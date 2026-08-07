@@ -15,6 +15,36 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class ExpressionBodyAnalyzerUnitTest
 {
+    /// <summary>Verifies a body split across preprocessor branches stays a block (SST2275).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// One statement is only what this compilation sees; the other branch builds the value over several and
+    /// no expression body fits it. The two shapes cannot both be written, and introducing a local to satisfy
+    /// the rules that inline a redundant one restores this diagnostic — nothing satisfies both.
+    /// </remarks>
+    [Test]
+    public async Task BodySplitAcrossPreprocessorBranchesIsCleanAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                public int Total(int[] values)
+                {
+            #if ROSLYN_5
+                    return values.Length;
+            #else
+                    var sum = 0;
+                    foreach (var value in values)
+                    {
+                        sum += value;
+                    }
+
+                    return sum;
+            #endif
+                }
+            }
+            """);
+
     /// <summary>Verifies a comment on the line above the statement keeps a void method as a block (SST2275).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

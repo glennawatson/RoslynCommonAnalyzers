@@ -54,12 +54,54 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
         if (declaration.ExpressionBody is null
             || declaration.Parent is InterfaceDeclarationSyntax
             || HasDisqualifyingModifier(declaration.Modifiers)
-            || HasMethodImplAttribute(declaration.AttributeLists))
+            || HasMethodImplAttribute(declaration.AttributeLists)
+            || SitsInsideAConditionalRegion(declaration))
         {
             return false;
         }
 
         return IsForwardingExpression(declaration.ExpressionBody.Expression);
+    }
+
+    /// <summary>Returns whether a member sits inside a conditional compilation region.</summary>
+    /// <param name="declaration">The member declaration.</param>
+    /// <returns><see langword="true"/> when an <c>#if</c> region encloses the member.</returns>
+    /// <remarks>
+    /// A project that multi-targets compiles one file once per framework, and the same member is commonly
+    /// written once per branch — carrying the attribute in the branch that needs it and not in the one that
+    /// does not. Only some of those compilations then want the edit, and Roslyn cannot reconcile a linked
+    /// document that gained the attribute in one framework and not another: it writes conflict markers into
+    /// the source instead, and re-reports the branch that already had it until a duplicate attribute lands.
+    /// No single edit is right for every compilation of the file, so none is offered.
+    /// </remarks>
+    internal static bool SitsInsideAConditionalRegion(SyntaxNode declaration)
+    {
+        var root = declaration.SyntaxTree.GetRoot();
+        if (!root.ContainsDirectives)
+        {
+            return false;
+        }
+
+        var depth = 0;
+        var start = declaration.SpanStart;
+        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+        {
+            if (trivia.SpanStart >= start)
+            {
+                break;
+            }
+
+            if (trivia.IsKind(SyntaxKind.IfDirectiveTrivia))
+            {
+                depth++;
+            }
+            else if (trivia.IsKind(SyntaxKind.EndIfDirectiveTrivia))
+            {
+                depth--;
+            }
+        }
+
+        return depth > 0;
     }
 
     /// <summary>Returns whether an expression is a plain forward: a call, member read, index, or constant.</summary>

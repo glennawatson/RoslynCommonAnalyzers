@@ -185,44 +185,55 @@ public class AggressiveInliningAnalyzerUnitTest
         await VerifyOptInAsync(Source, FixedSource);
     }
 
-    /// <summary>Verifies a member inside a directive region keeps the region balanced.</summary>
+    /// <summary>Verifies a member inside a conditional region is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A multi-targeted project compiles the file once per framework, and the same member is commonly
+    /// written once per branch — carrying the attribute where it is wanted and not where it is not. Only
+    /// some compilations would take the edit, which leaves Roslyn reconciling a linked document that gained
+    /// the attribute in one framework and not another, and it writes conflict markers into the source.
+    /// </remarks>
     [Test]
-    public async Task MemberInsideADirectiveRegionKeepsItBalancedAsync()
-    {
-        const string Source = """
-                              using System.Runtime.CompilerServices;
+    public async Task MemberInsideAConditionalRegionIsCleanAsync()
+        => await VerifyOptInAsync(
+            """
+            using System.Runtime.CompilerServices;
 
-                              public class C
-                              {
-                                  private readonly int _value;
+            public class C
+            {
+                private readonly int _value;
 
-                                  public C(int value) => _value = value;
+                public C(int value) => _value = value;
 
-                              #if !NETSTANDARD
-                                  /// <summary>Reads the value.</summary>
-                                  public int {|PSH1410:GetValue|}() => _value;
-                              #endif
-                              }
-                              """;
-        const string FixedSource = """
-                                   using System.Runtime.CompilerServices;
+            #if !NETSTANDARD
+                public int GetValue() => _value;
+            #else
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                public int GetValue() => _value;
+            #endif
+            }
+            """);
 
-                                   public class C
-                                   {
-                                       private readonly int _value;
+    /// <summary>Verifies the attribute this fix writes is recognised on a second pass.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The fix emits the fully qualified spelling. If the eligibility check only recognises the short one
+    /// the member is reported again and a second application yields CS0579, a duplicate attribute.
+    /// </remarks>
+    [Test]
+    public async Task QualifiedMethodImplAttributeIsCleanAsync()
+        => await VerifyOptInAsync(
+            """
+            public class C
+            {
+                private readonly int _value;
 
-                                       public C(int value) => _value = value;
+                public C(int value) => _value = value;
 
-                                   #if !NETSTANDARD
-                                       /// <summary>Reads the value.</summary>
-                                       [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                                       public int GetValue() => _value;
-                                   #endif
-                                   }
-                                   """;
-        await VerifyOptInAsync(Source, FixedSource);
-    }
+                [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                public int GetValue() => _value;
+            }
+            """);
 
     /// <summary>Verifies a member that already carries a MethodImpl attribute stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

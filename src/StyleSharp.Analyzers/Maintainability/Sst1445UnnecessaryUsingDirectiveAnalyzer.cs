@@ -33,7 +33,8 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
     /// <param name="context">The semantic model analysis context.</param>
     private static void AnalyzeSemanticModel(SemanticModelAnalysisContext context)
     {
-        if (context.SemanticModel.SyntaxTree.GetRoot(context.CancellationToken) is not CompilationUnitSyntax root)
+        if (context.SemanticModel.SyntaxTree.GetRoot(context.CancellationToken) is not CompilationUnitSyntax root
+            || HasInactiveRegion(root))
         {
             return;
         }
@@ -52,6 +53,34 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         }
 
         tracker.Report(context);
+    }
+
+    /// <summary>Returns whether the file holds source this compilation left out.</summary>
+    /// <param name="root">The compilation unit.</param>
+    /// <returns><see langword="true"/> when an inactive <c>#if</c> region falls inside the file.</returns>
+    /// <remarks>
+    /// The identifiers in such a region are trivia, not bound syntax, so nothing there can be counted as a
+    /// use. A directive whose only consumer sits in the branch this compilation did not take therefore looks
+    /// unused — and removing it breaks every framework that does take that branch, with the type it named no
+    /// longer in scope. Whether a using is needed is a question about the whole file, so a file that is only
+    /// partly visible is left alone.
+    /// </remarks>
+    private static bool HasInactiveRegion(CompilationUnitSyntax root)
+    {
+        if (!root.ContainsDirectives)
+        {
+            return false;
+        }
+
+        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+        {
+            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Marks directives used only from XML documentation crefs (rare-path pass).</summary>

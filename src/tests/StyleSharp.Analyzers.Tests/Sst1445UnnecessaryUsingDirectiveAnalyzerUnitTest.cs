@@ -274,6 +274,31 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a using whose only consumer sits in an inactive branch is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The identifiers in that branch are trivia, not bound syntax, so nothing there counts as a use and the
+    /// directive looks unused. Removing it breaks every framework that does take the branch, where the type
+    /// it named is no longer in scope.
+    /// </remarks>
+    [Test]
+    public async Task UsingConsumedOnlyByAnInactiveBranchIsCleanAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            using System.Reflection;
+            using System.Runtime.CompilerServices;
+
+            internal static class Helpers
+            {
+            #if NET9_0_OR_GREATER
+                internal static string Name(FieldInfo field) => field.Name;
+            #else
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                internal static string Name(FieldInfo field) => field.Name;
+            #endif
+            }
+            """);
+
     /// <summary>Runs the analyzer verifier with a language version that parses extension blocks.</summary>
     /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
     /// <returns>A task representing the asynchronous operation.</returns>

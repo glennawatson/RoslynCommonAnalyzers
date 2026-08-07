@@ -7,9 +7,11 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Reports a <c>public</c> member declared in a type that is not externally visible (SST1416,
 /// opt-in). The effective accessibility of such a member is capped at internal, so the
-/// <c>public</c> modifier is misleading. Members that implement an interface (which must stay
-/// public) and operators (which must be public) are not reported. The common case — an
-/// effectively public type — is rejected by a cheap, purely syntactic check.
+/// <c>public</c> modifier is misleading. A member whose accessibility is not the containing
+/// type's alone to choose is not reported: an <c>override</c> takes it from the member it
+/// overrides, a <c>virtual</c> or <c>abstract</c> member gives it to every override, an
+/// interface implementation must stay public, and an operator must be public. The common
+/// case — an effectively public type — is rejected by a cheap, purely syntactic check.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1416NoPublicOnInternalTypeAnalyzer : DiagnosticAnalyzer
@@ -54,6 +56,7 @@ public sealed class Sst1416NoPublicOnInternalTypeAnalyzer : DiagnosticAnalyzer
     private static void CheckMember(SyntaxNodeAnalysisContext context, MemberDeclarationSyntax member)
     {
         if (member is OperatorDeclarationSyntax or ConversionOperatorDeclarationSyntax or BaseTypeDeclarationSyntax
+            || SharesAccessibilityWithAnotherType(member)
             || PublicModifier(member) is not { } publicToken
             || ImplementsInterfaceMember(member, context.SemanticModel, context.CancellationToken))
         {
@@ -62,6 +65,20 @@ public sealed class Sst1416NoPublicOnInternalTypeAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.NoPublicOnInternalType, publicToken.GetLocation(), MemberOrder.NameToken(member).ValueText));
     }
+
+    /// <summary>Returns whether a member's accessibility is fixed by, or fixes, another type's member.</summary>
+    /// <param name="member">The member declaration.</param>
+    /// <returns><see langword="true"/> for an <c>override</c>, <c>virtual</c>, or <c>abstract</c> member.</returns>
+    /// <remarks>
+    /// An <c>override</c> takes its accessibility from the member it overrides — narrowing
+    /// <c>public override bool Equals(object)</c> to <c>internal</c> does not compile. A <c>virtual</c> or
+    /// <c>abstract</c> member is the other end of that same contract: demoting it strands every override,
+    /// which the containing type cannot see. Neither is the containing type's to choose alone.
+    /// </remarks>
+    private static bool SharesAccessibilityWithAnotherType(MemberDeclarationSyntax member)
+        => ModifierListHelper.Contains(member.Modifiers, SyntaxKind.OverrideKeyword)
+            || ModifierListHelper.Contains(member.Modifiers, SyntaxKind.VirtualKeyword)
+            || ModifierListHelper.Contains(member.Modifiers, SyntaxKind.AbstractKeyword);
 
     /// <summary>Returns whether a type and every enclosing type are declared <c>public</c>.</summary>
     /// <param name="type">The type declaration.</param>

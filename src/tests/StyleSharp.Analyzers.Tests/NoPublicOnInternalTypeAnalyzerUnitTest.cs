@@ -35,6 +35,64 @@ public class NoPublicOnInternalTypeAnalyzerUnitTest
         await VerifyNoPublic.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies an override is not reported, since the base member fixes its accessibility.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Demoting <c>public override bool Equals(object?)</c> to <c>internal</c> does not compile — the
+    /// override inherits <c>public</c> from <see cref="object"/>, and narrowing it is CS0507. Members the
+    /// containing type does not get to choose the accessibility of are outside this rule.
+    /// </remarks>
+    [Test]
+    public async Task OverridesAreCleanAsync()
+        => await VerifyNoPublic.VerifyAnalyzerAsync(
+            """
+            #nullable enable
+
+            internal readonly struct ImmutableEquatableArray<T>
+            {
+                public override bool Equals(object? obj) => obj is ImmutableEquatableArray<T>;
+
+                public override int GetHashCode() => 0;
+
+                public override string ToString() => "x";
+
+                {|SST1416:public|} int Count => 0;
+            }
+            """);
+
+    /// <summary>Verifies a virtual or abstract member is not reported, since every override inherits from it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Demoting the base leaves the override stranded — the same CS0507, from the other end. The containing
+    /// type cannot see who overrides it, so it cannot narrow the member on its own.
+    /// </remarks>
+    [Test]
+    public async Task VirtualAndAbstractMembersAreCleanAsync()
+        => await VerifyNoPublic.VerifyAnalyzerAsync(
+            """
+            internal abstract class Base
+            {
+                public abstract int Size { get; }
+
+                public virtual void Work()
+                {
+                }
+
+                {|SST1416:public|} void Plain()
+                {
+                }
+            }
+
+            internal sealed class Derived : Base
+            {
+                public override int Size => 1;
+
+                public override void Work()
+                {
+                }
+            }
+            """);
+
     /// <summary>Verifies interface implementations and members of a public type are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -6,9 +6,11 @@ namespace PerformanceSharp.Analyzers;
 
 /// <summary>
 /// Adds <c>[MethodImpl(MethodImplOptions.AggressiveInlining)]</c> to a reported forwarder
-/// (PSH1410). The attribute goes on its own line above the member, taking over the member's
-/// leading trivia, and is spelled fully qualified when the System.Runtime.CompilerServices
-/// import does not make the short form resolve.
+/// (PSH1410). The attribute goes on its own line above the member and takes over the member's
+/// leading trivia — its doc comment and any surrounding directives move, rather than being
+/// copied, so a member that already carries an attribute keeps exactly one of each. The
+/// attribute is spelled fully qualified when the System.Runtime.CompilerServices import does
+/// not make the short form resolve.
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1410AggressiveInliningCodeFixProvider))]
 [Shared]
@@ -60,10 +62,11 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider, 
             .WithLeadingTrivia(leading)
             .WithTrailingTrivia(LineEndingHelper.GetLineBreak(declaration), GetIndentation(leading));
 
-        var replacement = declaration
-            .WithLeadingTrivia(default(SyntaxTriviaList))
-            .WithAttributeLists(declaration.AttributeLists.Insert(0, attributeList));
-        return new NodeReplacement(declaration, replacement);
+        // The lists are taken from the already-stripped member, not the original. A member that already
+        // carries an attribute holds its doc comment and any directives on that first list, so inserting
+        // ahead of the original lists would leave a second copy of both above the one this fix writes.
+        var stripped = declaration.WithLeadingTrivia(default(SyntaxTriviaList));
+        return new NodeReplacement(declaration, stripped.WithAttributeLists(stripped.AttributeLists.Insert(0, attributeList)));
     }
 
     /// <summary>Returns the indentation whitespace at the end of a member's leading trivia.</summary>

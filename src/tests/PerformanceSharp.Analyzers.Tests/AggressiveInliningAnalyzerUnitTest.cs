@@ -54,6 +54,88 @@ public class AggressiveInliningAnalyzerUnitTest
         await VerifyOptInAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a member that already carries an attribute keeps one copy of its doc comment.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The doc comment is the leading trivia of the existing attribute list, not of the member, so a fix that
+    /// strips it from the member and then inserts ahead of the original lists leaves a second copy behind.
+    /// </remarks>
+    [Test]
+    public async Task ExistingAttributeKeepsOneDocCommentAsync()
+    {
+        const string Source = """
+                              using System.Diagnostics.CodeAnalysis;
+                              using System.Runtime.CompilerServices;
+
+                              public class C
+                              {
+                                  private readonly int _value;
+
+                                  public C(int value) => _value = value;
+
+                                  /// <summary>Reads the value.</summary>
+                                  [SuppressMessage("Design", "CA1000", Justification = "test")]
+                                  public int {|PSH1410:GetValue|}() => _value;
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Diagnostics.CodeAnalysis;
+                                   using System.Runtime.CompilerServices;
+
+                                   public class C
+                                   {
+                                       private readonly int _value;
+
+                                       public C(int value) => _value = value;
+
+                                       /// <summary>Reads the value.</summary>
+                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                                       [SuppressMessage("Design", "CA1000", Justification = "test")]
+                                       public int GetValue() => _value;
+                                   }
+                                   """;
+        await VerifyOptInAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a member inside a directive region keeps the region balanced.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task MemberInsideADirectiveRegionKeepsItBalancedAsync()
+    {
+        const string Source = """
+                              using System.Runtime.CompilerServices;
+
+                              public class C
+                              {
+                                  private readonly int _value;
+
+                                  public C(int value) => _value = value;
+
+                              #if !NETSTANDARD
+                                  /// <summary>Reads the value.</summary>
+                                  public int {|PSH1410:GetValue|}() => _value;
+                              #endif
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Runtime.CompilerServices;
+
+                                   public class C
+                                   {
+                                       private readonly int _value;
+
+                                       public C(int value) => _value = value;
+
+                                   #if !NETSTANDARD
+                                       /// <summary>Reads the value.</summary>
+                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                                       public int GetValue() => _value;
+                                   #endif
+                                   }
+                                   """;
+        await VerifyOptInAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a member that already carries a MethodImpl attribute stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

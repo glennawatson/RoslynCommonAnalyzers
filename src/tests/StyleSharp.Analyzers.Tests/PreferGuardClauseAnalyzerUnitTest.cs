@@ -650,6 +650,63 @@ public class PreferGuardClauseAnalyzerUnitTest
         await RunAsync(Source, FixedSource, "stylesharp.SST2273.min_wrapped_statements = 1");
     }
 
+    /// <summary>Verifies a trailing <c>if</c> nested inside another is flattened once the outer one is.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Only the outer <c>if</c> is a trailing statement of a body to begin with; the inner one becomes a
+    /// trailing statement only after the outer is lifted. A single pass therefore reports one site and leaves
+    /// the other, and re-running the fix converges — which is why a one-pass tool still shows sites afterwards.
+    /// </remarks>
+    [Test]
+    public async Task NestedTrailingIfsFlattenOverSuccessivePassesAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public void M(bool a, bool b)
+                                  {
+                                      {|SST2273:if|} (a)
+                                      {
+                                          System.Console.WriteLine("1");
+                                          if (b)
+                                          {
+                                              System.Console.WriteLine("2");
+                                              System.Console.WriteLine("3");
+                                          }
+                                      }
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public void M(bool a, bool b)
+                                       {
+                                           if (!a)
+                                           {
+                                               return;
+                                           }
+
+                                           System.Console.WriteLine("1");
+                                           if (!b)
+                                           {
+                                               return;
+                                           }
+
+                                           System.Console.WriteLine("2");
+                                           System.Console.WriteLine("3");
+                                       }
+                                   }
+                                   """;
+        var test = CreateTest(Source, optionLine: null);
+        test.FixedCode = FixedSource;
+
+        // Two passes: the inner 'if' only becomes a trailing statement once the outer one is lifted.
+        test.NumberOfIncrementalIterations = 2;
+        test.NumberOfFixAllIterations = 2;
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a nested embedded <c>if</c> — whose parent is another <c>if</c>, not a block — is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

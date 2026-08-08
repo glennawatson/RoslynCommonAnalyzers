@@ -124,6 +124,56 @@ internal static class XmlDocumentationHelper
         return null;
     }
 
+    /// <summary>Returns the simple name an element's <c>cref</c> attribute refers to, or <see langword="null"/>.</summary>
+    /// <param name="node">The element node.</param>
+    /// <returns>The referenced member's rightmost identifier, stripped of any generic or parameter suffix.</returns>
+    /// <remarks>
+    /// The cref is rendered to text, so call this only once a rule has already decided to report — never on the
+    /// clean path.
+    /// </remarks>
+    public static string? CrefSimpleName(XmlNodeSyntax node)
+    {
+        var attributes = node switch
+        {
+            XmlElementSyntax element => element.StartTag.Attributes,
+            XmlEmptyElementSyntax element => element.Attributes,
+            _ => default
+        };
+
+        foreach (var attribute in attributes)
+        {
+            if (attribute is XmlCrefAttributeSyntax cref)
+            {
+                return LastNameSegment(cref.Cref.ToString());
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Returns whether an element carries a <c>cref</c> attribute.</summary>
+    /// <param name="node">The element node.</param>
+    /// <returns><see langword="true"/> when a cref is present.</returns>
+    public static bool HasCref(XmlNodeSyntax node)
+    {
+        var attributes = node switch
+        {
+            XmlElementSyntax element => element.StartTag.Attributes,
+            XmlEmptyElementSyntax element => element.Attributes,
+            _ => default
+        };
+
+        foreach (var attribute in attributes)
+        {
+            if (attribute is XmlCrefAttributeSyntax)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Returns whether an element contains any non-whitespace text.</summary>
     /// <param name="node">The element node.</param>
     /// <returns><see langword="true"/> when non-whitespace text is present.</returns>
@@ -288,6 +338,34 @@ internal static class XmlDocumentationHelper
         XmlEmptyElementSyntax element => element.Name.LocalName.ValueText,
         _ => null
     };
+
+    /// <summary>Extracts the rightmost identifier from a cref's textual form, dropping any generic or parameter suffix.</summary>
+    /// <param name="cref">The cref text.</param>
+    /// <returns>The rightmost identifier segment.</returns>
+    private static string LastNameSegment(string cref)
+    {
+        var end = cref.Length;
+        for (var i = 0; i < cref.Length; i++)
+        {
+            if (cref[i] is '{' or '(' or '<')
+            {
+                end = i;
+                break;
+            }
+        }
+
+        var start = 0;
+        for (var i = end - 1; i >= 0; i--)
+        {
+            if (cref[i] is '.' or ':')
+            {
+                start = i + 1;
+                break;
+            }
+        }
+
+        return cref.Substring(start, end - start);
+    }
 
     /// <summary>Returns whether a character is terminal sentence punctuation.</summary>
     /// <param name="character">The character.</param>

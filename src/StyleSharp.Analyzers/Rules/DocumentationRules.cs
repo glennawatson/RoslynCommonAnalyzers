@@ -370,6 +370,13 @@ internal static class DocumentationRules
         "This summary separates paragraphs with blank documentation lines; wrap them in <para> elements",
         SummaryParagraphDescription);
 
+    /// <summary>SST1665 — an <c>&lt;exception&gt;</c> element names a type but never says what triggers it.</summary>
+    public static readonly DiagnosticDescriptor ExceptionDescription = Create(
+        "SST1665",
+        "Documented exceptions should describe what triggers them",
+        "Describe the condition that causes '{0}' to be thrown",
+        ExceptionDescriptionDescription);
+
     /// <summary>The EmptyComment rule description.</summary>
     private const string EmptyCommentDescription =
         "A documentation comment with no text is worse than none at all: it satisfies every tool that checks whether a member is "
@@ -407,6 +414,15 @@ internal static class DocumentationRules
         "A '<summary>' that separates prose into paragraphs with blank documentation lines renders as one unbroken "
         + "run of text, because the documentation pipeline treats the blank lines as insignificant whitespace. Wrapping "
         + "each paragraph in a '<para>' element keeps the breaks in the generated output. Off by default.";
+
+    /// <summary>The ExceptionDescription rule description.</summary>
+    private const string ExceptionDescriptionDescription =
+        "An '<exception>' element that names a type and stops there withholds the one thing the signature cannot already "
+        + "tell a caller: what they did to earn the throw. The reader learns the member can fail, but not which argument was "
+        + "out of range, which state was wrong, or how to avoid it — so they have to read the body, which is what the "
+        + "documentation was meant to spare them. It also counts as documented to every tool that measures exception "
+        + "coverage, so the gap never resurfaces. Name the condition: what the caller passed, or the state the member was in. "
+        + "An element whose content is inherited, or that wraps a nested element rather than prose, is left alone.";
 
     /// <summary>Creates an enabled-by-default Info-severity Documentation descriptor — a documentation nudge that is
     /// weaker than a build-breaking Warning because the code still compiles and its meaning is clear.</summary>

@@ -701,3 +701,17 @@ SST2280 | ModernSyntax | Info | ExpressionBodyAnalyzer
 SST2281 | ModernSyntax | Info | ExpressionBodyAnalyzer
 SST2282 | ModernSyntax | Warning | Sst2282ReferenceEqualsNullPatternAnalyzer
 SST2283 | ModernSyntax | Warning | Sst2283FoldGuardIntoAssignedValueAnalyzer
+
+## Release 3.41.15
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+SST1535 | Layout | Warning | BlankLineSeparationAnalyzer
+SST1536 | Layout | Warning | BlankLineSeparationAnalyzer
+SST1537 | Layout | Warning | BlankLineSeparationAnalyzer
+SST1665 | Documentation | Warning | Sst1665ExceptionDescriptionAnalyzer
+SST2019 | Modernization | Warning | Sst2019NullCheckOverTypeCheckAnalyzer
+SST2497 | Correctness | Warning | Sst2497SelfRecursiveForwarderAnalyzer
+SST2498 | Correctness | Warning | Sst2498NameofTypeParameterAnalyzer

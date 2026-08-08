@@ -261,6 +261,7 @@ PSH1102, and PSH1100.
 | [SST1662](rules/SST1662.md) | A thrown exception type has no `<exception>` documentation. Code fix adds the skeleton. Opt-in. |
 | [SST1663](rules/SST1663.md) | A `//` comment before a public member reads like a summary; use `///`. Code fix converts it. Opt-in. |
 | [SST1664](rules/SST1664.md) | A summary separates paragraphs with blank lines instead of `<para>`. Code fix wraps them. Opt-in. |
+| [SST1665](rules/SST1665.md) | An `<exception>` element names a type but never says what triggers it. |
 
 ## Extensions
 

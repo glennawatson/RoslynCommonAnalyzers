@@ -5,4 +5,3 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
-PSH1023 | Allocations | Warning | Psh1023PreferTupleOverAnonymousTypeAnalyzer, [Documentation](https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/PSH1023.md)

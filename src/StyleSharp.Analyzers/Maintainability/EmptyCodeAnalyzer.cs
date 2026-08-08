@@ -198,19 +198,74 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether a block declares nothing that a splice into its parent would leak or lose.</summary>
     /// <param name="block">The block to inspect.</param>
-    /// <returns><see langword="true"/> when the block declares no local, local function, or label.</returns>
+    /// <returns><see langword="true"/> when the block declares no name at its own scope.</returns>
     private static bool DeclaresNothing(BlockSyntax block)
     {
         var statements = block.Statements;
         for (var i = 0; i < statements.Count; i++)
         {
-            if (statements[i] is LocalDeclarationStatementSyntax or LocalFunctionStatementSyntax or LabeledStatementSyntax)
+            var statement = statements[i];
+            if (statement is LocalDeclarationStatementSyntax or LocalFunctionStatementSyntax or LabeledStatementSyntax
+                || DeclaresBlockScopedVariable(statement))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /// <summary>Returns whether a statement's expression variables land in the enclosing block.</summary>
+    /// <param name="statement">The statement to classify.</param>
+    /// <returns><see langword="true"/> when an <c>out var</c>, pattern, or deconstruction variable escapes to the block.</returns>
+    private static bool DeclaresBlockScopedVariable(StatementSyntax statement) => statement switch
+    {
+        // 'if', 'switch', and 'lock' leave a variable their header declares visible after the statement ends,
+        // so it belongs to the enclosing block. Their embedded statements still scope their own.
+        IfStatementSyntax ifStatement => DeclaresVariable(ifStatement.Condition),
+        SwitchStatementSyntax switchStatement => DeclaresVariable(switchStatement.Expression),
+        LockStatementSyntax lockStatement => DeclaresVariable(lockStatement.Expression),
+
+        // Everything else either carries a bare expression, whose variables have nowhere to go but the
+        // enclosing block, or is a loop, resource, or nested scope that keeps its own header to itself.
+        _ => CarriesOnlyExpressions(statement) && DeclaresVariable(statement)
+    };
+
+    /// <summary>Returns whether a statement holds expressions alone, with no scope of its own to put them in.</summary>
+    /// <param name="statement">The statement to classify.</param>
+    /// <returns><see langword="true"/> for a statement that neither loops, holds a resource, nor nests a scope.</returns>
+    private static bool CarriesOnlyExpressions(StatementSyntax statement)
+        => statement is ExpressionStatementSyntax or ReturnStatementSyntax or ThrowStatementSyntax or YieldStatementSyntax;
+
+    /// <summary>Returns whether a syntax subtree declares a named variable at the scope it is evaluated in.</summary>
+    /// <param name="node">The subtree to scan.</param>
+    /// <returns><see langword="true"/> when a named designation is reachable without crossing into a nested scope.</returns>
+    private static bool DeclaresVariable(SyntaxNode node)
+    {
+        // A lambda body and a switch-expression arm each open a scope of their own, so a designation inside
+        // one never escapes to the block.
+        if (node is AnonymousFunctionExpressionSyntax or SwitchExpressionArmSyntax)
+        {
+            return false;
+        }
+
+        // Only a designation that carries a name can collide; a discard names nothing.
+        if (node is SingleVariableDesignationSyntax)
+        {
+            return true;
+        }
+
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
+        {
+            var child = children[i];
+            if (child.IsNode && child.AsNode() is { } childNode && DeclaresVariable(childNode))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns the number of instance constructors declared directly in a type.</summary>

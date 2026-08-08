@@ -104,4 +104,146 @@ public class FreeStandingBlockAnalyzerUnitTest
     [Test]
     public async Task FixSplicesStatementsAsync()
         => await VerifyFix.VerifyCodeFixAsync(FreeStandingSource, FreeStandingFixed);
+
+    /// <summary>Verifies a block scoping a pattern variable and an out variable next to a sibling that reuses the names is clean.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BlockThatScopesPatternAndOutVariablesIsCleanAsync()
+        => await VerifyBlock.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public void M(object o)
+                {
+                    {
+                        _ = o is int i;
+                        _ = int.TryParse("123", out var j);
+                    }
+                    {
+                        int i = 0;
+                        int j = 0;
+                        _ = i + j;
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a block scoping a deconstruction designation is clean.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BlockThatScopesADeconstructionDesignationIsCleanAsync()
+        => await VerifyBlock.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public void M((int, int) t)
+                {
+                    {
+                        (var a, var b) = t;
+                        _ = a + b;
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a block whose 'if', 'switch', or 'lock' header declares a variable is clean: the name outlives the statement.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BlockThatScopesAHeaderVariableIsCleanAsync()
+        => await VerifyBlock.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public sealed class C
+            {
+                private readonly object _gate = new();
+
+                public void M(object o)
+                {
+                    {
+                        if (o is int i)
+                        {
+                            Console.WriteLine(i);
+                        }
+                    }
+                    {
+                        switch (o is string s ? 1 : 2)
+                        {
+                            default:
+                                break;
+                        }
+                    }
+                    {
+                        lock (Gate(o is bool b))
+                        {
+                            Console.WriteLine("locked");
+                        }
+                    }
+                }
+
+                private object Gate(bool value) => _gate;
+            }
+            """);
+
+    /// <summary>Verifies a block whose loop or resource header declares a variable is still reported: that name dies with the statement.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BlockWhoseLoopHeaderScopesAVariableIsReportedAsync()
+        => await VerifyBlock.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public sealed class C
+            {
+                public void M(object o)
+                {
+                    {|SST1138:{
+                        while (o is int i)
+                        {
+                            Console.WriteLine(i);
+                            break;
+                        }
+
+                        foreach (var e in Items(o is string s))
+                        {
+                            Console.WriteLine(e);
+                        }
+
+                        using (Scope(o is bool b))
+                        {
+                            Console.WriteLine("scoped");
+                        }
+                    }|}
+                }
+
+                private static string[] Items(bool value) => value ? ["a"] : [];
+
+                private static IDisposable Scope(bool value) => new System.IO.MemoryStream();
+            }
+            """);
+
+    /// <summary>Verifies a block is still reported when the only designations sit inside a nested scope.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BlockWithDesignationsInNestedScopesIsReportedAsync()
+        => await VerifyBlock.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public sealed class C
+            {
+                public void M(object o)
+                {
+                    {|SST1138:{
+                        Run(() => { _ = o is int i; });
+                        Console.WriteLine(o switch { int i => i, _ => 0 });
+                    }|}
+                }
+
+                private static void Run(Action action)
+                {
+                    action();
+                }
+            }
+            """);
 }

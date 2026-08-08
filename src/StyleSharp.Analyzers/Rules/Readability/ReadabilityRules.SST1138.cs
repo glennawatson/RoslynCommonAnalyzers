@@ -16,8 +16,8 @@ internal static partial class ReadabilityRules
 
     /// <summary>The FreeStandingBlock rule description.</summary>
     private const string FreeStandingBlockDescription =
-        "A brace-delimited block appears directly inside another block and declares nothing — no local, no local function, no label. "
-        + "Because it introduces no scope, it is identical to splicing its statements into the parent, and it is usually the leftover "
-        + "of a deleted 'if', 'using', 'lock', or 'fixed' whose statements were kept. A block that declares a local is real scoping "
-        + "and is left alone.";
+        "A brace-delimited block appears directly inside another block and declares nothing — no local, no local function, no label, "
+        + "and no pattern or 'out' variable that would outlive the block. Because it introduces no scope, it is identical to splicing "
+        + "its statements into the parent, and it is usually the leftover of a deleted 'if', 'using', 'lock', or 'fixed' whose "
+        + "statements were kept. A block that declares a name is real scoping and is left alone.";
 }

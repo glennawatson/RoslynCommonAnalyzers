@@ -36,6 +36,12 @@ internal static class InterpolatedStringConversion
     /// <summary>The method name a composite format call carries.</summary>
     private const string FormatMethodName = "Format";
 
+    /// <summary>The method name a string-joining call carries.</summary>
+    private const string ConcatMethodName = "Concat";
+
+    /// <summary>The fewest arguments a rewritable concatenation call carries.</summary>
+    private const int MinConcatArguments = 2;
+
     /// <summary>The fewest arguments a rewritable composite format call carries: a format and one value.</summary>
     private const int MinFormatArguments = 2;
 
@@ -136,6 +142,101 @@ internal static class InterpolatedStringConversion
         }
 
         return hasLiteral && hasValue ? BuildVerified(model, top, builder.ToString()) : null;
+    }
+
+    /// <summary>Returns whether an invocation is syntactically a <c>string.Concat</c> call worth binding.</summary>
+    /// <param name="invocation">The invocation to inspect.</param>
+    /// <returns><see langword="true"/> when the shape matches, before any binding.</returns>
+    /// <remarks>
+    /// A concatenation of values with no literal between them says the same thing either way, so at least one
+    /// argument must be a string literal for the interpolated form to be the clearer one.
+    /// </remarks>
+    internal static bool IsConcatShape(InvocationExpressionSyntax invocation)
+    {
+        var arguments = invocation.ArgumentList.Arguments;
+        if (arguments.Count < MinConcatArguments
+            || invocation.Expression is not MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
+            || access.Name.Identifier.ValueText != ConcatMethodName
+            || !LooksLikeStringReceiver(access.Expression))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i].Expression.IsKind(SyntaxKind.StringLiteralExpression))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Builds the interpolated string that replaces a <c>string.Concat</c> call, when the rewrite is exact.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="invocation">The concatenation invocation.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The interpolated string, or <see langword="null"/> when the call must be left alone.</returns>
+    /// <remarks>
+    /// Only the all-string overloads convert exactly. An <c>object</c> or sequence overload calls
+    /// <c>ToString</c> on each argument and treats a null as empty, which an interpolation reproduces for the
+    /// value but not necessarily for a custom formatter, so those are left alone.
+    /// </remarks>
+    internal static InterpolatedStringExpressionSyntax? TryConvertConcat(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken)
+    {
+        if (!IsConcatShape(invocation)
+            || HasNonPositionalArgument(invocation)
+            || model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol method
+            || !IsAllStringConcat(method))
+        {
+            return null;
+        }
+
+        var arguments = invocation.ArgumentList.Arguments;
+        var builder = new StringBuilder();
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            var operand = arguments[i].Expression;
+            if (operand is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal)
+            {
+                if (!IsRegularStringLiteral(literal))
+                {
+                    return null;
+                }
+
+                AppendEscapedText(builder, literal.Token.ValueText);
+                continue;
+            }
+
+            builder.Append('{').Append(HoleText(operand)).Append('}');
+        }
+
+        return BuildVerified(model, invocation, builder.ToString());
+    }
+
+    /// <summary>Returns whether a bound method is a <c>string.Concat</c> overload that takes only strings.</summary>
+    /// <param name="method">The bound method.</param>
+    /// <returns><see langword="true"/> for the fixed-arity all-string overloads.</returns>
+    private static bool IsAllStringConcat(IMethodSymbol method)
+    {
+        if (method.ContainingType.SpecialType != SpecialType.System_String
+            || method.Name != ConcatMethodName
+            || method.Parameters.Length < MinConcatArguments)
+        {
+            return false;
+        }
+
+        var parameters = method.Parameters;
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (parameters[i].IsParams || parameters[i].Type.SpecialType != SpecialType.System_String)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Validates a bound format call and builds the interpolated-string body it maps to.</summary>

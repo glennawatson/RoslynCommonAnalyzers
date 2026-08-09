@@ -640,4 +640,80 @@ public class UseInterpolatedStringAnalyzerUnitTest
         });
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies a string.Concat call mixing a literal with a value becomes an interpolated string.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConcatCallIsFlaggedAndFixedAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public string M(string value) => {|SST2249:string.Concat("prefix", value)|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public string M(string value) => $"prefix{value}";
+                                   }
+                                   """;
+        await VerifyUseInterpolatedString.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a three-argument string.Concat call becomes an interpolated string.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ThreeArgumentConcatIsFlaggedAndFixedAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public string M(string first, string second) => {|SST2249:string.Concat(first, ": ", second)|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public string M(string first, string second) => $"{first}: {second}";
+                                   }
+                                   """;
+        await VerifyUseInterpolatedString.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a string.Concat call with no literal is left alone; interpolation says no more.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConcatWithoutLiteralIsCleanAsync()
+        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public string M(string first, string second) => string.Concat(first, second);
+            }
+            """);
+
+    /// <summary>Verifies the object overload of string.Concat is left alone; its conversion is not an interpolation.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConcatObjectOverloadIsCleanAsync()
+        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public string M(object value) => string.Concat("prefix", value);
+            }
+            """);
+
+    /// <summary>Verifies the sequence overload of string.Concat is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConcatSequenceOverloadIsCleanAsync()
+        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public string M(string[] values) => string.Concat(values);
+            }
+            """);
 }

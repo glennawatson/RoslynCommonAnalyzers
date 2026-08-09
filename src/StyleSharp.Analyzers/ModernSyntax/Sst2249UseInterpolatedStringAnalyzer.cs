@@ -28,6 +28,9 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
     /// <summary>The message argument naming a composite format call.</summary>
     private const string FormatSourceDescription = "'string.Format' call";
 
+    /// <summary>The message argument naming a string-joining call.</summary>
+    private const string ConcatSourceDescription = "'string.Concat' call";
+
     /// <summary>The message argument naming a concatenation chain.</summary>
     private const string ConcatenationSourceDescription = "string concatenation";
 
@@ -53,16 +56,32 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol? loggerExtensions)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (!SupportsInterpolation(invocation.SyntaxTree)
-            || !InterpolatedStringConversion.IsFormatShape(invocation)
-            || InterpolatedStringConversion.TryConvertFormat(context.SemanticModel, invocation, context.CancellationToken) is not { } converted
+        if (!SupportsInterpolation(invocation.SyntaxTree))
+        {
+            return;
+        }
+
+        var isFormat = InterpolatedStringConversion.IsFormatShape(invocation);
+        if (!isFormat && !InterpolatedStringConversion.IsConcatShape(invocation))
+        {
+            return;
+        }
+
+        var converted = isFormat
+            ? InterpolatedStringConversion.TryConvertFormat(context.SemanticModel, invocation, context.CancellationToken)
+            : InterpolatedStringConversion.TryConvertConcat(context.SemanticModel, invocation, context.CancellationToken);
+
+        if (converted is null
             || IsLoggingTemplateArgument(context.SemanticModel, invocation, loggerExtensions, context.CancellationToken)
             || !RewrittenLineFits(context, invocation, converted))
         {
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.UseInterpolatedString, invocation.GetLocation(), FormatSourceDescription));
+        context.ReportDiagnostic(DiagnosticHelper.Create(
+            ModernSyntaxRules.UseInterpolatedString,
+            invocation.GetLocation(),
+            isFormat ? FormatSourceDescription : ConcatSourceDescription));
     }
 
     /// <summary>Reports a literal-plus-value concatenation that can be an interpolated string.</summary>

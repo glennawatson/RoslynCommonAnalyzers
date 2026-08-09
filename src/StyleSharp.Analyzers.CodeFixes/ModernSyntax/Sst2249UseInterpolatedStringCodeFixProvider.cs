@@ -85,6 +85,13 @@ public sealed class Sst2249UseInterpolatedStringCodeFixProvider : CodeFixProvide
                 return true;
             }
 
+            case InvocationExpressionSyntax invocation when InterpolatedStringConversion.TryConvertConcat(model, invocation, cancellationToken) is { } joined:
+            {
+                original = invocation;
+                replacement = joined.WithTriviaFrom(invocation);
+                return true;
+            }
+
             case BinaryExpressionSyntax binary when InterpolatedStringConversion.TryConvertConcatenation(model, binary, cancellationToken) is { } concatenated:
             {
                 original = binary;

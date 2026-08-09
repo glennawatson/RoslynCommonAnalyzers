@@ -53,30 +53,7 @@ public sealed class Sst2453NullCoalesceToNullAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var coalesce = (BinaryExpressionSyntax)context.Node;
-        if (!CouldBeConstant(coalesce.Right))
-        {
-            return;
-        }
-
-        var model = context.SemanticModel;
-        var constant = model.GetConstantValue(coalesce.Right, context.CancellationToken);
-        if (!constant.HasValue || constant.Value is not null)
-        {
-            return;
-        }
-
-        if (CouldBeConstant(coalesce.Left))
-        {
-            var left = model.GetConstantValue(coalesce.Left, context.CancellationToken);
-            if (left is { HasValue: true, Value: null })
-            {
-                return;
-            }
-        }
-
-        var wholeType = model.GetTypeInfo(coalesce, context.CancellationToken).Type;
-        var leftType = model.GetTypeInfo(coalesce.Left, context.CancellationToken).Type;
-        if (wholeType is null || leftType is null || !SymbolEqualityComparer.Default.Equals(wholeType, leftType))
+        if (!IsSelfCoalescing(coalesce) && !IsConstantNullFallback(coalesce, context))
         {
             return;
         }
@@ -85,5 +62,46 @@ public sealed class Sst2453NullCoalesceToNullAnalyzer : DiagnosticAnalyzer
             CorrectnessRules.NullCoalesceToNull,
             coalesce.SyntaxTree,
             coalesce.Span));
+    }
+
+    /// <summary>Returns whether a coalescing substitutes its left operand for itself.</summary>
+    /// <param name="coalesce">The coalescing expression.</param>
+    /// <returns><see langword="true"/> for <c>a ?? a</c> on a side-effect-free operand.</returns>
+    /// <remarks>
+    /// The operand must be side-effect-free for the two written evaluations to be the same thing, so folding
+    /// to one of them changes nothing.
+    /// </remarks>
+    private static bool IsSelfCoalescing(BinaryExpressionSyntax coalesce)
+        => CompoundAssignmentOperators.IsSideEffectFreeTarget(coalesce.Left)
+            && SyntaxFactory.AreEquivalent(coalesce.Left, coalesce.Right, topLevel: false);
+
+    /// <summary>Returns whether a coalescing falls back to a compile-time constant null.</summary>
+    /// <param name="coalesce">The coalescing expression.</param>
+    /// <param name="context">The syntax node context.</param>
+    /// <returns><see langword="true"/> when the fallback substitutes null for null.</returns>
+    private static bool IsConstantNullFallback(BinaryExpressionSyntax coalesce, SyntaxNodeAnalysisContext context)
+    {
+        if (!CouldBeConstant(coalesce.Right))
+        {
+            return false;
+        }
+
+        var model = context.SemanticModel;
+        var constant = model.GetConstantValue(coalesce.Right, context.CancellationToken);
+        if (!constant.HasValue || constant.Value is not null)
+        {
+            return false;
+        }
+
+        // A constant-null left belongs to the rule that folds to the right operand, so it is reported once.
+        if (CouldBeConstant(coalesce.Left)
+            && model.GetConstantValue(coalesce.Left, context.CancellationToken) is { HasValue: true, Value: null })
+        {
+            return false;
+        }
+
+        var wholeType = model.GetTypeInfo(coalesce, context.CancellationToken).Type;
+        var leftType = model.GetTypeInfo(coalesce.Left, context.CancellationToken).Type;
+        return wholeType is not null && leftType is not null && SymbolEqualityComparer.Default.Equals(wholeType, leftType);
     }
 }

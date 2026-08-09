@@ -115,6 +115,74 @@ public class NullCoalesceToNullAnalyzerUnitTest
         await VerifyNullCoalesceToNull.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies coalescing a value with itself is reported and folded.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SelfCoalescingIsFlaggedAndFixedAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  public string M(string text) => {|SST2453:text ?? text|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       public string M(string text) => text;
+                                   }
+                                   """;
+        await VerifyNullCoalesceToNull.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies coalescing a member chain with itself is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SelfCoalescingMemberChainIsFlaggedAndFixedAsync()
+    {
+        const string Source = """
+                              internal class Owner
+                              {
+                                  public string Name { get; set; } = "";
+                              }
+
+                              internal class C
+                              {
+                                  private Owner _owner = new Owner();
+
+                                  public string M() => {|SST2453:this._owner.Name ?? this._owner.Name|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class Owner
+                                   {
+                                       public string Name { get; set; } = "";
+                                   }
+
+                                   internal class C
+                                   {
+                                       private Owner _owner = new Owner();
+
+                                       public string M() => this._owner.Name;
+                                   }
+                                   """;
+        await VerifyNullCoalesceToNull.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a repeated call is left alone; the two evaluations are not the same thing.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RepeatedCallIsCleanAsync()
+        => await VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private static string Get() => "a";
+
+                public string M() => Get() ?? Get();
+            }
+            """);
+
     /// <summary>Verifies a real fallback value is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

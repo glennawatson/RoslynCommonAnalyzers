@@ -574,6 +574,13 @@ internal static class ModernSyntaxRules
         "Use '{0}' instead of '{1} 1'",
         UseIncrementOperatorDescription);
 
+    /// <summary>SST2288 — a conditional whose branches are a boolean literal is a logical operator.</summary>
+    public static readonly DiagnosticDescriptor UseLogicalOperatorOverConditional = Create(
+        "SST2288",
+        "Express a conditional with a literal branch as a logical operator",
+        "Write this as '{0}'",
+        UseLogicalOperatorOverConditionalDescription);
+
     /// <summary>SST2285 — a null check guarding a member read on the same value can be a conditional access.</summary>
     public static readonly DiagnosticDescriptor FoldNullCheckIntoConditionalAccess = Create(
         "SST2285",
@@ -603,6 +610,15 @@ internal static class ModernSyntaxRules
         + "means anything, and puts the step where a reader looks for it. Reported only when the counter is dead after "
         + "the loop and no 'continue' targets the loop — a 'continue' skips a trailing step in a while but runs the "
         + "incrementor in a for, so the two are not the same loop.";
+
+    /// <summary>The SST2288 rule description.</summary>
+    private const string UseLogicalOperatorOverConditionalDescription =
+        "'a ? b : false' is 'a && b' and 'a ? true : b' is 'a || b' — same value, same short-circuit, one "
+        + "operator instead of a three-part conditional. The long form invites a reader to work out what each "
+        + "branch yields before noticing it is ordinary boolean logic, and it hides the shape from anything that "
+        + "reasons about conditions. The negative forms fold too: 'a ? false : b' is '!a && b' and 'a ? b : true' "
+        + "is '!a || b'. Reported when exactly one branch is a boolean literal; a conditional whose branches are "
+        + "both literals belongs to the rule that collapses it to the condition itself.";
 
     /// <summary>The SST2285 rule description.</summary>
     private const string FoldNullCheckIntoConditionalAccessDescription =

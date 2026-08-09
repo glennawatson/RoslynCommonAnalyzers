@@ -318,6 +318,7 @@ PSH1102, and PSH1100.
 | [SST1531](rules/SST1531.md) | A short object initializer is split across lines. Code fix collapses it when it fits. Opt-in. |
 | [SST1532](rules/SST1532.md) | A file mixes line endings. Configurable (`lf`/`crlf`, default lf). Opt-in. |
 | [SST1533](rules/SST1533.md) | A source file contains no code. Opt-in. |
+| [SST1534](rules/SST1534.md) | A switch section's only statement is a block that declares nothing, so the braces are pure indentation. Code fix removes them. |
 | [SST1535](rules/SST1535.md) | A blank line follows a constructor initializer's `:`. Code fix removes it. |
 | [SST1536](rules/SST1536.md) | A blank line follows a conditional operator's `?` or `:`. Code fix removes it. |
 | [SST1537](rules/SST1537.md) | A blank line follows an expression body's `=>`. Code fix removes it. |
@@ -549,6 +550,7 @@ PSH1102, and PSH1100.
 | [SST2285](rules/SST2285.md) | A null guard is conjoined with a member read on the same value. Code fix folds it into a conditional access. |
 | [SST2286](rules/SST2286.md) | `ToString()` is called on a value the compiler already types as `string`. Code fix removes the call. |
 | [SST2287](rules/SST2287.md) | A `while` loop's counter is declared above it and stepped by its last statement. Code fix gathers them into a `for` header. |
+| [SST2288](rules/SST2288.md) | A conditional has a boolean literal in one branch, so it is really `&&` or `\|\|`. Code fix rewrites it. |
 
 ## Design
 
@@ -593,6 +595,7 @@ conventions, and what a member exposes.
 | [SST2333](rules/SST2333.md) | A generic comparison/equality contract is implemented without its non-generic counterpart. Opt-in. |
 | [SST2334](rules/SST2334.md) | A publicly visible type has no `[DebuggerDisplay]`. Opt-in. |
 | [SST2335](rules/SST2335.md) | Parts of a partial type disagree on the `static` modifier. Opt-in. |
+| [SST2336](rules/SST2336.md) | An attribute type declares no `[AttributeUsage]`, so it silently accepts every target. |
 
 ## Correctness
 
@@ -661,10 +664,12 @@ Code that compiles and runs but does not do what it says.
 | [SST2458](rules/SST2458.md) | A bitwise operator is applied to an enum not declared `[Flags]`, producing a value with no defined meaning. |
 | [SST2459](rules/SST2459.md) | `[Optional]` on a `ref` or `out` parameter advertises an optionality no C# caller can use, while reflection reads `IsOptional` as true. Code fix removes the attribute. |
 | [SST2460](rules/SST2460.md) | `[DefaultValue]` on a method or record parameter is inert: it does not make the parameter optional and no call site reads it. Code fix swaps it for the interop `[DefaultParameterValue]`. |
+| [SST2461](rules/SST2461.md) | A `[Flags]` composite sets a bit no member of the enum defines. |
 | [SST2462](rules/SST2462.md) | A member declared with `new` is less accessible than the inherited member it hides, so a base-typed reference still binds to the more accessible member and the reduced accessibility has no effect. |
 | [SST2463](rules/SST2463.md) | A derived type's instance field differs from an inherited accessible field only by case, so an unqualified reference to either name compiles and silently uses the wrong storage. |
 | [SST2464](rules/SST2464.md) | A mutable class (a settable field or property) declares a value-equality `operator ==`, so a mutated instance's hash no longer matches the bucket it was stored in and it is lost as a dictionary or hash-set key. |
 | [SST2465](rules/SST2465.md) | A for loop's body reassigns the counter or the local its condition tests, so the loop runs a different number of times than its header states. |
+| [SST2466](rules/SST2466.md) | A `finally` clause has no statements, so the `try` guarantees nothing. Code fix removes it. |
 | [SST2467](rules/SST2467.md) | A type declares a `params` overload and a same-arity overload whose last parameter is more specific than the array's element type, so a single argument of that type silently binds to the specific overload instead of the params one. |
 | [SST2468](rules/SST2468.md) | A classic partial method is declared but never implemented, so the compiler silently removes the declaration and every call to it. |
 | [SST2470](rules/SST2470.md) | Two string literals concatenate with no space between them, fusing a SQL keyword into the adjacent token so the query changes at runtime. Code fix adds a space to a regular right literal. |

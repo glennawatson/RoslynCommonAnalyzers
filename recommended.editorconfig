@@ -384,6 +384,7 @@ dotnet_diagnostic.SST1525.severity = warning # Switch sections with multiple sta
 # dotnet_diagnostic.SST1531.severity = warning # A short initializer should be written on a single line (opt-in)
 # dotnet_diagnostic.SST1532.severity = warning # Files should use consistent line endings (opt-in)
 # dotnet_diagnostic.SST1533.severity = warning # A source file should declare at least one type (opt-in)
+dotnet_diagnostic.SST1534.severity = warning # Switch section braces that scope nothing should be removed
 dotnet_diagnostic.SST1535.severity = warning # A constructor initializer colon should not be followed by a blank line
 dotnet_diagnostic.SST1536.severity = warning # A conditional operator token should not be followed by a blank line
 dotnet_diagnostic.SST1537.severity = warning # An expression-body arrow should not be followed by a blank line
@@ -583,6 +584,7 @@ dotnet_diagnostic.SST2284.severity = warning # Step a value with the increment o
 dotnet_diagnostic.SST2285.severity = warning # Fold a null check into a conditional access
 dotnet_diagnostic.SST2286.severity = warning # Remove a ToString call on a value that is already a string
 dotnet_diagnostic.SST2287.severity = warning # Use a for loop when a while loop owns its counter
+dotnet_diagnostic.SST2288.severity = warning # Express a conditional with a literal branch as a logical operator
 
 # Design
 dotnet_diagnostic.SST2300.severity = warning # Implement the disposal pattern correctly
@@ -620,6 +622,7 @@ dotnet_diagnostic.SST2330.severity = suggestion # Write a combined flags value a
 dotnet_diagnostic.SST2332.severity = warning # Make a construction-only property get-only
 # dotnet_diagnostic.SST2333.severity = warning # Provide the non-generic form of a generic comparison contract (opt-in)
 # dotnet_diagnostic.SST2334.severity = warning # Give a public type a debugger-display attribute (opt-in)
+dotnet_diagnostic.SST2336.severity = warning # An attribute type should declare where it can be applied
 # dotnet_diagnostic.SST2335.severity = warning # Declare the same 'static' modifier on every part of a partial type (opt-in)
 
 # Correctness
@@ -684,10 +687,12 @@ dotnet_diagnostic.SST2457.severity = warning # Wrapping a sequence sum in unchec
 dotnet_diagnostic.SST2458.severity = warning # Bitwise operations should not be applied to a non-flags enum
 dotnet_diagnostic.SST2459.severity = warning # [Optional] cannot make a ref or out parameter optional
 dotnet_diagnostic.SST2460.severity = warning # [DefaultValue] does not supply a parameter default
+dotnet_diagnostic.SST2461.severity = warning # A combined flags value should only set bits the enum defines
 dotnet_diagnostic.SST2462.severity = warning # A member hidden with 'new' should not reduce its accessibility below the member it hides
 dotnet_diagnostic.SST2463.severity = warning # A field should not differ from an inherited field only by case
 dotnet_diagnostic.SST2464.severity = warning # A value-equality operator should not be declared on a mutable reference type
 dotnet_diagnostic.SST2465.severity = warning # A for loop's body reassigns a variable its condition depends on
+dotnet_diagnostic.SST2466.severity = warning # An empty finally clause should be removed
 dotnet_diagnostic.SST2467.severity = warning # A params overload should not be silently bypassable by a more specific overload
 dotnet_diagnostic.SST2468.severity = warning # A partial method with no implementation is silently discarded
 dotnet_diagnostic.SST2470.severity = warning # String literals concatenated without a space should not fuse a SQL keyword

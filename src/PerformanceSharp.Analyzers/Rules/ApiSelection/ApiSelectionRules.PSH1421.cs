@@ -7,11 +7,17 @@ namespace PerformanceSharp.Analyzers;
 /// <summary>The PSH1421 descriptor.</summary>
 internal static partial class ApiSelectionRules
 {
-    /// <summary>PSH1421 — a static Regex call inside a loop re-resolves its pattern on every iteration.</summary>
+    /// <summary>The message fragment for a call made from inside a loop body.</summary>
+    public const string RegexCalledPerIteration = "re-resolves its pattern on every iteration";
+
+    /// <summary>The message fragment for a call whose pattern is a compile-time constant.</summary>
+    public const string RegexConstantPattern = "re-resolves a constant pattern on every call";
+
+    /// <summary>PSH1421 — a static Regex call re-resolves its pattern through the process-wide cache on every call.</summary>
     public static readonly DiagnosticDescriptor CacheRegexOutsideLoop = Create(
         "PSH1421",
-        "Hoist a Regex out of the loop that calls it",
-        "'Regex.{0}' is called on every iteration; hold the pattern in a cached instance outside the loop",
+        "Hold a Regex in a cached instance instead of calling the static overload",
+        "'Regex.{0}' {1}; hold the pattern in a cached instance",
         CacheRegexOutsideLoopDescription);
 
     /// <summary>The PSH1421 rule description.</summary>
@@ -20,8 +26,11 @@ internal static partial class ApiSelectionRules
         + "it, and take a lock on the cache while they do. That is per-call overhead a loop pays once per iteration, and the "
         + "cache is bounded — 'Regex.CacheSize' defaults to fifteen entries — so a program using more patterns than that "
         + "evicts and fully re-parses the pattern each time round, turning a lookup into a compile. A single instance built "
-        + "once outside the loop resolves the pattern once, can be given 'RegexOptions.Compiled' when the loop is hot, and "
-        + "on .NET 7 and later can be a source-generated partial property that costs nothing at run time at all. Reported for "
-        + "a static 'Regex' call written inside a 'for', 'foreach', 'while', or 'do' body; an instance call already holds its "
-        + "pattern and is never reported, and the whole rule stays silent when 'Regex' does not resolve in the compilation.";
+        + "once resolves the pattern once, can be given 'RegexOptions.Compiled' when the call site is hot, and on .NET 7 and "
+        + "later can be a source-generated partial member that costs nothing at run time at all. Two shapes are reported: a "
+        + "static call written inside a 'for', 'foreach', 'while', or 'do' body, where the lookup is paid once per iteration; "
+        + "and a static call whose pattern argument is a compile-time constant, which can always be hoisted whether or not a "
+        + "loop surrounds it. A pattern built at run time outside a loop is left alone — there is nothing constant to hoist. "
+        + "An instance call already holds its pattern and is never reported, and the whole rule stays silent when 'Regex' does "
+        + "not resolve in the compilation.";
 }

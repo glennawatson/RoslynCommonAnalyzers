@@ -7,19 +7,22 @@ namespace StyleSharp.Analyzers;
 /// <summary>The SST2453 descriptor.</summary>
 internal static partial class CorrectnessRules
 {
-    /// <summary>SST2453 — the right of a null-coalescing operation is a constant null, so the operator changes nothing.</summary>
+    /// <summary>SST2453 — a null-coalescing operation whose fallback cannot change the value.</summary>
     public static readonly DiagnosticDescriptor NullCoalesceToNull = Create(
         "SST2453",
-        "Coalescing to null leaves the value unchanged",
-        "The right of '??' is always null, so this expression is just its left operand",
+        "A coalescing fallback that cannot change the value should be removed",
+        "This '??' cannot change the value, so the expression is just its left operand",
         NullCoalesceToNullDescription);
 
     /// <summary>The NullCoalesceToNull rule description.</summary>
     private const string NullCoalesceToNullDescription =
-        "'??' reads as a fallback: keep the left unless it is null, otherwise use the right. When the right operand is a "
-        + "compile-time constant null, the fallback substitutes null for null and the whole expression is its left operand. "
-        + "The operator advertises a default that does not exist, so a reader looking for what happens on null finds an "
-        + "answer that was never written. Usually the right operand is the mistake — a default that was meant to hold a "
-        + "real value, or a leftover from a rewrite. Reported only when the coalescing's own type matches the left "
-        + "operand's, so folding to the left cannot change the expression's type the way 'nullable ?? default' would.";
+        "'??' reads as a fallback: keep the left unless it is null, otherwise use the right. Two shapes make that promise "
+        + "and keep none of it. When the right operand is a compile-time constant null, the fallback substitutes null for "
+        + "null. When the right operand is the left operand written again, it substitutes the value for itself. Either way "
+        + "the whole expression is its left operand, and a reader looking for what happens on null finds an answer that was "
+        + "never written — usually because the right operand is the mistake, a default that was meant to hold a real value "
+        + "or a copy-paste of the thing being tested. The constant-null shape is reported only when the coalescing's own "
+        + "type matches the left operand's, so folding cannot change the expression's type the way 'nullable ?? default' "
+        + "would; the self-coalescing shape is reported only for a side-effect-free operand, so evaluating it once instead "
+        + "of twice changes nothing.";
 }

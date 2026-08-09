@@ -732,3 +732,15 @@ SST2447 | Correctness | Warning | Sst2447DifferenceComparedToZeroAnalyzer
 SST2453 | Correctness | Warning | Sst2453NullCoalesceToNullAnalyzer
 SST2454 | Correctness | Warning | Sst2454UncheckedAsDereferenceAnalyzer
 SST2455 | Correctness | Warning | Sst2455DuplicateEnumValueAnalyzer
+
+## Release 3.43.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+SST1534 | Layout | Warning | Sst1534RedundantSwitchSectionBracesAnalyzer
+SST2288 | ModernSyntax | Warning | Sst2288UseLogicalOperatorAnalyzer
+SST2336 | Design | Warning | Sst2336MissingAttributeUsageAnalyzer
+SST2461 | Correctness | Warning | Sst2461UndefinedFlagInCompositeValueAnalyzer
+SST2466 | Correctness | Warning | Sst2466EmptyFinallyClauseAnalyzer

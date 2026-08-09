@@ -269,6 +269,13 @@ internal static class LayoutRules
         "Remove the blank line after this '=>'",
         BlankLineAfterArrowDescription);
 
+    /// <summary>SST1534 — a switch section wraps its statements in braces that scope nothing.</summary>
+    public static readonly DiagnosticDescriptor RedundantSwitchSectionBraces = Create(
+        "SST1534",
+        "Switch section braces that scope nothing should be removed",
+        "Remove the braces around this switch section: they declare nothing that needs its own scope",
+        RedundantSwitchSectionBracesDescription);
+
     /// <summary>The BlankLineAfterConstructorInitializerColon rule description.</summary>
     private const string BlankLineAfterConstructorInitializerColonDescription =
         "The ':' of a constructor initializer binds the base or this call to the declaration above it. A blank line after the colon "
@@ -370,6 +377,14 @@ internal static class LayoutRules
         "A switch reads as a table: one row per case, each saying what happens. A case that runs to dozens of lines stops being a row and "
         + "becomes a method that has not been extracted yet, and the shape of the switch — the thing the reader came for — is lost between "
         + "them. Configure the maximum with 'stylesharp.SST1524.max_switch_section_lines'; it defaults to 20.";
+
+    /// <summary>The RedundantSwitchSectionBraces rule description.</summary>
+    private const string RedundantSwitchSectionBracesDescription =
+        "A switch section is already its own statement list, so wrapping it in braces adds an indentation level "
+        + "for nothing. The one time the braces earn their place is when the section declares something: every "
+        + "section of a switch shares one declaration space, so a local declared in one collides with the same "
+        + "name in another unless a block scopes it. Reported only for a braced section that declares no local, "
+        + "no local function, and no pattern or 'out' variable — where the braces are pure indentation.";
 
     /// <summary>Creates a Warning-severity Layout descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

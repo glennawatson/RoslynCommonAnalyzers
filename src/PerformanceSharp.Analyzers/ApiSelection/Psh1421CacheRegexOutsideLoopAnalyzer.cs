@@ -71,14 +71,40 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Reports one static <c>Regex</c> call made from inside a loop.</summary>
+    /// <summary>Returns whether the call's pattern argument is a compile-time constant.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="invocation">The static <c>Regex</c> call.</param>
+    /// <returns><see langword="true"/> when the pattern can be hoisted into a cached instance.</returns>
+    /// <remarks>
+    /// Every static overload takes the input first and the pattern second. A pattern built at run time has
+    /// nothing constant to hoist, so only a constant one is reported outside a loop.
+    /// </remarks>
+    private static bool HasConstantPattern(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
+    {
+        var arguments = invocation.ArgumentList.Arguments;
+        if (arguments.Count < 2)
+        {
+            return false;
+        }
+
+        var pattern = arguments[1].Expression;
+        return pattern is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression }
+            || context.SemanticModel.GetConstantValue(pattern, context.CancellationToken) is { HasValue: true, Value: string };
+    }
+
+    /// <summary>Reports one static <c>Regex</c> call whose pattern is resolved again on every call.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="regex">The resolved regular-expression type.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol regex)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (invocation.Expression is not MemberAccessExpressionSyntax { Name: SimpleNameSyntax name }
-            || !IsInsideLoop(invocation))
+        if (invocation.Expression is not MemberAccessExpressionSyntax { Name: SimpleNameSyntax name })
+        {
+            return;
+        }
+
+        var inLoop = IsInsideLoop(invocation);
+        if (!inLoop && !HasConstantPattern(context, invocation))
         {
             return;
         }
@@ -93,6 +119,7 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
             ApiSelectionRules.CacheRegexOutsideLoop,
             invocation.SyntaxTree,
             invocation.Span,
-            name.Identifier.ValueText));
+            name.Identifier.ValueText,
+            inLoop ? ApiSelectionRules.RegexCalledPerIteration : ApiSelectionRules.RegexConstantPattern));
     }
 }

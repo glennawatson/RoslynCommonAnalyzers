@@ -127,22 +127,56 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies a static call outside any loop is left alone.</summary>
+    /// <summary>Verifies a constant pattern outside any loop is reported; it can always be hoisted.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task StaticCallOutsideLoopIsCleanAsync()
+    public async Task ConstantPatternOutsideLoopIsFlaggedAsync()
         => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
             internal class C
             {
-                public bool M(string value) => Regex.IsMatch(value, "[a-z]+");
+                public bool M(string value) => {|PSH1421:Regex.IsMatch(value, "[a-z]+")|};
+            }
+            """);
+
+    /// <summary>Verifies a constant declared elsewhere still counts as a hoistable pattern.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NamedConstantPatternIsFlaggedAsync()
+        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+            """
+            using System.Text.RegularExpressions;
+
+            internal class C
+            {
+                private const string Pattern = "[a-z]+";
+
+                public bool M(string value) => {|PSH1421:Regex.IsMatch(value, Pattern)|};
+            }
+            """);
+
+    /// <summary>Verifies a run-time pattern outside a loop is left alone; there is nothing to hoist.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RuntimePatternOutsideLoopIsCleanAsync()
+        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+            """
+            using System.Text.RegularExpressions;
+
+            internal class C
+            {
+                public bool M(string value, string pattern) => Regex.IsMatch(value, pattern);
             }
             """);
 
     /// <summary>Verifies a call inside a lambda declared in a loop is left alone; it runs when the delegate does.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The pattern is built at run time so the constant-pattern arm cannot fire, leaving the loop question as
+    /// the only thing under test.
+    /// </remarks>
     [Test]
     public async Task StaticCallInsideLambdaIsCleanAsync()
         => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
@@ -152,11 +186,11 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
             internal class C
             {
-                public void M(string[] values)
+                public void M(string[] values, string pattern)
                 {
                     foreach (var value in values)
                     {
-                        Func<bool> check = () => Regex.IsMatch(value, "[a-z]+");
+                        Func<bool> check = () => Regex.IsMatch(value, pattern);
                         _ = check;
                     }
                 }

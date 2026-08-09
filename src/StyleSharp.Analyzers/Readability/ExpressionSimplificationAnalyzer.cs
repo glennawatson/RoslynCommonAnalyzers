@@ -115,6 +115,26 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
         return expression;
     }
 
+    /// <summary>Returns whether a relational operand is nullable, floating-point, or conditional-access.</summary>
+    /// <param name="operand">The operand to inspect.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns><see langword="true"/> when inverting the comparison would not preserve the result.</returns>
+    /// <remarks>
+    /// Shared with the guard-clause code fix, which has to answer the same question before it flips a
+    /// relational operator, so the rule about what may be inverted lives in one place.
+    /// </remarks>
+    internal static bool IsUnsafeRelationalOperand(ExpressionSyntax operand, SemanticModel model, CancellationToken cancellationToken)
+    {
+        if (operand.IsKind(SyntaxKind.ConditionalAccessExpression))
+        {
+            return true;
+        }
+
+        var type = model.GetTypeInfo(operand, cancellationToken).Type;
+        return type is not null && (IsFloatingPoint(type) || type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T);
+    }
+
     /// <summary>Reports SST1172 when a <c>!</c> wraps an invertible comparison.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeInvertedBooleanCheck(SyntaxNodeAnalysisContext context)
@@ -371,22 +391,6 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
     private static bool IsVarLocalInitializer(EqualsValueClauseSyntax equals)
         => equals.Parent is VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration }
             && declaration.Type.IsVar;
-
-    /// <summary>Returns whether a relational operand is nullable, floating-point, or conditional-access.</summary>
-    /// <param name="operand">The operand to inspect.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns><see langword="true"/> when inverting the comparison would not preserve the result.</returns>
-    private static bool IsUnsafeRelationalOperand(ExpressionSyntax operand, SemanticModel model, CancellationToken cancellationToken)
-    {
-        if (operand.IsKind(SyntaxKind.ConditionalAccessExpression))
-        {
-            return true;
-        }
-
-        var type = model.GetTypeInfo(operand, cancellationToken).Type;
-        return type is not null && (IsFloatingPoint(type) || type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T);
-    }
 
     /// <summary>Returns whether a type is a floating-point type that has a <c>NaN</c> value.</summary>
     /// <param name="type">The type to inspect.</param>

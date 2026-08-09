@@ -84,7 +84,7 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        {
                                            foreach (var i in items)
                                            {
-                                               if (!(i > 0))
+                                               if (i <= 0)
                                                {
                                                    continue;
                                                }
@@ -195,7 +195,7 @@ public class PreferGuardClauseAnalyzerUnitTest
                                        public void M(int x)
                                        {
                                            var y = x + 1;
-                                           if (!(x > 0))
+                                           if (x <= 0)
                                            {
                                                return;
                                            }

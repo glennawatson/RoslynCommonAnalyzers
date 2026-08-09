@@ -159,6 +159,7 @@ async, `PSH14xx` API selection.
 | [PSH1418](rules/PSH1418.md) | A shareable client (`HttpClient` or an Azure SDK service client) is constructed for a single call, so its pooled connections and caches die with it and every call pays the setup cost again. |
 | [PSH1419](rules/PSH1419.md) | A call to the TimeZoneConverter package where the built-in `TimeZoneInfo` now resolves IANA and Windows ids cross-platform (.NET 6+). Code fix rewrites `GetTimeZoneInfo` to `TimeZoneInfo.FindSystemTimeZoneById`. |
 | [PSH1420](rules/PSH1420.md) | A shareable client held in an instance field of an Azure Functions worker class is rebuilt on every invocation, leaking sockets and connections; share a static/singleton client or inject `IHttpClientFactory`. |
+| [PSH1421](rules/PSH1421.md) | A static `Regex` call inside a loop re-resolves its pattern through the bounded pattern cache on every iteration; hold a cached instance outside the loop. |
 
 ## AspNetCore
 
@@ -262,6 +263,7 @@ PSH1102, and PSH1100.
 | [SST1663](rules/SST1663.md) | A `//` comment before a public member reads like a summary; use `///`. Code fix converts it. Opt-in. |
 | [SST1664](rules/SST1664.md) | A summary separates paragraphs with blank lines instead of `<para>`. Code fix wraps them. Opt-in. |
 | [SST1665](rules/SST1665.md) | An `<exception>` element names a type but never says what triggers it. |
+| [SST1666](rules/SST1666.md) | A documentation comment writes its elements out of the conventional order. Code fix reorders them. Info. |
 
 ## Extensions
 
@@ -543,6 +545,10 @@ PSH1102, and PSH1100.
 | [SST2281](rules/SST2281.md) | A local function whose block body is a single statement can use an expression body. Code fix rewrites it. |
 | [SST2282](rules/SST2282.md) | A reference-type `ReferenceEquals` check against `null` reads as an `is null` / `is not null` pattern. Code fix rewrites it. |
 | [SST2283](rules/SST2283.md) | A null guard that throws right before assigning the guarded value can fold into the assignment as `?? throw`. Code fix rewrites it. |
+| [SST2284](rules/SST2284.md) | A statement steps a value by one through `+= 1`/`-= 1`. Code fix uses `++`/`--`. |
+| [SST2285](rules/SST2285.md) | A null guard is conjoined with a member read on the same value. Code fix folds it into a conditional access. |
+| [SST2286](rules/SST2286.md) | `ToString()` is called on a value the compiler already types as `string`. Code fix removes the call. |
+| [SST2287](rules/SST2287.md) | A `while` loop's counter is declared above it and stepped by its last statement. Code fix gathers them into a `for` header. |
 
 ## Design
 
@@ -641,11 +647,15 @@ Code that compiles and runs but does not do what it says.
 | [SST2444](rules/SST2444.md) | A constant regular-expression pattern does not parse, so it throws on first use. Refactoring converts a valid literal to a source-generated `[GeneratedRegex]` method. |
 | [SST2445](rules/SST2445.md) | A custom date/time format uses an unquoted `/` or `:` with a culture-sensitive provider, so the separators change with the culture. Code fixes quote the separators or switch to the invariant culture. |
 | [SST2446](rules/SST2446.md) | A stream read's returned byte count is awaited and discarded through a configured awaiter or a local, so a short read passes unnoticed. Code fix rewrites to `ReadExactlyAsync` where it exists. |
+| [SST2447](rules/SST2447.md) | An integer subtraction is compared against zero, which wraps and answers differently from comparing the operands. Code fix compares them directly. |
 | [SST2448](rules/SST2448.md) | A combined or opaque delegate is removed with `-`/`-=`, which strips handlers only as one contiguous run, so the order they were combined in silently decides the result. |
 | [SST2449](rules/SST2449.md) | An event or delegate handler added as a lambda or anonymous method is removed with `-=`, which never matches it, so the subscription is never removed. |
 | [SST2450](rules/SST2450.md) | A `Debug.Assert` condition performs a side effect, so a release build compiles the call out and the work never runs. |
 | [SST2451](rules/SST2451.md) | Every constructor of a non-static, non-abstract class is private, yet no member ever creates an instance, so the type can never exist. |
 | [SST2452](rules/SST2452.md) | A method marked `[Pure]` returns `void`, a bare `Task`, or a bare `ValueTask`, so it has no observable result — the attribute is wrong or the method is dead. Code fix removes the attribute. |
+| [SST2453](rules/SST2453.md) | The right operand of a `??` is a constant null, so the fallback substitutes null for null. Code fix folds to the left operand. |
+| [SST2454](rules/SST2454.md) | The result of an `as` conversion is dereferenced with no null check, so a failed conversion throws a `NullReferenceException`. |
+| [SST2455](rules/SST2455.md) | Two enum members hold the same number without being written as an alias of one another. |
 | [SST2456](rules/SST2456.md) | A field-like event declared `override`, or `new` hiding an inherited event, gets its own backing delegate field, so handlers added through one type are invisible to raises through the other. |
 | [SST2457](rules/SST2457.md) | An integer sequence `Sum` is wrapped in `unchecked`, which does not stop it throwing on overflow. |
 | [SST2458](rules/SST2458.md) | A bitwise operator is applied to an enum not declared `[Flags]`, producing a value with no defined meaning. |
@@ -777,6 +787,7 @@ type, so a project that does not use the framework pays nothing.
 | [SST1219](rules/SST1219.md) | A `switch` statement's `default` section is not last. Code fix moves it to the end. |
 | [SST1220](rules/SST1220.md) | An all-named argument list is in a different order than the parameters. Code fix reorders it to declaration order. Info. |
 | [SST1221](rules/SST1221.md) | `where` constraint clauses are not ordered to match the type-parameter list. Code fix reorders them. Info. |
+| [SST1222](rules/SST1222.md) | An enum whose members all carry explicit values declares them out of ascending order. Code fix sorts them. Info. |
 
 ## Readability
 

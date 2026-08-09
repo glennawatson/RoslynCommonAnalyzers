@@ -146,6 +146,7 @@ dotnet_diagnostic.PSH1417.severity = warning # Do not compute an expensive argum
 dotnet_diagnostic.PSH1418.severity = warning # Reuse a shared client instead of constructing one per call
 dotnet_diagnostic.PSH1419.severity = warning # Use the built-in cross-platform time-zone API
 dotnet_diagnostic.PSH1420.severity = warning # Do not hold a per-invocation client in a function class field
+dotnet_diagnostic.PSH1421.severity = warning # Hoist a Regex out of the loop that calls it
 
 # AspNetCore
 dotnet_diagnostic.PSH1500.severity = warning # Prefer TypedResults over Results in a minimal API handler

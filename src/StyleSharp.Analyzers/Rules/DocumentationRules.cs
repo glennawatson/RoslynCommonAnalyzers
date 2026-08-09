@@ -377,6 +377,24 @@ internal static class DocumentationRules
         "Describe the condition that causes '{0}' to be thrown",
         ExceptionDescriptionDescription);
 
+    /// <summary>SST1666 — a documentation comment's elements are written out of the conventional order.</summary>
+    public static readonly DiagnosticDescriptor DocumentationElementOrder = CreateInfo(
+        "SST1666",
+        "Documentation elements should follow the standard order",
+        "'<{0}>' should appear before '<{1}>'",
+        DocumentationElementOrderDescription);
+
+    /// <summary>The DocumentationElementOrder rule description.</summary>
+    private const string DocumentationElementOrderDescription =
+        "A documentation comment is read top to bottom, and every generator lays its sections out in the same "
+        + "order regardless of how they were written: what the member is, then its type parameters, its "
+        + "parameters, what it returns, what it throws, then the longer prose. A comment written in a different "
+        + "order reads out of sequence in the source while rendering in sequence everywhere else, so the file "
+        + "and the docs disagree about what comes first. Only the elements this order names are considered, and "
+        + "only their order relative to each other; anything else stays exactly where it was written, and the "
+        + "order of two elements of the same kind — two '<param>' elements, say — belongs to the rule that "
+        + "matches them against the signature.";
+
     /// <summary>The EmptyComment rule description.</summary>
     private const string EmptyCommentDescription =
         "A documentation comment with no text is worse than none at all: it satisfies every tool that checks whether a member is "

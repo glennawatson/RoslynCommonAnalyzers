@@ -715,3 +715,20 @@ SST1665 | Documentation | Warning | Sst1665ExceptionDescriptionAnalyzer
 SST2019 | Modernization | Warning | Sst2019NullCheckOverTypeCheckAnalyzer
 SST2497 | Correctness | Warning | Sst2497SelfRecursiveForwarderAnalyzer
 SST2498 | Correctness | Warning | Sst2498NameofTypeParameterAnalyzer
+
+## Release 3.42.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+SST1222 | Ordering | Info | Sst1222EnumMemberOrderAnalyzer
+SST1666 | Documentation | Info | Sst1666DocumentationElementOrderAnalyzer
+SST2284 | ModernSyntax | Warning | Sst2284UseIncrementOperatorAnalyzer
+SST2285 | ModernSyntax | Warning | Sst2285FoldNullCheckIntoConditionalAccessAnalyzer
+SST2286 | ModernSyntax | Warning | Sst2286RedundantStringToStringAnalyzer
+SST2287 | ModernSyntax | Warning | Sst2287UseForOverWhileAnalyzer
+SST2447 | Correctness | Warning | Sst2447DifferenceComparedToZeroAnalyzer
+SST2453 | Correctness | Warning | Sst2453NullCoalesceToNullAnalyzer
+SST2454 | Correctness | Warning | Sst2454UncheckedAsDereferenceAnalyzer
+SST2455 | Correctness | Warning | Sst2455DuplicateEnumValueAnalyzer

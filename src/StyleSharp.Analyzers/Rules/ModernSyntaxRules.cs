@@ -567,6 +567,70 @@ internal static class ModernSyntaxRules
         "Fold this null guard into the following assignment as a throw expression",
         FoldGuardIntoAssignedValueDescription);
 
+    /// <summary>SST2284 — a statement that adds or subtracts one can use the increment or decrement operator.</summary>
+    public static readonly DiagnosticDescriptor UseIncrementOperator = Create(
+        "SST2284",
+        "Step a value with the increment or decrement operator",
+        "Use '{0}' instead of '{1} 1'",
+        UseIncrementOperatorDescription);
+
+    /// <summary>SST2285 — a null check guarding a member read on the same value can be a conditional access.</summary>
+    public static readonly DiagnosticDescriptor FoldNullCheckIntoConditionalAccess = Create(
+        "SST2285",
+        "Fold a null check into a conditional access",
+        "Fold this null check into a conditional access on '{0}'",
+        FoldNullCheckIntoConditionalAccessDescription);
+
+    /// <summary>SST2286 — a <c>ToString</c> call on a value that is already a string does nothing.</summary>
+    public static readonly DiagnosticDescriptor RedundantStringToString = Create(
+        "SST2286",
+        "Remove a ToString call on a value that is already a string",
+        "Remove this 'ToString' call: the value is already a string",
+        RedundantStringToStringDescription);
+
+    /// <summary>SST2287 — a while loop that owns a counter declared just above it can be a for loop.</summary>
+    public static readonly DiagnosticDescriptor UseForOverWhile = Create(
+        "SST2287",
+        "Use a for loop when a while loop owns its counter",
+        "Move '{0}' and its step into a for loop header",
+        UseForOverWhileDescription);
+
+    /// <summary>The SST2287 rule description.</summary>
+    private const string UseForOverWhileDescription =
+        "A variable declared immediately above a while loop, tested by its condition, stepped by the loop's last "
+        + "statement and never read afterwards is a loop counter with its three parts spread over three places. A for "
+        + "header gathers them, scopes the counter to the loop so nothing after it can reach a value that no longer "
+        + "means anything, and puts the step where a reader looks for it. Reported only when the counter is dead after "
+        + "the loop and no 'continue' targets the loop — a 'continue' skips a trailing step in a while but runs the "
+        + "incrementor in a for, so the two are not the same loop.";
+
+    /// <summary>The SST2285 rule description.</summary>
+    private const string FoldNullCheckIntoConditionalAccessDescription =
+        "'x != null && x.Count > 0' names the value twice and leaves a reader to check that both halves talk about the "
+        + "same thing; 'x?.Count > 0' says it once. The two are the same test because a conditional access yields null "
+        + "when its receiver is null, and every relational comparison against null is false. Reported only where that "
+        + "argument holds: the guarded value is a side-effect-free name repeated verbatim as the receiver, and what "
+        + "follows is either a bool-valued member — folded to '?. == true' — or a comparison against a non-null "
+        + "constant. A '!=' comparison is deliberately excluded, because 'x?.Count != 0' is true for a null x and the "
+        + "guarded form is not. A 'bool?' tested through '.Value' folds to '== true', which needs no conditional access "
+        + "at all.";
+
+    /// <summary>The SST2284 rule description.</summary>
+    private const string UseIncrementOperatorDescription =
+        "A statement whose whole job is to move a value on by one — 'i += 1;' or 'i -= 1;' — says in three tokens what "
+        + "'i++;' and 'i--;' say in one, and the stepping operators are what a reader scans for when following a counter. "
+        + "Reported only for a discarded-value statement, so the difference between the prefix and postfix results cannot "
+        + "matter, and only when the target is a side-effect-free name and its type actually has the operator — a type "
+        + "that overloads '+' without overloading '++' keeps the compound form, because the shorter one would not compile.";
+
+    /// <summary>The SST2286 rule description.</summary>
+    private const string RedundantStringToStringDescription =
+        "'string.ToString()' returns the same reference it was called on, so the call is pure ceremony: it converts "
+        + "nothing, and it hides from a reader that the value was a string all along. Removing it leaves the expression "
+        + "with the identical value and type. Reported only for the argument-less call on a receiver the compiler already "
+        + "types as 'string'; a 'ToString' that takes a format or a provider does real work and is left alone, and a call "
+        + "inside an interpolation hole belongs to the rule that simplifies interpolations.";
+
     /// <summary>The SST2237 rule description.</summary>
     private const string UseFileScopedNamespaceDescription =
         "A file with one namespace and no sibling declarations can be written either way, and a codebase reads better when "

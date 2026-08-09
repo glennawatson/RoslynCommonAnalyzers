@@ -224,6 +224,7 @@ dotnet_diagnostic.SST1218.severity = warning # Method overloads should be groupe
 dotnet_diagnostic.SST1219.severity = warning # A default section should appear last
 dotnet_diagnostic.SST1220.severity = suggestion # Named arguments should match the parameter declaration order
 dotnet_diagnostic.SST1221.severity = suggestion # Constraint clauses should match the type-parameter declaration order
+dotnet_diagnostic.SST1222.severity = suggestion # Enum members should be declared in ascending value order
 
 # Naming
 dotnet_diagnostic.SST1300.severity = warning # Element names should be PascalCase
@@ -439,6 +440,7 @@ dotnet_diagnostic.SST1661.severity = suggestion # Code documentation tag should 
 # dotnet_diagnostic.SST1662.severity = warning # Thrown exceptions should be documented (opt-in)
 # dotnet_diagnostic.SST1663.severity = warning # A summary comment should be a documentation comment (opt-in)
 # dotnet_diagnostic.SST1664.severity = warning # Summary paragraphs should use <para> elements (opt-in)
+dotnet_diagnostic.SST1666.severity = suggestion # Documentation elements should follow the standard order
 
 # Extensions
 dotnet_diagnostic.SST1700.severity = warning # Extension blocks should not be empty
@@ -577,6 +579,10 @@ dotnet_diagnostic.SST2280.severity = suggestion # Keep a get-only indexer expres
 dotnet_diagnostic.SST2281.severity = suggestion # Keep a single-statement local function expression-shaped
 dotnet_diagnostic.SST2282.severity = warning # Use an is-null pattern instead of ReferenceEquals against null
 dotnet_diagnostic.SST2283.severity = warning # Fold a preceding null guard into the assigned value
+dotnet_diagnostic.SST2284.severity = warning # Step a value with the increment or decrement operator
+dotnet_diagnostic.SST2285.severity = warning # Fold a null check into a conditional access
+dotnet_diagnostic.SST2286.severity = warning # Remove a ToString call on a value that is already a string
+dotnet_diagnostic.SST2287.severity = warning # Use a for loop when a while loop owns its counter
 
 # Design
 dotnet_diagnostic.SST2300.severity = warning # Implement the disposal pattern correctly
@@ -664,11 +670,15 @@ dotnet_diagnostic.SST2443.severity = warning # A typed logger's category should 
 dotnet_diagnostic.SST2444.severity = warning # A regular expression pattern should be valid
 dotnet_diagnostic.SST2445.severity = warning # A custom date/time format should not depend on the culture's separators
 dotnet_diagnostic.SST2446.severity = warning # The number of bytes read from a stream should not be discarded
+dotnet_diagnostic.SST2447.severity = warning # Compare the operands instead of their difference
 dotnet_diagnostic.SST2448.severity = warning # Delegate subtraction has order-dependent results
 dotnet_diagnostic.SST2449.severity = warning # Unsubscribing with a new lambda removes nothing
 dotnet_diagnostic.SST2450.severity = warning # Debug.Assert conditions must not have side effects
 dotnet_diagnostic.SST2451.severity = warning # A class only its own constructors can create must actually create itself
 dotnet_diagnostic.SST2452.severity = warning # A pure method should return a value
+dotnet_diagnostic.SST2453.severity = warning # Coalescing to null leaves the value unchanged
+dotnet_diagnostic.SST2454.severity = warning # Do not dereference the result of an 'as' conversion
+dotnet_diagnostic.SST2455.severity = warning # Enum members should not silently share a value
 dotnet_diagnostic.SST2456.severity = warning # A field-like event that overrides or hides an inherited event splits its subscriber list
 dotnet_diagnostic.SST2457.severity = warning # Wrapping a sequence sum in unchecked does not stop it throwing
 dotnet_diagnostic.SST2458.severity = warning # Bitwise operations should not be applied to a non-flags enum

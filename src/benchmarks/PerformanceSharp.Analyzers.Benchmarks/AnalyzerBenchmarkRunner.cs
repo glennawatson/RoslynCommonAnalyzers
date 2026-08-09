@@ -34,6 +34,10 @@ internal static class AnalyzerBenchmarkRunner
     /// <summary>Executes one prepared analyzer driver and returns the diagnostic count.</summary>
     /// <param name="withAnalyzers">The analyzer driver to execute.</param>
     /// <returns>The number of produced diagnostics.</returns>
+    /// <remarks>
+    /// A benchmark iteration has no token to flow: the harness owns the run and cancelling half of one
+    /// would report a measurement of nothing. The opt-out is written explicitly rather than left implicit.
+    /// </remarks>
     private static async Task<int> GetDiagnosticCountAsync(CompilationWithAnalyzers withAnalyzers)
-        => (await withAnalyzers.GetAnalyzerDiagnosticsAsync().ConfigureAwait(false)).Length;
+        => (await withAnalyzers.GetAnalyzerDiagnosticsAsync(CancellationToken.None).ConfigureAwait(false)).Length;
 }

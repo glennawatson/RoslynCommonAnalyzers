@@ -308,4 +308,98 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies a suppression covering a tuple's element nullability is kept.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// A tuple is a value type, so the operand is non-null by construction, but the suppression is what
+    /// silences the CS8619 for the element annotations. Removing it uncovers that warning.
+    /// </remarks>
+    [Test]
+    public async Task NullForgivingOnTupleElementConversionIsCleanAsync()
+        => await VerifyLoadBearingAsync(
+            """
+            #nullable enable
+
+            public sealed class C
+            {
+                public (string, string) M((string?, string?) pair) => pair!;
+            }
+            """);
+
+    /// <summary>Verifies a suppression covering a generic argument's nullability is kept.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NullForgivingOnGenericArgumentConversionIsCleanAsync()
+        => await VerifyLoadBearingAsync(
+            """
+            #nullable enable
+
+            using System.Collections.Generic;
+
+            public sealed class C
+            {
+                public List<string?> M() => new List<string>()!;
+            }
+            """);
+
+    /// <summary>Verifies a suppression covering a struct's generic argument nullability is kept.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NullForgivingOnStructGenericArgumentConversionIsCleanAsync()
+        => await VerifyLoadBearingAsync(
+            """
+            #nullable enable
+
+            using System.Collections.Generic;
+
+            public sealed class C
+            {
+                public KeyValuePair<string, string> M(KeyValuePair<string, string?> pair) => pair!;
+            }
+            """);
+
+    /// <summary>Verifies a suppression covering a span's element nullability is kept.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NullForgivingOnSpanElementConversionIsCleanAsync()
+        => await VerifyLoadBearingAsync(
+            """
+            #nullable enable
+
+            using System;
+
+            public sealed class C
+            {
+                public ReadOnlySpan<string> M(ReadOnlySpan<string?> values) => values!;
+            }
+            """);
+
+    /// <summary>Verifies a suppression on an array, whose element nullability a conversion can differ on, is kept.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NullForgivingOnArrayElementConversionIsCleanAsync()
+        => await VerifyLoadBearingAsync(
+            """
+            #nullable enable
+
+            public sealed class C
+            {
+                public string[] M(string?[] values) => values!;
+            }
+            """);
+
+    /// <summary>Runs a verification that expects a load-bearing suppression to be left in place.</summary>
+    /// <param name="source">The source with no markup.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private static async Task VerifyLoadBearingAsync(string source)
+    {
+        var test = new VerifyNullableSyntaxCleanup.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
 }

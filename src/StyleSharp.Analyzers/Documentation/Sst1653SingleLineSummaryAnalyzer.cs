@@ -43,7 +43,7 @@ public sealed class Sst1653SingleLineSummaryAnalyzer : DiagnosticAnalyzer
         }
 
         var tree = documentation.SyntaxTree;
-        var lineSpan = tree.GetLineSpan(summary.Span);
+        var lineSpan = tree.GetLineSpan(summary.Span, context.CancellationToken);
         if (lineSpan.StartLinePosition.Line == lineSpan.EndLinePosition.Line)
         {
             // Already on a single line.

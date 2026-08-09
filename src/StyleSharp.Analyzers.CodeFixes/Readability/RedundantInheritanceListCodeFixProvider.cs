@@ -29,12 +29,11 @@ public sealed class RedundantInheritanceListCodeFixProvider : CodeFixProvider, I
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseTypeSyntax>() is not { Parent: BaseListSyntax } baseType)
+        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseTypeSyntax>() is not { Parent: BaseListSyntax baseList })
         {
             return null;
         }
 
-        var baseList = (BaseListSyntax)baseType.Parent!;
         var typeDeclaration = baseList.Parent!;
 
         return new NodeReplacement(typeDeclaration, Rewrite(typeDeclaration, baseList));

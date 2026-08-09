@@ -147,7 +147,7 @@ public sealed class Sst1145ConditionalOperatorPlacementAnalyzer : DiagnosticAnal
         bool breakBefore,
         int expectedIndent)
     {
-        if (breakBefore && tree.GetLineSpan(operatorToken.Span).StartLinePosition.Character == expectedIndent)
+        if (breakBefore && tree.GetLineSpan(operatorToken.Span, context.CancellationToken).StartLinePosition.Character == expectedIndent)
         {
             return false;
         }

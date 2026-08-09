@@ -49,8 +49,8 @@ internal static class ThrowGuardPatterns
             return false;
         }
 
-        var leftMatches = IsIdentifier(binary!.Left, parameterName!);
-        var rightMatches = IsIdentifier(binary.Right, parameterName!);
+        var leftMatches = IsIdentifier(binary!.Left, parameterName);
+        var rightMatches = IsIdentifier(binary.Right, parameterName);
         if (leftMatches == rightMatches)
         {
             return false;

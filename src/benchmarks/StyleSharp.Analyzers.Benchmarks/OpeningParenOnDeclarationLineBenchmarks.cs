@@ -96,7 +96,9 @@ public class OpeningParenOnDeclarationLineBenchmarks
                 }
         }
 
-        _text = await _openingToken.SyntaxTree!.GetTextAsync().ConfigureAwait(false);
+        var tree = _openingToken.SyntaxTree
+            ?? throw new InvalidOperationException("The benchmark token must come from a parsed tree.");
+        _text = await tree.GetTextAsync().ConfigureAwait(false);
         _openingLine = LayoutHelpers.StartLine(_text, _openingToken);
     }
 

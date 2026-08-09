@@ -40,7 +40,8 @@ public class MoveTypeToFileProfiledCpuBenchmarks
     public async Task<int> MoveTypeToFile_ApplyFixAsync()
     {
         var updated = await Sst1402MoveTypeToFileCodeFixProvider.MoveAsync(_context.Document, _context.Node, "Moved.cs", CancellationToken.None).ConfigureAwait(false);
-        var document = updated.GetDocument(_context.Document.Id);
-        return (await document!.GetTextAsync().ConfigureAwait(false)).Length;
+        var document = updated.GetDocument(_context.Document.Id)
+            ?? throw new InvalidOperationException("The fix dropped the document the benchmark measures.");
+        return (await document.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

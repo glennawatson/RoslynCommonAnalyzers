@@ -37,7 +37,7 @@ public class TrailingCommaCodeFixBenchmarks
     [Benchmark]
     public async Task<int> TrailingComma_ApplyFixAsync()
     {
-        var initializer = (InitializerExpressionSyntax)((ImplicitArrayCreationExpressionSyntax)_context.Node.Declaration.Variables[0].Initializer!.Value).Initializer!;
+        var initializer = (InitializerExpressionSyntax)((ImplicitArrayCreationExpressionSyntax)_context.Node.Declaration.Variables[0].Initializer!.Value).Initializer;
         var position = initializer.Expressions[initializer.Expressions.Count - 1].Span.End;
         var updated = await Sst1413TrailingCommaCodeFixProvider.AddCommaAsync(_context.Document, position, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;

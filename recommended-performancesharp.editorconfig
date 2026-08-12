@@ -123,6 +123,7 @@ dotnet_diagnostic.PSH1313.severity = warning # Call the async overload from an a
 dotnet_diagnostic.PSH1314.severity = warning # Read and write streams through the memory-based overloads
 dotnet_diagnostic.PSH1315.severity = warning # Do not block on a task that may not be complete
 dotnet_diagnostic.PSH1316.severity = warning # Consume a ValueTask exactly once
+dotnet_diagnostic.PSH1317.severity = warning # Pass the cancellation token to the call that accepts one
 
 # ApiSelection
 dotnet_diagnostic.PSH1400.severity = warning # Use the static HashData method for one-shot hashing

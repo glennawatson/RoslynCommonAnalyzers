@@ -133,6 +133,7 @@ async, `PSH14xx` API selection.
 | [PSH1314](rules/PSH1314.md) | A stream is read or written through the array-based `ReadAsync`/`WriteAsync` overloads. Code fix rewrites the call via `AsMemory`. |
 | [PSH1315](rules/PSH1315.md) | A thread is parked on a task that is not provably complete — `Result`, `Wait()`, `GetAwaiter().GetResult()` on a `Task` or `ValueTask`. The guarded fast path and an awaiter's own `GetResult` are silent. Code fix awaits, where an `await` compiles. |
 | [PSH1316](rules/PSH1316.md) | A `ValueTask` is consumed more than once - awaited across loop iterations, or through a copy - so a later consume reads a recycled pooled token. Code fix hoists the producer into the loop. |
+| [PSH1317](rules/PSH1317.md) | A cancellation token is in scope and the call drops it - its own token parameter was left at its default, or an overload takes one. An explicit `CancellationToken.None` is respected. Code fix passes the token. |
 
 ## ApiSelection
 

@@ -78,6 +78,44 @@ public class InheritDocAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies inheritdoc naming its source with a cref is not flagged, whatever the member derives from.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InheritDocWithCrefIsCleanAsync()
+        => await VerifyInheritDoc.VerifyAnalyzerAsync(
+            """
+            internal interface ISource
+            {
+                /// <summary>Gets a value.</summary>
+                int Value { get; }
+            }
+
+            internal readonly struct S
+            {
+                /// <inheritdoc cref="ISource.Value"/>
+                public static int Value { get; }
+            }
+            """);
+
+    /// <summary>Verifies a cref on the closing form of the element is recognised too.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InheritDocWithCrefOnAPairedElementIsCleanAsync()
+        => await VerifyInheritDoc.VerifyAnalyzerAsync(
+            """
+            internal interface ISource
+            {
+                /// <summary>Gets a value.</summary>
+                int Value { get; }
+            }
+
+            internal readonly struct S
+            {
+                /// <inheritdoc cref="ISource.Value"></inheritdoc>
+                public static int Value { get; }
+            }
+            """);
+
     /// <summary>
     /// Verifies an explicit interface implementation is not flagged even when the interface type
     /// is unresolved (incomplete semantics, e.g. an interface in a momentarily unreferenced assembly).

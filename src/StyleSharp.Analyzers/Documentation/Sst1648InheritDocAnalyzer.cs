@@ -9,6 +9,11 @@ namespace StyleSharp.Analyzers;
 /// documentation from (SST1648) — it is not an override, an interface implementation, nor a
 /// type with a documented base type or interface.
 /// </summary>
+/// <remarks>
+/// Only the bare form is checked. <c>&lt;inheritdoc cref="..."/&gt;</c> names where its documentation
+/// comes from, and that member need not be related to the declaring type at all, so the question this
+/// rule asks does not arise there.
+/// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1648InheritDocAnalyzer : DiagnosticAnalyzer
 {
@@ -42,6 +47,15 @@ public sealed class Sst1648InheritDocAnalyzer : DiagnosticAnalyzer
     {
         var documentation = XmlDocumentationHelper.GetDocumentationComment(context.Node);
         if (documentation is null || !XmlDocumentationHelper.IsInheritDoc(documentation))
+        {
+            return;
+        }
+
+        // '<inheritdoc cref="..."/>' names its own source, and that source is not required to be a base
+        // type or an implemented interface — it can be any documented member, on any type. The premise
+        // of this rule is that there is nowhere for a bare inheritdoc to inherit from, which says nothing
+        // about the cref form; an unresolvable cref is already a compiler diagnostic.
+        if (XmlDocumentationHelper.HasInheritDocCref(documentation))
         {
             return;
         }

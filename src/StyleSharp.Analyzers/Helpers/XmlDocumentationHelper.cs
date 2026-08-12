@@ -59,6 +59,17 @@ internal static class XmlDocumentationHelper
     public static bool IsInheritDoc(DocumentationCommentTriviaSyntax documentation)
         => HasElement(documentation, "inheritdoc");
 
+    /// <summary>Returns whether the documentation's <c>&lt;inheritdoc&gt;</c> names the member it inherits from.</summary>
+    /// <param name="documentation">The documentation comment.</param>
+    /// <returns><see langword="true"/> when the inheritdoc element carries a <c>cref</c> attribute.</returns>
+    /// <remarks>
+    /// <c>&lt;inheritdoc cref="..."/&gt;</c> takes its documentation from the member it names, which need not
+    /// be a base type or an implemented interface — it can be any documented member at all. Rules that reason
+    /// about what a bare inheritdoc would inherit from have nothing to say about that form.
+    /// </remarks>
+    public static bool HasInheritDocCref(DocumentationCommentTriviaSyntax documentation)
+        => FindElement(documentation, "inheritdoc") is { } element && HasCref(element);
+
     /// <summary>Returns whether an element contains a nested <c>&lt;inheritdoc&gt;</c> (so its content is inherited).</summary>
     /// <param name="element">The element to scan.</param>
     /// <returns><see langword="true"/> when an inheritdoc descendant is present.</returns>

@@ -8,8 +8,11 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Adds a <c>[System.Diagnostics.DebuggerDisplay]</c> skeleton above a publicly visible type that has none
-/// (SST2334). The display string names the type's first public property when it has one, and otherwise falls
-/// back to its <c>ToString()</c>, giving the developer a working starting point to refine.
+/// (SST2334), giving the developer a working starting point to refine. The display string names the best
+/// member the type has to identify an instance by: its first public property, else any other readable
+/// property, else its first field — a display string is evaluated in the type's own context, so naming a
+/// private field is legitimate and beats saying nothing. A type with none of those falls back to
+/// <c>ToString()</c>, which the rule only reports when it is overridden.
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2334MissingDebuggerDisplayCodeFixProvider))]
 [Shared]
@@ -18,8 +21,17 @@ public sealed class Sst2334MissingDebuggerDisplayCodeFixProvider : CodeFixProvid
     /// <summary>The fully-qualified attribute name, emitted so the fix needs no <c>using</c>.</summary>
     private const string DebuggerDisplayAttributeName = "System.Diagnostics.DebuggerDisplay";
 
-    /// <summary>The display string used when the type has no public property to name.</summary>
+    /// <summary>The display string used when the type has no member to name.</summary>
     private const string ToStringDisplay = "{ToString(),nq}";
+
+    /// <summary>The rank of a public instance property — the clearest thing to identify an instance by.</summary>
+    private const int PublicPropertyRank = 0;
+
+    /// <summary>The rank of a readable instance property the type does not expose publicly.</summary>
+    private const int PropertyRank = 1;
+
+    /// <summary>The rank of an instance field, nameable because the display string binds in the type's own context.</summary>
+    private const int FieldRank = 2;
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds
@@ -87,23 +99,83 @@ public sealed class Sst2334MissingDebuggerDisplayCodeFixProvider : CodeFixProvid
         return document.WithSyntaxRoot(root.ReplaceNode(declaration, updated));
     }
 
-    /// <summary>Builds the display string, naming the type's first public instance property when it has one.</summary>
+    /// <summary>Builds the display string, naming the best member the type has to identify an instance by.</summary>
     /// <param name="declaration">The type declaration.</param>
     /// <returns>The debugger-display format string.</returns>
     private static string DisplayString(TypeDeclarationSyntax declaration)
     {
+        string? best = null;
+        var bestRank = int.MaxValue;
         var members = declaration.Members;
         for (var i = 0; i < members.Count; i++)
         {
-            if (members[i] is PropertyDeclarationSyntax property
-                && ModifierListHelper.Contains(property.Modifiers, SyntaxKind.PublicKeyword)
-                && !ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword))
+            if (TryNameMember(members[i], out var name, out var rank) && rank < bestRank)
             {
-                return "{" + property.Identifier.ValueText + "}";
+                best = name;
+                bestRank = rank;
             }
         }
 
-        return ToStringDisplay;
+        return best is null ? ToStringDisplay : "{" + best + "}";
+    }
+
+    /// <summary>Names a member a display string could use, and ranks how well it identifies an instance.</summary>
+    /// <param name="member">The member to consider.</param>
+    /// <param name="name">The member's name, when it can be named.</param>
+    /// <param name="rank">The member's rank, lower being a better thing to show.</param>
+    /// <returns><see langword="true"/> when the member is an instance field or a readable instance property.</returns>
+    private static bool TryNameMember(MemberDeclarationSyntax member, out string name, out int rank)
+    {
+        name = string.Empty;
+        rank = int.MaxValue;
+        if (ModifierListHelper.ContainsEither(member.Modifiers, SyntaxKind.StaticKeyword, SyntaxKind.ConstKeyword))
+        {
+            return false;
+        }
+
+        switch (member)
+        {
+            case PropertyDeclarationSyntax property when HasGetter(property):
+            {
+                name = property.Identifier.ValueText;
+                rank = ModifierListHelper.Contains(property.Modifiers, SyntaxKind.PublicKeyword) ? PublicPropertyRank : PropertyRank;
+                return true;
+            }
+
+            case FieldDeclarationSyntax field when field.Declaration.Variables.Count > 0:
+            {
+                name = field.Declaration.Variables[0].Identifier.ValueText;
+                rank = FieldRank;
+                return true;
+            }
+
+            default:
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>Returns whether a property can be read, and so shown.</summary>
+    /// <param name="property">The property declaration.</param>
+    /// <returns><see langword="true"/> for an expression-bodied property or one with a get accessor.</returns>
+    private static bool HasGetter(PropertyDeclarationSyntax property)
+    {
+        if (property.ExpressionBody is not null)
+        {
+            return true;
+        }
+
+        var accessors = property.AccessorList?.Accessors ?? default;
+        for (var i = 0; i < accessors.Count; i++)
+        {
+            if (accessors[i].IsKind(SyntaxKind.GetAccessorDeclaration))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns the indentation trivia (the whitespace immediately before the type) of its leading trivia.</summary>

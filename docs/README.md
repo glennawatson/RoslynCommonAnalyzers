@@ -594,7 +594,7 @@ conventions, and what a member exposes.
 | [SST2331](rules/SST2331.md) | An enum leaves member values implicit, so their numbers depend on declaration order. Opt-in. |
 | [SST2332](rules/SST2332.md) | An auto-property's `private set` is only written during construction; make it get-only. |
 | [SST2333](rules/SST2333.md) | A generic comparison/equality contract is implemented without its non-generic counterpart. Opt-in. |
-| [SST2334](rules/SST2334.md) | A publicly visible type has no `[DebuggerDisplay]`. Opt-in. |
+| [SST2334](rules/SST2334.md) | A publicly visible type that declares instance state, or overrides `ToString()`, has no `[DebuggerDisplay]`. A type with nothing to show is left alone. Opt-in. |
 | [SST2335](rules/SST2335.md) | Parts of a partial type disagree on the `static` modifier. Opt-in. |
 | [SST2336](rules/SST2336.md) | An attribute type declares no `[AttributeUsage]`, so it silently accepts every target. |
 

@@ -92,4 +92,60 @@ public class SelfAssignmentAnalyzerUnitTest
                 public void M(int other) => _value = other;
             }
             """);
+
+    /// <summary>Verifies an object initializer copying a member of this instance onto the new one is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// In <c>new() { Name = Name }</c> the left side names a member of the object being built and the right
+    /// side reads this instance's, so the two identical-looking names are different members of different
+    /// objects.
+    /// </remarks>
+    [Test]
+    public async Task ObjectInitializerCopyingThisInstanceIsCleanAsync()
+        => await VerifySelfAssign.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public string Name { get; set; }
+
+                public int Count { get; set; }
+
+                public C Clone() => new() { Name = Name };
+
+                public C Bump() => new() { Count = Count + 1 };
+            }
+            """);
+
+    /// <summary>Verifies a <c>with</c> initializer copying a member of this instance is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WithInitializerCopyingThisInstanceIsCleanAsync()
+        => await VerifySelfAssign.VerifyAnalyzerAsync(
+            """
+            public record R(string Name)
+            {
+                public R Copy(R source) => source with { Name = Name };
+            }
+            """);
+
+    /// <summary>Verifies a nested object initializer is not reported either.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NestedObjectInitializerIsCleanAsync()
+        => await VerifySelfAssign.VerifyAnalyzerAsync(
+            """
+            public class Inner
+            {
+                public string Name { get; set; }
+            }
+
+            public class C
+            {
+                public string Name { get; set; }
+
+                public Inner Child { get; set; } = new();
+
+                public C Clone() => new() { Child = { Name = Name } };
+            }
+            """);
 }

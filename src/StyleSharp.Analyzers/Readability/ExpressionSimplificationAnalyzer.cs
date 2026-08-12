@@ -268,6 +268,16 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // Inside an object or 'with' initializer the left side names a member of the object being built,
+        // not something readable in the enclosing scope: 'new() { Name = Name }' copies this instance's
+        // Name onto the new one, so the two identical-looking sides are different members of different
+        // objects. Neither rule below applies — and a compound assignment is not even legal in that
+        // position, so rewriting to '+=' would not compile.
+        if (IsMemberInitializer(assignment))
+        {
+            return;
+        }
+
         // SST1189: the assignment copies a side-effect-free target onto itself ('x = x').
         if (CompoundAssignmentOperators.IsSideEffectFreeTarget(assignment.Left)
             && SyntaxFactory.AreEquivalent(assignment.Left, assignment.Right))
@@ -287,6 +297,13 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.UseCompoundAssignment, assignment.GetLocation(), operatorText));
     }
+
+    /// <summary>Returns whether an assignment sets a member of the object being built rather than one in scope.</summary>
+    /// <param name="assignment">The assignment expression.</param>
+    /// <returns><see langword="true"/> for an assignment directly inside an object or <c>with</c> initializer.</returns>
+    private static bool IsMemberInitializer(AssignmentExpressionSyntax assignment)
+        => assignment.Parent is InitializerExpressionSyntax initializer
+            && (initializer.IsKind(SyntaxKind.ObjectInitializerExpression) || initializer.IsKind(SyntaxKind.WithInitializerExpression));
 
     /// <summary>Reports SST1186 when a non-null literal sits on the left of an equality comparison.</summary>
     /// <param name="context">The syntax node analysis context.</param>

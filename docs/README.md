@@ -529,7 +529,7 @@ PSH1102, and PSH1100.
 | [SST2263](rules/SST2263.md) | An infinite loop whose body re-derives its stop condition. Code fix hoists the condition into the header. Info. |
 | [SST2264](rules/SST2264.md) | A numeric literal cast to an enum. Code fix names the member. |
 | [SST2265](rules/SST2265.md) | Consecutive fluent calls on one receiver can fold into a chain. Opt-in. |
-| [SST2266](rules/SST2266.md) | A local read exactly once can be inlined into that use. Opt-in. |
+| [SST2266](rules/SST2266.md) | A local read exactly once can be inlined into that use. A declaration that converts, and an initializer past a configurable width, are left alone. Configurable threshold. Opt-in. |
 | [SST2267](rules/SST2267.md) | Infinite loops written in mixed `while(true)`/`for(;;)` styles. Configurable. Opt-in. |
 | [SST2268](rules/SST2268.md) | Inconsistent `()` on object creation with an initializer. Configurable. Opt-in. |
 | [SST2269](rules/SST2269.md) | Inconsistent parentheses around a conditional's condition. Configurable. Opt-in. |
@@ -597,6 +597,7 @@ conventions, and what a member exposes.
 | [SST2334](rules/SST2334.md) | A publicly visible type that declares instance state, or overrides `ToString()`, has no `[DebuggerDisplay]`. A type with nothing to show is left alone. Opt-in. |
 | [SST2335](rules/SST2335.md) | Parts of a partial type disagree on the `static` modifier. Opt-in. |
 | [SST2336](rules/SST2336.md) | An attribute type declares no `[AttributeUsage]`, so it silently accepts every target. |
+| [SST2337](rules/SST2337.md) | A parameter's name appears nowhere in the body that declares it, so every caller passes a value that is discarded. Signatures fixed by an override, an interface, a delegate or a callback shape are silent, as are externally visible members by default. |
 
 ## Correctness
 

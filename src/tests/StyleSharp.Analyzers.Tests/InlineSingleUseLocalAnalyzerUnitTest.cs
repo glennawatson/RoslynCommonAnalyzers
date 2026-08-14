@@ -14,6 +14,41 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class InlineSingleUseLocalAnalyzerUnitTest
 {
+    /// <summary>A declaration whose initializer is wider than the default threshold.</summary>
+    private const string LongInitializerSource = """
+                                                 public sealed class C
+                                                 {
+                                                     public bool M()
+                                                     {
+                                                         var empty = default(System.Collections.Generic.List<int>);
+                                                         return empty is null;
+                                                     }
+                                                 }
+                                                 """;
+
+    /// <summary>The same declaration, marked up for a run whose threshold admits it.</summary>
+    private const string LongInitializerMarkup = """
+                                                 public sealed class C
+                                                 {
+                                                     public bool M()
+                                                     {
+                                                         var {|SST2266:empty|} = default(System.Collections.Generic.List<int>);
+                                                         return empty is null;
+                                                     }
+                                                 }
+                                                 """;
+
+    /// <summary>The long initializer inlined into its one read.</summary>
+    private const string LongInitializerFixed = """
+                                                public sealed class C
+                                                {
+                                                    public bool M()
+                                                    {
+                                                        return default(System.Collections.Generic.List<int>) is null;
+                                                    }
+                                                }
+                                                """;
+
     /// <summary>Verifies a pure single-use local is inlined into its one read.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -340,44 +375,278 @@ public class InlineSingleUseLocalAnalyzerUnitTest
         await VerifyCleanAsync(Source);
     }
 
+    /// <summary>Verifies a local that widens its initializer to another type is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The declaration is what applies the conversion. Inlining drops it, so the use site binds against the
+    /// initializer's own type — which may declare members that shadow the ones the widened type reaches.
+    /// </remarks>
+    [Test]
+    public async Task WideningDeclarationIsCleanAsync()
+    {
+        const string Source = """
+                              public interface IBase
+                              {
+                              }
+
+                              public interface IDerived : IBase
+                              {
+                              }
+
+                              public sealed class C
+                              {
+                                  public void M(IDerived builder)
+                                  {
+                                      IBase widened = builder;
+                                      Use(widened);
+                                  }
+
+                                  private static void Use(IBase value)
+                                  {
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source);
+    }
+
+    /// <summary>Verifies a local whose initializer is a method group is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A method group has no type of its own — the declaration picks the delegate it converts to. Handing the
+    /// bare group to an overloaded target re-runs that choice against a different candidate set.
+    /// </remarks>
+    [Test]
+    public async Task MethodGroupInitializerIsCleanAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      System.Func<int> action = Get;
+                                      Use(action);
+                                  }
+
+                                  private static int Get() => 1;
+
+                                  private static void Use(System.Func<int> value)
+                                  {
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source);
+    }
+
+    /// <summary>Verifies an inferred local over a method group is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InferredMethodGroupInitializerIsCleanAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      var action = Get;
+                                      Use(action);
+                                  }
+
+                                  private static int Get() => 1;
+
+                                  private static void Use(System.Func<int> value)
+                                  {
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source);
+    }
+
+    /// <summary>Verifies a local that boxes its initializer is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task BoxingDeclarationIsCleanAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  private readonly int _number = 1;
+
+                                  public void M()
+                                  {
+                                      object boxed = _number;
+                                      Use(boxed);
+                                  }
+
+                                  private static void Use(object value)
+                                  {
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source);
+    }
+
+    /// <summary>Verifies a target-typed <c>default</c> initializer is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The declaration is what gives a bare <c>default</c> its type. Spliced into an overloaded call it has
+    /// none, and the call no longer compiles.
+    /// </remarks>
+    [Test]
+    public async Task TargetTypedDefaultIsCleanAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      int zero = default;
+                                      Use(zero);
+                                  }
+
+                                  private static void Use(int value)
+                                  {
+                                  }
+
+                                  private static void Use(string value)
+                                  {
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source);
+    }
+
+    /// <summary>Verifies a declaration that is the last statement in its block is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>There is no following statement for the read to be in, so there is nothing to inline into.</remarks>
+    [Test]
+    public async Task DeclarationLastInItsBlockIsCleanAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(int a)
+                                  {
+                                      if (a > 0)
+                                      {
+                                          var value = a;
+                                      }
+
+                                      return a;
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source);
+    }
+
+    /// <summary>Verifies an initializer wider than the default threshold is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task LongInitializerIsCleanByDefaultAsync() => await VerifyCleanAsync(LongInitializerSource);
+
+    /// <summary>Verifies a raised rule-specific threshold reports an initializer the default would keep.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConfiguredThresholdReportsALongInitializerAsync()
+        => await RunAsync(LongInitializerMarkup, LongInitializerFixed, "stylesharp.SST2266.max_initializer_length = 80");
+
+    /// <summary>Verifies the project-wide threshold key is honoured when the rule-specific one is unset.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ProjectWideThresholdReportsALongInitializerAsync()
+        => await RunAsync(LongInitializerMarkup, LongInitializerFixed, "stylesharp.max_initializer_length = 80");
+
+    /// <summary>Verifies the rule-specific threshold wins over the project-wide one.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RuleSpecificThresholdOverridesTheProjectWideOneAsync()
+    {
+        const string Options = """
+                               stylesharp.SST2266.max_initializer_length = 80
+                               stylesharp.max_initializer_length = 10
+                               """;
+        await RunAsync(LongInitializerMarkup, LongInitializerFixed, Options);
+    }
+
+    /// <summary>Verifies a non-numeric threshold keeps the default rather than disabling the rule.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NonNumericThresholdKeepsTheDefaultAsync()
+        => await VerifyCleanAsync(LongInitializerSource, "stylesharp.SST2266.max_initializer_length = wide");
+
+    /// <summary>Verifies a non-positive threshold keeps the default rather than silencing every declaration.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NonPositiveThresholdKeepsTheDefaultAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  private readonly string _value = "x";
+
+                                  public string M()
+                                  {
+                                      var {|SST2266:local|} = _value;
+                                      return local;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       private readonly string _value = "x";
+
+                                       public string M()
+                                       {
+                                           return _value;
+                                       }
+                                   }
+                                   """;
+        await RunAsync(Source, FixedSource, "stylesharp.SST2266.max_initializer_length = 0");
+    }
+
     /// <summary>Runs a code-fix verification with the disabled rule enabled.</summary>
     /// <param name="source">The markup source.</param>
     /// <param name="fixedSource">The expected fixed source.</param>
+    /// <param name="options">Extra <c>.editorconfig</c> lines, when the defaults are not wanted.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task RunAsync(string source, string fixedSource)
+    private static async Task RunAsync(string source, string fixedSource, string? options = null)
     {
-        var test = CreateTest(source);
+        var test = CreateTest(source, options);
         test.FixedCode = fixedSource;
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Runs a verification that expects no diagnostics.</summary>
     /// <param name="source">The source with no markup.</param>
+    /// <param name="options">Extra <c>.editorconfig</c> lines, when the defaults are not wanted.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyCleanAsync(string source)
+    private static async Task VerifyCleanAsync(string source, string? options = null)
     {
-        var test = CreateTest(source);
+        var test = CreateTest(source, options);
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Creates a verifier test with SST2266 enabled.</summary>
     /// <param name="source">The markup source.</param>
+    /// <param name="options">Extra <c>.editorconfig</c> lines, when the defaults are not wanted.</param>
     /// <returns>The configured test.</returns>
-    private static VerifyInlineSingleUseLocal.Test CreateTest(string source)
+    private static VerifyInlineSingleUseLocal.Test CreateTest(string source, string? options)
     {
         var test = new VerifyInlineSingleUseLocal.Test
         {
             TestCode = source,
         };
 
-        const string Config = """
-                              root = true
+        var config = $"""
+                      root = true
 
-                              [*.cs]
-                              dotnet_diagnostic.SST2266.severity = warning
-                              """;
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+                      [*.cs]
+                      dotnet_diagnostic.SST2266.severity = warning
+                      {options}
+                      """;
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
         return test;
     }
 }

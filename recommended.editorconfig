@@ -60,6 +60,7 @@
 # stylesharp.line_ending = lf                            # SST1532
 # stylesharp.allowed_escape_methods = WhenActivated      # SST2403
 # stylesharp.namespace_declaration_style = file_scoped   # SST2237
+# stylesharp.max_initializer_length = 40                 # SST2266
 # stylesharp.infinite_loop_style = while                 # SST2267
 # stylesharp.object_creation_parentheses = omit          # SST2268
 # stylesharp.conditional_condition_parentheses = omit_when_single_token  # SST2269
@@ -623,6 +624,7 @@ dotnet_diagnostic.SST2332.severity = warning # Make a construction-only property
 # dotnet_diagnostic.SST2333.severity = warning # Provide the non-generic form of a generic comparison contract (opt-in)
 # dotnet_diagnostic.SST2334.severity = warning # Give a public type a debugger-display attribute (opt-in)
 dotnet_diagnostic.SST2336.severity = warning # An attribute type should declare where it can be applied
+dotnet_diagnostic.SST2337.severity = warning # Remove a parameter the body never reads
 # dotnet_diagnostic.SST2335.severity = warning # Declare the same 'static' modifier on every part of a partial type (opt-in)
 
 # Correctness

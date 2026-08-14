@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Concurrent;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -11,9 +13,10 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// The rewrite is only offered when it is provably behaviour-preserving: the initializer is a side-effect-free
-/// expression, the single read immediately follows the declaration, nothing side-effecting is evaluated before
-/// the read within that statement, and the local is neither captured by a nested function, aliased by
-/// <c>ref</c>/<c>out</c>/<c>in</c>, nor written after its declaration.
+/// expression whose type is the local's own, the single read immediately follows the declaration, nothing
+/// side-effecting is evaluated before the read within that statement, and the local is neither captured by a
+/// nested function, aliased by <c>ref</c>/<c>out</c>/<c>in</c>, nor written after its declaration. An
+/// initializer wider than <c>stylesharp.SST2266.max_initializer_length</c> is left alone as well.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
@@ -26,7 +29,43 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.LocalDeclarationStatement);
+
+        context.RegisterCompilationStartAction(static start =>
+        {
+            var optionsByTree = new ConcurrentDictionary<SyntaxTree, InlineSingleUseLocalOptions>();
+            start.RegisterSyntaxNodeAction(
+                nodeContext => Analyze(nodeContext, optionsByTree),
+                SyntaxKind.LocalDeclarationStatement);
+        });
+    }
+
+    /// <summary>Returns whether inlining an initializer keeps the meaning its declaration gave it.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="value">The initializer expression.</param>
+    /// <param name="local">The declared local.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns><see langword="true"/> when the initializer means the same thing at the use site.</returns>
+    /// <remarks>
+    /// Purity is not enough: a declaration can convert as well as name. Widening a reference to a base type or
+    /// an interface, boxing a value, promoting a number, or picking a delegate for a method group are all
+    /// conversions the declaration applies and the use site would not, so inlining silently rebinds the use —
+    /// against a different member set, a different overload, or nothing that compiles at all.
+    /// </remarks>
+    internal static bool PreservesDeclaredMeaning(
+        SemanticModel model,
+        ExpressionSyntax value,
+        ILocalSymbol local,
+        CancellationToken cancellationToken)
+    {
+        // A bare 'default' takes its type from where it sits, and reports the declaration's as its own.
+        if (value.IsKind(SyntaxKind.DefaultLiteralExpression))
+        {
+            return false;
+        }
+
+        // A method group and a null literal have no type at all; the declaration is what supplies one.
+        var natural = model.GetTypeInfo(value, cancellationToken).Type;
+        return natural is not null && SymbolEqualityComparer.Default.Equals(natural, local.Type);
     }
 
     /// <summary>Returns whether an expression is side-effect-free and safe to duplicate at the use site.</summary>
@@ -212,10 +251,11 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         or PostfixUnaryExpressionSyntax
         or ArrayCreationExpressionSyntax;
 
-    /// <summary>Returns the enclosing block and declarator when a local's declaration can start a single-use inline.</summary>
+    /// <summary>Returns the enclosing block, declarator and initializer when a declaration can start an inline.</summary>
     /// <param name="local">The local declaration statement.</param>
-    /// <returns>The block and declarator, or <see langword="null"/> when the shape does not match.</returns>
-    private static (BlockSyntax Block, VariableDeclaratorSyntax Declarator)? GetInlinableShape(LocalDeclarationStatementSyntax local)
+    /// <returns>The block, declarator and initializer, or <see langword="null"/> when the shape does not match.</returns>
+    private static (BlockSyntax Block, VariableDeclaratorSyntax Declarator, ExpressionSyntax Value)? GetInlinableShape(
+        LocalDeclarationStatementSyntax local)
     {
         if (local.Modifiers.Any(SyntaxKind.ConstKeyword)
             || local.Parent is not BlockSyntax block
@@ -227,7 +267,26 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        return (block, declaration.Variables[0]);
+        return (block, declaration.Variables[0], equalsValue.Value);
+    }
+
+    /// <summary>Reads the settings for the declaration's tree, parsing each tree's options at most once.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="optionsByTree">The per-tree settings cache.</param>
+    /// <returns>The resolved settings.</returns>
+    private static InlineSingleUseLocalOptions GetOptions(
+        SyntaxNodeAnalysisContext context,
+        ConcurrentDictionary<SyntaxTree, InlineSingleUseLocalOptions> optionsByTree)
+    {
+        var tree = context.Node.SyntaxTree;
+        if (optionsByTree.TryGetValue(tree, out var options))
+        {
+            return options;
+        }
+
+        options = InlineSingleUseLocalOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
+        optionsByTree.TryAdd(tree, options);
+        return options;
     }
 
     /// <summary>Returns whether a local's one reference is a plain, uncaptured read this fix can safely inline into.</summary>
@@ -245,7 +304,10 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a single-use local whose initializer can be safely inlined into its one read.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context)
+    /// <param name="optionsByTree">The per-tree settings cache.</param>
+    private static void Analyze(
+        SyntaxNodeAnalysisContext context,
+        ConcurrentDictionary<SyntaxTree, InlineSingleUseLocalOptions> optionsByTree)
     {
         var local = (LocalDeclarationStatementSyntax)context.Node;
         if (GetInlinableShape(local) is not { } shape)
@@ -253,15 +315,22 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var (block, declarator) = shape;
+        var (block, declarator, value) = shape;
         var declarationIndex = block.Statements.IndexOf(local);
         if (declarationIndex < 0 || declarationIndex + 1 >= block.Statements.Count)
         {
             return;
         }
 
+        // Width is the cheapest of the remaining tests, and the only one that needs neither the model nor a scan.
+        if (value.Span.Length > GetOptions(context, optionsByTree).MaxInitializerLength)
+        {
+            return;
+        }
+
         var useStatement = block.Statements[declarationIndex + 1];
         if (context.SemanticModel.GetDeclaredSymbol(declarator, context.CancellationToken) is not ILocalSymbol symbol
+            || !PreservesDeclaredMeaning(context.SemanticModel, value, symbol, context.CancellationToken)
             || !IsSafeSingleUse(context.SemanticModel, block, useStatement, symbol))
         {
             return;

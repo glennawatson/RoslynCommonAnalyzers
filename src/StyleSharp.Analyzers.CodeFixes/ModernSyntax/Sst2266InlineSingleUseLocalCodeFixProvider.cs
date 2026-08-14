@@ -81,6 +81,7 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
             || declaration.Variables[0].Initializer is not { } equalsValue
             || !Sst2266InlineSingleUseLocalAnalyzer.IsPureInlinable(equalsValue.Value)
             || model.GetDeclaredSymbol(declaration.Variables[0]) is not ILocalSymbol symbol
+            || !Sst2266InlineSingleUseLocalAnalyzer.PreservesDeclaredMeaning(model, equalsValue.Value, symbol, CancellationToken.None)
             || Sst2266InlineSingleUseLocalAnalyzer.FindSingleReference(model, block, symbol) is not { } reference)
         {
             return null;

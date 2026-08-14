@@ -102,6 +102,7 @@ Some rules expose options. Current options:
 | `stylesharp.allowed_enum_storage` | [SST2313](rules/SST2313.md) | comma-separated type names, as C# keywords (`byte`) or CLR names (`Byte`) | `int` |
 | `stylesharp.SST1431.additional_per_owner_types` | [SST1431](rules/SST1431.md) | comma-separated fully-qualified type names | built-in list only |
 | `stylesharp.SST2326.allowed_types` | [SST2326](rules/SST2326.md) | comma-separated fully-qualified metadata names (e.g. ``System.Collections.Generic.List`1``) | none (same-assembly types always exempt) |
+| `stylesharp.unread_parameter_include_public_api` | [SST2337](rules/SST2337.md) | `true`, `false` | `false` |
 | `stylesharp.SST2601.fieldname` | [SST2601](rules/SST2601.md) | comma-separated field names | `_logger, _log` |
 | `stylesharp.document_exposed_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
 | `stylesharp.document_internal_elements` | SST1600 / [SST1601](rules/SST1601.md) / [SST1602](rules/SST1602.md) / SST1654 | `true`, `false` | `true` |
@@ -123,6 +124,7 @@ Some rules expose options. Current options:
 | `stylesharp.array_creation_type_style` | [SST2270](rules/SST2270.md) | `explicit`, `implicit`, `implicit_when_obvious` | `implicit_when_obvious` |
 | `stylesharp.use_var` | [SST2271](rules/SST2271.md) | `always`, `never`, `when_obvious` | `when_obvious` |
 | `stylesharp.enum_flag_value_style` | [SST2272](rules/SST2272.md) | `shift`, `decimal` | `shift` |
+| `stylesharp.max_initializer_length` | [SST2266](rules/SST2266.md) | positive integer (widest initializer, in characters, still worth inlining) | `40` |
 | `stylesharp.min_wrapped_statements` | [SST2273](rules/SST2273.md) | positive integer (minimum wrapped statements before a trailing-guard `if` is reported) | `2` |
 | `securitysharp.SES1003.iterations` | [SES1003](rules/SES1003.md) | positive integer (minimum accepted PBKDF2 iteration count) | `100000` |
 | `securitysharp.SES1403.maxdepth` | [SES1403](rules/SES1403.md) | positive integer (highest accepted `System.Text.Json` `MaxDepth`) | `64` |

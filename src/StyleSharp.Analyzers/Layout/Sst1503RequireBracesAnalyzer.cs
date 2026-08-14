@@ -29,11 +29,26 @@ public sealed class Sst1503RequireBracesAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        if (!LayoutHelpers.TryGetEmbeddedStatement(context.Node, out var child) || child is BlockSyntax or IfStatementSyntax)
+        if (!LayoutHelpers.TryGetEmbeddedStatement(context.Node, out var child)
+            || child is BlockSyntax or IfStatementSyntax
+            || IsStackedUsing(context.Node, child))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(LayoutRules.BracesRequired, context.Node.GetFirstToken().GetLocation()));
     }
+
+    /// <summary>Returns whether a using statement carries another using statement as its body.</summary>
+    /// <param name="node">The control-flow node being inspected.</param>
+    /// <param name="child">Its embedded statement.</param>
+    /// <returns><see langword="true"/> when the pair is a stacked using.</returns>
+    /// <remarks>
+    /// Stacking is how the language opens several resources over a single body, and the braces belong on the
+    /// innermost statement — which this rule still reports if it goes without them. Flagging the outer one asks
+    /// for exactly the nesting the shape exists to avoid, and there is no flatter rewrite to offer: a using
+    /// declaration only replaces the resource form, and it changes the scope the block was pinning.
+    /// </remarks>
+    private static bool IsStackedUsing(SyntaxNode node, StatementSyntax child)
+        => node is UsingStatementSyntax && child is UsingStatementSyntax;
 }

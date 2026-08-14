@@ -78,6 +78,63 @@ public class LayoutRequireBracesUnitTest
         await VerifyRequireBraces.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a using statement stacked directly over another using statement is not flagged.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Stacking is how the language opens several resources over one body, and the braces belong on the
+    /// innermost statement. Reporting the outer one asks for exactly the nesting the shape exists to avoid.
+    /// </remarks>
+    [Test]
+    public async Task StackedUsingIsCleanAsync()
+        => await VerifyRequireBraces.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private void M(System.IDisposable first, System.IDisposable second)
+                {
+                    using (first)
+                    using (second)
+                    {
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies the innermost statement of a stacked using still has to be braced.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task StackedUsingWithUnbracedBodyIsReportedAsync()
+        => await VerifyRequireBraces.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private void M(System.IDisposable first, System.IDisposable second)
+                {
+                    using (first)
+                    {|SST1503:using|} (second) System.Console.WriteLine();
+                }
+            }
+            """);
+
+    /// <summary>Verifies a non-using statement carrying a using child is still flagged.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>The exemption is for the stacked-using idiom alone, not for any statement whose child is a using.</remarks>
+    [Test]
+    public async Task UsingChildOfAnotherStatementIsReportedAsync()
+        => await VerifyRequireBraces.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                private void M(bool flag, System.IDisposable first)
+                {
+                    {|SST1503:if|} (flag)
+                        using (first)
+                        {
+                        }
+                }
+            }
+            """);
+
     /// <summary>Verifies a braced child is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

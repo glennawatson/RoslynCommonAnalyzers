@@ -4,12 +4,12 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>The resolved SST2337 settings for one syntax tree.</summary>
+/// <summary>The resolved SST1461 settings for one syntax tree.</summary>
 /// <param name="IncludePublicApi">Whether externally visible members are reported.</param>
 internal readonly record struct UnreadParameterOptions(bool IncludePublicApi)
 {
     /// <summary>The rule-specific public-API key.</summary>
-    private const string IncludePublicApiRuleKey = "stylesharp.SST2337.unread_parameter_include_public_api";
+    private const string IncludePublicApiRuleKey = "stylesharp.SST1461.unread_parameter_include_public_api";
 
     /// <summary>The project-wide public-API key.</summary>
     private const string IncludePublicApiGeneralKey = "stylesharp.unread_parameter_include_public_api";

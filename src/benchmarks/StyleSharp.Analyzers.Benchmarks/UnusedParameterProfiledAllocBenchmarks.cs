@@ -7,7 +7,7 @@ using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
-/// <summary>CPU-profile benchmarks for unused private-parameter analysis.</summary>
+/// <summary>Allocation-profile benchmarks for unread-parameter analysis.</summary>
 [ShortRunJob]
-[EventPipeProfiler(EventPipeProfile.CpuSampling)]
-public class UnusedPrivateParameterProfiledCpuBenchmarks : UnusedPrivateParameterBenchmarks;
+[EventPipeProfiler(EventPipeProfile.GcVerbose)]
+public class UnusedParameterProfiledAllocBenchmarks : UnusedParameterBenchmarks;

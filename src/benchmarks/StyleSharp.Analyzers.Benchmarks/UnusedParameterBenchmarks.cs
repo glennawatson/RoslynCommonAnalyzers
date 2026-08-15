@@ -6,10 +6,10 @@ using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
-/// <summary>Memory benchmarks for unused private-parameter analysis.</summary>
+/// <summary>Memory benchmarks for unread-parameter analysis.</summary>
 [MemoryDiagnoser]
 [ShortRunJob]
-public class UnusedPrivateParameterBenchmarks
+public class UnusedParameterBenchmarks
 {
     /// <summary>The prepared benchmark state.</summary>
     private SingleAnalyzerBenchmarkState _state = null!;
@@ -22,20 +22,20 @@ public class UnusedPrivateParameterBenchmarks
     [GlobalSetup]
     public void Setup() => _state = Cases.Create(Members);
 
-    /// <summary>Benchmarks private parameters that are read.</summary>
+    /// <summary>Benchmarks parameters that are read.</summary>
     /// <returns>The diagnostic count.</returns>
     [Benchmark]
-    public Task<int> UnusedPrivateParameter_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
+    public Task<int> UnusedParameter_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
-    /// <summary>Benchmarks private parameters that are never read.</summary>
+    /// <summary>Benchmarks parameters that are never read.</summary>
     /// <returns>The diagnostic count.</returns>
     [Benchmark]
-    public Task<int> UnusedPrivateParameter_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
+    public Task<int> UnusedParameter_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 
-    /// <summary>Builds benchmark source for unused private-parameter analysis.</summary>
+    /// <summary>Builds benchmark source for unread-parameter analysis.</summary>
     private static class Source
     {
-        /// <summary>Builds clean or reportable private-parameter source.</summary>
+        /// <summary>Builds clean or reportable parameter source.</summary>
         /// <param name="members">The number of synthetic methods to emit.</param>
         /// <param name="violating">Whether to emit unread parameters.</param>
         /// <returns>The generated source text.</returns>
@@ -59,7 +59,7 @@ public class UnusedPrivateParameterBenchmarks
                 : $"    private int M{index}(int value{index}) => value{index};";
     }
 
-    /// <summary>Builds benchmark state for unused private-parameter analysis.</summary>
+    /// <summary>Builds benchmark state for unread-parameter analysis.</summary>
     private static class Cases
     {
         /// <summary>Creates the prepared benchmark state for the requested method count.</summary>

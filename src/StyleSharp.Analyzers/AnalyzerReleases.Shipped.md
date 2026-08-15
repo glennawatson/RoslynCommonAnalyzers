@@ -744,11 +744,3 @@ SST2288 | ModernSyntax | Warning | Sst2288UseLogicalOperatorAnalyzer
 SST2336 | Design | Warning | Sst2336MissingAttributeUsageAnalyzer
 SST2461 | Correctness | Warning | Sst2461UndefinedFlagInCompositeValueAnalyzer
 SST2466 | Correctness | Warning | Sst2466EmptyFinallyClauseAnalyzer
-
-## Release 3.44.0
-
-### New Rules
-
-Rule ID | Category | Severity | Notes
---------|----------|----------|-------
-SST2337 | Design | Warning | Sst2337UnreadParameterAnalyzer

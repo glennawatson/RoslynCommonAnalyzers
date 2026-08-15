@@ -27,6 +27,7 @@
 # stylesharp.max_property_cognitive_complexity = 3          # SST1443
 # stylesharp.max_inheritance_depth = 5                     # SST1446
 # stylesharp.count_external_types = false                  # SST1446 (set true to count ancestors from other assemblies)
+# stylesharp.unread_parameter_include_public_api = false   # SST1461 (set true to also report externally visible members)
 # stylesharp.magic_number_allowed_values = -1, 0, 1        # SST1471 (comma-separated; the values that need no name)
 # stylesharp.allowed_enum_storage = int                     # SST2313 (comma-separated; add uint, long, ulong to allow wider enum storage)
 # stylesharp.allow_zero_comparison = true                  # SST1473 (set false to also report '== 0.0' on a float/double)
@@ -310,7 +311,7 @@ dotnet_diagnostic.SST1457.severity = warning # Global suppressions should point 
 dotnet_diagnostic.SST1458.severity = warning # Global suppression targets should use declaration ids directly
 dotnet_diagnostic.SST1459.severity = warning # Remove grouping parentheses that do not group anything
 dotnet_diagnostic.SST1460.severity = warning # Mark non-mutating struct members readonly
-dotnet_diagnostic.SST1461.severity = warning # Remove private parameters that are never read
+dotnet_diagnostic.SST1461.severity = warning # Remove parameters that are never read
 dotnet_diagnostic.SST1462.severity = warning # Remove suppressions for diagnostics that are already disabled
 dotnet_diagnostic.SST1463.severity = warning # Use nameof for symbol-name strings
 dotnet_diagnostic.SST1464.severity = warning # Unwrap else after a branch that does not fall through
@@ -624,7 +625,6 @@ dotnet_diagnostic.SST2332.severity = warning # Make a construction-only property
 # dotnet_diagnostic.SST2333.severity = warning # Provide the non-generic form of a generic comparison contract (opt-in)
 # dotnet_diagnostic.SST2334.severity = warning # Give a public type a debugger-display attribute (opt-in)
 dotnet_diagnostic.SST2336.severity = warning # An attribute type should declare where it can be applied
-dotnet_diagnostic.SST2337.severity = warning # Remove a parameter the body never reads
 # dotnet_diagnostic.SST2335.severity = warning # Declare the same 'static' modifier on every part of a partial type (opt-in)
 
 # Correctness

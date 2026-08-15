@@ -422,12 +422,12 @@ internal static class MaintainabilityRules
         "Mark '{0}' as readonly so it can be called without a defensive copy",
         "A struct member that only reads state is marked readonly so calls through readonly receivers avoid defensive-copy overhead and communicate the member's non-mutating contract.");
 
-    /// <summary>SST1461 - a private parameter is never read by its declaration body.</summary>
+    /// <summary>SST1461 - a parameter is never read by the declaration body that declares it.</summary>
     public static readonly DiagnosticDescriptor RemoveUnusedPrivateParameter = Create(
         "SST1461",
-        "Remove private parameters that are never read",
-        "Remove parameter '{0}' because this private declaration never reads it",
-        "A private or local-function parameter that is not read by its body adds dead API surface inside the type and usually marks an unfinished refactor.");
+        "Remove parameters that are never read",
+        "Remove parameter '{0}' because this declaration never reads it",
+        RemoveUnusedParameterDescription);
 
     /// <summary>SST1462 - a suppression targets a diagnostic that is disabled in the active analyzer config scope.</summary>
     public static readonly DiagnosticDescriptor RemoveDisabledDiagnosticSuppression = Create(
@@ -899,6 +899,13 @@ internal static class MaintainabilityRules
         "A local nobody reads is either dead code or a bug — the value it holds was meant to be used. Removing it is free; keeping it costs "
         + "every future reader the time to work out that it does not matter. A local assigned from a call with side effects is still "
         + "reported, but the fix keeps the call and drops only the variable, so the effect survives.";
+
+    /// <summary>The RemoveUnusedPrivateParameter rule description.</summary>
+    private const string RemoveUnusedParameterDescription =
+        "A parameter that is not read by its body adds dead API surface and usually marks an unfinished refactor: every caller computes and "
+        + "passes a value that is discarded. Signatures fixed from outside — an override, an interface, a delegate or callback shape, an "
+        + "attribute constructor — are left alone, as are externally visible members unless "
+        + "'stylesharp.SST1461.unread_parameter_include_public_api' asks for them.";
 
     /// <summary>The PrivateMemberUsedOnlyByNestedType rule description.</summary>
     private const string PrivateMemberUsedOnlyByNestedTypeDescription =

@@ -387,7 +387,7 @@ PSH1102, and PSH1100.
 | [SST1458](rules/SST1458.md) | A global suppression target uses a legacy tilde-prefixed target string. |
 | [SST1459](rules/SST1459.md) | Parentheses wrap a standalone expression in a context where grouping has no effect. |
 | [SST1460](rules/SST1460.md) | A struct instance member can be marked `readonly` because it does not mutate state. |
-| [SST1461](rules/SST1461.md) | A private or local-function parameter is never read. |
+| [SST1461](rules/SST1461.md) | A parameter's name appears nowhere in the body that declares it, so every caller passes a value that is discarded. Signatures fixed by an override, an interface, a delegate or a callback shape are silent, as are externally visible members by default. Configurable. |
 | [SST1462](rules/SST1462.md) | A suppression targets a diagnostic that is disabled in the active analyzer config scope. |
 | [SST1463](rules/SST1463.md) | A symbol-name string literal can use `nameof`. |
 | [SST1464](rules/SST1464.md) | Unwrap an `else` that follows a branch which does not fall through. |
@@ -597,7 +597,6 @@ conventions, and what a member exposes.
 | [SST2334](rules/SST2334.md) | A publicly visible type that declares instance state, or overrides `ToString()`, has no `[DebuggerDisplay]`. A type with nothing to show is left alone. Opt-in. |
 | [SST2335](rules/SST2335.md) | Parts of a partial type disagree on the `static` modifier. Opt-in. |
 | [SST2336](rules/SST2336.md) | An attribute type declares no `[AttributeUsage]`, so it silently accepts every target. |
-| [SST2337](rules/SST2337.md) | A parameter's name appears nowhere in the body that declares it, so every caller passes a value that is discarded. Signatures fixed by an override, an interface, a delegate or a callback shape are silent, as are externally visible members by default. |
 
 ## Correctness
 

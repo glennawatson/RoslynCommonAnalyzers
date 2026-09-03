@@ -169,4 +169,28 @@
                         or '%(Filename)' == 'System.Text.Json.SourceGeneration'" />
     </ItemGroup>
   </Target>
+
+  <!--
+    The RS* rules check code that *declares* analyzers: that every analyzer carries
+    DiagnosticAnalyzerAttribute, that every descriptor is release-tracked, and so on. They ride in on
+    the compiler API packages, so every project that consumes Roslyn inherits them — including the
+    tests and benchmarks, which only ever run analyzers rather than ship them. There, a benchmark
+    fixture that implements DiagnosticAnalyzer is held to rules written for a shipped package.
+
+    Excluding the package assets does not remove them. Central transitive pinning re-promotes the
+    package, and NuGet keeps a package's assets unless every edge into it excludes them, so the
+    assemblies still reach csc. Dropping them from the compiler invocation does work, and matches how
+    the unused SDK generators above are handled.
+
+    Projects that do ship analyzers set EnforceExtendedAnalyzerRules and keep the whole ruleset.
+  -->
+  <Target Name="RemoveAnalyzerAuthoringRules"
+          BeforeTargets="CoreCompile"
+          Condition="'$(EnforceExtendedAnalyzerRules)' != 'true'">
+    <ItemGroup>
+      <Analyzer Remove="@(Analyzer)"
+                Condition="'%(Filename)' == 'Microsoft.CodeAnalysis.Analyzers'
+                        or '%(Filename)' == 'Microsoft.CodeAnalysis.CSharp.Analyzers'" />
+    </ItemGroup>
+  </Target>
 </Project>

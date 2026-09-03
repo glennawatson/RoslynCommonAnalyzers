@@ -31,16 +31,6 @@ internal static class AnalyzerBenchmarkRunner
         return GetDiagnosticCountAsync(scenario.Compilation.WithAnalyzers(analyzers, options));
     }
 
-    /// <summary>Binds the scenario's compilation with no analyzer attached.</summary>
-    /// <param name="scenario">The benchmark scenario.</param>
-    /// <returns>The number of compiler diagnostics produced.</returns>
-    /// <remarks>
-    /// The same binding an analyzer run forces, measured on its own. A benchmark iteration has no
-    /// token to flow, so the opt-out is written explicitly rather than left implicit.
-    /// </remarks>
-    public static Task<int> GetCompilerDiagnosticCountAsync(in AnalyzerBenchmarkScenario scenario)
-        => Task.FromResult(scenario.Compilation.GetDiagnostics(CancellationToken.None).Length);
-
     /// <summary>Executes one prepared analyzer driver and returns the diagnostic count.</summary>
     /// <param name="withAnalyzers">The analyzer driver to execute.</param>
     /// <returns>The number of produced diagnostics.</returns>

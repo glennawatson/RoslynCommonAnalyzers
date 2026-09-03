@@ -78,13 +78,16 @@ public sealed class Psh1106UseIndexerForElementAccessAnalyzer : DiagnosticAnalyz
             return;
         }
 
-        if (!IsEnumerableExtension(context.SemanticModel, invocation, enumerableType, parameterCount, context.CancellationToken))
+        // The receiver's type comes first on purpose. Typing an expression is far less work than resolving
+        // an extension-method call, which searches every namespace in scope for candidate containers and
+        // runs type inference; a receiver that cannot be indexed rules the call out before any of that.
+        if (context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type is not { } receiverType
+            || !CollectionReceiverHelper.IsListLike(receiverType))
         {
             return;
         }
 
-        if (context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type is not { } receiverType
-            || !CollectionReceiverHelper.IsListLike(receiverType))
+        if (!IsEnumerableExtension(context.SemanticModel, invocation, enumerableType, parameterCount, context.CancellationToken))
         {
             return;
         }

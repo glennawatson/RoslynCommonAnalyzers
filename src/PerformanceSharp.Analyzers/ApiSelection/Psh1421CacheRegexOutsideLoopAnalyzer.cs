@@ -138,7 +138,6 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
             || context.SemanticModel.GetConstantValue(pattern, context.CancellationToken) is { HasValue: true, Value: string };
 
     /// <summary>Returns whether the pattern is a different string on each pass of the loop.</summary>
-    /// <param name="context">The syntax node context.</param>
     /// <param name="pattern">The pattern argument.</param>
     /// <param name="loop">The enclosing loop.</param>
     /// <returns><see langword="true"/> when the pattern cannot be hoisted out of the loop.</returns>
@@ -146,18 +145,83 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
     /// Hoisting only pays when the same pattern is compiled every pass. A pattern read from the loop's own
     /// iteration variable, or from anything the loop writes, is a new expression each time — there is one
     /// instance per pattern to build, not one to lift out, and the suggestion has no valid rewrite.
+    /// <para>
+    /// The loop is read once, into the set of names it refreshes, and the pattern's identifiers are then a
+    /// lookup each. Asking the question per identifier meant re-reading the whole loop for every name the
+    /// pattern mentions, so a pattern built from three of them read the loop three times. Matching on the
+    /// name alone also keeps the semantic model out of it: the answer only ever widens the set of patterns
+    /// left alone, and this rule would rather stay quiet than suggest a hoist that does not hold.
+    /// </para>
     /// </remarks>
-    private static bool PatternVariesPerIteration(SyntaxNodeAnalysisContext context, ExpressionSyntax pattern, SyntaxNode loop)
+    private static bool PatternVariesPerIteration(ExpressionSyntax pattern, SyntaxNode loop)
     {
-        var state = new PatternScanState(context.SemanticModel, loop, context.CancellationToken);
-        if (pattern is IdentifierNameSyntax self && !VisitPatternIdentifier(self, ref state))
+        var refreshed = new HashSet<string>(StringComparer.Ordinal);
+        var loopState = new RefreshedNameScanState(refreshed);
+
+        // The descendant walk starts below its root, and a foreach declares its iteration variable on the
+        // loop node itself — the single most common way a pattern changes between passes.
+        AddRefreshedName(loop, refreshed);
+        DescendantTraversalHelper.VisitDescendants<SyntaxNode, RefreshedNameScanState>(loop, ref loopState, VisitLoopNode);
+
+        if (refreshed.Count == 0)
+        {
+            return false;
+        }
+
+        var patternState = new PatternScanState(refreshed);
+        if (pattern is IdentifierNameSyntax self && !VisitPatternIdentifier(self, ref patternState))
         {
             return true;
         }
 
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, PatternScanState>(pattern, ref state, VisitPatternIdentifier);
-        return state.Varies;
+        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, PatternScanState>(pattern, ref patternState, VisitPatternIdentifier);
+        return patternState.Varies;
     }
+
+    /// <summary>Records one name the loop declares or writes.</summary>
+    /// <param name="node">The visited node.</param>
+    /// <param name="state">The current scan state.</param>
+    /// <returns><see langword="true"/> to continue scanning.</returns>
+    private static bool VisitLoopNode(SyntaxNode node, ref RefreshedNameScanState state)
+    {
+        AddRefreshedName(node, state.Names);
+        return true;
+    }
+
+    /// <summary>Records the name a node declares or writes, when it does either.</summary>
+    /// <param name="node">The node to classify.</param>
+    /// <param name="names">The set to add to.</param>
+    private static void AddRefreshedName(SyntaxNode node, HashSet<string> names)
+    {
+        var name = node switch
+        {
+            VariableDeclaratorSyntax declarator => declarator.Identifier.ValueText,
+            ForEachStatementSyntax forEach => forEach.Identifier.ValueText,
+            SingleVariableDesignationSyntax designation => designation.Identifier.ValueText,
+            ParameterSyntax parameter => parameter.Identifier.ValueText,
+            IdentifierNameSyntax identifier when IsWriteTarget(identifier) => identifier.Identifier.ValueText,
+            _ => null,
+        };
+
+        if (name is null)
+        {
+            return;
+        }
+
+        names.Add(name);
+    }
+
+    /// <summary>Returns whether an identifier occurrence is the target of a write.</summary>
+    /// <param name="identifier">The identifier occurrence.</param>
+    /// <returns><see langword="true"/> for assignment targets, increments, decrements, and ref/out arguments.</returns>
+    private static bool IsWriteTarget(IdentifierNameSyntax identifier)
+        => identifier.Parent switch
+        {
+            AssignmentExpressionSyntax assignment => assignment.Left == identifier,
+            PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax => true,
+            ArgumentSyntax argument => !argument.RefOrOutKeyword.IsKind(SyntaxKind.None),
+            _ => false,
+        };
 
     /// <summary>Classifies one identifier read by the pattern expression.</summary>
     /// <param name="identifier">The visited identifier.</param>
@@ -165,7 +229,7 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once the pattern is known to vary.</returns>
     private static bool VisitPatternIdentifier(IdentifierNameSyntax identifier, ref PatternScanState state)
     {
-        if (!state.IsLoopScoped(identifier))
+        if (!state.Refreshed.Contains(identifier.Identifier.ValueText))
         {
             return true;
         }
@@ -195,7 +259,7 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
         }
 
         var loop = GetEnclosingLoop(invocation);
-        if (loop is null ? !IsConstantPattern(context, pattern) : PatternVariesPerIteration(context, pattern, loop))
+        if (loop is null ? !IsConstantPattern(context, pattern) : PatternVariesPerIteration(pattern, loop))
         {
             return;
         }
@@ -208,98 +272,15 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
             loop is not null ? ApiSelectionRules.RegexCalledPerIteration : ApiSelectionRules.RegexConstantPattern));
     }
 
-    /// <summary>Decides whether the identifiers a pattern reads are refreshed by the loop.</summary>
-    private record struct PatternScanState
+    /// <summary>Collects the names a loop declares or writes, in one pass over it.</summary>
+    /// <param name="Names">The names collected so far.</param>
+    private record struct RefreshedNameScanState(HashSet<string> Names);
+
+    /// <summary>Decides whether the identifiers a pattern reads are among the names the loop refreshes.</summary>
+    /// <param name="Refreshed">The names the loop declares or writes.</param>
+    private record struct PatternScanState(HashSet<string> Refreshed)
     {
-        /// <summary>The semantic model for the call being analyzed.</summary>
-        private readonly SemanticModel _model;
-
-        /// <summary>The enclosing loop.</summary>
-        private readonly SyntaxNode _loop;
-
-        /// <summary>A token that cancels the operation.</summary>
-        private readonly CancellationToken _cancellationToken;
-
-        /// <summary>Initializes a new instance of the <see cref="PatternScanState"/> struct.</summary>
-        /// <param name="model">The semantic model.</param>
-        /// <param name="loop">The enclosing loop.</param>
-        /// <param name="cancellationToken">A token that cancels the operation.</param>
-        public PatternScanState(SemanticModel model, SyntaxNode loop, CancellationToken cancellationToken)
-        {
-            _model = model;
-            _loop = loop;
-            _cancellationToken = cancellationToken;
-            Varies = false;
-        }
-
         /// <summary>Gets or sets a value indicating whether the pattern changes between iterations.</summary>
         public bool Varies { get; set; }
-
-        /// <summary>Returns whether an identifier resolves to something the loop declares or writes.</summary>
-        /// <param name="identifier">The identifier to classify.</param>
-        /// <returns><see langword="true"/> when its value is not fixed across the loop.</returns>
-        public readonly bool IsLoopScoped(IdentifierNameSyntax identifier)
-        {
-            if (_model.GetSymbolInfo(identifier, _cancellationToken).Symbol is not { } symbol)
-            {
-                return false;
-            }
-
-            var declarations = symbol.DeclaringSyntaxReferences;
-            for (var i = 0; i < declarations.Length; i++)
-            {
-                if (_loop.Span.Contains(declarations[i].Span))
-                {
-                    return true;
-                }
-            }
-
-            return LoopWrites(identifier.Identifier.ValueText);
-        }
-
-        /// <summary>Classifies one identifier occurrence inside the loop.</summary>
-        /// <param name="identifier">The visited identifier.</param>
-        /// <param name="state">The current scan state.</param>
-        /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once a write is seen.</returns>
-        private static bool VisitWriteCandidate(IdentifierNameSyntax identifier, ref WriteScanState state)
-        {
-            if (identifier.Identifier.ValueText != state.Name || !IsWriteTarget(identifier))
-            {
-                return true;
-            }
-
-            state.Found = true;
-            return false;
-        }
-
-        /// <summary>Returns whether an identifier occurrence is the target of a write.</summary>
-        /// <param name="identifier">The identifier occurrence.</param>
-        /// <returns><see langword="true"/> for assignment targets, increments, decrements, and ref/out arguments.</returns>
-        private static bool IsWriteTarget(IdentifierNameSyntax identifier)
-            => identifier.Parent switch
-            {
-                AssignmentExpressionSyntax assignment => assignment.Left == identifier,
-                PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax => true,
-                ArgumentSyntax argument => !argument.RefOrOutKeyword.IsKind(SyntaxKind.None),
-                _ => false,
-            };
-
-        /// <summary>Returns whether the loop assigns the named identifier anywhere inside itself.</summary>
-        /// <param name="name">The identifier name to look for.</param>
-        /// <returns><see langword="true"/> when a write is found.</returns>
-        private readonly bool LoopWrites(string name)
-        {
-            var state = new WriteScanState(name);
-            DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, WriteScanState>(_loop, ref state, VisitWriteCandidate);
-            return state.Found;
-        }
-
-        /// <summary>Tracks the search for a write to one named identifier.</summary>
-        /// <param name="Name">The identifier name to look for.</param>
-        private record struct WriteScanState(string Name)
-        {
-            /// <summary>Gets or sets a value indicating whether a write was found.</summary>
-            public bool Found { get; set; }
-        }
     }
 }

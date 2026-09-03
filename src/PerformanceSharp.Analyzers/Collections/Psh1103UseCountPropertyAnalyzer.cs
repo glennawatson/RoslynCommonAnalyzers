@@ -66,13 +66,16 @@ public sealed class Psh1103UseCountPropertyAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!IsSourceOnlyEnumerableExtension(context.SemanticModel, invocation, enumerableType, context.CancellationToken))
+        // The receiver's type comes first on purpose. Typing an expression is far less work than resolving
+        // an extension-method call, which searches every namespace in scope for candidate containers and
+        // runs type inference; a receiver with no constant-time count rules the call out before any of that.
+        if (context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type is not { } receiverType
+            || !CollectionReceiverHelper.TryGetCountSourceName(receiverType, out var propertyName))
         {
             return;
         }
 
-        if (context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type is not { } receiverType
-            || !CollectionReceiverHelper.TryGetCountSourceName(receiverType, out var propertyName))
+        if (!IsSourceOnlyEnumerableExtension(context.SemanticModel, invocation, enumerableType, context.CancellationToken))
         {
             return;
         }

@@ -31,4 +31,18 @@ internal static class SingleAnalyzerBenchmarkHelper
     /// <returns>The number of diagnostics produced.</returns>
     public static Task<int> RunViolatingAsync(SingleAnalyzerBenchmarkState state)
         => AnalyzerBenchmarkRunner.GetDiagnosticCountAsync(state.ViolatingScenario, state.Analyzers);
+
+    /// <summary>Binds the violating corpus with no analyzer at all, giving the floor to subtract.</summary>
+    /// <param name="state">The prepared benchmark state.</param>
+    /// <returns>The number of compiler diagnostics produced.</returns>
+    /// <remarks>
+    /// Traces of these benchmarks are dominated by the compiler, not the rule: running any analyzer makes
+    /// the compiler bind every method body, and that binding is most of what gets allocated. This measures
+    /// that binding on its own, so the rule's own cost is the violating result minus this one rather than a
+    /// number the compiler hides. The difference also carries the analyzer driver's own overhead, which is
+    /// charged to the rule here — it is small next to binding, and counting it against the rule errs
+    /// towards over-reporting cost rather than hiding it.
+    /// </remarks>
+    public static Task<int> RunCompilerBaselineAsync(SingleAnalyzerBenchmarkState state)
+        => AnalyzerBenchmarkRunner.GetCompilerDiagnosticCountAsync(state.ViolatingScenario);
 }

@@ -32,4 +32,13 @@ public class UsePeriodicTimerProfiledAllocBenchmarks
     /// <returns>The number of diagnostics produced.</returns>
     [Benchmark]
     public Task<int> UsePeriodicTimer_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
+
+    /// <summary>Benchmarks the same corpus with an analyzer that reports nothing.</summary>
+    /// <returns>The number of diagnostics produced, always zero.</returns>
+    /// <remarks>
+    /// The floor to subtract: what the compiler costs to bind this corpus, before the rule under
+    /// test does any work of its own.
+    /// </remarks>
+    [Benchmark(Baseline = true)]
+    public Task<int> UsePeriodicTimer_HarnessBaseline() => SingleAnalyzerBenchmarkHelper.RunCompilerBaselineAsync(_state);
 }

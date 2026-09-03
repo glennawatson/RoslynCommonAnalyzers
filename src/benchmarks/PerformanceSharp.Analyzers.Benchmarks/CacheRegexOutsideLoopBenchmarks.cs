@@ -3,14 +3,13 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
-/// <summary>Allocation-profile benchmarks for regex-in-loop analysis.</summary>
+/// <summary>Memory benchmarks for regex-in-loop analysis.</summary>
+[MemoryDiagnoser]
 [ShortRunJob]
-[EventPipeProfiler(EventPipeProfile.GcVerbose)]
-public class CacheRegexOutsideLoopProfiledAllocBenchmarks
+public class CacheRegexOutsideLoopBenchmarks
 {
     /// <summary>The prepared benchmark state.</summary>
     private SingleAnalyzerBenchmarkState _state = null!;
@@ -32,13 +31,4 @@ public class CacheRegexOutsideLoopProfiledAllocBenchmarks
     /// <returns>The number of diagnostics produced.</returns>
     [Benchmark]
     public Task<int> CacheRegexOutsideLoop_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
-
-    /// <summary>Benchmarks the same corpus with an analyzer that reports nothing.</summary>
-    /// <returns>The number of diagnostics produced, always zero.</returns>
-    /// <remarks>
-    /// The floor to subtract: what the compiler costs to bind this corpus, before the rule under
-    /// test does any work of its own.
-    /// </remarks>
-    [Benchmark(Baseline = true)]
-    public Task<int> CacheRegexOutsideLoop_HarnessBaseline() => SingleAnalyzerBenchmarkHelper.RunCompilerBaselineAsync(_state);
 }

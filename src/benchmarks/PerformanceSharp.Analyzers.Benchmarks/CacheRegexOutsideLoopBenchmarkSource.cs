@@ -7,12 +7,22 @@ namespace PerformanceSharp.Analyzers.Benchmarks;
 /// <summary>Builds synthetic source for the regex-in-loop analyzer benchmarks.</summary>
 internal static class CacheRegexOutsideLoopBenchmarkSource
 {
+    /// <summary>How often the clean corpus emits a near-miss type rather than unrelated code.</summary>
+    private const int NearMissInterval = 4;
+
     /// <summary>Builds a compilation unit that exercises the clean or the violating shape.</summary>
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
+    /// <remarks>
+    /// The clean corpus is mostly code the rule has nothing to say about, because that is what an analyzer
+    /// actually spends its time on: rejecting nodes. A corpus made only of near-misses measures the
+    /// reporting path and hides whether the cheap gates in front of the semantic model are doing their job.
+    /// One type in <see cref="NearMissInterval"/> is still a near-miss so the full gate stays covered.
+    /// </remarks>
     public static string Generate(int types, bool violating)
         => $$"""
+           using System.Collections.Generic;
            using System.Text.RegularExpressions;
 
            namespace Bench;
@@ -20,10 +30,45 @@ internal static class CacheRegexOutsideLoopBenchmarkSource
            {{BenchmarkSourceText.JoinBlocks(types, i => violating ? GenerateViolatingType(i) : GenerateCleanType(i))}}
            """;
 
-    /// <summary>Builds one type that matches through a cached instance.</summary>
+    /// <summary>Builds one type that never mentions a regular expression.</summary>
+    /// <param name="index">The synthetic type index.</param>
+    /// <returns>The generated type block.</returns>
+    /// <remarks>
+    /// The calls here take two or more arguments on purpose. That is the shape the rule's arity gate lets
+    /// through, so this is what reaches — and must be turned back by — the receiver prepass.
+    /// </remarks>
+    private static string GenerateUnrelatedType(int index)
+        => $$"""
+           public sealed class U{{index}}
+           {
+               public int Count(string[] values, Dictionary<string, int> lookup)
+               {
+                   var count = 0;
+                   foreach (var value in values)
+                   {
+                       if (lookup.TryGetValue(value, out var found))
+                       {
+                           count += found;
+                       }
+
+                       lookup[string.Concat(value, value)] = count;
+                   }
+
+                   return count;
+               }
+           }
+           """;
+
+    /// <summary>Builds one clean type: usually unrelated code, periodically a near-miss.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     private static string GenerateCleanType(int index)
+        => index % NearMissInterval == 0 ? GenerateCachedInstanceType(index) : GenerateUnrelatedType(index);
+
+    /// <summary>Builds one type that matches through a cached instance.</summary>
+    /// <param name="index">The synthetic type index.</param>
+    /// <returns>The generated type block.</returns>
+    private static string GenerateCachedInstanceType(int index)
         => $$"""
            public sealed class C{{index}}
            {

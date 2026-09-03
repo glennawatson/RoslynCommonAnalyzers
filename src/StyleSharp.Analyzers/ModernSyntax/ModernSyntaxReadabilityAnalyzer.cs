@@ -89,12 +89,44 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
         var pattern = (DeclarationPatternSyntax)context.Node;
         if (!IsLanguageVersionAtLeast(pattern, CSharp7)
             || IsVarPatternType(pattern.Type)
-            || !IsDiscardDesignation(pattern.Designation))
+            || !IsDiscardDesignation(pattern.Designation)
+            || TypeNameIsShadowed(context, pattern.Type))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.RemoveUnnecessaryDiscard, pattern.GetLocation()));
+    }
+
+    /// <summary>Returns whether something other than a type answers to the pattern's type name here.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="type">The pattern's type syntax.</param>
+    /// <returns><see langword="true"/> when dropping the designation would rebind the name.</returns>
+    /// <remarks>
+    /// A declaration pattern's name is always a type; a constant pattern's is looked up as a value first.
+    /// So <c>o is not A _</c> and <c>o is not A</c> are different tests wherever a member is also called
+    /// <c>A</c>: with a constant in scope the second compares against that constant, and with a
+    /// non-constant member it does not compile at all. Only a bare identifier can be captured this way —
+    /// a keyword, a qualified name, or a generic name cannot name a value — so the lookup runs for
+    /// nothing else, and only once the pattern already looks reportable.
+    /// </remarks>
+    private static bool TypeNameIsShadowed(SyntaxNodeAnalysisContext context, TypeSyntax type)
+    {
+        if (type is not IdentifierNameSyntax identifier)
+        {
+            return false;
+        }
+
+        var candidates = context.SemanticModel.LookupSymbols(identifier.SpanStart, name: identifier.Identifier.ValueText);
+        for (var i = 0; i < candidates.Length; i++)
+        {
+            if (candidates[i] is not ITypeSymbol)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reports tuple deconstruction and local-swap opportunities.</summary>

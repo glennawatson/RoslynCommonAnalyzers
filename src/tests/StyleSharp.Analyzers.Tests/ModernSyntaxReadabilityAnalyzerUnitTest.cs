@@ -98,6 +98,34 @@ public class ModernSyntaxReadabilityAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a discard is kept when a member shadows the pattern's type name (issue 58).</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DiscardIsKeptWhenAMemberShadowsTheTypeNameAsync()
+    {
+        const string Source = """
+                              public sealed class A
+                              {
+                              }
+
+                              public sealed class B
+                              {
+                              }
+
+                              public static class C
+                              {
+                                  public const A A = null;
+
+                                  public static B B { get; set; }
+
+                                  public static (bool, bool) M(object o) => (o is not A _, o is not B _);
+                              }
+                              """;
+        var test = CreateNet80Test(Source, Source);
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies tuple element locals can be declared directly with deconstruction.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]

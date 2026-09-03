@@ -197,6 +197,129 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies Regex.Escape inside a loop is left alone, because it compiles no pattern.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RegexEscapeInLoopIsCleanAsync()
+        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+            """
+            using System.Text.RegularExpressions;
+
+            internal class C
+            {
+                public void M(string[] values)
+                {
+                    foreach (var value in values)
+                    {
+                        _ = Regex.Escape(value);
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies Regex.Unescape inside a loop is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RegexUnescapeInLoopIsCleanAsync()
+        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+            """
+            using System.Text.RegularExpressions;
+
+            internal class C
+            {
+                public void M(string[] values)
+                {
+                    foreach (var value in values)
+                    {
+                        _ = Regex.Unescape(value);
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a pattern read from the loop's iteration variable is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task IterationVariablePatternIsCleanAsync()
+        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+            """
+            using System.Text.RegularExpressions;
+
+            internal class C
+            {
+                public void M(string input, string[] patterns)
+                {
+                    foreach (var pattern in patterns)
+                    {
+                        _ = Regex.IsMatch(input, pattern);
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a pattern built from the loop's iteration variable is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PatternBuiltFromIterationVariableIsCleanAsync()
+        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+            """
+            using System.Text.RegularExpressions;
+
+            internal class C
+            {
+                public void M(string input, string[] names)
+                {
+                    foreach (var name in names)
+                    {
+                        _ = Regex.IsMatch(input, "^" + name + "$");
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a pattern the loop reassigns is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PatternWrittenInsideLoopIsCleanAsync()
+        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+            """
+            using System.Text.RegularExpressions;
+
+            internal class C
+            {
+                public void M(string input, string[] names)
+                {
+                    var pattern = "^a$";
+                    foreach (var name in names)
+                    {
+                        pattern = name;
+                        _ = Regex.IsMatch(input, pattern);
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a pattern fixed before the loop is still reported, because it can be hoisted.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PatternFixedBeforeLoopIsReportedAsync()
+        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+            """
+            using System.Text.RegularExpressions;
+
+            internal class C
+            {
+                public void M(string[] values, string suffix)
+                {
+                    var pattern = "^" + suffix + "$";
+                    foreach (var value in values)
+                    {
+                        _ = {|PSH1421:Regex.IsMatch(value, pattern)|};
+                    }
+                }
+            }
+            """);
+
     /// <summary>Verifies an unrelated static call inside a loop is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

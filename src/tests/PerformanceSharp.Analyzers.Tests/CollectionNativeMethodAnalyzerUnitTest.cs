@@ -193,10 +193,10 @@ public class CollectionNativeMethodAnalyzerUnitTest
         await VerifyFixNet90Async(Source, FixedSource);
     }
 
-    /// <summary>Verifies a method-call array receiver is still reported (PSH1110) even though no fix is offered.</summary>
+    /// <summary>Verifies a method-call array receiver is not reported, because no fix can be offered for it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task MethodCallArrayReceiverReportedWithoutFixAsync()
+    public async Task MethodCallArrayReceiverIsCleanAsync()
     {
         const string Source = """
                               using System.Linq;
@@ -205,10 +205,71 @@ public class CollectionNativeMethodAnalyzerUnitTest
                               {
                                   public int[] Values() => new[] { 2, 3 };
 
-                                  public bool M() => Values().{|PSH1110:Any|}(x => x > 1);
+                                  public bool M() => Values().Any(x => x > 1);
                               }
                               """;
         await VerifyAnalyzerNet90Async(Source);
+    }
+
+    /// <summary>Verifies an awaited WhenAll array polled inline is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AwaitedArrayReceiverIsCleanAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public async Task<bool> M(List<int> list)
+                                      => (await Task.WhenAll(list.Select(async x => new { Value = x, Ok = await Probe(x) }))).Any(p => p.Ok);
+
+                                  private static Task<bool> Probe(int value) => Task.FromResult(value > 1);
+                              }
+                              """;
+        await VerifyAnalyzerNet90Async(Source);
+    }
+
+    /// <summary>Verifies an awaited WhenAll array held in a local is still reported, because the fix applies.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AwaitedArrayInLocalReplacedWithArrayExistsAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+
+                              public class C
+                              {
+                                  public async Task<bool> M(List<int> list)
+                                  {
+                                      var results = await Task.WhenAll(list.Select(async x => new { Value = x, Ok = await Probe(x) }));
+                                      return results.{|PSH1110:Any|}(p => p.Ok);
+                                  }
+
+                                  private static Task<bool> Probe(int value) => Task.FromResult(value > 1);
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+                                   using System.Threading.Tasks;
+
+                                   public class C
+                                   {
+                                       public async Task<bool> M(List<int> list)
+                                       {
+                                           var results = await Task.WhenAll(list.Select(async x => new { Value = x, Ok = await Probe(x) }));
+                                           return System.Array.Exists(results, p => p.Ok);
+                                       }
+
+                                       private static Task<bool> Probe(int value) => Task.FromResult(value > 1);
+                                   }
+                                   """;
+        await VerifyFixNet90Async(Source, FixedSource);
     }
 
     /// <summary>Verifies a plain IEnumerable receiver is not reported by either rule.</summary>

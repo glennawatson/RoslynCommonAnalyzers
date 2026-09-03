@@ -102,29 +102,21 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (receiverType is not IArrayTypeSymbol { Rank: 1 })
+        // A non-trivial receiver would have to move into argument position for the static
+        // System.Array rewrite, so no fix can be offered for it. Reporting anyway leaves a
+        // warning with nothing to act on — an awaited 'Task.WhenAll(...)' polled inline is the
+        // common shape — so the rule stays silent rather than asking for a hand rewrite.
+        if (receiverType is not IArrayTypeSymbol { Rank: 1 } || !IsSimpleReceiver(memberAccess.Expression))
         {
             return;
         }
 
         var arrayTarget = GetArrayTargetName(name.Identifier.ValueText);
-        if (IsSimpleReceiver(memberAccess.Expression))
-        {
-            context.ReportDiagnostic(DiagnosticHelper.Create(
-                CollectionRules.UseCollectionNativePredicate,
-                name.SyntaxTree,
-                name.Span,
-                GetTargetProperties(arrayTarget),
-                arrayTarget));
-            return;
-        }
-
-        // A non-trivial receiver would have to move into argument position for the
-        // static System.Array rewrite, so report without the code-fix properties.
         context.ReportDiagnostic(DiagnosticHelper.Create(
             CollectionRules.UseCollectionNativePredicate,
             name.SyntaxTree,
             name.Span,
+            GetTargetProperties(arrayTarget),
             arrayTarget));
     }
 

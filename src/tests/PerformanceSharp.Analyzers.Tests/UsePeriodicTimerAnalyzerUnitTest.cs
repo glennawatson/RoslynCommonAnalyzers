@@ -182,6 +182,116 @@ public class UsePeriodicTimerAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a deadline-bounded poll is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DeadlineBoundedPollIsCleanAsync()
+        => await VerifyNet90Async(
+            """
+            using System;
+            using System.Threading.Tasks;
+
+            public class C
+            {
+                public async Task<bool> WaitForAsync(Func<bool> ready, TimeSpan timeout)
+                {
+                    var deadline = DateTime.UtcNow + timeout;
+                    while (DateTime.UtcNow < deadline)
+                    {
+                        if (ready())
+                        {
+                            return true;
+                        }
+
+                        await Task.Delay(50);
+                    }
+
+                    return false;
+                }
+            }
+            """);
+
+    /// <summary>Verifies an elapsed-time bounded poll is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ElapsedBoundedPollIsCleanAsync()
+        => await VerifyNet90Async(
+            """
+            using System;
+            using System.Diagnostics;
+            using System.Threading.Tasks;
+
+            public class C
+            {
+                public async Task<bool> WaitForAsync(Func<bool> ready, TimeSpan timeout)
+                {
+                    var watch = Stopwatch.StartNew();
+                    while (watch.Elapsed < timeout && !ready())
+                    {
+                        await Task.Delay(50);
+                    }
+
+                    return ready();
+                }
+            }
+            """);
+
+    /// <summary>Verifies an attempt-bounded retry loop is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AttemptBoundedLoopIsCleanAsync()
+        => await VerifyNet90Async(
+            """
+            using System;
+            using System.Threading.Tasks;
+
+            public class C
+            {
+                public async Task<bool> TryAsync(Func<bool> ready, int maxAttempts)
+                {
+                    var attempt = 0;
+                    while (attempt < maxAttempts)
+                    {
+                        if (ready())
+                        {
+                            return true;
+                        }
+
+                        attempt++;
+                        await Task.Delay(100);
+                    }
+
+                    return false;
+                }
+            }
+            """);
+
+    /// <summary>Verifies an unbounded cancellation-driven loop is still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CancellationDrivenLoopIsStillReportedAsync()
+        => await VerifyNet90Async(
+            """
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            public class C
+            {
+                public async Task RunAsync(CancellationToken token)
+                {
+                    while (!token.IsCancellationRequested)
+                    {
+                        Work();
+                        {|PSH1304:await Task.Delay(1000)|};
+                    }
+                }
+
+                private static void Work()
+                {
+                }
+            }
+            """);
+
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

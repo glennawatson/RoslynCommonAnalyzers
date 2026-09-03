@@ -12,7 +12,9 @@ namespace PerformanceSharp.Analyzers;
 /// direct child of the loop body — and loops that adjust the delay between iterations (retry
 /// backoff) stay clean: any identifier used in the delay argument that is written inside the
 /// loop suppresses the report. <c>for</c>/<c>foreach</c> loops are skipped because a bounded
-/// iteration count usually means retry logic rather than periodic work.
+/// iteration count usually means retry logic rather than periodic work, and a <c>while</c>/<c>do</c>
+/// loop whose condition is a relational comparison is skipped on the same grounds — a deadline or
+/// attempt poll stops on a condition instead of running for the life of the process.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
@@ -59,6 +61,7 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
         if (awaitExpression.Expression is not InvocationExpressionSyntax invocation
             || !IsTaskDelayShape(invocation)
             || TryGetPacedLoopBody(awaitExpression) is not { } loopBody
+            || LoopIsBounded(loopBody)
             || DelayArgumentIsAdjustedInLoop(invocation, loopBody))
         {
             return;
@@ -120,6 +123,65 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
         return container is WhileStatementSyntax or DoStatementSyntax ? statement : null;
     }
 
+    /// <summary>Returns whether the paced loop runs to a bound rather than indefinitely.</summary>
+    /// <param name="loopBody">The paced loop's body statement.</param>
+    /// <returns><see langword="true"/> when a relational comparison decides whether the loop continues.</returns>
+    /// <remarks>
+    /// A deadline poll — <c>while (DateTime.UtcNow &lt; deadline)</c>, <c>while (sw.Elapsed &lt; timeout)</c>,
+    /// <c>while (attempt &lt; max)</c> — is short-lived work that stops on a condition, not evenly spaced
+    /// work that runs for the life of the process. <c>PeriodicTimer</c> replaces the loop condition with
+    /// its own tick, so a bounded loop has to keep the condition regardless and gains a timer and a
+    /// dispose for nothing. This is the same reasoning that already skips <c>for</c> loops, applied to the
+    /// bounded <c>while</c> and <c>do</c> forms.
+    /// </remarks>
+    private static bool LoopIsBounded(StatementSyntax loopBody)
+    {
+        var condition = loopBody.Parent switch
+        {
+            WhileStatementSyntax loop => loop.Condition,
+            DoStatementSyntax loop => loop.Condition,
+            _ => null
+        };
+
+        if (condition is null)
+        {
+            return false;
+        }
+
+        if (IsRelational(condition))
+        {
+            return true;
+        }
+
+        var state = default(RelationalScanState);
+        DescendantTraversalHelper.VisitDescendants<BinaryExpressionSyntax, RelationalScanState>(condition, ref state, VisitConditionOperand);
+        return state.Found;
+    }
+
+    /// <summary>Classifies one binary expression inside a loop condition.</summary>
+    /// <param name="binary">The visited binary expression.</param>
+    /// <param name="state">The current scan state.</param>
+    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once a bound is seen.</returns>
+    private static bool VisitConditionOperand(BinaryExpressionSyntax binary, ref RelationalScanState state)
+    {
+        if (!IsRelational(binary))
+        {
+            return true;
+        }
+
+        state.Found = true;
+        return false;
+    }
+
+    /// <summary>Returns whether an expression compares two operands for order.</summary>
+    /// <param name="expression">The expression to classify.</param>
+    /// <returns><see langword="true"/> for <c>&lt;</c>, <c>&lt;=</c>, <c>&gt;</c>, and <c>&gt;=</c>.</returns>
+    private static bool IsRelational(SyntaxNode expression)
+        => expression.IsKind(SyntaxKind.LessThanExpression)
+            || expression.IsKind(SyntaxKind.LessThanOrEqualExpression)
+            || expression.IsKind(SyntaxKind.GreaterThanExpression)
+            || expression.IsKind(SyntaxKind.GreaterThanOrEqualExpression);
+
     /// <summary>
     /// Returns whether any identifier used inside the delay's arguments is assigned or
     /// incremented anywhere in the loop body — the retry-backoff shape the rule must not flag.
@@ -131,6 +193,13 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
     {
         var state = new AdjustmentScanState(invocation.ArgumentList, loopBody);
         return state.LoopWritesDelayIdentifier();
+    }
+
+    /// <summary>Tracks whether a loop condition compares two operands for order.</summary>
+    private record struct RelationalScanState
+    {
+        /// <summary>Gets or sets a value indicating whether a relational comparison was found.</summary>
+        public bool Found { get; set; }
     }
 
     /// <summary>Scans the loop body for writes to identifiers the delay argument reads.</summary>

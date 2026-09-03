@@ -32,8 +32,11 @@ public sealed class Psh1103UseCountPropertyAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableDictionary<string, string?> LengthProperties =
         ImmutableDictionary<string, string?>.Empty.Add(PropertyNameKey, CollectionReceiverHelper.LengthPropertyName);
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseCountProperty);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CollectionRules.UseCountProperty);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

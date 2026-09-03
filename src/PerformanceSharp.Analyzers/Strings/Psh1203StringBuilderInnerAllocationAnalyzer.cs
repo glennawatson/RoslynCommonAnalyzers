@@ -34,6 +34,9 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
     /// <summary>The argument count of the <c>Substring(startIndex, length)</c> shape.</summary>
     private const int SubstringStartAndLengthArgumentCount = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.StringBuilderInnerAllocation);
+
     /// <summary>The syntactic shape of the call nested inside the Append argument.</summary>
     private enum InnerCallShape
     {
@@ -51,7 +54,7 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.StringBuilderInnerAllocation);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

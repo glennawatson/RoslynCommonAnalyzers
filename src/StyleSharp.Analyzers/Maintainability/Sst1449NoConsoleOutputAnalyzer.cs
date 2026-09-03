@@ -21,8 +21,11 @@ public sealed class Sst1449NoConsoleOutputAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the console type.</summary>
     private const string ConsoleMetadataName = "System.Console";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.NoConsoleOutput);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.NoConsoleOutput);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

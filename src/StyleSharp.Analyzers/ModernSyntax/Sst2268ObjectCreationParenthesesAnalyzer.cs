@@ -24,8 +24,11 @@ public sealed class Sst2268ObjectCreationParenthesesAnalyzer : DiagnosticAnalyze
     /// <summary>The reported target when the codebase includes the empty parentheses.</summary>
     internal const string IncludeTarget = "include";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.NormalizeObjectCreationParentheses);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernSyntaxRules.NormalizeObjectCreationParentheses);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -40,8 +40,11 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
     /// <summary>The minimum argument count for a <c>(role, content, ...)</c> system-message shape.</summary>
     private const int RoleAndContentArgumentCount = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.NonConstantSystemPrompt);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.NonConstantSystemPrompt);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -37,8 +37,11 @@ public sealed class Sst2303MisusedFlagsAttributeAnalyzer : DiagnosticAnalyzer
     /// <summary>The unqualified name of the attribute that promises the members combine.</summary>
     private const string FlagsAttributeName = "FlagsAttribute";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.MisusedFlagsAttribute);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(DesignRules.MisusedFlagsAttribute);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

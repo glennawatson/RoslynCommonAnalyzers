@@ -60,13 +60,16 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
     /// <summary>The fewest tail values a transposition needs.</summary>
     private const int MinimumTransposableValues = 2;
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         CorrectnessRules.ExceptionDiscardedInCatch,
         CorrectnessRules.ExceptionAsTemplateArgument,
         CorrectnessRules.TransposedTemplateArguments,
         CorrectnessRules.MalformedPlaceholder,
         CorrectnessRules.DuplicatePlaceholder);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

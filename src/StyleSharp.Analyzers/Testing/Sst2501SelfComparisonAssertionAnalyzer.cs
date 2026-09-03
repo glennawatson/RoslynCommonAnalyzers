@@ -53,6 +53,9 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
         "Microsoft.VisualStudio.TestTools.UnitTesting.Assert",
     ];
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(TestingRules.SelfComparisonAssertion);
+
     /// <summary>The kind of equality assertion an invocation was recognized as.</summary>
     private enum AssertionShape
     {
@@ -70,7 +73,7 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(TestingRules.SelfComparisonAssertion);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

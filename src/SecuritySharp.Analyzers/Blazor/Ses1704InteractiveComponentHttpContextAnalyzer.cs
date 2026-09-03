@@ -39,6 +39,9 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
     /// <summary>The metadata name of the cascading-parameter marker on component members.</summary>
     private const string CascadingParameterAttributeMetadataName = "Microsoft.AspNetCore.Components.CascadingParameterAttribute";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.InteractiveComponentHttpContext);
+
     /// <summary>Which <c>HttpContext</c>-capturing marker a component member carries.</summary>
     private enum HttpContextCapture
     {
@@ -53,7 +56,7 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.InteractiveComponentHttpContext);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -48,8 +48,11 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
     private static readonly ImmutableDictionary<string, string?> CompletedTaskProperties =
         ImmutableDictionary<string, string?>.Empty.Add(ReplacementKey, CompletedTaskText);
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.ReturnCompletedTaskOverNull);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ConcurrencyRules.ReturnCompletedTaskOverNull);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

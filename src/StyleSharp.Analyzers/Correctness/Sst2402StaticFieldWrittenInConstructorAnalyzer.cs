@@ -52,9 +52,12 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
         SyntaxKind.IndexerDeclaration,
         SyntaxKind.EventDeclaration);
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.StaticFieldWrittenInConstructor);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(CorrectnessRules.StaticFieldWrittenInConstructor);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

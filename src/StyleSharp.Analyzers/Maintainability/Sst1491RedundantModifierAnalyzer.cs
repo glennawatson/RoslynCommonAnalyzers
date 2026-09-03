@@ -35,8 +35,11 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <summary>The first language version whose interface members may state an accessibility.</summary>
     private const int CSharp8 = (int)LanguageVersion.CSharp8;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.RedundantModifier);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.RedundantModifier);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -16,9 +16,12 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1534RedundantSwitchSectionBracesAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(LayoutRules.RedundantSwitchSectionBraces);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(LayoutRules.RedundantSwitchSectionBraces);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

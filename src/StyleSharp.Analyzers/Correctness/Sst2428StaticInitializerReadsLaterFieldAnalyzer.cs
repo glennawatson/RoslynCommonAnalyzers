@@ -30,9 +30,12 @@ public sealed class Sst2428StaticInitializerReadsLaterFieldAnalyzer : Diagnostic
     private const string UndefinedAcrossPartsReason =
         "which is declared in another file of this partial type, so which initializer runs first is undefined and it may still be its default";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.StaticInitializerReadsLaterField);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(CorrectnessRules.StaticInitializerReadsLaterField);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -65,8 +65,11 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
     /// <summary>The reachability of a <c>public</c> type, and of any accessibility the rule does not know: anything, anywhere.</summary>
     private const int PublicReach = 5;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.SealNonDerivedType);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ApiSelectionRules.SealNonDerivedType);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

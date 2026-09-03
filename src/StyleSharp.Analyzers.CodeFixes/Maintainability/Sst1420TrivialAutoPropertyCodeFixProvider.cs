@@ -128,7 +128,7 @@ public sealed class Sst1420TrivialAutoPropertyCodeFixProvider : CodeFixProvider
             updated = updated
                 .WithAccessorList(updated.AccessorList!.WithTrailingTrivia(SyntaxFactory.Space))
                 .WithInitializer(initializer)
-                .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(property.GetTrailingTrivia()));
+                .WithSemicolonToken(SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, property.GetTrailingTrivia()));
         }
 
         var annotation = new SyntaxAnnotation();
@@ -172,9 +172,9 @@ public sealed class Sst1420TrivialAutoPropertyCodeFixProvider : CodeFixProvider
     /// </remarks>
     private static AccessorListSyntax CreateGetOnlyAccessorList()
         => SyntaxFactory.AccessorList(
-            SyntaxFactory.Token(SyntaxKind.OpenBraceToken).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(default, SyntaxKind.OpenBraceToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             SyntaxFactory.SingletonList(
                 SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
-                    .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(SyntaxFactory.Space))),
+                    .WithSemicolonToken(SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)))),
             SyntaxFactory.Token(SyntaxKind.CloseBraceToken));
 }

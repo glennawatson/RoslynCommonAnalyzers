@@ -24,8 +24,11 @@ public sealed class Ses1102AcceptAnyServerCertificateAnalyzer : DiagnosticAnalyz
     /// <summary>The name of the accept-any server-certificate validator member.</summary>
     private const string ValidatorMemberName = "DangerousAcceptAnyServerCertificateValidator";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.AcceptAnyServerCertificate);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.AcceptAnyServerCertificate);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

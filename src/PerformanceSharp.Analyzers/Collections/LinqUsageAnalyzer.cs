@@ -22,11 +22,14 @@ public sealed class LinqUsageAnalyzer : DiagnosticAnalyzer
     /// <summary>Editorconfig key that enables LINQ diagnostics on performance-sensitive paths.</summary>
     private const string AvoidLinqOnHotPathKey = "performancesharp.avoid_linq_on_hot_path";
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         CollectionRules.AvoidLinqOnHotPath,
         CollectionRules.CollapseLinqWhereTerminal,
         CollectionRules.CollapseLinqTypeFilter);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

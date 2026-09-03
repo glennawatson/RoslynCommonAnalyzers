@@ -94,9 +94,7 @@ public sealed class Sst2331ImplicitEnumValueCodeFixProvider : CodeFixProvider
     /// </remarks>
     private static EnumMemberDeclarationSyntax WithExplicitValue(EnumMemberDeclarationSyntax member, string value)
     {
-        var equalsToken = SyntaxFactory.Token(SyntaxKind.EqualsToken)
-            .WithLeadingTrivia(SyntaxFactory.Space)
-            .WithTrailingTrivia(SyntaxFactory.Space);
+        var equalsToken = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var assigned = SyntaxFactory.ParseExpression(value).WithTrailingTrivia(TrailingAfterValue(member.Identifier.TrailingTrivia));
         return member.WithIdentifier(member.Identifier.WithTrailingTrivia()).WithEqualsValue(SyntaxFactory.EqualsValueClause(equalsToken, assigned));
     }

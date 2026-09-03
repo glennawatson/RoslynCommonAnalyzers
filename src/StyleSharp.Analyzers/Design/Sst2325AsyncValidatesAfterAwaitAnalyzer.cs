@@ -40,8 +40,11 @@ public sealed class Sst2325AsyncValidatesAfterAwaitAnalyzer : DiagnosticAnalyzer
     /// <summary>The suffix every exception type name shares.</summary>
     private const string ExceptionSuffix = "Exception";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.AsyncValidatesAfterAwait);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(DesignRules.AsyncValidatesAfterAwait);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

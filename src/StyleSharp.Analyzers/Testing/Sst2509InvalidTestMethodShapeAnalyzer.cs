@@ -58,9 +58,12 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
         "DataTestMethod", "DataTestMethodAttribute",
     };
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(TestingRules.InvalidTestMethodShape);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(TestingRules.InvalidTestMethodShape);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

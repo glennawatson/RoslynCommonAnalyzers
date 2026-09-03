@@ -28,9 +28,12 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
     /// <summary>The receiver type name the syntax prepass requires before any binding.</summary>
     private const string RegexTypeName = "Regex";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.CacheRegexOutsideLoop);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(ApiSelectionRules.CacheRegexOutsideLoop);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

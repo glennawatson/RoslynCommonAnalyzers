@@ -99,6 +99,9 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
         "Open", "OpenRead", "OpenWrite", "OpenText", "Create", "CreateText", "AppendText", "Delete", "Copy", "Move", "Replace",
     };
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.ModelOutputToDangerousSink);
+
     /// <summary>The candidate sink family classified from an invocation's method name before binding.</summary>
     private enum InvocationSinkKind
     {
@@ -116,7 +119,7 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.ModelOutputToDangerousSink);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

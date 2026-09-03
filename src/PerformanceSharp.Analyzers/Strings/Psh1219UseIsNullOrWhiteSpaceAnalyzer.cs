@@ -52,6 +52,9 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
     /// <summary>The empty-string field the rule accepts alongside the <c>""</c> literal.</summary>
     private const string EmptyFieldName = "Empty";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseIsNullOrWhiteSpace);
+
     /// <summary>The three ways a trimmed string gets asked whether it is empty.</summary>
     internal enum BlankTestKind
     {
@@ -66,7 +69,7 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.UseIsNullOrWhiteSpace);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

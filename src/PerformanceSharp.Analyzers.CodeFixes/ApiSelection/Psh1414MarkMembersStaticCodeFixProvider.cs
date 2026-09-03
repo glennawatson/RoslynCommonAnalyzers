@@ -176,7 +176,7 @@ public sealed class Psh1414MarkMembersStaticCodeFixProvider : CodeFixProvider, I
             }
         }
 
-        var staticToken = SyntaxFactory.Token(SyntaxKind.StaticKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+        var staticToken = SyntaxFactory.Token(default, SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         return member.WithModifiers(modifiers.Insert(index, staticToken)).WithAdditionalAnnotations(Formatter.Annotation);
     }
 

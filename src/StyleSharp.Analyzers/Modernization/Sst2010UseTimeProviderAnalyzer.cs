@@ -29,8 +29,11 @@ public sealed class Sst2010UseTimeProviderAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the seam this rule asks for.</summary>
     private const string TimeProviderMetadataName = "System.TimeProvider";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernizationRules.UseTimeProvider);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernizationRules.UseTimeProvider);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

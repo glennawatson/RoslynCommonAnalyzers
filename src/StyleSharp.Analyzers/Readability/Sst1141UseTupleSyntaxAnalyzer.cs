@@ -19,8 +19,11 @@ public sealed class Sst1141UseTupleSyntaxAnalyzer : DiagnosticAnalyzer
     /// <summary>The most type arguments handled before the eighth (TRest) element nests.</summary>
     private const int MaxTupleArity = 7;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ReadabilityRules.UseTupleSyntax);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ReadabilityRules.UseTupleSyntax);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

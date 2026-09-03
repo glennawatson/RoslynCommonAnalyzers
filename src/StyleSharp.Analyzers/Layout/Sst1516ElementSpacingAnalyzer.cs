@@ -23,8 +23,11 @@ public sealed class Sst1516ElementSpacingAnalyzer : DiagnosticAnalyzer
         SyntaxKind.FileScopedNamespaceDeclaration,
         SyntaxKind.CompilationUnit);
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(LayoutRules.ElementsSeparatedByBlankLine);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(LayoutRules.ElementsSeparatedByBlankLine);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

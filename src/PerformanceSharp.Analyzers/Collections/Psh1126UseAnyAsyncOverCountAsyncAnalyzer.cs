@@ -35,8 +35,11 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
     /// <summary>The metadata name of the generic value-task type a counting call may return.</summary>
     private const string ValueTaskOfTMetadataName = "System.Threading.Tasks.ValueTask`1";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseAnyAsyncOverCountAsync);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CollectionRules.UseAnyAsyncOverCountAsync);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

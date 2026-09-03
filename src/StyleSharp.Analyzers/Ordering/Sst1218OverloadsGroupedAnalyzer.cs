@@ -35,6 +35,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1218OverloadsGroupedAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(OrderingRules.OverloadsGrouped);
+
     /// <summary>The modifiers that decide where the ordering rules put a member.</summary>
     [Flags]
     private enum Placements
@@ -59,7 +62,7 @@ public sealed class Sst1218OverloadsGroupedAnalyzer : DiagnosticAnalyzer
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(OrderingRules.OverloadsGrouped);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -20,8 +20,11 @@ public sealed class Psh1214SplitConcatenatedAppendAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the string builder type.</summary>
     private const string StringBuilderMetadataName = "System.Text.StringBuilder";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.SplitConcatenatedAppend);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.SplitConcatenatedAppend);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

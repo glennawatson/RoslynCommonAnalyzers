@@ -87,15 +87,24 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
 
         Array.Sort(ordered, ComparerInstance);
 
-        var rebuilt = new UsingDirectiveSyntax[ordered.Length];
+        // Each slot keeps the trivia it had, so a directive the sort left where it started already
+        // carries the right trivia and needs no rewrite. Reattaching it anyway builds two new nodes
+        // per directive - one for the leading trivia and one for the trailing - for every using in
+        // the file, and a partly sorted list is the common case.
         for (var index = 0; index < ordered.Length; index++)
         {
-            rebuilt[index] = ordered[index]
+            var directive = ordered[index];
+            if (ReferenceEquals(directive, original[index]))
+            {
+                continue;
+            }
+
+            ordered[index] = directive
                 .WithLeadingTrivia(original[index].GetLeadingTrivia())
                 .WithTrailingTrivia(original[index].GetTrailingTrivia());
         }
 
-        var newContainer = WithUsings(container, SyntaxFactory.List(rebuilt));
+        var newContainer = WithUsings(container, SyntaxFactory.List(ordered));
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         return document.WithSyntaxRoot(root!.ReplaceNode(container, newContainer));
     }

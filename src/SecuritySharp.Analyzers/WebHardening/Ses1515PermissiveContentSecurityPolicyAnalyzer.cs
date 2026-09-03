@@ -44,8 +44,11 @@ public sealed class Ses1515PermissiveContentSecurityPolicyAnalyzer : DiagnosticA
     private static readonly string[] DirectiveTokens =
         ["default-src", "script-src", "style-src", "object-src", "base-uri"];
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.PermissiveContentSecurityPolicy);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.PermissiveContentSecurityPolicy);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

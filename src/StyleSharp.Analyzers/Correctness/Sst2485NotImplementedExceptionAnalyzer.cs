@@ -31,8 +31,11 @@ public sealed class Sst2485NotImplementedExceptionAnalyzer : DiagnosticAnalyzer
     /// <summary>The namespace the reported type lives in.</summary>
     private const string SystemNamespace = "System";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.NotImplementedExceptionThrown);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.NotImplementedExceptionThrown);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -34,8 +34,11 @@ public sealed class Sst2462NewMemberReducesAccessibilityAnalyzer : DiagnosticAna
     /// <summary>Caller category: a non-derived type in another assembly.</summary>
     private const int OtherAssemblyOther = 0b1000;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.NewMemberReducesAccessibility);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.NewMemberReducesAccessibility);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -40,8 +40,11 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
     /// <summary>The project-wide exempt-types key.</summary>
     private const string ExemptTypesGeneralKey = "securitysharp.exempt_types";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.NonRoutableComponentAuthorization);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.NonRoutableComponentAuthorization);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

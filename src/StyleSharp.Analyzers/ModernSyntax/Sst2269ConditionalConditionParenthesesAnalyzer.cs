@@ -24,8 +24,11 @@ public sealed class Sst2269ConditionalConditionParenthesesAnalyzer : DiagnosticA
     /// <summary>The reported target when the codebase includes the parentheses.</summary>
     internal const string IncludeTarget = "include";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.NormalizeConditionalConditionParentheses);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernSyntaxRules.NormalizeConditionalConditionParentheses);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

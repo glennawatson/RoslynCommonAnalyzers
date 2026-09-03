@@ -30,8 +30,11 @@ public sealed class Sst2246ChainedConditionalToSwitchAnalyzer : DiagnosticAnalyz
     /// <summary>The smallest arm count worth a switch: two constant arms and a default.</summary>
     private const int MinimumArmCount = 3;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.ConvertChainedConditionalToSwitch);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernSyntaxRules.ConvertChainedConditionalToSwitch);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

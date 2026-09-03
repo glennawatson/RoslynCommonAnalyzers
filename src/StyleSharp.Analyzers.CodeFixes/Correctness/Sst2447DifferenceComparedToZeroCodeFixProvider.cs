@@ -52,9 +52,7 @@ public sealed class Sst2447DifferenceComparedToZeroCodeFixProvider : CodeFixProv
         }
 
         var text = Sst2447DifferenceComparedToZeroAnalyzer.RewrittenOperatorText((SyntaxKind)comparison.RawKind, subtractionOnLeft);
-        var operatorToken = SyntaxFactory.Token(ComparisonToken(text))
-            .WithLeadingTrivia(SyntaxFactory.Space)
-            .WithTrailingTrivia(SyntaxFactory.Space);
+        var operatorToken = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), ComparisonToken(text), SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var replacement = SyntaxFactory.BinaryExpression(
                 ComparisonKind(text),
                 subtraction.Left.WithoutTrivia(),

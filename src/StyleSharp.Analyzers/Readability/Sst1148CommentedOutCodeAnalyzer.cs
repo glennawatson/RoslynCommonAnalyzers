@@ -13,8 +13,11 @@ public sealed class Sst1148CommentedOutCodeAnalyzer : DiagnosticAnalyzer
     /// <summary>The minimum content length considered code-like.</summary>
     private const int MinimumCodeLength = 4;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ReadabilityRules.NoCommentedOutCode);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ReadabilityRules.NoCommentedOutCode);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

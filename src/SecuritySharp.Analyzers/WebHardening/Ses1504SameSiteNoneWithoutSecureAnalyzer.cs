@@ -44,8 +44,11 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
     /// <summary>The metadata name of the <c>CookieSecurePolicy</c> enum.</summary>
     private const string CookieSecurePolicyMetadataName = "Microsoft.AspNetCore.Http.CookieSecurePolicy";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.SameSiteNoneWithoutSecure);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.SameSiteNoneWithoutSecure);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

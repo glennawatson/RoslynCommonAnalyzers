@@ -59,8 +59,11 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
     /// <summary>The two arguments the rewrite always puts first: the provider and the parsed format.</summary>
     private const int ProviderAndFormatCount = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseCompositeFormat);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.UseCompositeFormat);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

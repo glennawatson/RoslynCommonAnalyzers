@@ -92,7 +92,7 @@ public sealed class Sst2301SealEquatableTypeCodeFixProvider : CodeFixProvider, I
         var partialIndex = modifiers.IndexOf(SyntaxKind.PartialKeyword);
         if (partialIndex < 0)
         {
-            var appended = SyntaxFactory.Token(SyntaxKind.SealedKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+            var appended = SyntaxFactory.Token(default, SyntaxKind.SealedKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
             return declaration.WithModifiers(modifiers.Add(appended));
         }
 

@@ -32,8 +32,11 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the hash set type.</summary>
     private const string HashSetMetadataName = "System.Collections.Generic.HashSet`1";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.FreezeStaticLookups);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CollectionRules.FreezeStaticLookups);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

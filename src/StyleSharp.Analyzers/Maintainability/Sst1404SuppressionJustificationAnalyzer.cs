@@ -18,8 +18,11 @@ public sealed class Sst1404SuppressionJustificationAnalyzer : DiagnosticAnalyzer
     /// <summary>The IDE-generated placeholder that counts as no justification.</summary>
     private const string PendingPlaceholder = "<Pending>";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.SuppressionJustified);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.SuppressionJustified);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

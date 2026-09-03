@@ -10,6 +10,11 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
+        MaintainabilityRules.RemoveUnusedPrivateMember,
+        MaintainabilityRules.RemoveUnreadPrivateField);
+
     /// <summary>Field-like usage kinds.</summary>
     [Flags]
     private enum ValueUsages
@@ -28,9 +33,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
-        MaintainabilityRules.RemoveUnusedPrivateMember,
-        MaintainabilityRules.RemoveUnreadPrivateField);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

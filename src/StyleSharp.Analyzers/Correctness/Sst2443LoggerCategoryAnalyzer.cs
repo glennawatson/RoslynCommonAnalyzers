@@ -32,8 +32,11 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <summary>The identifier a category-producing factory call is written with.</summary>
     private const string CreateLoggerIdentifier = "CreateLogger";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.WrongLoggerCategory);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.WrongLoggerCategory);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

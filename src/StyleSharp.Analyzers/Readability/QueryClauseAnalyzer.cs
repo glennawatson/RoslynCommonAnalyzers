@@ -19,12 +19,15 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class QueryClauseAnalyzer : DiagnosticAnalyzer
 {
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         ReadabilityRules.QueryClauseFollowsPrevious,
         ReadabilityRules.QueryClausesConsistentLines,
         ReadabilityRules.QueryClauseOnNewLineAfterMultiLine,
         ReadabilityRules.QueryClauseMultiLineOwnLine);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

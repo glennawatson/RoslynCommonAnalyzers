@@ -47,9 +47,12 @@ public sealed class Sst2475TemporalPrimaryKeyAnalyzer : DiagnosticAnalyzer
     /// <summary>The conventional bare key name, and the suffix of the <c>&lt;TypeName&gt;Id</c> form.</summary>
     private const string ConventionKeyName = "Id";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.TemporalPrimaryKey);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(CorrectnessRules.TemporalPrimaryKey);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

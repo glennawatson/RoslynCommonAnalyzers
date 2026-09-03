@@ -58,8 +58,11 @@ public sealed class Psh1224UseConvertToHexStringAnalyzer : DiagnosticAnalyzer
     /// <summary>The argument count of the two-string <c>string.Replace</c>.</summary>
     private const int ReplaceArgumentCount = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseConvertToHexString);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.UseConvertToHexString);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -43,8 +43,11 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
     /// <summary>The editorconfig key naming concrete types that are a sanctioned narrowing and never reported.</summary>
     private const string AllowedTypesOptionKey = "stylesharp.SST2326.allowed_types";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.InterfaceToConcreteCast);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(DesignRules.InterfaceToConcreteCast);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

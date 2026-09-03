@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -190,40 +191,87 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
     /// </remarks>
     private static string Normalize(string text, string newLine, bool endsWithNewLine)
     {
-        var lines = text.Replace("\r\n", "\n").Split('\n');
-        var result = new List<string>(lines.Length);
-        for (var index = 0; index < lines.Length; index++)
+        var kept = CollectKeptLines(text);
+        while (kept.Count > 0 && kept[kept.Count - 1].Length == 0)
         {
-            AppendNormalized(result, lines[index]);
+            kept.RemoveAt(kept.Count - 1);
         }
 
-        while (result.Count > 0 && result[result.Count - 1].Length == 0)
+        var builder = new StringBuilder(text.Length);
+        for (var index = 0; index < kept.Count; index++)
         {
-            result.RemoveAt(result.Count - 1);
+            if (index > 0)
+            {
+                builder.Append(newLine);
+            }
+
+            builder.Append(text, kept[index].Start, kept[index].Length);
         }
 
-        var joined = string.Join(newLine, result);
-        return endsWithNewLine ? joined + newLine : joined;
+        if (endsWithNewLine)
+        {
+            builder.Append(newLine);
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>Walks the text a line at a time, keeping the lines that survive normalisation.</summary>
+    /// <param name="text">The file text to walk.</param>
+    /// <returns>The kept lines, as spans into <paramref name="text"/>.</returns>
+    /// <remarks>
+    /// Splitting would allocate the array and a string for every line in the file, which allocation
+    /// traces showed dominates this fix. Only the lines that survive are ever written.
+    /// </remarks>
+    private static List<LineSpan> CollectKeptLines(string text)
+    {
+        // Counting the breaks first is one cheap scan and sizes the list exactly enough that it never
+        // has to grow; the doubling copies were the largest remaining allocation once the split went.
+        var lineCount = 1;
+        for (var index = 0; index < text.Length; index++)
+        {
+            if (text[index] == '\n')
+            {
+                lineCount++;
+            }
+        }
+
+        var kept = new List<LineSpan>(lineCount);
+        var start = 0;
+        while (true)
+        {
+            var newLineIndex = text.IndexOf('\n', start);
+            var end = newLineIndex < 0 ? text.Length : newLineIndex;
+            var lineEnd = end > start && text[end - 1] == '\r' ? end - 1 : end;
+            AppendNormalized(text, kept, new LineSpan(start, lineEnd - start));
+            if (newLineIndex < 0)
+            {
+                return kept;
+            }
+
+            start = newLineIndex + 1;
+        }
     }
 
     /// <summary>Appends a line to the accumulator, dropping the blank lines that removal leaves at the seams.</summary>
+    /// <param name="text">The file text the spans index into.</param>
     /// <param name="result">The accumulated output lines.</param>
     /// <param name="line">The candidate line.</param>
-    private static void AppendNormalized(List<string> result, string line)
+    private static void AppendNormalized(string text, List<LineSpan> result, LineSpan line)
     {
-        if (line.Trim().Length == 0)
+        if (IsBlank(text, line))
         {
             // Keep a blank only as a single separator between content lines (not leading, repeated, or after '{').
-            if (ShouldKeepBlankSeparator(result))
+            if (ShouldKeepBlankSeparator(text, result))
             {
-                result.Add(string.Empty);
+                result.Add(new LineSpan(line.Start, 0));
             }
 
             return;
         }
 
         // Drop a blank line sitting immediately before a closing brace.
-        if (result.Count > 0 && result[result.Count - 1].Length == 0 && line.TrimStart().StartsWith("}", StringComparison.Ordinal))
+        if (result.Count > 0 && result[result.Count - 1].Length == 0 && FirstNonWhitespaceIs(text, line, '}'))
         {
             result.RemoveAt(result.Count - 1);
         }
@@ -231,10 +279,65 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
         result.Add(line);
     }
 
+    /// <summary>Returns whether a line holds nothing but whitespace.</summary>
+    /// <param name="text">The file text the span indexes into.</param>
+    /// <param name="line">The line to inspect.</param>
+    /// <returns><see langword="true"/> when the line has no non-whitespace character.</returns>
+    /// <remarks>Trimming to measure the result allocates a string per line for a question about one bit.</remarks>
+    private static bool IsBlank(string text, LineSpan line)
+    {
+        for (var index = line.Start; index < line.Start + line.Length; index++)
+        {
+            if (!char.IsWhiteSpace(text[index]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Returns whether a line's first non-whitespace character is the one supplied.</summary>
+    /// <param name="text">The file text the span indexes into.</param>
+    /// <param name="line">The line to inspect.</param>
+    /// <param name="value">The character to match.</param>
+    /// <returns><see langword="true"/> when the line starts, after any indent, with that character.</returns>
+    private static bool FirstNonWhitespaceIs(string text, LineSpan line, char value)
+    {
+        for (var index = line.Start; index < line.Start + line.Length; index++)
+        {
+            if (!char.IsWhiteSpace(text[index]))
+            {
+                return text[index] == value;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a line's last non-whitespace character is the one supplied.</summary>
+    /// <param name="text">The file text the span indexes into.</param>
+    /// <param name="line">The line to inspect.</param>
+    /// <param name="value">The character to match.</param>
+    /// <returns><see langword="true"/> when the line ends, before any trailing space, with that character.</returns>
+    private static bool LastNonWhitespaceIs(string text, LineSpan line, char value)
+    {
+        for (var index = line.Start + line.Length - 1; index >= line.Start; index--)
+        {
+            if (!char.IsWhiteSpace(text[index]))
+            {
+                return text[index] == value;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Returns whether a blank line should be kept as a separator after the lines emitted so far.</summary>
+    /// <param name="text">The file text the spans index into.</param>
     /// <param name="result">The accumulated output lines.</param>
     /// <returns><see langword="true"/> when the preceding line is content not ending in an opening brace.</returns>
-    private static bool ShouldKeepBlankSeparator(List<string> result)
+    private static bool ShouldKeepBlankSeparator(string text, List<LineSpan> result)
     {
         if (result.Count == 0)
         {
@@ -242,7 +345,7 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
         }
 
         var last = result[result.Count - 1];
-        return last.Length != 0 && !last.TrimEnd().EndsWith("{", StringComparison.Ordinal);
+        return last.Length != 0 && !LastNonWhitespaceIs(text, last, '{');
     }
 
     /// <summary>Clones the compilation unit, keeping only the moved type (and its enclosing namespaces, usings and header).</summary>
@@ -265,6 +368,11 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
             ? compilationUnit
             : compilationUnit.RemoveNodes(toRemove, SyntaxRemoveOptions.KeepUnbalancedDirectives);
     }
+
+    /// <summary>A line of the file, as a position and length into the original text.</summary>
+    /// <param name="Start">The line's start offset.</param>
+    /// <param name="Length">The line's length, excluding its line break.</param>
+    private readonly record struct LineSpan(int Start, int Length);
 
     /// <summary>Extracts every type flagged by SST1402 across the Fix All scope into its own file.</summary>
     private sealed class MoveTypeFixAllProvider : DocumentDiagnosticFixAllProvider

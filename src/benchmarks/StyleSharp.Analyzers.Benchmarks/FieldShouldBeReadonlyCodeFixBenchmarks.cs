@@ -15,18 +15,23 @@ public class FieldShouldBeReadonlyCodeFixBenchmarks
     /// <summary>Stores the prepared benchmark document and representative field declaration.</summary>
     private StructuralCodeFixBenchmarkContext<FieldDeclarationSyntax> _context = null!;
 
-    /// <summary>Gets or sets the synthetic type count used for each benchmark corpus.</summary>
+    /// <summary>Gets or sets the synthetic field count used for each benchmark corpus.</summary>
     [Params(BenchmarkParameterValues.SmallTypeCount, BenchmarkParameterValues.LargeTypeCount)]
-    public int Types { get; set; }
+    public int Fields { get; set; }
 
     /// <summary>Builds the benchmark document and selects one representative constructor-only field assignment.</summary>
     /// <returns>A task that completes when the benchmark context has been created.</returns>
+    /// <remarks>
+    /// The corpus is a single type holding every generated field, so the representative node is the
+    /// middle field of that type. Selecting the middle <em>type</em> instead asked for a class that is
+    /// never emitted, and setup threw before the benchmark could run.
+    /// </remarks>
     [GlobalSetup]
     public async Task SetupAsync()
         => _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
-            Types,
+            Fields,
             static count => FieldShouldBeReadonlyBenchmarkSource.Generate(count, violating: true),
-            static (root, index) => (FieldDeclarationSyntax)CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(root, index).Members[0]).ConfigureAwait(false);
+            static (root, index) => CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<FieldDeclarationSyntax>(root, index)).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
     [GlobalCleanup]

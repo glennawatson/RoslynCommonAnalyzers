@@ -33,8 +33,11 @@ public sealed class Psh1113UseNaturalOrderAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the LINQ extension class.</summary>
     private const string EnumerableMetadataName = "System.Linq.Enumerable";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseNaturalOrder);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CollectionRules.UseNaturalOrder);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

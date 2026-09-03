@@ -45,8 +45,11 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
     /// <summary>The metadata name of the awaitable value-task wrapper.</summary>
     private const string ValueTaskMetadataName = "System.Threading.Tasks.ValueTask`1";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AspNetCoreRules.LazyEnumerableRouteResult);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(AspNetCoreRules.LazyEnumerableRouteResult);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

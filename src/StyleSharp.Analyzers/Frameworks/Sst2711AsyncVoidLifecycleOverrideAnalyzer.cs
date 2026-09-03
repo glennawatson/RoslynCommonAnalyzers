@@ -37,8 +37,11 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideAnalyzer : DiagnosticAnalyz
     /// <summary>The synchronous lifecycle hook run after the component renders.</summary>
     private const string OnAfterRenderName = "OnAfterRender";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.AsyncVoidLifecycleOverride);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(FrameworksRules.AsyncVoidLifecycleOverride);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

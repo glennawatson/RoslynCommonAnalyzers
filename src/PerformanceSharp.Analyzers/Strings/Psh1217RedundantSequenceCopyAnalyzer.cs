@@ -67,6 +67,9 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
     /// <summary>The message display of the sequence a span copy came from.</summary>
     private const string SpanDisplay = "span";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.RedundantSequenceCopy);
+
     /// <summary>The sequence the copied array was made from.</summary>
     private enum SequenceSource
     {
@@ -100,7 +103,7 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.RedundantSequenceCopy);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

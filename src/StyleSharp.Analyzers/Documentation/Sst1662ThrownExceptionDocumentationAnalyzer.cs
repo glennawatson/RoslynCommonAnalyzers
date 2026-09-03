@@ -20,9 +20,12 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// <summary>Diagnostic property key holding the newline-separated cref forms of the undocumented thrown types.</summary>
     internal const string ThrownTypesKey = "thrownTypes";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DocumentationRules.ThrownExceptionDocumentation);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(DocumentationRules.ThrownExceptionDocumentation);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

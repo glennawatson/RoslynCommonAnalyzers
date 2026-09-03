@@ -39,8 +39,11 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
     /// <summary>The contextual keyword whose operand is a name, not a value.</summary>
     private const string NameOfKeyword = "nameof";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.MutableGetHashCode);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.MutableGetHashCode);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

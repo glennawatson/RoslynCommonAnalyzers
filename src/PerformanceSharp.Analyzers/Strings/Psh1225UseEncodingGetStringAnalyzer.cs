@@ -39,8 +39,11 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the encoding base type a reported receiver must derive from.</summary>
     private const string EncodingMetadataName = "System.Text.Encoding";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseEncodingGetString);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.UseEncodingGetString);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

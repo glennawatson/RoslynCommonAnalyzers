@@ -184,9 +184,9 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
         var arguments = SyntaxFactory.SeparatedList<ArgumentSyntax>(new SyntaxNodeOrToken[]
         {
             SyntaxFactory.Argument(receiver),
-            SyntaxFactory.Token(SyntaxKind.CommaToken).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             SyntaxFactory.Argument(start),
-            SyntaxFactory.Token(SyntaxKind.CommaToken).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             SyntaxFactory.Argument(count),
         });
 
@@ -204,7 +204,7 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
                 SyntaxKind.SimpleMemberAccessExpression,
                 receiver,
                 SyntaxFactory.IdentifierName("Length")),
-            SyntaxFactory.Token(SyntaxKind.MinusToken).WithLeadingTrivia(SyntaxFactory.Space).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.MinusToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             ParenthesizeIfNeeded(start));
 
     /// <summary>Parenthesizes a start expression that would not bind as a subtraction operand.</summary>

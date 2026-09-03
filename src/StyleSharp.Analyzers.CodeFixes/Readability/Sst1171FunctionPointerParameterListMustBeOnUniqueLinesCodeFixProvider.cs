@@ -49,7 +49,5 @@ public sealed class Sst1171FunctionPointerParameterListMustBeOnUniqueLinesCodeFi
         => UniqueLineCodeFixerHelper.SplitAngleBracketedListOntoOwnLines(
             node,
             node.Parameters,
-            (list, endOfLine) => SyntaxFactory.FunctionPointerParameterList(list)
-                .WithLessThanToken(node.LessThanToken.WithTrailingTrivia(endOfLine))
-                .WithGreaterThanToken(node.GreaterThanToken));
+            (list, endOfLine) => SyntaxFactory.FunctionPointerParameterList(node.LessThanToken.WithTrailingTrivia(endOfLine), list, node.GreaterThanToken));
 }

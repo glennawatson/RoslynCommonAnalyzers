@@ -38,8 +38,11 @@ public sealed class Sst1486DuplicatedStringLiteralAnalyzer : DiagnosticAnalyzer
     /// <summary>The mask that maps a literal's hash onto one of the filter's 64 buckets.</summary>
     private const int BucketMask = 63;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.DuplicatedStringLiteral);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.DuplicatedStringLiteral);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

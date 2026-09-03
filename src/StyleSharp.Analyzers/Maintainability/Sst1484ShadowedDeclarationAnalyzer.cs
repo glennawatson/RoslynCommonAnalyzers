@@ -37,8 +37,11 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// <summary>The discard name, which names nothing and so can shadow nothing.</summary>
     private const string DiscardName = "_";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.ShadowedDeclaration);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.ShadowedDeclaration);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

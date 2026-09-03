@@ -11,8 +11,11 @@ public sealed class Sst2200PreferFieldKeywordAnalyzer : DiagnosticAnalyzer
     /// <summary>The numeric C# 14 language-version value.</summary>
     private const int CSharp14 = 1400;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.PreferFieldKeyword);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernSyntaxRules.PreferFieldKeyword);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

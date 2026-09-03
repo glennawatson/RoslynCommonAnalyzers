@@ -72,8 +72,11 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     /// <summary>The metadata name of the generic ordering contract the rule suggests.</summary>
     private const string ComparableMetadataName = "System.IComparable`1";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.InconsistentOperatorOverloads);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(DesignRules.InconsistentOperatorOverloads);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

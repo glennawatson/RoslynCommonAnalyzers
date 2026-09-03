@@ -106,7 +106,7 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
     /// <returns>An <c>=&gt; expr</c> clause whose arrow keeps a single trailing space.</returns>
     private static ArrowExpressionClauseSyntax Arrow(ExpressionSyntax expression)
         => SyntaxFactory.ArrowExpressionClause(
-            SyntaxFactory.Token(SyntaxKind.EqualsGreaterThanToken).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(default, SyntaxKind.EqualsGreaterThanToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             expression.WithoutTrivia());
 
     /// <summary>Builds the closing semicolon, carrying the collapsed body's trailing trivia.</summary>

@@ -18,8 +18,11 @@ public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyze
     /// <summary>The largest constructor arity tracked by the bitmask scan.</summary>
     private const int MaximumTrackedParameters = 64;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.UsePrimaryConstructorStorage);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernSyntaxRules.UsePrimaryConstructorStorage);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

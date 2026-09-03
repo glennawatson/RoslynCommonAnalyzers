@@ -18,8 +18,11 @@ public sealed class Sst2009UseExceptionFilterAnalyzer : DiagnosticAnalyzer
     /// <summary>The numeric value of <c>LanguageVersion.CSharp6</c>, the first version with exception filters.</summary>
     private const int CSharp6 = 6;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernizationRules.UseExceptionFilter);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernizationRules.UseExceptionFilter);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

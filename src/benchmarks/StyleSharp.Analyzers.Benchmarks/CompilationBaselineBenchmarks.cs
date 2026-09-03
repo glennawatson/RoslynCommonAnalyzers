@@ -33,7 +33,7 @@ public class CompilationBaselineBenchmarks
             "Bench",
             [tree],
             BenchmarkCompilationFactory.MetadataReferences,
-            new(OutputKind.DynamicallyLinkedLibrary));
+            new(OutputKind.DynamicallyLinkedLibrary, concurrentBuild: false));
     }
 
     /// <summary>Fully binds the compilation with no analyzers and returns the diagnostic count.</summary>

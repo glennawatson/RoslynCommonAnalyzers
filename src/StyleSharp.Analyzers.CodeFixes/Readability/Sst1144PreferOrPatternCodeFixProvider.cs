@@ -55,9 +55,7 @@ public sealed class Sst1144PreferOrPatternCodeFixProvider : CodeFixProvider, IBa
                 LabelPattern(labels[i]).WithLeadingTrivia(SyntaxFactory.Space));
         }
 
-        var caseKeyword = SyntaxFactory.Token(SyntaxKind.CaseKeyword)
-            .WithLeadingTrivia(labels[0].GetLeadingTrivia())
-            .WithTrailingTrivia(SyntaxFactory.Space);
+        var caseKeyword = SyntaxFactory.Token(labels[0].GetLeadingTrivia(), SyntaxKind.CaseKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var label = SyntaxFactory.CasePatternSwitchLabel(caseKeyword, combined, null, LabelColon(labels[^1]));
         return section.WithLabels(SyntaxFactory.SingletonList<SwitchLabelSyntax>(label));
     }

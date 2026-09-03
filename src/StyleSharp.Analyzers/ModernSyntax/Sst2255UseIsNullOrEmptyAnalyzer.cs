@@ -12,6 +12,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2255UseIsNullOrEmptyAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.UseIsNullOrEmpty);
+
     /// <summary>Which half of the disjunction (or conjunction) an operand is.</summary>
     private enum Part
     {
@@ -26,7 +29,7 @@ public sealed class Sst2255UseIsNullOrEmptyAnalyzer : DiagnosticAnalyzer
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernSyntaxRules.UseIsNullOrEmpty);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

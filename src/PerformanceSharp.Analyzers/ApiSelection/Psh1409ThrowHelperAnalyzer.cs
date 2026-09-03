@@ -47,6 +47,9 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>The helper-alias names probed for comparison guards.</summary>
     private static readonly string[] ComparisonAliases = ["ArgumentOutOfRangeExceptionHelper"];
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.UseThrowHelpers);
+
     /// <summary>The guard shapes the analyzer classifies.</summary>
     internal enum GuardKind
     {
@@ -67,7 +70,7 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ApiSelectionRules.UseThrowHelpers);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

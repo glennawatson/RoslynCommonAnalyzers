@@ -129,7 +129,7 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
         var statement = (ExpressionStatementSyntax)body.Statements[0];
         var awaited = (AwaitExpressionSyntax)statement.Expression;
         var replacement = SyntaxFactory.ReturnStatement(
-                SyntaxFactory.Token(SyntaxKind.ReturnKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+                SyntaxFactory.Token(default, SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
                 UnwrapForwardedTask(awaited).WithLeadingTrivia(),
                 statement.SemicolonToken)
             .WithLeadingTrivia(statement.GetLeadingTrivia());

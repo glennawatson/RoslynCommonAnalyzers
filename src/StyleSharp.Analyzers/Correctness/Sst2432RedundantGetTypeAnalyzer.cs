@@ -20,8 +20,11 @@ public sealed class Sst2432RedundantGetTypeAnalyzer : DiagnosticAnalyzer
     /// <summary>The reflection method whose redundant use is reported.</summary>
     private const string GetTypeName = "GetType";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.RedundantGetType);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.RedundantGetType);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

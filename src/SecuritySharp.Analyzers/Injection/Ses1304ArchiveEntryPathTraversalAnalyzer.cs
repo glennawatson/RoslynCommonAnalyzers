@@ -76,6 +76,9 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     /// <summary>The <c>destinationFileName:</c> destination-parameter name honoured on <c>ExtractToFile</c>.</summary>
     private const string DestinationFileNameParameterName = "destinationFileName";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.ArchiveEntryPathTraversal);
+
     /// <summary>How an in-box archive path-traversal analysis treats a sink for a zip entry.</summary>
     private enum SinkKind
     {
@@ -103,7 +106,7 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.ArchiveEntryPathTraversal);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

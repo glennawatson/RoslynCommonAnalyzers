@@ -24,8 +24,11 @@ public sealed class Sst2435ValueEqualityFastPathAnalyzer : DiagnosticAnalyzer
     /// <summary>The equality member name.</summary>
     private const string EqualsName = "Equals";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.ValueEqualityUsedAsFastPath);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.ValueEqualityUsedAsFastPath);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

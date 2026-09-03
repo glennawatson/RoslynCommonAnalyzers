@@ -46,8 +46,11 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
     /// <summary>The metadata name of the forwarded-headers options type the rule gates on.</summary>
     private const string OptionsMetadataName = "Microsoft.AspNetCore.Builder.ForwardedHeadersOptions";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.ForwardedHeadersTrustBoundaryRemoval);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.ForwardedHeadersTrustBoundaryRemoval);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

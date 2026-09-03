@@ -56,7 +56,7 @@ public sealed class Sst2018RedundantNullCheckBesidePatternCodeFixProvider : Code
             var isExpression = SyntaxFactory.BinaryExpression(
                 SyntaxKind.IsExpression,
                 isPattern.Expression.WithoutTrivia(),
-                SyntaxFactory.Token(SyntaxKind.IsKeyword).WithLeadingTrivia(SyntaxFactory.Space).WithTrailingTrivia(SyntaxFactory.Space),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.IsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
                 type.Type.WithoutTrivia());
             return new NodeReplacement(isPattern, isExpression.WithTriviaFrom(isPattern));
         }

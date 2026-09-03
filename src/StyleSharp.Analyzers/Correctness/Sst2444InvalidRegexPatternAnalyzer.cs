@@ -59,8 +59,11 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
     /// <summary>Whether the host engine accepts the non-backtracking option.</summary>
     private static readonly bool HostSupportsNonBacktracking = ComputeNonBacktrackingSupport();
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.InvalidRegexPattern);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.InvalidRegexPattern);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

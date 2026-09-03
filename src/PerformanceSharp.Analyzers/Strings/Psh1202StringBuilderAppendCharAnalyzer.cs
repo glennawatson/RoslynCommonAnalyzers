@@ -25,8 +25,11 @@ public sealed class Psh1202StringBuilderAppendCharAnalyzer : DiagnosticAnalyzer
     /// <summary>The argument count of the <c>Insert(int, string)</c> shape.</summary>
     private const int InsertArgumentCount = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.StringBuilderAppendChar);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.StringBuilderAppendChar);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

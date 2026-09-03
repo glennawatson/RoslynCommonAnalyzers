@@ -55,21 +55,8 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Cached diagnostic properties for fixes that remove whitespace before the token.</summary>
     private static readonly ImmutableDictionary<string, string?> RemoveBeforeProperties = ImmutableDictionary<string, string?>.Empty.Add(ActionKey, RemoveBefore);
 
-    /// <summary>The whitespace separation between two adjacent tokens.</summary>
-    private enum Separation
-    {
-        /// <summary>The tokens touch with no whitespace.</summary>
-        Adjacent,
-
-        /// <summary>The tokens are separated by whitespace on the same line.</summary>
-        Space,
-
-        /// <summary>The tokens are separated by a line break.</summary>
-        NewLine
-    }
-
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         SpacingRules.CommentBeginsWithSpace,
         SpacingRules.DocumentationBeginsWithSpace,
         SpacingRules.PreprocessorKeywordSpacing,
@@ -99,6 +86,22 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
         SpacingRules.ColonSpacing,
         SpacingRules.PointerSymbolSpacing,
         SpacingRules.OpeningSquareBracket);
+
+    /// <summary>The whitespace separation between two adjacent tokens.</summary>
+    private enum Separation
+    {
+        /// <summary>The tokens touch with no whitespace.</summary>
+        Adjacent,
+
+        /// <summary>The tokens are separated by whitespace on the same line.</summary>
+        Space,
+
+        /// <summary>The tokens are separated by a line break.</summary>
+        NewLine
+    }
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

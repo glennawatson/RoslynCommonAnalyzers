@@ -26,6 +26,9 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the CORS policy builder that owns the guarded method.</summary>
     private const string CorsPolicyBuilderMetadataName = "Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.AlwaysAllowedCorsOrigin);
+
     /// <summary>The reportable shapes a <c>SetIsOriginAllowed</c> predicate argument can take.</summary>
     private enum PredicateShape
     {
@@ -40,7 +43,7 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.AlwaysAllowedCorsOrigin);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

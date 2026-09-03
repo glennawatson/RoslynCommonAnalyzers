@@ -65,8 +65,11 @@ public sealed class Psh1419PreferBuiltInTimeZoneAnalyzer : DiagnosticAnalyzer
     /// <summary>The built-in method whose presence gates <see cref="WindowsToIanaMethodName"/> (.NET 6+).</summary>
     private const string TryConvertWindowsIdToIanaIdMethodName = "TryConvertWindowsIdToIanaId";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.PreferBuiltInTimeZone);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ApiSelectionRules.PreferBuiltInTimeZone);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -29,8 +29,11 @@ public sealed class Sst1417NamespaceFolderAnalyzer : DiagnosticAnalyzer
     /// <summary>The compiler-visible MSBuild property holding the root namespace.</summary>
     private const string RootNamespaceBuildKey = "build_property.RootNamespace";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.NamespaceMatchesFolder);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.NamespaceMatchesFolder);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

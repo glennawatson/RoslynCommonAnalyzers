@@ -84,8 +84,7 @@ public sealed class Sst2334MissingDebuggerDisplayCodeFixProvider : CodeFixProvid
 
         var attributeList = SyntaxFactory.AttributeList(
                 SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.Attribute(SyntaxFactory.ParseName(DebuggerDisplayAttributeName))
-                        .WithArgumentList(SyntaxFactory.AttributeArgumentList(
+                    SyntaxFactory.Attribute(SyntaxFactory.ParseName(DebuggerDisplayAttributeName), SyntaxFactory.AttributeArgumentList(
                             SyntaxFactory.SingletonSeparatedList(
                                 SyntaxFactory.AttributeArgument(
                                     SyntaxFactory.LiteralExpression(

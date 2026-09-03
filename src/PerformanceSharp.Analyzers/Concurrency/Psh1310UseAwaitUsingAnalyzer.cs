@@ -21,8 +21,11 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
     /// <summary>The numeric C# 8 language-version value, where <c>await using</c> became available.</summary>
     private const int CSharp8 = 800;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.UseAwaitUsing);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ConcurrencyRules.UseAwaitUsing);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

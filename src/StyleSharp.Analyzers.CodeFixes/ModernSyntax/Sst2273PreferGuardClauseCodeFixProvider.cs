@@ -170,7 +170,7 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
         return SyntaxFactory.BinaryExpression(
             resultKind,
             Regroup(Negate(binary.Left, model), resultKind),
-            SyntaxFactory.Token(tokenKind).WithLeadingTrivia(SyntaxFactory.Space).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), tokenKind, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             Regroup(Negate(binary.Right, model), resultKind));
     }
 
@@ -206,7 +206,7 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
         return SyntaxFactory.BinaryExpression(
             expressionKind,
             binary.Left.WithoutTrivia(),
-            SyntaxFactory.Token(tokenKind).WithLeadingTrivia(SyntaxFactory.Space).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), tokenKind, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             binary.Right.WithoutTrivia());
     }
 

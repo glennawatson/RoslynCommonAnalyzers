@@ -43,7 +43,7 @@ public class AnalyzerThroughputBenchmarks
             "Bench",
             [tree],
             References,
-            new(OutputKind.DynamicallyLinkedLibrary));
+            new(OutputKind.DynamicallyLinkedLibrary, concurrentBuild: false));
 
         var assembly = typeof(Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesAnalyzer).Assembly;
         _analyzers = [

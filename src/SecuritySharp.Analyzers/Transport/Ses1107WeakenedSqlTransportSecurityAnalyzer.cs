@@ -55,8 +55,11 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
     /// <summary>The metadata name of the modern-client encryption option type.</summary>
     private const string EncryptOptionMetadataName = "Microsoft.Data.SqlClient.SqlConnectionEncryptOption";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.WeakenedSqlTransportSecurity);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.WeakenedSqlTransportSecurity);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

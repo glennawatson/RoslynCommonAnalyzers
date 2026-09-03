@@ -16,8 +16,11 @@ public sealed class Sst1159ParenthesizedLambdaExpressionParameterMustBeOnUniqueL
     /// <summary>The diagnostic descriptor for this analyzer.</summary>
     private static readonly DiagnosticDescriptor Rule = UniqueLineRule.ForParameters(DiagnosticId);
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(Rule);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(Rule);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

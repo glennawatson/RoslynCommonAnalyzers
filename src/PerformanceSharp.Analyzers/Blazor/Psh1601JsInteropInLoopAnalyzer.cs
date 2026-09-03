@@ -36,8 +36,11 @@ public sealed class Psh1601JsInteropInLoopAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the void interop method.</summary>
     private const string InvokeVoidAsyncMethodName = "InvokeVoidAsync";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(BlazorRules.JsInteropInLoop);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(BlazorRules.JsInteropInLoop);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

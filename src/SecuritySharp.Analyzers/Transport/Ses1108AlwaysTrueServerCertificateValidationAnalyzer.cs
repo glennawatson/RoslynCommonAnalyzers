@@ -26,6 +26,9 @@ public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : Diagn
     /// <summary>The name of the custom server-certificate validation callback property.</summary>
     private const string CallbackPropertyName = "ServerCertificateCustomValidationCallback";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.AlwaysTrueServerCertificateValidation);
+
     /// <summary>The shapes a callback value can take that let it be reported.</summary>
     private enum CallbackShape
     {
@@ -40,7 +43,7 @@ public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : Diagn
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.AlwaysTrueServerCertificateValidation);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

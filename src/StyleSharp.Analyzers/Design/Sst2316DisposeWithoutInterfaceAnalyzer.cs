@@ -38,8 +38,11 @@ public sealed class Sst2316DisposeWithoutInterfaceAnalyzer : DiagnosticAnalyzer
     /// <summary>The asynchronous disposal method name.</summary>
     private const string DisposeAsyncName = "DisposeAsync";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.DisposeWithoutInterface);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(DesignRules.DisposeWithoutInterface);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

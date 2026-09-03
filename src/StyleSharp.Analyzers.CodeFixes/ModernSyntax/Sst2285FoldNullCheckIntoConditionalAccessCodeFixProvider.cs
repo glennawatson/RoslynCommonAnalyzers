@@ -64,9 +64,7 @@ public sealed class Sst2285FoldNullCheckIntoConditionalAccessCodeFixProvider : C
         => SyntaxFactory.BinaryExpression(
             SyntaxKind.EqualsExpression,
             value.WithoutTrivia(),
-            SyntaxFactory.Token(SyntaxKind.EqualsEqualsToken)
-                .WithLeadingTrivia(SyntaxFactory.Space)
-                .WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsEqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression));
 
     /// <summary>Builds <c>receiver?.Member == true</c> for a guarded bool-valued member read.</summary>

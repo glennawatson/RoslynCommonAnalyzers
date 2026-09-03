@@ -36,8 +36,11 @@ public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyze
     /// <summary>The metadata name of the type that hosts the static <c>GetType</c> factory.</summary>
     private const string TypeMetadataName = "System.Type";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.NonConstantTypeActivation);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.NonConstantTypeActivation);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

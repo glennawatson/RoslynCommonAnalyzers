@@ -22,7 +22,7 @@ internal static class AwaitExpressionRewrite
     public static ExpressionSyntax WrapInAwait(ExpressionSyntax awaited, ExpressionSyntax original)
     {
         ExpressionSyntax result = SyntaxFactory.AwaitExpression(
-            SyntaxFactory.Token(SyntaxKind.AwaitKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(default, SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             awaited.WithoutTrivia());
         if (NeedsParenthesesAfterAwait(original))
         {

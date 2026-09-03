@@ -38,8 +38,11 @@ public sealed class Psh1018RedundantParamsArrayAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the shared empty-array factory.</summary>
     private const string EmptyMethodName = "Empty";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AllocationRules.RedundantParamsArray);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(AllocationRules.RedundantParamsArray);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -113,7 +116,7 @@ public sealed class Psh1018RedundantParamsArrayAnalyzer : DiagnosticAnalyzer
         var separators = new SyntaxToken[total == 0 ? 0 : total - 1];
         for (var index = 0; index < separators.Length; index++)
         {
-            separators[index] = SyntaxFactory.Token(SyntaxKind.CommaToken).WithTrailingTrivia(SyntaxFactory.Space);
+            separators[index] = SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         }
 
         return argumentList.WithArguments(SyntaxFactory.SeparatedList(arguments, separators));

@@ -50,8 +50,11 @@ public sealed class Sst2446DiscardedStreamReadAnalyzer : DiagnosticAnalyzer
     /// <summary>The suggestion appended when the read-exactly API is not available.</summary>
     private const string LoopSuggestion = "loop until the buffer is filled, or act on the returned count";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DiscardedStreamRead);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.DiscardedStreamRead);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

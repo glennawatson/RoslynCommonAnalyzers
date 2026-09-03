@@ -35,8 +35,11 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the safe-handle base type.</summary>
     private const string SafeHandleMetadataName = "System.Runtime.InteropServices.SafeHandle";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DangerousGetHandle);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.DangerousGetHandle);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

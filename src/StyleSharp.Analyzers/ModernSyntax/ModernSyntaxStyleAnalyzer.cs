@@ -20,11 +20,14 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>The number of arguments in <c>Substring(start, length)</c>.</summary>
     private const int SubstringStartAndLengthArgumentCount = 2;
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         ModernSyntaxRules.UseTargetTypedNew,
         ModernSyntaxRules.UseIndexOperator,
         ModernSyntaxRules.UseRangeOperator);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

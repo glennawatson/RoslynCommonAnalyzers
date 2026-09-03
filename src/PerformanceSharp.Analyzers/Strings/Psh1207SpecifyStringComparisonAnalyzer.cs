@@ -26,8 +26,11 @@ public sealed class Psh1207SpecifyStringComparisonAnalyzer : DiagnosticAnalyzer
     /// <summary>The argument count of the reported static <c>string.Compare(string, string)</c> shape.</summary>
     private const int StaticCompareArgumentCount = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.SpecifyStringComparison);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.SpecifyStringComparison);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

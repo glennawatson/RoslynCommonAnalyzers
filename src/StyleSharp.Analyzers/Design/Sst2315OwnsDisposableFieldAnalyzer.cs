@@ -30,6 +30,9 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>The diagnostic property key naming the sync-disposable members a code fix should release.</summary>
     internal const string MembersToDisposeKey = "MembersToDispose";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.OwnsDisposableField);
+
     /// <summary>How a member owns a disposable, for reporting and fix eligibility.</summary>
     private enum Ownership
     {
@@ -44,7 +47,7 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(DesignRules.OwnsDisposableField);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -40,8 +40,11 @@ public sealed class Sst1400AccessModifierAnalyzer : DiagnosticAnalyzer
     /// <summary>The cached diagnostic properties for nested declarations that default to private.</summary>
     private static readonly ImmutableDictionary<string, string?> PrivateModifierProperties = ImmutableDictionary<string, string?>.Empty.Add(ModifierKey, "private");
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.AccessModifierDeclared);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.AccessModifierDeclared);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

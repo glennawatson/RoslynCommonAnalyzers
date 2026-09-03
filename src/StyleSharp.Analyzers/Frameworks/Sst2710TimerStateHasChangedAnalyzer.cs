@@ -48,8 +48,11 @@ public sealed class Sst2710TimerStateHasChangedAnalyzer : DiagnosticAnalyzer
     /// <summary>The cached visitor that flags each unmarshalled render request in a callback body.</summary>
     private static readonly DescendantTraversalHelper.DescendantVisitor<InvocationExpressionSyntax, RenderRequestScan> RenderRequestVisitor = VisitInvocation;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.TimerStateHasChangedOffDispatcher);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(FrameworksRules.TimerStateHasChangedOffDispatcher);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

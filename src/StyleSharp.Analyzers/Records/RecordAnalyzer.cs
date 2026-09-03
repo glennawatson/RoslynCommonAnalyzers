@@ -26,13 +26,16 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <summary>The default naming convention for record positional parameters.</summary>
     private const NamingConvention DefaultParameterConvention = NamingConvention.PascalCase;
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         RecordRules.SealRecordClass,
         RecordRules.PositionalParameterNaming,
         RecordRules.InitOnlyProperty,
         RecordRules.ReadonlyRecordStruct,
         RecordRules.EmptyPositionalRecordBody);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

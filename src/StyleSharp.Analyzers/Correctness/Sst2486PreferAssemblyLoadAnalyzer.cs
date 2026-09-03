@@ -42,8 +42,11 @@ public sealed class Sst2486PreferAssemblyLoadAnalyzer : DiagnosticAnalyzer
     private const string LoadWithPartialNameReason =
         "resolves a partial name to whichever assembly the runtime happens to find, and is deprecated";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.PreferAssemblyLoad);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.PreferAssemblyLoad);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

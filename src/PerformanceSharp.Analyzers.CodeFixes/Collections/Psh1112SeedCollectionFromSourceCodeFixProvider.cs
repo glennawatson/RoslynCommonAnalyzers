@@ -109,7 +109,7 @@ public sealed class Psh1112SeedCollectionFromSourceCodeFixProvider : CodeFixProv
         if (useCollectionExpression)
         {
             var spread = SyntaxFactory.SpreadElement(
-                SyntaxFactory.Token(SyntaxKind.DotDotToken).WithTrailingTrivia(SyntaxFactory.Space),
+                SyntaxFactory.Token(default, SyntaxKind.DotDotToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
                 source);
             return SyntaxFactory.CollectionExpression(SyntaxFactory.SingletonSeparatedList<CollectionElementSyntax>(spread))
                 .WithTriviaFrom(shape.Creation);

@@ -23,9 +23,12 @@ public sealed class Sst2330FlagsCombinationLiteralAnalyzer : DiagnosticAnalyzer
     /// <summary>The diagnostic property key carrying the comma-separated member names the literal combines.</summary>
     internal const string MembersKey = "Members";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.FlagsCombinationLiteralShouldNameMembers);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(DesignRules.FlagsCombinationLiteralShouldNameMembers);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

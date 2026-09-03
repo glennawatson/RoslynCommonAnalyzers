@@ -31,8 +31,11 @@ public sealed class Sst2433CallerInfoParameterOrderAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the caller-argument-expression attribute (.NET 6+).</summary>
     private const string CallerArgumentExpressionMetadataName = "System.Runtime.CompilerServices.CallerArgumentExpressionAttribute";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.CallerInfoParameterOrder);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.CallerInfoParameterOrder);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

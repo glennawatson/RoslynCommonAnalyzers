@@ -28,9 +28,12 @@ public sealed class Ses1008UntrustedXmlSignatureKeyAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the signature-verification method the rule inspects.</summary>
     private const string CheckSignatureMethodName = "CheckSignature";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.UntrustedXmlSignatureKey);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArrays.Of(SecurityRules.UntrustedXmlSignatureKey);
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

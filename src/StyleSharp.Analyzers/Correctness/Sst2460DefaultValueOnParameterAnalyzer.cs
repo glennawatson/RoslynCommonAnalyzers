@@ -37,9 +37,12 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
     /// <summary>The attribute's unqualified spelling with the explicit suffix.</summary>
     private const string DefaultValueSuffixedName = "DefaultValueAttribute";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DefaultValueOnParameter);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(CorrectnessRules.DefaultValueOnParameter);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -60,9 +60,12 @@ public sealed class Sst1481RedundantBitwiseOperationAnalyzer : DiagnosticAnalyze
     private static readonly ImmutableDictionary<string, string?> RightSurvivesProperties =
         ImmutableDictionary<string, string?>.Empty.Add(SurvivingOperandKey, RightOperandSurvives);
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.RedundantBitwiseOperation);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(MaintainabilityRules.RedundantBitwiseOperation);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

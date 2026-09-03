@@ -23,8 +23,8 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class RedundantCodeAnalyzer : DiagnosticAnalyzer
 {
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         ReadabilityRules.NoRedundantJump,
         ReadabilityRules.NoMemberInitializedToDefault,
         ReadabilityRules.NoRedundantInheritanceList,
@@ -32,6 +32,9 @@ public sealed class RedundantCodeAnalyzer : DiagnosticAnalyzer
         ReadabilityRules.NoRedundantDefaultSwitchSection,
         ReadabilityRules.NoEmptyElseClause,
         ReadabilityRules.NoRedundantOverride);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

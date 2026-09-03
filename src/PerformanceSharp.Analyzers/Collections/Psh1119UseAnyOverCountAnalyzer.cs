@@ -34,8 +34,11 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
     /// <summary>The message argument for comparisons that mean the sequence is empty.</summary>
     private const string NegatedAnyReplacementText = "!Any()";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseAnyOverCount);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CollectionRules.UseAnyOverCount);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

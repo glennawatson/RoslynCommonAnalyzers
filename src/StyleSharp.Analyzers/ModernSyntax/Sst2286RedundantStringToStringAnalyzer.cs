@@ -32,9 +32,12 @@ public sealed class Sst2286RedundantStringToStringAnalyzer : DiagnosticAnalyzer
     /// <summary>The invoked member name the rule looks for.</summary>
     private const string ToStringName = "ToString";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.RedundantStringToString);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(ModernSyntaxRules.RedundantStringToString);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

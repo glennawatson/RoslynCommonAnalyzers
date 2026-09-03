@@ -25,8 +25,11 @@ public sealed class Sst2272EnumFlagValueStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>The highest single-bit position the rule normalizes, keeping the shift within a positive <c>int</c>.</summary>
     private const int MaxShift = 30;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.NormalizeEnumFlagValueStyle);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernSyntaxRules.NormalizeEnumFlagValueStyle);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

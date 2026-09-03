@@ -47,8 +47,11 @@ public sealed class Sst2017UseDateOnlyOrTimeOnlyAnalyzer : DiagnosticAnalyzer
     /// <summary>The type suggested for a time-only value.</summary>
     private const string TimeOnlyTypeName = "TimeOnly";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernizationRules.UseDateOnlyOrTimeOnly);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernizationRules.UseDateOnlyOrTimeOnly);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

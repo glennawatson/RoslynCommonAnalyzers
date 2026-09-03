@@ -23,8 +23,11 @@ public sealed class Psh1201UseCharOverloadAnalyzer : DiagnosticAnalyzer
     /// <summary>The argument count of the shapes that need an explicit <c>StringComparison.Ordinal</c>.</summary>
     private const int LiteralAndComparisonArgumentCount = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseCharOverload);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.UseCharOverload);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

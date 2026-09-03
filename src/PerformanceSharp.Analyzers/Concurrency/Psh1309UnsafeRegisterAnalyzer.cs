@@ -27,8 +27,11 @@ public sealed class Psh1309UnsafeRegisterAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the cancellation token type.</summary>
     private const string CancellationTokenMetadataName = "System.Threading.CancellationToken";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.UseUnsafeRegister);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ConcurrencyRules.UseUnsafeRegister);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

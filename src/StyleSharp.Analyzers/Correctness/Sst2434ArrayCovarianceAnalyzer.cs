@@ -25,8 +25,11 @@ public sealed class Sst2434ArrayCovarianceAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the read-only span type.</summary>
     private const string ReadOnlySpanMetadataName = "System.ReadOnlySpan`1";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.ArrayCovariance);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.ArrayCovariance);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

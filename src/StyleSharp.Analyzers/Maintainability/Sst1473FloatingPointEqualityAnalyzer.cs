@@ -71,8 +71,11 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// <summary>The properties that rewrite a <see cref="float"/> comparison to <c>!float.IsNaN(x)</c>.</summary>
     private static readonly ImmutableDictionary<string, string?> SingleNotIsNaNProperties = CreateProperties(FloatingPointTypes.SingleKeyword, NotIsNaNFixKind);
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.FloatingPointEquality);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.FloatingPointEquality);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

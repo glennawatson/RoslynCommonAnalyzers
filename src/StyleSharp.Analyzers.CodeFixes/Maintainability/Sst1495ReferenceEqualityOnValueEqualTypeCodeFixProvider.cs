@@ -158,7 +158,7 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider : Co
     {
         var arguments = SyntaxFactory.SeparatedList<ArgumentSyntax>(
             [SyntaxFactory.Argument(Bare(comparison.Left)), SyntaxFactory.Argument(Bare(comparison.Right))],
-            [SyntaxFactory.Token(SyntaxKind.CommaToken).WithTrailingTrivia(SyntaxFactory.Space)]);
+            [SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space))]);
 
         return SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(

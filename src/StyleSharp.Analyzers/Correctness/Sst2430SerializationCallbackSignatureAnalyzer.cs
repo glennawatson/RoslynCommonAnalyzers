@@ -33,9 +33,12 @@ public sealed class Sst2430SerializationCallbackSignatureAnalyzer : DiagnosticAn
         "System.Runtime.Serialization.OnDeserializedAttribute",
     ];
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.SerializationCallbackSignature);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(CorrectnessRules.SerializationCallbackSignature);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

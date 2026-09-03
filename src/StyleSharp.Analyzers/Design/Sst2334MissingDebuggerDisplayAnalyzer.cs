@@ -35,9 +35,12 @@ public sealed class Sst2334MissingDebuggerDisplayAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the method whose override makes a <c>ToString</c>-based display string meaningful.</summary>
     private const string ToStringName = "ToString";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.MissingDebuggerDisplay);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(DesignRules.MissingDebuggerDisplay);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

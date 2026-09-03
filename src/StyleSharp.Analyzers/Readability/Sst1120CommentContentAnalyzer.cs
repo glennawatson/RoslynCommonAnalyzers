@@ -17,8 +17,11 @@ public sealed class Sst1120CommentContentAnalyzer : DiagnosticAnalyzer
     /// <summary>The width of the <c>//</c> or <c>/*</c> comment opener.</summary>
     private const int OpenerLength = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ReadabilityRules.CommentMustContainText);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ReadabilityRules.CommentMustContainText);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

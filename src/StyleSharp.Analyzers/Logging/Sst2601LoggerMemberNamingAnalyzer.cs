@@ -40,9 +40,12 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
     /// <summary>The simple type name a candidate member's declared type must carry.</summary>
     private const string LoggerTypeSimpleName = "ILogger";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(LoggingRules.LoggerMemberNaming);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArrays.Of(LoggingRules.LoggerMemberNaming);
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

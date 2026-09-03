@@ -36,8 +36,11 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
     /// <summary>The character span of a doubled brace escape (<c>{{</c> or <c>}}</c>).</summary>
     private const int EscapedBraceLength = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.RouteConstraintTypeMismatch);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(FrameworksRules.RouteConstraintTypeMismatch);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

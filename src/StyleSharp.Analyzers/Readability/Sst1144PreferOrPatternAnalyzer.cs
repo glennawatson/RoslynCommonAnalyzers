@@ -18,8 +18,11 @@ public sealed class Sst1144PreferOrPatternAnalyzer : DiagnosticAnalyzer
     /// <summary>The numeric value of <c>LanguageVersion.CSharp9</c>, the first version with <c>or</c> patterns.</summary>
     private const int CSharp9 = 900;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ReadabilityRules.PreferOrPattern);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ReadabilityRules.PreferOrPattern);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

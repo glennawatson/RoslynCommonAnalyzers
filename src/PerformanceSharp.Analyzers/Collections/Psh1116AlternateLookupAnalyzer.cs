@@ -34,8 +34,11 @@ public sealed class Psh1116AlternateLookupAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the dictionary type used as the compilation gate.</summary>
     private const string DictionaryMetadataName = "System.Collections.Generic.Dictionary`2";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseAlternateLookup);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CollectionRules.UseAlternateLookup);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -20,8 +20,11 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the span type the property returns.</summary>
     private const string ReadOnlySpanMetadataName = "System.ReadOnlySpan`1";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AllocationRules.UseUtf8SpanProperty);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(AllocationRules.UseUtf8SpanProperty);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

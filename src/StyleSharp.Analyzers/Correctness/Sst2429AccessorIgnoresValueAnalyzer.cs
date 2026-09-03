@@ -21,9 +21,12 @@ public sealed class Sst2429AccessorIgnoresValueAnalyzer : DiagnosticAnalyzer
     /// <summary>The contextual parameter every write accessor is handed.</summary>
     private const string ValueParameterName = "value";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.AccessorIgnoresValue);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(CorrectnessRules.AccessorIgnoresValue);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

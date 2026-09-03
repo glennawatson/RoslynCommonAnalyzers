@@ -32,8 +32,11 @@ public sealed class Sst2481IdentityHashInValueHashAnalyzer : DiagnosticAnalyzer
     /// <summary>The hash member name.</summary>
     private const string GetHashCodeName = "GetHashCode";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.IdentityHashInValueHash);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.IdentityHashInValueHash);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

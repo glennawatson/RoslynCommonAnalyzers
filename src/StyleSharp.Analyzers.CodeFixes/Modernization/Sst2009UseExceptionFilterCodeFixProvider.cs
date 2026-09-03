@@ -98,7 +98,7 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
     private static CatchClauseSyntax WithFilter(CatchClauseSyntax catchClause, ExpressionSyntax condition)
     {
         var filter = SyntaxFactory.CatchFilterClause(condition)
-            .WithWhenKeyword(SyntaxFactory.Token(SyntaxKind.WhenKeyword).WithLeadingTrivia(SyntaxFactory.Space).WithTrailingTrivia(SyntaxFactory.Space));
+            .WithWhenKeyword(SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.WhenKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)));
 
         if (catchClause.Declaration is { } declaration)
         {

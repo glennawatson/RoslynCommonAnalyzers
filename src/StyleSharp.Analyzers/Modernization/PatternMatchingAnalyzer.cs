@@ -18,11 +18,14 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
 {
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         ModernizationRules.UseIsPatternOverAsNullCheck,
         ModernizationRules.UseNegatedIsPattern,
         ModernizationRules.UseDeclarationPatternOverIsCheckAndCast);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -73,10 +76,10 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
     internal static IsPatternExpressionSyntax BuildIsNotPattern(ExpressionSyntax operand, TypeSyntax type)
     {
         var typePattern = SyntaxFactory.TypePattern(type.WithoutTrivia());
-        var notPattern = SyntaxFactory.UnaryPattern(SyntaxFactory.Token(SyntaxKind.NotKeyword).WithTrailingTrivia(SyntaxFactory.Space), typePattern);
+        var notPattern = SyntaxFactory.UnaryPattern(SyntaxFactory.Token(default, SyntaxKind.NotKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)), typePattern);
         return SyntaxFactory.IsPatternExpression(
             operand.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.Space),
-            SyntaxFactory.Token(SyntaxKind.IsKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(default, SyntaxKind.IsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             notPattern);
     }
 

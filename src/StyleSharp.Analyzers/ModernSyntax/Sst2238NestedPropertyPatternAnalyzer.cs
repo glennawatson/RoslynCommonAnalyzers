@@ -11,8 +11,11 @@ public sealed class Sst2238NestedPropertyPatternAnalyzer : DiagnosticAnalyzer
     /// <summary>The numeric C# 10 language-version value.</summary>
     private const int CSharp10 = 1000;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.SimplifyNestedPropertyPattern);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernSyntaxRules.SimplifyNestedPropertyPattern);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

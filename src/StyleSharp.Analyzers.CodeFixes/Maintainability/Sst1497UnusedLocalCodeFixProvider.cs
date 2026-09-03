@@ -205,7 +205,7 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
         var discard = SyntaxFactory.AssignmentExpression(
             SyntaxKind.SimpleAssignmentExpression,
             SyntaxFactory.IdentifierName(DiscardName).WithTrailingTrivia(SyntaxFactory.Space),
-            SyntaxFactory.Token(SyntaxKind.EqualsToken).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(default, SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             kept);
         return new LocalEdit(statement, SyntaxFactory.ExpressionStatement(discard).WithTriviaFrom(statement));
     }

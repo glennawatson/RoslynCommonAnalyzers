@@ -58,8 +58,11 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
     /// <summary>The smallest ceiling that means anything: a ceiling below 1 would flag every positive size.</summary>
     private const long SmallestCeiling = 1;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.UnboundedBrowserFileRead);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.UnboundedBrowserFileRead);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

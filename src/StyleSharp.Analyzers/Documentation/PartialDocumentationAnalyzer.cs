@@ -23,12 +23,15 @@ public sealed class PartialDocumentationAnalyzer : DiagnosticAnalyzer
         SyntaxKind.RecordStructDeclaration,
         SyntaxKind.MethodDeclaration);
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         DocumentationRules.PartialMustBeDocumented,
         DocumentationRules.PartialMustHaveSummary,
         DocumentationRules.PartialSummaryMustHaveText,
         DocumentationRules.PartialTypeParametersDocumented);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

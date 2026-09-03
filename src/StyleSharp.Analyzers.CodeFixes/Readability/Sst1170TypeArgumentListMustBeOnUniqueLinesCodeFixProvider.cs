@@ -49,7 +49,5 @@ public sealed class Sst1170TypeArgumentListMustBeOnUniqueLinesCodeFixProvider : 
         => UniqueLineCodeFixerHelper.SplitAngleBracketedListOntoOwnLines(
             node,
             node.Arguments,
-            (list, endOfLine) => SyntaxFactory.TypeArgumentList(list)
-                .WithLessThanToken(node.LessThanToken.WithTrailingTrivia(endOfLine))
-                .WithGreaterThanToken(node.GreaterThanToken));
+            (list, endOfLine) => SyntaxFactory.TypeArgumentList(node.LessThanToken.WithTrailingTrivia(endOfLine), list, node.GreaterThanToken));
 }

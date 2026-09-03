@@ -37,8 +37,11 @@ public sealed class Sst2409ThrowsGeneralExceptionAnalyzer : DiagnosticAnalyzer
     /// <summary>Why the three runtime-reserved types are reported.</summary>
     private const string RuntimeReason = "impersonates a failure only the runtime should raise";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.ThrowsGeneralException);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.ThrowsGeneralException);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

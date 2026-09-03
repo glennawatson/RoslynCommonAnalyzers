@@ -169,9 +169,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
     private static StatementSyntax Awaitify(ReturnStatementSyntax returnStatement, bool producesValue)
     {
         var expression = returnStatement.Expression!;
-        var awaitKeyword = SyntaxFactory.Token(SyntaxKind.AwaitKeyword)
-            .WithLeadingTrivia(expression.GetLeadingTrivia())
-            .WithTrailingTrivia(SyntaxFactory.Space);
+        var awaitKeyword = SyntaxFactory.Token(expression.GetLeadingTrivia(), SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var awaited = SyntaxFactory.AwaitExpression(awaitKeyword, expression.WithLeadingTrivia());
 
         if (producesValue)

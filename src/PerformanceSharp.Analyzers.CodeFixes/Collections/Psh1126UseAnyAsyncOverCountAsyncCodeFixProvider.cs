@@ -79,7 +79,7 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncCodeFixProvider : CodeFixPro
         }
 
         ExpressionSyntax result = SyntaxFactory.AwaitExpression(
-            SyntaxFactory.Token(SyntaxKind.AwaitKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(default, SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             anyAsyncCall);
         if (!shape.HasElements)
         {

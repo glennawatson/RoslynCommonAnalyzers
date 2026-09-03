@@ -44,7 +44,7 @@ internal static class BenchmarkCompilationFactory
         string filePath = "Bench.cs")
     {
         var tree = Parse(source, filePath);
-        var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, concurrentBuild: false);
 
         if (enabledRuleIds.Count > 0)
         {

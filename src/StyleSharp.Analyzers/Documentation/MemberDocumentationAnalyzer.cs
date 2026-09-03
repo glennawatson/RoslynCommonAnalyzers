@@ -19,8 +19,8 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
 {
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         DocumentationRules.ElementsMustBeDocumented,
         DocumentationRules.EnumItemsMustBeDocumented,
         DocumentationRules.MustHaveSummary,
@@ -42,6 +42,9 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         DocumentationRules.ConstructorStandardText,
         DocumentationRules.DestructorStandardText,
         DocumentationRules.TextMustEndWithPeriod);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

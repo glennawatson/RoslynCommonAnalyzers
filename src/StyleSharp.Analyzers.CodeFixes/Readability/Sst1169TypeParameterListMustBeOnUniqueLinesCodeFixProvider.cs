@@ -49,7 +49,5 @@ public sealed class Sst1169TypeParameterListMustBeOnUniqueLinesCodeFixProvider :
         => UniqueLineCodeFixerHelper.SplitAngleBracketedListOntoOwnLines(
             node,
             node.Parameters,
-            (list, endOfLine) => SyntaxFactory.TypeParameterList(list)
-                .WithLessThanToken(node.LessThanToken.WithTrailingTrivia(endOfLine))
-                .WithGreaterThanToken(node.GreaterThanToken));
+            (list, endOfLine) => SyntaxFactory.TypeParameterList(node.LessThanToken.WithTrailingTrivia(endOfLine), list, node.GreaterThanToken));
 }

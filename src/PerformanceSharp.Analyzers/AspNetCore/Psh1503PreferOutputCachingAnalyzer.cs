@@ -45,8 +45,11 @@ public sealed class Psh1503PreferOutputCachingAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the output-caching options type, the alternate marker.</summary>
     private const string OutputCacheOptionsMetadataName = "Microsoft.AspNetCore.OutputCaching.OutputCacheOptions";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AspNetCoreRules.PreferOutputCaching);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(AspNetCoreRules.PreferOutputCaching);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

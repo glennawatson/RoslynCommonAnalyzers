@@ -51,14 +51,7 @@ public sealed class RecordInitOnlyCodeFixProvider : CodeFixProvider, IBatchFixab
             return;
         }
 
-        var initKeyword = SyntaxFactory.Token(accessor.Keyword.LeadingTrivia, SyntaxKind.InitKeyword, accessor.Keyword.TrailingTrivia);
-        var initAccessor = SyntaxFactory.AccessorDeclaration(SyntaxKind.InitAccessorDeclaration)
-            .WithAttributeLists(accessor.AttributeLists)
-            .WithModifiers(accessor.Modifiers)
-            .WithKeyword(initKeyword)
-            .WithBody(accessor.Body)
-            .WithExpressionBody(accessor.ExpressionBody)
-            .WithSemicolonToken(accessor.SemicolonToken);
+        var initAccessor = ToInitAccessor(accessor);
 
         editor.ReplaceNode(accessor, initAccessor);
     }
@@ -72,15 +65,25 @@ public sealed class RecordInitOnlyCodeFixProvider : CodeFixProvider, IBatchFixab
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
 
-        var initKeyword = SyntaxFactory.Token(accessor.Keyword.LeadingTrivia, SyntaxKind.InitKeyword, accessor.Keyword.TrailingTrivia);
-        var initAccessor = SyntaxFactory.AccessorDeclaration(SyntaxKind.InitAccessorDeclaration)
-            .WithAttributeLists(accessor.AttributeLists)
-            .WithModifiers(accessor.Modifiers)
-            .WithKeyword(initKeyword)
-            .WithBody(accessor.Body)
-            .WithExpressionBody(accessor.ExpressionBody)
-            .WithSemicolonToken(accessor.SemicolonToken);
+        var initAccessor = ToInitAccessor(accessor);
 
         return document.WithSyntaxRoot(root!.ReplaceNode(accessor, initAccessor));
     }
+
+    /// <summary>Builds the init accessor that replaces a set accessor, keeping everything else it had.</summary>
+    /// <param name="accessor">The set accessor to convert.</param>
+    /// <returns>The equivalent init accessor.</returns>
+    /// <remarks>
+    /// Every part is passed to the factory at once. Setting them one at a time through the With
+    /// mutators builds and discards a whole accessor per call, six of them for this shape.
+    /// </remarks>
+    private static AccessorDeclarationSyntax ToInitAccessor(AccessorDeclarationSyntax accessor)
+        => SyntaxFactory.AccessorDeclaration(
+            SyntaxKind.InitAccessorDeclaration,
+            accessor.AttributeLists,
+            accessor.Modifiers,
+            SyntaxFactory.Token(accessor.Keyword.LeadingTrivia, SyntaxKind.InitKeyword, accessor.Keyword.TrailingTrivia),
+            accessor.Body,
+            accessor.ExpressionBody,
+            accessor.SemicolonToken);
 }

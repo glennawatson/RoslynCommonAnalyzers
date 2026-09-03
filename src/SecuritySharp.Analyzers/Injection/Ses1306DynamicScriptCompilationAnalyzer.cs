@@ -36,8 +36,11 @@ public sealed class Ses1306DynamicScriptCompilationAnalyzer : DiagnosticAnalyzer
     /// <summary>The gated scripting method name that compiles the script into a reusable object.</summary>
     private const string CreateMethodName = "Create";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.DynamicScriptCompilation);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.DynamicScriptCompilation);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

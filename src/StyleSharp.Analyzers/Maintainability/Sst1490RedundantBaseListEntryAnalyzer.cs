@@ -34,8 +34,11 @@ public sealed class Sst1490RedundantBaseListEntryAnalyzer : DiagnosticAnalyzer
     /// <summary>The smallest base list in which one entry can imply another.</summary>
     private const int MinimumImplyingEntryCount = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.RedundantBaseListEntry);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.RedundantBaseListEntry);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

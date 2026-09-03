@@ -42,8 +42,8 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <summary>The numeric C# 14 language-version value.</summary>
     private const int CSharp14 = 1400;
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         ModernSyntaxRules.SimplifyInterpolation,
         ModernSyntaxRules.MakeIgnoredExpressionValueExplicit,
         ModernSyntaxRules.RemoveOverwrittenValue,
@@ -55,6 +55,9 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         ModernSyntaxRules.UseLocalFunction,
         ModernSyntaxRules.UseDirectNullPattern,
         ModernSyntaxRules.UseUnboundGenericName);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

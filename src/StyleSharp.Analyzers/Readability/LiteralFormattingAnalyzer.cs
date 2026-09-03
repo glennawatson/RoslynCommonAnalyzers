@@ -34,11 +34,14 @@ public sealed class LiteralFormattingAnalyzer : DiagnosticAnalyzer
     /// <summary>The alternate conventional group width for a hexadecimal or binary literal.</summary>
     private const int NarrowGroupWidth = 2;
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         ReadabilityRules.IrregularDigitGrouping,
         ReadabilityRules.UseDigitSeparators,
         ReadabilityRules.EscapeControlCharacters);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

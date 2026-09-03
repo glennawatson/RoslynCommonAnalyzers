@@ -29,7 +29,7 @@ internal static class SealedModifierRewrite
             }
         }
 
-        var sealedToken = SyntaxFactory.Token(SyntaxKind.SealedKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+        var sealedToken = SyntaxFactory.Token(default, SyntaxKind.SealedKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         if (insertIndex > 0)
         {
             return declaration.WithModifiers(modifiers.Insert(insertIndex, sealedToken));

@@ -58,8 +58,11 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
     /// <summary>The consequence named in the message when both of two sequential tests run.</summary>
     private const string SequentialConsequence = "both tests run, so merge them into one 'if' — or one of the conditions is wrong";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.DuplicateCondition);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.DuplicateCondition);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

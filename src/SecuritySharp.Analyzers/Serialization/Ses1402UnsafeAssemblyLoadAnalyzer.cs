@@ -43,6 +43,9 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the trusted embedded-resource accessor that suppresses the diagnostic.</summary>
     private const string ManifestResourceStreamMethodName = "GetManifestResourceStream";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.UnsafeAssemblyLoad);
+
     /// <summary>The way a load site puts trust at risk, deciding whether and how it is reported.</summary>
     private enum LoadRisk
     {
@@ -57,7 +60,7 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.UnsafeAssemblyLoad);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

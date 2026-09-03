@@ -33,7 +33,7 @@ public sealed class Psh1014ReadonlyStructCodeFixProvider : CodeFixProvider, IBat
     /// <returns>The readonly declaration.</returns>
     internal static TypeDeclarationSyntax AddReadonlyModifier(TypeDeclarationSyntax declaration)
     {
-        var readonlyToken = SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+        var readonlyToken = SyntaxFactory.Token(default, SyntaxKind.ReadOnlyKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var modifiers = declaration.Modifiers;
         if (modifiers.Count == 0)
         {

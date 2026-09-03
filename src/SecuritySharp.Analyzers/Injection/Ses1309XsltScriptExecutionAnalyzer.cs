@@ -41,8 +41,11 @@ public sealed class Ses1309XsltScriptExecutionAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the static settings property that enables both document() and script.</summary>
     private const string TrustedXsltPropertyName = "TrustedXslt";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.XsltScriptExecution);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.XsltScriptExecution);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

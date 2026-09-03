@@ -60,8 +60,11 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsAnalyzer : DiagnosticAna
     /// <summary>The metadata name of the cancellation token type the array overload may take.</summary>
     private const string CancellationTokenMetadataName = "System.Threading.CancellationToken";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.UseMemoryBasedStreamOverloads);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ConcurrencyRules.UseMemoryBasedStreamOverloads);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

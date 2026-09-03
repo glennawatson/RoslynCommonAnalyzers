@@ -33,8 +33,11 @@ public sealed class Ses1513DiscardedAuthorizationResultAnalyzer : DiagnosticAnal
     /// <summary>The metadata name of the authorization service the reported call must bind to.</summary>
     private const string AuthorizationServiceMetadataName = "Microsoft.AspNetCore.Authorization.IAuthorizationService";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.DiscardedAuthorizationResult);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.DiscardedAuthorizationResult);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

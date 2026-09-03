@@ -64,7 +64,7 @@ public sealed class Psh1303NoThreadSleepInAsyncCodeFixProvider : CodeFixProvider
             invocation.ArgumentList.WithoutTrivia());
 
         return SyntaxFactory.AwaitExpression(
-                SyntaxFactory.Token(SyntaxKind.AwaitKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+                SyntaxFactory.Token(default, SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
                 delayCall)
             .WithTriviaFrom(invocation);
     }

@@ -32,8 +32,11 @@ public sealed class Sst2244UppercaseLiteralSuffixAnalyzer : DiagnosticAnalyzer
     /// <summary>The suffix characters only a base-ten literal can carry; in a hex literal these are digits.</summary>
     private const string RealSuffixCharacters = "fFdDmM";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.UppercaseLiteralSuffix);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernSyntaxRules.UppercaseLiteralSuffix);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

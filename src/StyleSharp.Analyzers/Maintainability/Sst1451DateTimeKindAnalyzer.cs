@@ -21,8 +21,11 @@ public sealed class Sst1451DateTimeKindAnalyzer : DiagnosticAnalyzer
     /// <summary>The kind parameter type name.</summary>
     private const string DateTimeKindTypeName = "DateTimeKind";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.DateTimeKindRequired);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.DateTimeKindRequired);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

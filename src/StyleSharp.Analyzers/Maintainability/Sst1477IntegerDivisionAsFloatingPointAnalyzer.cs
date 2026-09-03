@@ -54,9 +54,12 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointAnalyzer : DiagnosticAn
     private static readonly ImmutableDictionary<string, string?> DecimalProperties =
         ImmutableDictionary<string, string?>.Empty.Add(TargetTypeKey, DecimalName);
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.IntegerDivisionAsFloatingPoint);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(MaintainabilityRules.IntegerDivisionAsFloatingPoint);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

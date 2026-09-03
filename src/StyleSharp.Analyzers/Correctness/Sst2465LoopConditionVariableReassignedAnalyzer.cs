@@ -38,8 +38,11 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
     /// <summary>The most condition variables the rule will consider.</summary>
     private const int MaximumConditionVariables = 4;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.LoopConditionVariableReassigned);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.LoopConditionVariableReassigned);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

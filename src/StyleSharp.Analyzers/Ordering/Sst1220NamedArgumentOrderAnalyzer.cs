@@ -17,8 +17,11 @@ public sealed class Sst1220NamedArgumentOrderAnalyzer : DiagnosticAnalyzer
     /// <summary>The fewest arguments a reorder needs.</summary>
     private const int MinimumArguments = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(OrderingRules.NamedArgumentOrder);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(OrderingRules.NamedArgumentOrder);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

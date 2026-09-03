@@ -61,8 +61,11 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
     /// <summary>The simple name of the extensions type providing the span slice and the span searches.</summary>
     private const string MemoryExtensionsTypeName = "MemoryExtensions";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.SearchWithStartIndex);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.SearchWithStartIndex);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

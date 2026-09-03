@@ -59,8 +59,11 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>The suggestion appended for the service clients, which are all safe to share across threads.</summary>
     private const string SharedClientSuggestion = "cache one shared instance for the lifetime of the process, or inject a registered singleton, instead";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.ShareClientAcrossInvocations);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ApiSelectionRules.ShareClientAcrossInvocations);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

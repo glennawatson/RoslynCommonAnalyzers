@@ -41,9 +41,12 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
     /// <summary>The display form of the non-generic <c>object.Equals(object)</c> counterpart.</summary>
     private const string ObjectEqualsDisplay = "object.Equals(object)";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.MissingNonGenericContract);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(DesignRules.MissingNonGenericContract);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

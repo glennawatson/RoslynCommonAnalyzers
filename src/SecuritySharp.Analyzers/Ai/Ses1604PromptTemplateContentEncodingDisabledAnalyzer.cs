@@ -36,8 +36,11 @@ public sealed class Ses1604PromptTemplateContentEncodingDisabledAnalyzer : Diagn
         "Microsoft.SemanticKernel.PromptTemplates.Handlebars.HandlebarsPromptTemplateFactory"
     ];
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.PromptTemplateContentEncodingDisabled);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.PromptTemplateContentEncodingDisabled);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

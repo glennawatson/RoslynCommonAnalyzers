@@ -54,6 +54,12 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the creation-policy enum's shared member.</summary>
     private const string SharedPolicyFieldName = "Shared";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
+        CorrectnessRules.ExportedContractNotImplemented,
+        CorrectnessRules.SharedExportPartConstructedDirectly,
+        CorrectnessRules.CreationPolicyWithoutExport);
+
     /// <summary>The category an attribute's written name places it in.</summary>
     private enum MefAttributeKind
     {
@@ -68,10 +74,7 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
-        CorrectnessRules.ExportedContractNotImplemented,
-        CorrectnessRules.SharedExportPartConstructedDirectly,
-        CorrectnessRules.CreationPolicyWithoutExport);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

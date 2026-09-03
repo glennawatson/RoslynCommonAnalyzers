@@ -85,7 +85,7 @@ public sealed class Sst2287UseForOverWhileCodeFixProvider : CodeFixProvider
     {
         var body = (BlockSyntax)loop.Statement;
         var remaining = body.Statements.RemoveAt(body.Statements.Count - 1);
-        var spaced = SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(SyntaxFactory.Space);
+        var spaced = SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
 
         return SyntaxFactory.ForStatement(
                 declaration: parts.Declaration.Declaration.WithoutTrivia(),
@@ -93,7 +93,7 @@ public sealed class Sst2287UseForOverWhileCodeFixProvider : CodeFixProvider
                 condition: loop.Condition.WithoutTrivia(),
                 incrementors: SyntaxFactory.SingletonSeparatedList(parts.Incrementor.Expression.WithoutTrivia()),
                 statement: body.WithStatements(remaining))
-            .WithForKeyword(SyntaxFactory.Token(SyntaxKind.ForKeyword).WithTrailingTrivia(SyntaxFactory.Space))
+            .WithForKeyword(SyntaxFactory.Token(default, SyntaxKind.ForKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)))
             .WithFirstSemicolonToken(spaced)
             .WithSecondSemicolonToken(spaced)
             .WithLeadingTrivia(parts.Declaration.GetLeadingTrivia())

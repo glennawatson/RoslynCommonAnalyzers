@@ -39,8 +39,11 @@ public sealed class Ses1514OidcProtocolProtectionDisabledAnalyzer : DiagnosticAn
     /// <summary>The metadata name of the validator type that carries the state and nonce flags.</summary>
     private const string OpenIdConnectProtocolValidatorMetadataName = "Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectProtocolValidator";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.OidcProtocolProtectionDisabled);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.OidcProtocolProtectionDisabled);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

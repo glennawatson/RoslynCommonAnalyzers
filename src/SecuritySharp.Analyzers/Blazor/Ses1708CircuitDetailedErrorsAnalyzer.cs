@@ -22,8 +22,11 @@ public sealed class Ses1708CircuitDetailedErrorsAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the options type that carries <c>DetailedErrors</c>.</summary>
     private const string CircuitOptionsMetadataName = "Microsoft.AspNetCore.Components.Server.CircuitOptions";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.CircuitDetailedErrorsEnabled);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.CircuitDetailedErrorsEnabled);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

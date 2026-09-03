@@ -29,8 +29,11 @@ public sealed class Ses1710AntiforgeryValidationDisabledAnalyzer : DiagnosticAna
     /// <summary>The metadata name of the attribute whose <c>required: false</c> application disables validation.</summary>
     private const string RequireAntiforgeryTokenAttributeMetadataName = "Microsoft.AspNetCore.Antiforgery.RequireAntiforgeryTokenAttribute";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.AntiforgeryValidationDisabled);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.AntiforgeryValidationDisabled);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

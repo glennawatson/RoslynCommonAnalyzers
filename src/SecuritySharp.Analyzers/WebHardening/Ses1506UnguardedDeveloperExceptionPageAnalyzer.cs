@@ -28,8 +28,11 @@ public sealed class Ses1506UnguardedDeveloperExceptionPageAnalyzer : DiagnosticA
     private const string DeveloperExceptionPageExtensionsMetadataName =
         "Microsoft.AspNetCore.Builder.DeveloperExceptionPageExtensions";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.UnguardedDeveloperExceptionPage);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.UnguardedDeveloperExceptionPage);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

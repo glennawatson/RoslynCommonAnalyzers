@@ -14,10 +14,13 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
     /// <summary>The separator used in the missing-members diagnostic property.</summary>
     internal const char MissingMembersSeparator = '|';
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         ModernSyntaxRules.CompleteEnumSwitchStatement,
         ModernSyntaxRules.CompleteEnumSwitchExpression);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

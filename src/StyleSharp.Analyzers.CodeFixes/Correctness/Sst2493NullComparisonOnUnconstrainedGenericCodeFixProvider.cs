@@ -45,9 +45,7 @@ public sealed class Sst2493NullComparisonOnUnconstrainedGenericCodeFixProvider :
         }
 
         var pattern = NullPattern(binary.IsKind(SyntaxKind.NotEqualsExpression));
-        var isKeyword = SyntaxFactory.Token(SyntaxKind.IsKeyword)
-            .WithLeadingTrivia(SyntaxFactory.Space)
-            .WithTrailingTrivia(SyntaxFactory.Space);
+        var isKeyword = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.IsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var replacement = SyntaxFactory.IsPatternExpression(operand.WithoutTrivia(), isKeyword, pattern)
             .WithTriviaFrom(binary);
         return new NodeReplacement(binary, replacement);
@@ -77,7 +75,7 @@ public sealed class Sst2493NullComparisonOnUnconstrainedGenericCodeFixProvider :
             return constant;
         }
 
-        var notKeyword = SyntaxFactory.Token(SyntaxKind.NotKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+        var notKeyword = SyntaxFactory.Token(default, SyntaxKind.NotKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         return SyntaxFactory.UnaryPattern(notKeyword, constant);
     }
 }

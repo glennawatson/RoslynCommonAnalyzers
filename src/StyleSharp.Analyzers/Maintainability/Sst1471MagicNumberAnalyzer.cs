@@ -32,8 +32,11 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// <summary>The largest <see cref="double"/> that converts to <see cref="decimal"/>.</summary>
     private const double DecimalMaximum = (double)decimal.MaxValue;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.MagicNumber);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.MagicNumber);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

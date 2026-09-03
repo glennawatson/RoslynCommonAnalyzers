@@ -31,9 +31,12 @@ public sealed class Sst1665ExceptionDescriptionAnalyzer : DiagnosticAnalyzer
     /// <summary>The documentation element carrying a member's exception contract.</summary>
     private const string ExceptionElement = "exception";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DocumentationRules.ExceptionDescription);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(DocumentationRules.ExceptionDescription);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

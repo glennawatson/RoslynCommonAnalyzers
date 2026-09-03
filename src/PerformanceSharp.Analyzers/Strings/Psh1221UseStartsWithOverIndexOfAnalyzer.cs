@@ -51,8 +51,11 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
     /// <summary>The replacement member name.</summary>
     internal const string StartsWithMethodName = "StartsWith";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseStartsWithOverIndexOf);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.UseStartsWithOverIndexOf);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

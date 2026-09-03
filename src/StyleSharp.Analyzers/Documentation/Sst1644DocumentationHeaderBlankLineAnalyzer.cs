@@ -13,9 +13,12 @@ public sealed class Sst1644DocumentationHeaderBlankLineAnalyzer : DiagnosticAnal
     /// <summary>The number of slashes in a single-line documentation prefix.</summary>
     private const int DocumentationSlashCount = 3;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DocumentationRules.DocumentationHeaderNoBlankLines);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(DocumentationRules.DocumentationHeaderNoBlankLines);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

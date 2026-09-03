@@ -44,8 +44,11 @@ public sealed class Ses1003Pbkdf2IterationCountAnalyzer : DiagnosticAnalyzer
     /// <summary>The smallest floor that means anything: a floor below 1 would pass every count.</summary>
     private const int SmallestFloor = 1;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.Pbkdf2IterationCount);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.Pbkdf2IterationCount);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

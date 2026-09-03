@@ -36,12 +36,15 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <summary>The most condition variables the rule will consider.</summary>
     private const int MaximumConditionVariables = 4;
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         CorrectnessRules.InvariantLoopCondition,
         CorrectnessRules.LoopCounterNeverStepped,
         CorrectnessRules.LoopStepsAwayFromBound,
         CorrectnessRules.LoopBodyNeverRuns);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

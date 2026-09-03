@@ -18,9 +18,12 @@ public sealed class Sst1222EnumMemberOrderAnalyzer : DiagnosticAnalyzer
     /// <summary>The fully suffixed attribute name that marks an enum as a bit field.</summary>
     private const string FlagsAttributeFullName = "FlagsAttribute";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(OrderingRules.EnumMemberOrder);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(OrderingRules.EnumMemberOrder);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

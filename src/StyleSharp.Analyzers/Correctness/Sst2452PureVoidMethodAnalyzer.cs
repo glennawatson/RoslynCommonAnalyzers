@@ -41,9 +41,12 @@ public sealed class Sst2452PureVoidMethodAnalyzer : DiagnosticAnalyzer
     /// <summary>The value-task type's name.</summary>
     private const string ValueTaskTypeName = "ValueTask";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.PureMethodWithoutResult);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(CorrectnessRules.PureMethodWithoutResult);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

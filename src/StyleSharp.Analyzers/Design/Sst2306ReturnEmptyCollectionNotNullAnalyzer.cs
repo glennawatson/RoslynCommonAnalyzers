@@ -42,8 +42,11 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     private static readonly ImmutableDictionary<string, string?> CollectionExpressionProperties =
         ImmutableDictionary<string, string?>.Empty.Add(ReplacementKey, CollectionExpressionText);
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.ReturnEmptyCollectionNotNull);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(DesignRules.ReturnEmptyCollectionNotNull);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

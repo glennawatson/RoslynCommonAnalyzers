@@ -26,8 +26,11 @@ public sealed class Sst2270ArrayCreationTypeStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>The reported target when the codebase infers the element type.</summary>
     internal const string ImplicitTarget = "implicit";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.NormalizeArrayCreationTypeStyle);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernSyntaxRules.NormalizeArrayCreationTypeStyle);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

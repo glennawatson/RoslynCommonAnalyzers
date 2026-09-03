@@ -76,10 +76,10 @@ public sealed class Sst2248UseComparisonPatternCodeFixProvider : CodeFixProvider
         {
             SyntaxKind.EqualsExpression => SyntaxFactory.ConstantPattern(value),
             SyntaxKind.NotEqualsExpression => SyntaxFactory.UnaryPattern(
-                SyntaxFactory.Token(SyntaxKind.NotKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+                SyntaxFactory.Token(default, SyntaxKind.NotKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
                 SyntaxFactory.ConstantPattern(value)),
             _ => SyntaxFactory.RelationalPattern(
-                SyntaxFactory.Token(RelationalToken(comparison)).WithTrailingTrivia(SyntaxFactory.Space),
+                SyntaxFactory.Token(default, RelationalToken(comparison), SyntaxFactory.TriviaList(SyntaxFactory.Space)),
                 value),
         };
     }
@@ -100,5 +100,5 @@ public sealed class Sst2248UseComparisonPatternCodeFixProvider : CodeFixProvider
     /// <param name="kind">The keyword kind.</param>
     /// <returns>The spaced keyword token.</returns>
     private static SyntaxToken Keyword(SyntaxKind kind)
-        => SyntaxFactory.Token(kind).WithLeadingTrivia(SyntaxFactory.Space).WithTrailingTrivia(SyntaxFactory.Space);
+        => SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), kind, SyntaxFactory.TriviaList(SyntaxFactory.Space));
 }

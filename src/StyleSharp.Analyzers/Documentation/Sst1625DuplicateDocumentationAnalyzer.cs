@@ -19,13 +19,22 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The seed for the key hash.</summary>
+    private const int HashSeed = 17;
+
+    /// <summary>The multiplier for the key hash.</summary>
+    private const int HashFactor = 31;
+
     /// <summary>The documentation-comment node kinds the rule inspects.</summary>
     private static readonly ImmutableArray<SyntaxKind> HandledKinds = ImmutableArrays.Of(
         SyntaxKind.SingleLineDocumentationCommentTrivia,
         SyntaxKind.MultiLineDocumentationCommentTrivia);
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DocumentationRules.NoDuplicateDocumentation);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(DocumentationRules.NoDuplicateDocumentation);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -42,11 +51,12 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
     {
         var documentation = (DocumentationCommentTriviaSyntax)context.Node;
 
-        // The buffer is built once and cleared per element; the dedup state stays unallocated until a
-        // second non-empty element appears, so the common single-element comment costs no HashSet.
+        // The buffer is built once and cleared per element. Only the hash of each key is kept, so a
+        // comment whose elements all differ - which is nearly all of them - never materialises a key
+        // string at all. Two elements hashing alike are then compared in full, because a hash match
+        // alone would report a duplicate that is not one.
         StringBuilder? builder = null;
-        string? firstKey = null;
-        HashSet<string>? seen = null;
+        List<ElementKey>? seen = null;
 
         foreach (var node in documentation.Content)
         {
@@ -63,20 +73,71 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            var text = builder.ToString();
-            if (firstKey is null)
+            var hash = KeyHash(builder);
+            if (seen is null)
             {
-                firstKey = text;
+                seen = [new ElementKey(hash, element)];
                 continue;
             }
 
-            seen ??= new HashSet<string>(StringComparer.Ordinal) { firstKey };
-            if (seen.Add(text))
+            if (!IsDuplicate(seen, hash, builder))
             {
+                seen.Add(new ElementKey(hash, element));
                 continue;
             }
 
             context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.NoDuplicateDocumentation, element.GetLocation()));
         }
     }
+
+    /// <summary>Returns whether an element's key repeats one already seen.</summary>
+    /// <param name="seen">The elements seen so far, with their key hashes.</param>
+    /// <param name="hash">The candidate element's key hash.</param>
+    /// <param name="builder">The buffer holding the candidate's key.</param>
+    /// <returns><see langword="true"/> when an earlier element has the same key text.</returns>
+    /// <remarks>
+    /// Reached only when two hashes match, so the strings this compares are built for that pair rather
+    /// than for every element in every comment. The buffer is left holding the earlier element's key,
+    /// which the caller has finished with by this point.
+    /// </remarks>
+    private static bool IsDuplicate(List<ElementKey> seen, int hash, StringBuilder builder)
+    {
+        string? candidate = null;
+        for (var index = 0; index < seen.Count; index++)
+        {
+            if (seen[index].Hash != hash)
+            {
+                continue;
+            }
+
+            candidate ??= builder.ToString();
+            builder.Clear();
+            XmlDocumentationHelper.AppendDuplicateComparisonKey(seen[index].Element, builder);
+            if (string.Equals(candidate, builder.ToString(), StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Computes an ordinal hash of the key currently in the buffer.</summary>
+    /// <param name="builder">The buffer holding the key.</param>
+    /// <returns>The key's hash.</returns>
+    private static int KeyHash(StringBuilder builder)
+    {
+        var hash = HashSeed;
+        for (var index = 0; index < builder.Length; index++)
+        {
+            hash = (hash * HashFactor) + builder[index];
+        }
+
+        return hash;
+    }
+
+    /// <summary>One documentation element and the hash of its comparison key.</summary>
+    /// <param name="Hash">The key's hash.</param>
+    /// <param name="Element">The element the key came from.</param>
+    private readonly record struct ElementKey(int Hash, XmlElementSyntax Element);
 }

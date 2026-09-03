@@ -37,8 +37,11 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
     /// <summary>The cached visitor that records every event unsubscribed anywhere in the component.</summary>
     private static readonly DescendantTraversalHelper.DescendantVisitor<AssignmentExpressionSyntax, UnsubscribeScan> UnsubscribeVisitor = VisitUnsubscribe;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.LifecycleEventSubscriptionLeak);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(FrameworksRules.LifecycleEventSubscriptionLeak);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

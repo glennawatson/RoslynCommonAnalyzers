@@ -34,8 +34,11 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
     /// <summary>The message argument naming a concatenation chain.</summary>
     private const string ConcatenationSourceDescription = "string concatenation";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.UseInterpolatedString);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernSyntaxRules.UseInterpolatedString);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

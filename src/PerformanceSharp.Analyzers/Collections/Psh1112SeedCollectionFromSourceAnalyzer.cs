@@ -40,8 +40,11 @@ public sealed class Psh1112SeedCollectionFromSourceAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableDictionary<string, string?> CollectionExpressionProperties =
         ImmutableDictionary<string, string?>.Empty.Add(UseCollectionExpressionKey, "true");
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.SeedCollectionFromSource);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CollectionRules.SeedCollectionFromSource);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

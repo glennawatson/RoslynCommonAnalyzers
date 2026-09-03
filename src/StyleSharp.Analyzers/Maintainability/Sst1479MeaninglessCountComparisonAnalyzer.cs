@@ -42,6 +42,9 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     /// <summary>The name of the length an array declares as a <see cref="long"/>.</summary>
     private const string LongLengthName = "LongLength";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.MeaninglessCountComparison);
+
     /// <summary>The kind of bound an operand denotes.</summary>
     private enum CountBound
     {
@@ -56,7 +59,7 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.MeaninglessCountComparison);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

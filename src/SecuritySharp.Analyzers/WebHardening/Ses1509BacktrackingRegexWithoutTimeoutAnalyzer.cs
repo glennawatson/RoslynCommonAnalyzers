@@ -64,8 +64,11 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
     /// <summary>The length of a regex escape sequence -- the backslash and the single character it escapes.</summary>
     private const int EscapeSequenceLength = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.BacktrackingRegexWithoutTimeout);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.BacktrackingRegexWithoutTimeout);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

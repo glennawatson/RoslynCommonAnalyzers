@@ -40,8 +40,11 @@ public sealed class Psh1603RenderLoopParameterAllocationAnalyzer : DiagnosticAna
     /// <summary>The name of the component render method whose body holds the render loops.</summary>
     private const string BuildRenderTreeMethodName = "BuildRenderTree";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(BlazorRules.RenderLoopParameterAllocation);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(BlazorRules.RenderLoopParameterAllocation);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -28,8 +28,11 @@ public sealed class Sst2702SupplyParameterFromQueryTypeAnalyzer : DiagnosticAnal
     /// <summary>The metadata name of the query-parameter supply attribute.</summary>
     private const string SupplyParameterFromQueryAttributeMetadataName = "Microsoft.AspNetCore.Components.SupplyParameterFromQueryAttribute";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.SupplyParameterFromQueryUnsupportedType);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(FrameworksRules.SupplyParameterFromQueryUnsupportedType);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

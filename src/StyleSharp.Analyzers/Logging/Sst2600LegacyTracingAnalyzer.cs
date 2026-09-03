@@ -44,8 +44,11 @@ public sealed class Sst2600LegacyTracingAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the legacy tracing type a reported call must bind to.</summary>
     private const string TraceTypeMetadataName = "System.Diagnostics.Trace";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(LoggingRules.LegacyTracing);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(LoggingRules.LegacyTracing);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

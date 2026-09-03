@@ -38,8 +38,11 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
     /// <summary>The metadata name of the chain-policy type whose weakening members are guarded.</summary>
     private const string ChainPolicyMetadataName = "System.Security.Cryptography.X509Certificates.X509ChainPolicy";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.WeakenedCertificateChainValidation);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.WeakenedCertificateChainValidation);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

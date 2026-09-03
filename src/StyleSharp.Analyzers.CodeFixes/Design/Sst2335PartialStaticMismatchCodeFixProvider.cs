@@ -79,7 +79,7 @@ public sealed class Sst2335PartialStaticMismatchCodeFixProvider : CodeFixProvide
         var partialIndex = modifiers.IndexOf(SyntaxKind.PartialKeyword);
         if (partialIndex < 0)
         {
-            var appended = SyntaxFactory.Token(SyntaxKind.StaticKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+            var appended = SyntaxFactory.Token(default, SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
             return declaration.WithModifiers(modifiers.Add(appended));
         }
 

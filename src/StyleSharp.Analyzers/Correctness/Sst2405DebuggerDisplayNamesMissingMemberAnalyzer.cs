@@ -40,9 +40,12 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     /// <summary>The length of a backslash escape in a display string.</summary>
     private const int EscapeSequenceLength = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DebuggerDisplayNamesMissingMember);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(CorrectnessRules.DebuggerDisplayNamesMissingMember);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

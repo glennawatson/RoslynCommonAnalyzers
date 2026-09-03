@@ -28,11 +28,14 @@ public sealed class BlankLineSeparationAnalyzer : DiagnosticAnalyzer
     /// <summary>The line delta between two tokens that means at least one whole line sits between them.</summary>
     private const int BlankLineDelta = 2;
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         LayoutRules.BlankLineAfterConstructorInitializerColon,
         LayoutRules.BlankLineAfterConditionalToken,
         LayoutRules.BlankLineAfterArrow);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

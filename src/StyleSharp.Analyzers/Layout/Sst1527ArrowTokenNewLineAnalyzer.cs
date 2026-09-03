@@ -19,8 +19,11 @@ public sealed class Sst1527ArrowTokenNewLineAnalyzer : DiagnosticAnalyzer
     /// <summary>General editorconfig key for the arrow placement.</summary>
     internal const string GeneralKey = "stylesharp.arrow_token_new_line";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(LayoutRules.ArrowTokenNewLine);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(LayoutRules.ArrowTokenNewLine);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

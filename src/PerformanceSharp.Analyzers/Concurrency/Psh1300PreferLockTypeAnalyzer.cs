@@ -24,6 +24,9 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
     /// <summary>The numeric C# 13 language-version value, the first where 'lock' binds to the Lock type's scope.</summary>
     private const int CSharp13 = 1300;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.PreferLockType);
+
     /// <summary>Classifies a matching field-name token for the syntax-only fast path.</summary>
     internal enum FieldNameTokenKind
     {
@@ -38,7 +41,7 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
     }
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ConcurrencyRules.PreferLockType);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -920,9 +920,10 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
             }
 
             var editor = await DocumentEditor.CreateAsync(document, fixAllContext.CancellationToken).ConfigureAwait(false);
-            foreach (var diagnostic in BatchEditFixAllProvider.UniqueDiagnostics(editor.OriginalRoot, fix, diagnostics))
+            var unique = BatchEditFixAllProvider.CollectUniqueDiagnostics(editor.OriginalRoot, fix, diagnostics);
+            for (var i = 0; i < unique.Count; i++)
             {
-                BatchEditFixAllProvider.RegisterBatchEdit(editor, fix, diagnostic);
+                BatchEditFixAllProvider.RegisterBatchEdit(editor, fix, unique[i]);
             }
 
             return editor.GetChangedDocument();

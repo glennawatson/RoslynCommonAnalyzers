@@ -91,7 +91,7 @@ public sealed class Sst1904ReadonlyLockFieldCodeFixProvider : CodeFixProvider, I
                 .WithModifiers(SyntaxFactory.TokenList(lone));
         }
 
-        var appended = SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+        var appended = SyntaxFactory.Token(default, SyntaxKind.ReadOnlyKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         return declaration.WithModifiers(modifiers.Add(appended)).WithAdditionalAnnotations(Formatter.Annotation);
     }
 }

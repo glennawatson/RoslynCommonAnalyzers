@@ -37,8 +37,11 @@ public sealed class Ses1404NonConstantActivatorTypeNameAnalyzer : DiagnosticAnal
     /// <summary>The position of the <c>typeName</c> parameter on every guarded by-name overload.</summary>
     private const int TypeNameParameterIndex = 1;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.NonConstantActivatorTypeName);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.NonConstantActivatorTypeName);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

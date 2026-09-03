@@ -88,9 +88,8 @@ public sealed class Sst1480ExceptionNeverThrownCodeFixProvider : CodeFixProvider
     /// that now starts the line; the original semicolon carries the trailing trivia across untouched.
     /// </remarks>
     private static ThrowStatementSyntax BuildThrow(ExpressionStatementSyntax statement)
-        => SyntaxFactory.ThrowStatement(statement.Expression.WithLeadingTrivia(SyntaxFactory.TriviaList()))
-            .WithThrowKeyword(SyntaxFactory.Token(SyntaxKind.ThrowKeyword)
-                .WithLeadingTrivia(statement.GetLeadingTrivia())
-                .WithTrailingTrivia(SyntaxFactory.Space))
-            .WithSemicolonToken(statement.SemicolonToken);
+        => SyntaxFactory.ThrowStatement(
+            SyntaxFactory.Token(statement.GetLeadingTrivia(), SyntaxKind.ThrowKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            statement.Expression.WithLeadingTrivia(SyntaxFactory.TriviaList()),
+            statement.SemicolonToken);
 }

@@ -20,9 +20,12 @@ public sealed class Sst2495RedundantFlagsOperandAnalyzer : DiagnosticAnalyzer
     /// <summary>The attribute marking an enum as a flag set.</summary>
     private const string FlagsAttributeName = "FlagsAttribute";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.RedundantFlagsOperand);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(CorrectnessRules.RedundantFlagsOperand);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -36,8 +36,11 @@ public sealed class Sst2301EquatableTypeShouldBeSealedAnalyzer : DiagnosticAnaly
     /// <summary>The unqualified name of the equality contract.</summary>
     private const string EquatableName = "IEquatable";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.EquatableTypeShouldBeSealed);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(DesignRules.EquatableTypeShouldBeSealed);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

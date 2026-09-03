@@ -19,8 +19,8 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
         SyntaxKind.NamespaceDeclaration,
         SyntaxKind.FileScopedNamespaceDeclaration);
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         OrderingRules.UsingDirectivesPlacement,
         OrderingRules.SystemUsingsFirst,
         OrderingRules.AliasUsingsLast,
@@ -28,6 +28,9 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
         OrderingRules.AliasUsingsAlphabetical,
         OrderingRules.StaticUsingsPlacement,
         OrderingRules.StaticUsingsAlphabetical);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

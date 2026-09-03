@@ -33,8 +33,11 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
     /// <summary>The <c>DateTime</c> type name as it is written in source.</summary>
     private const string DateTimeTypeName = "DateTime";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernizationRules.PreferDateTimeOffset);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernizationRules.PreferDateTimeOffset);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

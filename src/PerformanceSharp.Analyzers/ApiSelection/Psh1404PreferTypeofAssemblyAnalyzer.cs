@@ -24,8 +24,11 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
     /// <summary>The compiler-synthesized type name used when top-level statements have no declared enclosing type.</summary>
     private const string TopLevelProgramTypeName = "Program";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.PreferTypeofAssembly);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ApiSelectionRules.PreferTypeofAssembly);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

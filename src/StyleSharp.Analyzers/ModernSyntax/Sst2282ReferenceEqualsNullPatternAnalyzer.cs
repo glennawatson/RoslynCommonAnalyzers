@@ -25,9 +25,12 @@ public sealed class Sst2282ReferenceEqualsNullPatternAnalyzer : DiagnosticAnalyz
     /// <summary>The <c>object.ReferenceEquals</c> method name.</summary>
     private const string ReferenceEqualsName = "ReferenceEquals";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.UseNullPatternOverReferenceEquals);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArrays.Of(ModernSyntaxRules.UseNullPatternOverReferenceEquals);
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

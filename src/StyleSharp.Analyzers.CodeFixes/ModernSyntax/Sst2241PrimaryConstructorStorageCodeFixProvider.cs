@@ -605,7 +605,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <returns>The initializer syntax.</returns>
     private static EqualsValueClauseSyntax CreateInitializer(ExpressionSyntax value)
         => SyntaxFactory.EqualsValueClause(
-            SyntaxFactory.Token(SyntaxKind.EqualsToken).WithLeadingTrivia(SyntaxFactory.Space).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             value.WithoutTrivia());
 
     /// <summary>Moves constructor parameter documentation to the containing type.</summary>

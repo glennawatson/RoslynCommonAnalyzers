@@ -19,8 +19,11 @@ public sealed class Psh1005ValueTypeEqualityBoxesAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the generic equatable interface.</summary>
     private const string EquatableMetadataName = "System.IEquatable`1";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AllocationRules.ValueTypeEqualityBoxes);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(AllocationRules.ValueTypeEqualityBoxes);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -67,9 +67,12 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
     /// <summary>The end of the clause used for a shift whose masked count is not zero.</summary>
     private const string MasksToSuffix = " because C# masks the count";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.SuspiciousShiftCount);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(MaintainabilityRules.SuspiciousShiftCount);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

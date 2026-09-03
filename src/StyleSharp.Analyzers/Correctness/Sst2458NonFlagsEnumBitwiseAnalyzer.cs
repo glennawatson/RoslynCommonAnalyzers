@@ -35,9 +35,12 @@ public sealed class Sst2458NonFlagsEnumBitwiseAnalyzer : DiagnosticAnalyzer
     /// <summary>The attribute marking an enum as a flag set.</summary>
     private const string FlagsAttributeName = "FlagsAttribute";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.NonFlagsEnumBitwise);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(CorrectnessRules.NonFlagsEnumBitwise);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

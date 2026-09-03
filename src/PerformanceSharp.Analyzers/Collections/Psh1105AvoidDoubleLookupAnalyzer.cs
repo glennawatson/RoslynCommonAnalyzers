@@ -34,8 +34,11 @@ public sealed class Psh1105AvoidDoubleLookupAnalyzer : DiagnosticAnalyzer
     /// <summary>The argument count of the key-and-value <c>Add</c> pairing.</summary>
     private const int AddKeyValueArgumentCount = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.AvoidDoubleLookup);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CollectionRules.AvoidDoubleLookup);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -40,8 +40,11 @@ public sealed class Ses1307InsecureTempFileAnalyzer : DiagnosticAnalyzer
     private const string RandomNameOrSubdirectorySuggestion =
         "'Path.GetRandomFileName()' for an unpredictable name, or 'Directory.CreateTempSubdirectory()' for an isolated directory";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.InsecureTempFile);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.InsecureTempFile);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

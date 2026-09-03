@@ -97,9 +97,7 @@ public sealed class Sst2250JoinDeclarationAndAssignmentCodeFixProvider : CodeFix
         ExpressionStatementSyntax assignment)
     {
         var value = ((AssignmentExpressionSyntax)assignment.Expression).Right;
-        var equalsToken = SyntaxFactory.Token(SyntaxKind.EqualsToken)
-            .WithLeadingTrivia(SyntaxFactory.Space)
-            .WithTrailingTrivia(SyntaxFactory.Space);
+        var equalsToken = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var initialized = variable.WithInitializer(SyntaxFactory.EqualsValueClause(equalsToken, value.WithoutTrivia()));
         return local.ReplaceNode(variable, initialized);
     }

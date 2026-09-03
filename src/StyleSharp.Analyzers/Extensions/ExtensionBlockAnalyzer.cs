@@ -26,8 +26,8 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <summary>The block count at which duplicate tracking must cover more than the previous receiver.</summary>
     private const int SecondExtensionCount = 2;
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         ExtensionRules.EmptyExtensionBlock,
         ExtensionRules.CombineExtensionBlocks,
         ExtensionRules.GroupExtensionBlocks,
@@ -35,6 +35,9 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         ExtensionRules.DoNotMixExtensionStyles,
         ExtensionRules.BroadExtensionReceiver,
         ExtensionRules.OrderExtensionBlocks);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

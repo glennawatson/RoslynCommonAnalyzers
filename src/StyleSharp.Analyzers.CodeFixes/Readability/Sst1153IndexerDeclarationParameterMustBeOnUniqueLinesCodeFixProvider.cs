@@ -45,14 +45,17 @@ public sealed class Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesCodeFix
     /// <summary>Builds the indexer declaration with each parameter moved to its own line.</summary>
     /// <param name="node">The indexer declaration to rewrite.</param>
     /// <returns>The rewritten declaration, or the original when its bracketed parameter list needs no change.</returns>
+    /// <remarks>
+    /// The line ending is resolved inside the rewrite rather than captured from around it: capturing it
+    /// makes the lambda a closure, which allocates a display class on every rewrite. The node the
+    /// rewrite receives is the one it would have been read from.
+    /// </remarks>
     private static IndexerDeclarationSyntax Rewrite(IndexerDeclarationSyntax node)
-    {
-        var endOfLine = UniqueLineCodeFixerHelper.GetEndOfLine(node, elastic: true);
-        return node.ConvertNodeIfAble(
-                   static inner => inner.ParameterList?.Parameters,
-                   (inner, parameters) => inner.WithParameterList(
-                       SyntaxFactory.BracketedParameterList(parameters)
-                           .WithOpenBracketToken(inner.ParameterList.OpenBracketToken.WithTrailingTrivia(endOfLine))))
-               ?? node;
-    }
+        => node.ConvertNodeIfAble(
+               static inner => inner.ParameterList?.Parameters,
+               static (inner, parameters) => inner.WithParameterList(
+                   SyntaxFactory.BracketedParameterList(parameters)
+                       .WithOpenBracketToken(inner.ParameterList.OpenBracketToken
+                           .WithTrailingTrivia(UniqueLineCodeFixerHelper.GetEndOfLine(inner, elastic: true)))))
+           ?? node;
 }

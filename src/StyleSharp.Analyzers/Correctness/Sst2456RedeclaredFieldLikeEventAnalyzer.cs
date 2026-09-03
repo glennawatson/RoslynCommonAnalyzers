@@ -45,9 +45,12 @@ public sealed class Sst2456RedeclaredFieldLikeEventAnalyzer : DiagnosticAnalyzer
     /// <summary>The message argument used when the field-like event hides an inherited event.</summary>
     private const string HidesVerb = "hides";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.RedeclaredFieldLikeEvent);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(CorrectnessRules.RedeclaredFieldLikeEvent);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

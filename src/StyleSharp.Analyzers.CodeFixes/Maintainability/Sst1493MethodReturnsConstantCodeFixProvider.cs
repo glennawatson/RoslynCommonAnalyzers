@@ -127,7 +127,7 @@ public sealed class Sst1493MethodReturnsConstantCodeFixProvider : CodeFixProvide
         var value = Sst1493MethodReturnsConstantAnalyzer.TryGetConstantBody(method);
         var body = method.ExpressionBody
             ?? SyntaxFactory.ArrowExpressionClause(
-                SyntaxFactory.Token(SyntaxKind.EqualsGreaterThanToken).WithTrailingTrivia(SyntaxFactory.Space),
+                SyntaxFactory.Token(default, SyntaxKind.EqualsGreaterThanToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
                 value!.WithoutTrivia());
 
         return SyntaxFactory.PropertyDeclaration(
@@ -212,16 +212,32 @@ public sealed class Sst1493MethodReturnsConstantCodeFixProvider : CodeFixProvide
     /// <param name="document">The document to look up.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The entry, or <see langword="null"/> when the document has no syntax root.</returns>
-    private static async Task<DocumentCallSites?> GetOrAddAsync(List<DocumentCallSites> byDocument, Document document, CancellationToken cancellationToken)
+    /// <remarks>
+    /// Called once per reference location, and all but the first per document hit the loop below and
+    /// never await. An async method allocates its state machine whether or not it suspends, so the
+    /// synchronous answer is returned from a plain method and only the first sighting of a document
+    /// enters the async path.
+    /// </remarks>
+    private static ValueTask<DocumentCallSites?> GetOrAddAsync(List<DocumentCallSites> byDocument, Document document, CancellationToken cancellationToken)
     {
         for (var i = 0; i < byDocument.Count; i++)
         {
             if (byDocument[i].Id == document.Id)
             {
-                return byDocument[i];
+                return new ValueTask<DocumentCallSites?>(byDocument[i]);
             }
         }
 
+        return new ValueTask<DocumentCallSites?>(AddAsync(byDocument, document, cancellationToken));
+    }
+
+    /// <summary>Adds a document's rewrite entry, reading its syntax root.</summary>
+    /// <param name="byDocument">The call sites gathered so far.</param>
+    /// <param name="document">The document to add.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The new entry, or <see langword="null"/> when the document has no syntax root.</returns>
+    private static async Task<DocumentCallSites?> AddAsync(List<DocumentCallSites> byDocument, Document document, CancellationToken cancellationToken)
+    {
         if (await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false) is not { } root)
         {
             return null;

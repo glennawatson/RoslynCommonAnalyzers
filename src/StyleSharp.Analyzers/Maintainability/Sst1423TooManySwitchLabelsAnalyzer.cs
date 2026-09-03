@@ -19,8 +19,11 @@ public sealed class Sst1423TooManySwitchLabelsAnalyzer : DiagnosticAnalyzer
     /// <summary>The general editorconfig key.</summary>
     private const string GeneralOption = "stylesharp.max_switch_sections";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.TooManySwitchSections);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.TooManySwitchSections);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

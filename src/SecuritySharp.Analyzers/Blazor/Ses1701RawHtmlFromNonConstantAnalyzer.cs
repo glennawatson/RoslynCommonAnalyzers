@@ -42,8 +42,11 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
     /// <summary>The project-wide sanitizer allow-list key.</summary>
     private const string SanitizersGeneralKey = "securitysharp.sanitizers";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.RawHtmlFromNonConstant);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.RawHtmlFromNonConstant);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

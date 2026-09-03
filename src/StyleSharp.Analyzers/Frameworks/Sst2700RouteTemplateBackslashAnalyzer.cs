@@ -27,8 +27,11 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
     /// <summary>The constructor parameter name that carries the route template on the routing attributes.</summary>
     private const string TemplateParameterName = "template";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.RouteTemplateBackslash);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(FrameworksRules.RouteTemplateBackslash);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

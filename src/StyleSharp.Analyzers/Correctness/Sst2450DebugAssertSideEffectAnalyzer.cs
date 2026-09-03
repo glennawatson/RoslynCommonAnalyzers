@@ -40,8 +40,11 @@ public sealed class Sst2450DebugAssertSideEffectAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the type the reported call must bind to.</summary>
     private const string DebugTypeMetadataName = "System.Diagnostics.Debug";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DebugAssertConditionSideEffect);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.DebugAssertConditionSideEffect);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

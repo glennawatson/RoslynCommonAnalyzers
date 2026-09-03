@@ -213,9 +213,7 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
         var merged = SyntaxFactory.BinaryExpression(
             SyntaxKind.LogicalAndExpression,
             Parenthesize(firstBody),
-            SyntaxFactory.Token(SyntaxKind.AmpersandAmpersandToken)
-                .WithLeadingTrivia(SyntaxFactory.Space)
-                .WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.AmpersandAmpersandToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             Parenthesize(secondBody));
         var mergedLambda = firstLambda is SimpleLambdaExpressionSyntax simple
             ? (LambdaExpressionSyntax)simple.WithExpressionBody(merged)

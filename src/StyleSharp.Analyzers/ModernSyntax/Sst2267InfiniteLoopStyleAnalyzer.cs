@@ -24,8 +24,11 @@ public sealed class Sst2267InfiniteLoopStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>The target text reported and offered when normalizing to a <c>for</c> loop.</summary>
     internal const string ForTarget = "for (;;)";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.NormalizeInfiniteLoopStyle);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernSyntaxRules.NormalizeInfiniteLoopStyle);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -34,8 +34,11 @@ public sealed class Sst1487OverwrittenCollectionElementAnalyzer : DiagnosticAnal
     /// <summary>The fewest statements a list needs before any pair can exist.</summary>
     private const int MinimumStatements = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.OverwrittenCollectionElement);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.OverwrittenCollectionElement);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

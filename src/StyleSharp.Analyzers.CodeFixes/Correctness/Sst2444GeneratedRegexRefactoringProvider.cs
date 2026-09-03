@@ -212,8 +212,9 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
     private static MethodDeclarationSyntax BuildMethod(string name, LiteralExpressionSyntax patternLiteral)
     {
         var attributeArgument = SyntaxFactory.AttributeArgument(patternLiteral.WithoutTrivia());
-        var attribute = SyntaxFactory.Attribute(SyntaxFactory.IdentifierName(GeneratedRegexAttributeName))
-            .WithArgumentList(SyntaxFactory.AttributeArgumentList(SyntaxFactory.SingletonSeparatedList(attributeArgument)));
+        var attribute = SyntaxFactory.Attribute(
+            SyntaxFactory.IdentifierName(GeneratedRegexAttributeName),
+            SyntaxFactory.AttributeArgumentList(SyntaxFactory.SingletonSeparatedList(attributeArgument)));
         var attributeList = SyntaxFactory.AttributeList(SyntaxFactory.SingletonSeparatedList(attribute));
 
         return SyntaxFactory.MethodDeclaration(SyntaxFactory.IdentifierName(RegexTypeName), SyntaxFactory.Identifier(name))
@@ -246,7 +247,7 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
             return type.WithKeyword(keyword.WithLeadingTrivia()).WithModifiers(SyntaxFactory.TokenList(partial));
         }
 
-        var partialToken = SyntaxFactory.Token(SyntaxKind.PartialKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+        var partialToken = SyntaxFactory.Token(default, SyntaxKind.PartialKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         return type.WithModifiers(type.Modifiers.Add(partialToken));
     }
 

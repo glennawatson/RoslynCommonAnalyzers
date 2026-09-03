@@ -23,8 +23,11 @@ public sealed class Sst1709AlmostExtensionMethodAnalyzer : DiagnosticAnalyzer
     /// <summary>The container-class name suffix that marks an extension helper class.</summary>
     private const string ExtensionSuffix = "Extensions";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ExtensionRules.AlmostExtensionMethod);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ExtensionRules.AlmostExtensionMethod);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -61,8 +61,11 @@ public sealed class Psh1405UseEnvironmentPropertiesAnalyzer : DiagnosticAnalyzer
     /// <summary>The message argument for the thread-id chain.</summary>
     private const string CurrentManagedThreadIdMessageArg = "Environment.CurrentManagedThreadId";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.UseEnvironmentProperties);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ApiSelectionRules.UseEnvironmentProperties);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

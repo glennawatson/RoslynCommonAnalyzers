@@ -35,8 +35,11 @@ public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the constructor parameter that supplies the filename.</summary>
     private const string FileNameParameterName = "fileName";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.ShellExecuteFileName);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.ShellExecuteFileName);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

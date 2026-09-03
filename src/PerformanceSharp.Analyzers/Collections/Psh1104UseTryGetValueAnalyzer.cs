@@ -25,8 +25,11 @@ public sealed class Psh1104UseTryGetValueAnalyzer : DiagnosticAnalyzer
     /// <summary>The numeric C# 7 language-version value, the first with the 'out var' declaration the fix emits.</summary>
     private const int CSharp7 = 7;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseTryGetValue);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CollectionRules.UseTryGetValue);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

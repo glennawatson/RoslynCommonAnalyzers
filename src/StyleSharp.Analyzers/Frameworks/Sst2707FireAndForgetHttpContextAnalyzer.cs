@@ -48,8 +48,11 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
     /// <summary>The cached descendant visitor that finds an <c>HttpContext</c>-typed reference in a delegate body.</summary>
     private static readonly DescendantTraversalHelper.DescendantVisitor<ExpressionSyntax, CaptureSearch> CaptureVisitor = VisitExpression;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.FireAndForgetHttpContext);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(FrameworksRules.FireAndForgetHttpContext);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

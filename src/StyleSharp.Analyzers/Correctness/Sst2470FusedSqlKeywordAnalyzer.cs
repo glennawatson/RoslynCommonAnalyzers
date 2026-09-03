@@ -60,8 +60,11 @@ public sealed class Sst2470FusedSqlKeywordAnalyzer : DiagnosticAnalyzer
         "SELECT", "FROM", "WHERE", "JOIN", "INTO", "VALUES", "UNION", "HAVING", "RETURNING", "INSERT", "UPDATE", "DELETE",
     ];
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.FusedSqlKeyword);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.FusedSqlKeyword);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

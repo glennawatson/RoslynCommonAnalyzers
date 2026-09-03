@@ -26,7 +26,7 @@ internal static class CodeFixBenchmarkDocumentFactory
                 name: "Bench",
                 assemblyName: "Bench",
                 LanguageNames.CSharp,
-                compilationOptions: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+                compilationOptions: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, concurrentBuild: false),
                 parseOptions: CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview),
                 metadataReferences: BenchmarkCompilationFactory.MetadataReferences))
             .AddDocument(documentId, "Bench.cs", SourceText.From(source));

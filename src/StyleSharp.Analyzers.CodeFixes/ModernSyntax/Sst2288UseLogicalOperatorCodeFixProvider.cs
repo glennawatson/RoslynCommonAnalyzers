@@ -45,9 +45,7 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
 
         var left = negate ? Negate(conditional.Condition) : conditional.Condition.WithoutTrivia();
         var operatorToken = SyntaxFactory
-            .Token(conjunction ? SyntaxKind.AmpersandAmpersandToken : SyntaxKind.BarBarToken)
-            .WithLeadingTrivia(SyntaxFactory.Space)
-            .WithTrailingTrivia(SyntaxFactory.Space);
+            .Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), conjunction ? SyntaxKind.AmpersandAmpersandToken : SyntaxKind.BarBarToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
 
         var replacement = SyntaxFactory.BinaryExpression(
                 conjunction ? SyntaxKind.LogicalAndExpression : SyntaxKind.LogicalOrExpression,

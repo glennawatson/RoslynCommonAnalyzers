@@ -32,8 +32,11 @@ public sealed class Sst2019NullCheckOverTypeCheckAnalyzer : DiagnosticAnalyzer
     /// <summary>The language version that introduced the <c>not</c> pattern.</summary>
     private const int CSharp9 = 900;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernizationRules.NullCheckOverTypeCheck);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ModernizationRules.NullCheckOverTypeCheck);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -21,9 +21,12 @@ public sealed class Sst2336MissingAttributeUsageAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the usage attribute.</summary>
     private const string AttributeUsageMetadataName = "System.AttributeUsageAttribute";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.MissingAttributeUsage);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(DesignRules.MissingAttributeUsage);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

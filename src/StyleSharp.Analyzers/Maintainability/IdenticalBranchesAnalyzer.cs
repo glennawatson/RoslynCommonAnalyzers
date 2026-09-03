@@ -46,10 +46,13 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <summary>The phrase used for a plain <c>if</c>/<c>else</c>, whose two branches are always both of them.</summary>
     private const string IfElseBranchesPhrase = "Both branches of this 'if'";
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         MaintainabilityRules.IdenticalBranches,
         CorrectnessRules.DuplicateBranchImplementation);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

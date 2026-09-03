@@ -51,8 +51,11 @@ public sealed class Ses1405TypelessDeserializationAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the contractless resolver that also opens the type set.</summary>
     private const string TypelessContractlessResolverMetadataName = "MessagePack.Resolvers.TypelessContractlessStandardResolver";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.TypelessDeserialization);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.TypelessDeserialization);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -28,8 +28,8 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
 {
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         ReadabilityRules.NoInvertedBooleanCheck,
         ReadabilityRules.NoRedundantAnonymousTypeMemberName,
         ReadabilityRules.NoRedundantCast,
@@ -42,6 +42,9 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
         ReadabilityRules.UseDefaultLiteral,
         ReadabilityRules.NoSelfAssignment,
         ReadabilityRules.NoDoubledNegation);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

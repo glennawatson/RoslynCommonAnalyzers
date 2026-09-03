@@ -21,8 +21,11 @@ public sealed class Sst2422BackingFieldMismatchAnalyzer : DiagnosticAnalyzer
     /// <summary>The diagnostic property naming the field the setter writes.</summary>
     internal const string SetterFieldKey = "SetterField";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.BackingFieldMismatch);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(CorrectnessRules.BackingFieldMismatch);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

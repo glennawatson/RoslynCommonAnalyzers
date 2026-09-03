@@ -54,8 +54,11 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the extensions type providing <c>AsSpan</c>.</summary>
     private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseSpanBasedConcat);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.UseSpanBasedConcat);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

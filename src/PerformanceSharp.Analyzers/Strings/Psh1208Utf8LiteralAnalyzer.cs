@@ -36,8 +36,11 @@ public sealed class Psh1208Utf8LiteralAnalyzer : DiagnosticAnalyzer
     /// <summary>The UTF-16 length of a surrogate pair.</summary>
     private const int SurrogatePairLength = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseUtf8Literal);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.UseUtf8Literal);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

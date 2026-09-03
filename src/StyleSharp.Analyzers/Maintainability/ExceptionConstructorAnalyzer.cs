@@ -43,10 +43,13 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
     /// <summary>The number of parameters the serialization members take.</summary>
     private const int SerializationParameterCount = 2;
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         MaintainabilityRules.ExceptionStandardConstructors,
         MaintainabilityRules.ObsoleteSerializationMember);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

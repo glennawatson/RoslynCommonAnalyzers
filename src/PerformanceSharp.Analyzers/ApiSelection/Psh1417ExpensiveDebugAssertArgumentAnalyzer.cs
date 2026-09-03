@@ -44,8 +44,11 @@ public sealed class Psh1417ExpensiveDebugAssertArgumentAnalyzer : DiagnosticAnal
     /// <summary>The metadata name of the debug type that hosts Assert.</summary>
     private const string DebugMetadataName = "System.Diagnostics.Debug";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.ExpensiveDebugAssertArgument);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ApiSelectionRules.ExpensiveDebugAssertArgument);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

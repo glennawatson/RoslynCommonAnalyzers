@@ -54,9 +54,7 @@ public sealed class Psh1000StaticAnonymousFunctionCodeFixProvider : CodeFixProvi
     /// <returns>The rewritten anonymous function.</returns>
     private static AnonymousFunctionExpressionSyntax Rewrite(AnonymousFunctionExpressionSyntax function)
     {
-        var staticKeyword = SyntaxFactory.Token(SyntaxKind.StaticKeyword)
-            .WithLeadingTrivia(function.GetLeadingTrivia())
-            .WithTrailingTrivia(SyntaxFactory.Space);
+        var staticKeyword = SyntaxFactory.Token(function.GetLeadingTrivia(), SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var stripped = function.WithLeadingTrivia(SyntaxFactory.TriviaList());
         return stripped.WithModifiers(stripped.Modifiers.Insert(0, staticKeyword));
     }

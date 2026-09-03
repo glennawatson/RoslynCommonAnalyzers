@@ -22,8 +22,11 @@ public sealed class Sst1446InheritanceDepthAnalyzer : DiagnosticAnalyzer
     /// <summary>The smallest depth that can ever be reported (a threshold of 1 flags depth 2).</summary>
     private const int MinimumReportableDepth = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.InheritanceDepth);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.InheritanceDepth);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

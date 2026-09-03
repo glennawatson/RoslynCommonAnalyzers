@@ -17,10 +17,13 @@ public sealed class GlobalSuppressionTargetAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name for <c>SuppressMessageAttribute</c>.</summary>
     private const string SuppressMessageAttributeMetadataName = "System.Diagnostics.CodeAnalysis.SuppressMessageAttribute";
 
-    /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         MaintainabilityRules.ValidGlobalSuppressionTarget,
         MaintainabilityRules.UseDeclarationIdSuppressionTarget);
+
+    /// <inheritdoc/>
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

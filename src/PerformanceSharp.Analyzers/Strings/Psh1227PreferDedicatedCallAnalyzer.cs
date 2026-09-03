@@ -65,8 +65,11 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
     /// <summary>The highest argument count of a reported <c>Debug.Assert(false, message, detail)</c> shape.</summary>
     private const int AssertWithDetailArgumentCount = 3;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.PreferDedicatedCall);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.PreferDedicatedCall);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

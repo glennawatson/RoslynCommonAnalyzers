@@ -27,8 +27,11 @@ public sealed class Sst2709StateHasChangedInDisposeAnalyzer : DiagnosticAnalyzer
     /// <summary>The asynchronous disposal method name.</summary>
     private const string DisposeAsyncName = "DisposeAsync";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.StateHasChangedDuringDisposal);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(FrameworksRules.StateHasChangedDuringDisposal);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

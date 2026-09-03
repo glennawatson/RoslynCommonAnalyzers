@@ -21,9 +21,12 @@ public sealed class Sst1661CodeTagContentAnalyzer : DiagnosticAnalyzer
     /// <summary>The block code tag, for a multi-line snippet.</summary>
     private const string BlockTag = "code";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DocumentationRules.CodeTagContent);
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArrays.Of(DocumentationRules.CodeTagContent);
+        => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

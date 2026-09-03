@@ -63,8 +63,11 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the authentication-type enum.</summary>
     private const string AuthenticationTypesMetadataName = "System.DirectoryServices.AuthenticationTypes";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.AnonymousLdapBind);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.AnonymousLdapBind);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

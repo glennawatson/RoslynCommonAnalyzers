@@ -21,8 +21,11 @@ public sealed class Sst1131UseReadableConditionsAnalyzer : DiagnosticAnalyzer
         SyntaxKind.GreaterThanExpression,
         SyntaxKind.GreaterThanOrEqualExpression);
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ReadabilityRules.UseReadableConditions);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(ReadabilityRules.UseReadableConditions);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

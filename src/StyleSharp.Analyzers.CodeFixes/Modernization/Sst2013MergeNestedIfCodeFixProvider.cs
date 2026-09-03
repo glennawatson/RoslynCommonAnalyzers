@@ -134,9 +134,7 @@ public sealed class Sst2013MergeNestedIfCodeFixProvider : CodeFixProvider, IBatc
                 conjunction.Right);
         }
 
-        var operatorToken = SyntaxFactory.Token(SyntaxKind.AmpersandAmpersandToken)
-            .WithLeadingTrivia(SyntaxFactory.Space)
-            .WithTrailingTrivia(SyntaxFactory.Space);
+        var operatorToken = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.AmpersandAmpersandToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         return SyntaxFactory.BinaryExpression(SyntaxKind.LogicalAndExpression, left, operatorToken, right);
     }
 

@@ -74,7 +74,7 @@ public sealed class MakeClassStaticCodeFixProvider : CodeFixProvider, IBatchFixa
         }
 
         // 'partial' must stay last in the modifier list, so 'static' goes in front of it.
-        var inserted = SyntaxFactory.Token(SyntaxKind.StaticKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+        var inserted = SyntaxFactory.Token(default, SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var partialIndex = declaration.Modifiers.IndexOf(SyntaxKind.PartialKeyword);
         var modifiers = partialIndex < 0
             ? declaration.Modifiers.Add(inserted)

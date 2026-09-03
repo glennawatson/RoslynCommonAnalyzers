@@ -14,8 +14,11 @@ public sealed class Sst1454CompositeFormatStringAnalyzer : DiagnosticAnalyzer
     /// <summary>The number of characters in an escaped brace pair.</summary>
     private const int EscapedBraceLength = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.ValidCompositeFormatString);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(MaintainabilityRules.ValidCompositeFormatString);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

@@ -60,7 +60,7 @@ internal static class LoggerExceptionHoist
         var separators = new SyntaxToken[arguments.Count - 1];
         for (var i = 0; i < separators.Length; i++)
         {
-            separators[i] = SyntaxFactory.Token(SyntaxKind.CommaToken).WithTrailingTrivia(SyntaxFactory.Space);
+            separators[i] = SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         }
 
         return SyntaxFactory.SeparatedList(arguments, separators);

@@ -22,8 +22,11 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <summary>The metadata name of the builder type whose appends PSH1203 already covers.</summary>
     private const string StringBuilderMetadataName = "System.Text.StringBuilder";
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.RemoveIntermediateToString);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(StringRules.RemoveIntermediateToString);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

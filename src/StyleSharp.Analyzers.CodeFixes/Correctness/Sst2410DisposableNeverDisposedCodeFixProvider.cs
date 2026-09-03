@@ -137,7 +137,7 @@ public sealed class Sst2410DisposableNeverDisposedCodeFixProvider : CodeFixProvi
     private static LocalDeclarationStatementSyntax Rewrite(LocalDeclarationStatementSyntax statement, bool needsAwait)
     {
         var leading = statement.GetLeadingTrivia();
-        var usingKeyword = SyntaxFactory.Token(SyntaxKind.UsingKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+        var usingKeyword = SyntaxFactory.Token(default, SyntaxKind.UsingKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var declaration = statement.Declaration.WithoutLeadingTrivia();
 
         var updated = needsAwait

@@ -30,8 +30,11 @@ public sealed class Psh1023PreferTupleOverAnonymousTypeAnalyzer : DiagnosticAnal
     /// <summary>The number of members below which a tuple is not worth suggesting.</summary>
     private const int MinimumMembers = 2;
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AllocationRules.PreferTupleOverAnonymousType);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(AllocationRules.PreferTupleOverAnonymousType);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

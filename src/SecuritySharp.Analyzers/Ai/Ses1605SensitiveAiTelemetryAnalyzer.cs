@@ -35,8 +35,11 @@ public sealed class Ses1605SensitiveAiTelemetryAnalyzer : DiagnosticAnalyzer
         "Microsoft.Extensions.AI.OpenTelemetryHostedFileClient"
     ];
 
+    /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
+    private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.SensitiveAiTelemetry);
+
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArrays.Of(SecurityRules.SensitiveAiTelemetry);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

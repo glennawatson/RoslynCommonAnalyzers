@@ -189,11 +189,68 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
     /// <param name="invocation">The delay invocation.</param>
     /// <param name="loopBody">The paced loop's body statement.</param>
     /// <returns><see langword="true"/> when the delay amount changes between iterations.</returns>
+    /// <remarks>
+    /// The loop body is read once, into the set of names it writes, and the delay's identifiers are then a
+    /// lookup each. Asking the question per identifier meant re-reading the whole body for every name the
+    /// delay argument mentions, so a delay computed from two of them read the body twice.
+    /// </remarks>
     private static bool DelayArgumentIsAdjustedInLoop(InvocationExpressionSyntax invocation, StatementSyntax loopBody)
     {
-        var state = new AdjustmentScanState(invocation.ArgumentList, loopBody);
-        return state.LoopWritesDelayIdentifier();
+        var written = new HashSet<string>(StringComparer.Ordinal);
+        var writeState = new WrittenNameScanState(written);
+        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, WrittenNameScanState>(loopBody, ref writeState, VisitWrittenName);
+
+        if (written.Count == 0)
+        {
+            return false;
+        }
+
+        var readState = new DelayIdentifierScanState(written);
+        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, DelayIdentifierScanState>(invocation.ArgumentList, ref readState, VisitDelayIdentifier);
+        return readState.Found;
     }
+
+    /// <summary>Records one identifier the loop body writes.</summary>
+    /// <param name="identifier">The visited identifier.</param>
+    /// <param name="state">The current scan state.</param>
+    /// <returns><see langword="true"/> to continue scanning.</returns>
+    private static bool VisitWrittenName(IdentifierNameSyntax identifier, ref WrittenNameScanState state)
+    {
+        if (!IsWriteTarget(identifier))
+        {
+            return true;
+        }
+
+        state.Names.Add(identifier.Identifier.ValueText);
+        return true;
+    }
+
+    /// <summary>Classifies one identifier the delay argument reads.</summary>
+    /// <param name="identifier">The visited identifier.</param>
+    /// <param name="state">The current scan state.</param>
+    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once a match is found.</returns>
+    private static bool VisitDelayIdentifier(IdentifierNameSyntax identifier, ref DelayIdentifierScanState state)
+    {
+        if (!state.Written.Contains(identifier.Identifier.ValueText))
+        {
+            return true;
+        }
+
+        state.Found = true;
+        return false;
+    }
+
+    /// <summary>Returns whether an identifier occurrence is the target of a write.</summary>
+    /// <param name="identifier">The identifier occurrence.</param>
+    /// <returns><see langword="true"/> for assignment targets, increments, decrements, and ref/out arguments.</returns>
+    private static bool IsWriteTarget(IdentifierNameSyntax identifier)
+        => identifier.Parent switch
+        {
+            AssignmentExpressionSyntax assignment => assignment.Left == identifier,
+            PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax => true,
+            ArgumentSyntax argument => !argument.RefOrOutKeyword.IsKind(SyntaxKind.None),
+            _ => false,
+        };
 
     /// <summary>Tracks whether a loop condition compares two operands for order.</summary>
     private record struct RelationalScanState
@@ -202,94 +259,15 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
         public bool Found { get; set; }
     }
 
-    /// <summary>Scans the loop body for writes to identifiers the delay argument reads.</summary>
-    private sealed class AdjustmentScanState
+    /// <summary>Collects the names a loop body writes, in one pass over it.</summary>
+    /// <param name="Names">The names collected so far.</param>
+    private record struct WrittenNameScanState(HashSet<string> Names);
+
+    /// <summary>Decides whether the delay argument reads any name the loop body writes.</summary>
+    /// <param name="Written">The names the loop body writes.</param>
+    private record struct DelayIdentifierScanState(HashSet<string> Written)
     {
-        /// <summary>The delay invocation's argument list, whose identifier tokens are the read set.</summary>
-        private readonly ArgumentListSyntax _arguments;
-
-        /// <summary>The loop body to scan for writes.</summary>
-        private readonly StatementSyntax _loopBody;
-
-        /// <summary>Initializes a new instance of the <see cref="AdjustmentScanState"/> class.</summary>
-        /// <param name="arguments">The delay invocation's argument list.</param>
-        /// <param name="loopBody">The loop body to scan for writes.</param>
-        public AdjustmentScanState(ArgumentListSyntax arguments, StatementSyntax loopBody)
-        {
-            _arguments = arguments;
-            _loopBody = loopBody;
-        }
-
-        /// <summary>Returns whether the loop body writes any identifier used in the delay argument.</summary>
-        /// <returns><see langword="true"/> when a write is found.</returns>
-        public bool LoopWritesDelayIdentifier()
-        {
-            foreach (var token in _arguments.DescendantTokens())
-            {
-                if (token.IsKind(SyntaxKind.IdentifierToken)
-                    && token.Parent is IdentifierNameSyntax
-                    && LoopWrites(token.ValueText))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>Returns whether the loop body assigns, increments, or passes by ref an identifier.</summary>
-        /// <param name="name">The identifier name to look for.</param>
-        /// <returns><see langword="true"/> when a write to the name is found.</returns>
-        private bool LoopWrites(string name)
-        {
-            var state = new WriteScan(name);
-            DescendantTraversalHelper.VisitDescendantTokens(_loopBody, ref state, static (in SyntaxToken token, ref WriteScan scan) => scan.Visit(in token));
-            return state.Found;
-        }
-
-        /// <summary>Token-visitor state that detects writes to one identifier name.</summary>
-        private sealed class WriteScan
-        {
-            /// <summary>The identifier name being tracked.</summary>
-            private readonly string _name;
-
-            /// <summary>Initializes a new instance of the <see cref="WriteScan"/> class.</summary>
-            /// <param name="name">The identifier name to track.</param>
-            public WriteScan(string name)
-            {
-                _name = name;
-            }
-
-            /// <summary>Gets a value indicating whether a write to the tracked identifier was found.</summary>
-            public bool Found { get; private set; }
-
-            /// <summary>Inspects one token for a write to the tracked identifier.</summary>
-            /// <param name="token">The token to inspect.</param>
-            /// <returns><see langword="true"/> to keep walking, or <see langword="false"/> once a write is found.</returns>
-            public bool Visit(in SyntaxToken token)
-            {
-                if (!token.IsKind(SyntaxKind.IdentifierToken)
-                    || token.ValueText != _name
-                    || token.Parent is not IdentifierNameSyntax identifier)
-                {
-                    return true;
-                }
-
-                Found = IsWriteTarget(identifier);
-                return !Found;
-            }
-
-            /// <summary>Returns whether an identifier occurrence is the target of a write.</summary>
-            /// <param name="identifier">The identifier occurrence.</param>
-            /// <returns><see langword="true"/> for assignment targets, increments, decrements, and ref/out arguments.</returns>
-            private static bool IsWriteTarget(IdentifierNameSyntax identifier)
-                => identifier.Parent switch
-                {
-                    AssignmentExpressionSyntax assignment => assignment.Left == identifier,
-                    PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax => true,
-                    ArgumentSyntax argument => !argument.RefOrOutKeyword.IsKind(SyntaxKind.None),
-                    _ => false,
-                };
-        }
+        /// <summary>Gets or sets a value indicating whether the delay amount changes between iterations.</summary>
+        public bool Found { get; set; }
     }
 }

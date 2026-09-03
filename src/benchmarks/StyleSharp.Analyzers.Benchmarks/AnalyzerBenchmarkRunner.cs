@@ -14,17 +14,22 @@ internal static class AnalyzerBenchmarkRunner
     /// <param name="scenario">The benchmark scenario.</param>
     /// <param name="analyzers">The analyzers to run.</param>
     /// <returns>The number of produced diagnostics.</returns>
+    /// <remarks>
+    /// Analysis runs on one thread. Allocation is the number these benchmarks are compared on, and running
+    /// the driver concurrently makes it drift by a few percent between runs — enough, on a corpus whose
+    /// floor is hundreds of megabytes, to swamp the difference a rule actually makes. Single-threaded costs
+    /// wall-clock and buys a figure that can be A/B'd.
+    /// </remarks>
     public static Task<int> GetDiagnosticCountAsync(in AnalyzerBenchmarkScenario scenario, ImmutableArray<DiagnosticAnalyzer> analyzers)
     {
-        if (scenario.OptionsProvider is null)
-        {
-            return GetDiagnosticCountAsync(scenario.Compilation.WithAnalyzers(analyzers));
-        }
+        var analyzerOptions = scenario.OptionsProvider is { } provider
+            ? new AnalyzerOptions([], provider)
+            : new AnalyzerOptions([]);
 
         var options = new CompilationWithAnalyzersOptions(
-            new([], scenario.OptionsProvider),
+            analyzerOptions,
             onAnalyzerException: null,
-            concurrentAnalysis: true,
+            concurrentAnalysis: false,
             logAnalyzerExecutionTime: false,
             reportSuppressedDiagnostics: false);
 

@@ -34,6 +34,9 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The contextual keyword naming a property's compiler-synthesized backing field.</summary>
+    private const string BackingFieldKeyword = "field";
+
     /// <summary>The metadata names of member attributes that require the member to stay an instance method.</summary>
     private static readonly string[] InstanceRequiringMemberAttributeNames =
     [
@@ -143,7 +146,7 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (UsesInstanceState(context, body, symbol))
+        if (UsesInstanceState(context, body, symbol) || ReadsBackingField(member, body))
         {
             return;
         }
@@ -248,6 +251,52 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
             _ => default,
         };
 
+    /// <summary>Returns whether a property body reads the backing field the compiler synthesizes for it.</summary>
+    /// <param name="member">The member declaration.</param>
+    /// <param name="body">The member's executable body.</param>
+    /// <returns><see langword="true"/> when a semi-auto property reads <c>field</c>.</returns>
+    /// <remarks>
+    /// A semi-auto property's <c>field</c> is instance state, so the property cannot become static. The
+    /// token is matched by text rather than through <c>FieldExpressionSyntax</c>, which the Roslyn floor
+    /// this assembly also builds against does not expose. A qualified <c>x.field</c> names somebody else's
+    /// member and is skipped; anything else spelled <c>field</c> only costs a suggestion the rule declines
+    /// to make.
+    /// </remarks>
+    private static bool ReadsBackingField(MemberDeclarationSyntax member, SyntaxNode body)
+    {
+        if (member is not PropertyDeclarationSyntax)
+        {
+            return false;
+        }
+
+        var state = default(BackingFieldScanState);
+        DescendantTraversalHelper.VisitDescendantTokens(body, ref state, VisitBackingFieldToken);
+        return state.Found;
+    }
+
+    /// <summary>Classifies one token of a property body as a backing-field read or not.</summary>
+    /// <param name="token">The visited token.</param>
+    /// <param name="state">The current scan state.</param>
+    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once the field is seen.</returns>
+    private static bool VisitBackingFieldToken(in SyntaxToken token, ref BackingFieldScanState state)
+    {
+        if (token.ValueText != BackingFieldKeyword || IsMemberOfAnotherReceiver(token))
+        {
+            return true;
+        }
+
+        state.Found = true;
+        return false;
+    }
+
+    /// <summary>Returns whether a token names a member being read off some other expression.</summary>
+    /// <param name="token">The token to classify.</param>
+    /// <returns><see langword="true"/> for the name half of a member access such as <c>other.field</c>.</returns>
+    private static bool IsMemberOfAnotherReceiver(SyntaxToken token)
+        => token.Parent is SimpleNameSyntax name
+            && name.Parent is MemberAccessExpressionSyntax access
+            && access.Name == name;
+
     /// <summary>Returns whether a member's body reads <c>this</c>, directly or through an unqualified member.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="body">The member's executable body.</param>
@@ -349,6 +398,13 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Tracks whether a property body reads its backing field.</summary>
+    private record struct BackingFieldScanState
+    {
+        /// <summary>Gets or sets a value indicating whether a backing-field read was found.</summary>
+        public bool Found { get; set; }
     }
 
     /// <summary>Tracks whether a member's body was shown to depend on its receiver.</summary>

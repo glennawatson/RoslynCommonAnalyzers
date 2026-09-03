@@ -411,6 +411,22 @@ public class MarkMembersStaticAnalyzerUnitTest
         await VerifyNet90Async(Source, Source);
     }
 
+    /// <summary>Verifies a semi-auto property reading its backing field is not reported (issue 57).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SemiAutoPropertyIsCleanAsync()
+        => await VerifyReportedNet90Async(
+            """
+            using System.Collections.Generic;
+
+            internal class C
+            {
+                private List<int> MyList => field ??= new();
+
+                public void Add(int i) => MyList.Add(i);
+            }
+            """);
+
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected fixed source.</param>

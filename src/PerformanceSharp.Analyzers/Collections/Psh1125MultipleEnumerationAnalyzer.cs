@@ -6,10 +6,18 @@ namespace PerformanceSharp.Analyzers;
 
 /// <summary>
 /// Flags a parameter or local typed as a <em>lazy</em> sequence that is walked more than once in
-/// the same method (PSH1125) — two <c>foreach</c> loops, a <c>Count()</c> then a <c>foreach</c>,
-/// an <c>Any()</c> guard then a <c>First()</c>. The second walk re-runs whatever produced the
-/// sequence, and against a one-shot iterator it yields nothing at all. The bug is invisible at
-/// the call site: the same code is correct for a <c>List</c> and wrong for a lazy sequence.
+/// the same body (PSH1125) — two <c>foreach</c> loops, a <c>Count()</c> then a <c>foreach</c>,
+/// an <c>Any()</c> guard then a <c>First()</c>, or simply the same eager call written twice
+/// (<c>source.Last()</c> in both operands of one <c>||</c>). The two walks need not be different
+/// operations. The second walk re-runs whatever produced the sequence, and against a one-shot
+/// iterator it yields nothing at all. The bug is invisible at the call site: the same code is
+/// correct for a <c>List</c> and wrong for a lazy sequence.
+/// <para>
+/// Every body-carrying declaration is analyzed, not just methods: constructors, operators and
+/// conversion operators, local functions, property and indexer accessors, and expression-bodied
+/// properties. A local function contributes only its own parameters, because the enclosing
+/// member's scan already reaches the locals declared inside it.
+/// </para>
 /// <para>
 /// A false positive here is noise, so the rule is deliberately narrow. It reports only when the
 /// <em>declared</em> type is exactly <c>IEnumerable&lt;T&gt;</c> or the non-generic
@@ -68,7 +76,18 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(start =>
         {
             var enumerableType = start.Compilation.GetTypeByMetadataName(EnumerableMetadataName);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, enumerableType), SyntaxKind.MethodDeclaration);
+            start.RegisterSyntaxNodeAction(
+                nodeContext => AnalyzeMember(nodeContext, enumerableType),
+                SyntaxKind.MethodDeclaration,
+                SyntaxKind.ConstructorDeclaration,
+                SyntaxKind.OperatorDeclaration,
+                SyntaxKind.ConversionOperatorDeclaration,
+                SyntaxKind.LocalFunctionStatement,
+                SyntaxKind.PropertyDeclaration,
+                SyntaxKind.IndexerDeclaration,
+                SyntaxKind.GetAccessorDeclaration,
+                SyntaxKind.SetAccessorDeclaration,
+                SyntaxKind.InitAccessorDeclaration);
         });
     }
 
@@ -111,29 +130,77 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
         => type.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T
             || type.SpecialType == SpecialType.System_Collections_IEnumerable;
 
-    /// <summary>Reports PSH1125 for each lazy-sequence parameter or local the method walks twice.</summary>
+    /// <summary>Reports PSH1125 for each lazy-sequence parameter or local the member body walks twice.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type, when the compilation has LINQ.</param>
-    private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, INamedTypeSymbol? enumerableType)
+    private static void AnalyzeMember(SyntaxNodeAnalysisContext context, INamedTypeSymbol? enumerableType)
     {
-        var method = (MethodDeclarationSyntax)context.Node;
-        var body = (SyntaxNode?)method.Body ?? method.ExpressionBody;
-        if (body is null || !MentionsEnumerable(method))
+        var shape = GetAnalyzableShape(context.Node);
+        if (shape.Body is not { } body || !MentionsEnumerable(shape.PrepassScope ?? body))
         {
             return;
         }
 
-        AnalyzeParameters(context, method, body, enumerableType);
+        AnalyzeParameters(context, shape.Parameters, body, enumerableType);
+        if (!shape.OwnsLocals)
+        {
+            return;
+        }
+
         AnalyzeLocals(context, body, enumerableType);
     }
 
-    /// <summary>Runs the free syntax prepass, which asks whether the method mentions <c>IEnumerable</c> at all.</summary>
-    /// <param name="method">The method to scan.</param>
+    /// <summary>Resolves the parameters, body, and prepass scope of a body-carrying declaration.</summary>
+    /// <param name="node">The registered declaration node.</param>
+    /// <returns>The shape to analyze; its body is <see langword="null"/> when there is nothing to walk.</returns>
+    /// <remarks>
+    /// A local function does not own its locals: the enclosing member's descendant scan already reaches
+    /// declarations nested inside it, so claiming them here would report each one twice. Only its own
+    /// parameters, which that scan cannot see, are analyzed. An accessor takes its parameters from the
+    /// indexer that declares them, and runs the prepass over that indexer so a lazy sequence named only
+    /// in the parameter list still gets past it.
+    /// </remarks>
+    private static MemberShape GetAnalyzableShape(SyntaxNode node) => node switch
+    {
+        BaseMethodDeclarationSyntax method =>
+            new MemberShape(method.ParameterList.Parameters, PickBody(method.Body, method.ExpressionBody), node, true),
+        LocalFunctionStatementSyntax local =>
+            new MemberShape(local.ParameterList.Parameters, PickBody(local.Body, local.ExpressionBody), node, false),
+        IndexerDeclarationSyntax indexer =>
+            new MemberShape(default, indexer.ExpressionBody, node, true),
+        PropertyDeclarationSyntax property =>
+            new MemberShape(default, property.ExpressionBody, node, true),
+        AccessorDeclarationSyntax accessor => CreateAccessorShape(accessor),
+        _ => default
+    };
+
+    /// <summary>Picks whichever body form a declaration uses.</summary>
+    /// <param name="body">The block body, when the declaration has one.</param>
+    /// <param name="expressionBody">The expression body, when the declaration has one.</param>
+    /// <returns>The body to walk, or <see langword="null"/> when the declaration has neither.</returns>
+    private static SyntaxNode? PickBody(BlockSyntax? body, ArrowExpressionClauseSyntax? expressionBody)
+        => body ?? (SyntaxNode?)expressionBody;
+
+    /// <summary>Builds the shape of an accessor, whose locals are analyzed but whose index parameters are not.</summary>
+    /// <param name="accessor">The accessor declaration.</param>
+    /// <returns>The shape to analyze.</returns>
+    /// <remarks>
+    /// An indexer's index parameters are deliberately left out. Inside an accessor body they bind to the
+    /// accessor's own parameter symbols rather than the ones the indexer declares, so matching them would
+    /// mean mapping between the two by ordinal — disproportionate for an indexer that takes a lazy
+    /// sequence as an index. The prepass still runs over the whole indexer so a body-declared sequence is
+    /// not skipped.
+    /// </remarks>
+    private static MemberShape CreateAccessorShape(AccessorDeclarationSyntax accessor)
+        => new(default, PickBody(accessor.Body, accessor.ExpressionBody), accessor.Parent?.Parent ?? accessor, true);
+
+    /// <summary>Runs the free syntax prepass, which asks whether the declaration mentions <c>IEnumerable</c> at all.</summary>
+    /// <param name="scope">The declaration to scan.</param>
     /// <returns><see langword="true"/> when an IEnumerable identifier token appears, so binding is worth it.</returns>
-    private static bool MentionsEnumerable(MethodDeclarationSyntax method)
+    private static bool MentionsEnumerable(SyntaxNode scope)
     {
         var state = default(MentionScanState);
-        DescendantTraversalHelper.VisitDescendantTokens(method, ref state, VisitTypeNameToken);
+        DescendantTraversalHelper.VisitDescendantTokens(scope, ref state, VisitTypeNameToken);
         return state.Found;
     }
 
@@ -152,18 +219,17 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Reports each lazy-sequence parameter the method walks twice.</summary>
+    /// <summary>Reports each lazy-sequence parameter the body walks twice.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="method">The method being analyzed.</param>
-    /// <param name="body">The method's body or expression body.</param>
+    /// <param name="parameters">The declaring member's parameters.</param>
+    /// <param name="body">The member's body or expression body.</param>
     /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type, when the compilation has LINQ.</param>
     private static void AnalyzeParameters(
         SyntaxNodeAnalysisContext context,
-        MethodDeclarationSyntax method,
+        SeparatedSyntaxList<ParameterSyntax> parameters,
         SyntaxNode body,
         INamedTypeSymbol? enumerableType)
     {
-        var parameters = method.ParameterList.Parameters;
         for (var i = 0; i < parameters.Count; i++)
         {
             var parameter = parameters[i];
@@ -485,6 +551,17 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
 
         return null;
     }
+
+    /// <summary>The part of a body-carrying declaration this rule walks.</summary>
+    /// <param name="Parameters">The parameters the declaration brings into scope, empty when it has none.</param>
+    /// <param name="Body">The body or expression body, or <see langword="null"/> when there is nothing to walk.</param>
+    /// <param name="PrepassScope">The node the free IEnumerable prepass scans.</param>
+    /// <param name="OwnsLocals">Whether this declaration claims the locals its body declares.</param>
+    private readonly record struct MemberShape(
+        SeparatedSyntaxList<ParameterSyntax> Parameters,
+        SyntaxNode? Body,
+        SyntaxNode? PrepassScope,
+        bool OwnsLocals);
 
     /// <summary>Tracks whether the prepass saw an IEnumerable mention.</summary>
     private record struct MentionScanState

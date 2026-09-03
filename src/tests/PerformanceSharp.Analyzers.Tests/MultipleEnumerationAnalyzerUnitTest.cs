@@ -365,6 +365,127 @@ public class MultipleEnumerationAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a constructor parameter walked twice is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConstructorParameterWalkedTwiceIsReportedAsync()
+        => await VerifyAsync(
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+
+            public class C
+            {
+                private readonly int _total;
+
+                public C(IEnumerable<int> source)
+                {
+                    if (!source.Any())
+                    {
+                        return;
+                    }
+
+                    _total = {|PSH1125:source|}.Count();
+                }
+            }
+            """);
+
+    /// <summary>Verifies a local function parameter walked twice is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task LocalFunctionParameterWalkedTwiceIsReportedAsync()
+        => await VerifyAsync(
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+
+            public class C
+            {
+                public int M(int[] values)
+                {
+                    return Inner(values);
+
+                    static int Inner(IEnumerable<int> source)
+                    {
+                        var first = source.Count();
+                        return first + {|PSH1125:source|}.Sum();
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a property accessor body walking a lazy local twice is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PropertyAccessorLocalWalkedTwiceIsReportedAsync()
+        => await VerifyAsync(
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+
+            public class C
+            {
+                private readonly int[] _values = new int[0];
+
+                public int Total
+                {
+                    get
+                    {
+                        IEnumerable<int> filtered = _values.Where(x => x > 0);
+                        var count = filtered.Count();
+                        return count + {|PSH1125:filtered|}.Sum();
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies an indexer's index parameter is not reported, because accessors rebind it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task IndexerParameterIsNotReportedAsync()
+        => await VerifyAsync(
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+
+            public class C
+            {
+                public int this[IEnumerable<int> source]
+                {
+                    get
+                    {
+                        var count = source.Count();
+                        return count + source.Sum();
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a lazy local declared inside a local function is reported exactly once.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task LocalFunctionLocalIsReportedOnceAsync()
+        => await VerifyAsync(
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+
+            public class C
+            {
+                public int M(int[] values)
+                {
+                    return Inner();
+
+                    int Inner()
+                    {
+                        IEnumerable<int> filtered = values.Where(x => x > 0);
+                        var count = filtered.Count();
+                        return count + {|PSH1125:filtered|}.Sum();
+                    }
+                }
+            }
+            """);
+
     /// <summary>Runs an analyzer verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

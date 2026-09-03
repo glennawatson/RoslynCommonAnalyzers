@@ -81,7 +81,10 @@ jobs:
                       /d:sonar.exclusions="**/tests/**,**/benchmarks/**" \
                       /d:sonar.coverage.exclusions="**/tests/**,**/benchmarks/**" \
                       /d:sonar.cpd.exclusions="**/tests/**,**/benchmarks/**" \
-                      /d:sonar.test.exclusions="**/tests/**,**/benchmarks/**"
+                      /d:sonar.test.exclusions="**/tests/**,**/benchmarks/**" \
+                      /d:sonar.issue.ignore.multicriteria="nullForgiving" \
+                      /d:sonar.issue.ignore.multicriteria.nullForgiving.ruleKey="csharpsquid:S8969" \
+                      /d:sonar.issue.ignore.multicriteria.nullForgiving.resourceKey="**/*.cs"
 
             -   name: Build
                 working-directory: src

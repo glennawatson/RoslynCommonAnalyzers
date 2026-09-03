@@ -188,11 +188,12 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// An indexer's index parameters are deliberately left out. Inside an accessor body they bind to the
     /// accessor's own parameter symbols rather than the ones the indexer declares, so matching them would
     /// mean mapping between the two by ordinal — disproportionate for an indexer that takes a lazy
-    /// sequence as an index. The prepass still runs over the whole indexer so a body-declared sequence is
-    /// not skipped.
+    /// sequence as an index. Since only the accessor's own locals are candidates, the prepass is scoped to
+    /// the accessor: widening it to the owning property would re-scan every token of that property once
+    /// per accessor, and again for the property's own registration.
     /// </remarks>
     private static MemberShape CreateAccessorShape(AccessorDeclarationSyntax accessor)
-        => new(default, PickBody(accessor.Body, accessor.ExpressionBody), accessor.Parent?.Parent ?? accessor, true);
+        => new(default, PickBody(accessor.Body, accessor.ExpressionBody), accessor, true);
 
     /// <summary>Runs the free syntax prepass, which asks whether the declaration mentions <c>IEnumerable</c> at all.</summary>
     /// <param name="scope">The declaration to scan.</param>
@@ -356,6 +357,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     private static bool VisitIdentifier(IdentifierNameSyntax identifier, ref UsageScanState state)
     {
         if (identifier.Identifier.ValueText != state.Name
+            || !CanChangeTheOutcome(identifier)
             || !SymbolEqualityComparer.Default.Equals(
                 state.Model.GetSymbolInfo(identifier, state.CancellationToken).Symbol,
                 state.Symbol))
@@ -377,6 +379,22 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
         state.Walks.Add(identifier);
         return true;
     }
+
+    /// <summary>Returns whether an occurrence could still be a walk or a rebind once bound.</summary>
+    /// <param name="identifier">The identifier occurrence, already matched by name.</param>
+    /// <returns><see langword="true"/> when binding it can still change what the rule decides.</returns>
+    /// <remarks>
+    /// A free syntax gate in front of <c>GetSymbolInfo</c>. Only three shapes matter: the source of a
+    /// <c>foreach</c>, the receiver of a member access (the head of any LINQ chain), and a write through
+    /// the name. An occurrence that is none of them — passed as a plain argument, returned, compared —
+    /// neither walks the sequence nor rebinds it, so binding it can only ever confirm that it is
+    /// irrelevant. The name match alone is not enough to skip the bind, because a different symbol may
+    /// share the name in a nested scope.
+    /// </remarks>
+    private static bool CanChangeTheOutcome(IdentifierNameSyntax identifier)
+        => IsForEachSource(identifier)
+            || (identifier.Parent is MemberAccessExpressionSyntax access && access.Expression == identifier)
+            || IsWrittenThrough(identifier);
 
     /// <summary>Returns whether a usage rebinds the candidate, which makes any later walk a walk of something else.</summary>
     /// <param name="identifier">The identifier usage.</param>

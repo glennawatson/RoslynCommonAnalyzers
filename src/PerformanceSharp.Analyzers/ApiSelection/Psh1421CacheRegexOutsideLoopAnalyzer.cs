@@ -25,6 +25,9 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
     /// <summary>The parameter name every pattern-taking static shares.</summary>
     private const string PatternParameterName = "pattern";
 
+    /// <summary>The receiver type name the syntax prepass requires before any binding.</summary>
+    private const string RegexTypeName = "Regex";
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
         => ImmutableArrays.Of(ApiSelectionRules.CacheRegexOutsideLoop);
@@ -43,6 +46,28 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
 
             start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, regex), SyntaxKind.InvocationExpression);
         });
+    }
+
+    /// <summary>Returns whether a member access reads a member off something named <c>Regex</c>.</summary>
+    /// <param name="access">The invoked member access.</param>
+    /// <returns><see langword="true"/> when the receiver's rightmost identifier is <c>Regex</c>.</returns>
+    /// <remarks>
+    /// A free syntax gate that runs before the semantic model is touched. Without it every member call
+    /// taking two or more arguments — <c>dict.TryGetValue(key, out value)</c>, <c>string.Format(a, b)</c> —
+    /// pays a <c>GetSymbolInfo</c>, which is the cost the rejection path is made of. Matching the name
+    /// rather than the type keeps it free and only over-approximates: a real <c>Regex</c> call always
+    /// passes, and anything else that happens to be spelled <c>Regex</c> is turned back by the binding
+    /// that follows.
+    /// </remarks>
+    private static bool IsRegexReceiverShape(MemberAccessExpressionSyntax access)
+    {
+        var receiver = access.Expression;
+        while (receiver is MemberAccessExpressionSyntax nested)
+        {
+            receiver = nested.Name;
+        }
+
+        return receiver is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == RegexTypeName;
     }
 
     /// <summary>Returns the loop that runs a node once per iteration, or <see langword="null"/> when none does.</summary>
@@ -155,8 +180,9 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol regex)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (invocation.Expression is not MemberAccessExpressionSyntax { Name: SimpleNameSyntax name }
-            || invocation.ArgumentList.Arguments.Count < 2)
+        if (invocation.Expression is not MemberAccessExpressionSyntax { Name: SimpleNameSyntax name } access
+            || invocation.ArgumentList.Arguments.Count < 2
+            || !IsRegexReceiverShape(access))
         {
             return;
         }

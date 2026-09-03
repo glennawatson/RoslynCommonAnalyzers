@@ -141,13 +141,19 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        AnalyzeParameters(context, shape.Parameters, body, enumerableType);
-        if (!shape.OwnsLocals)
+        var candidates = new List<WalkCandidate>(1);
+        CollectParameterCandidates(context, shape.Parameters, candidates);
+        if (shape.OwnsLocals)
+        {
+            CollectLocalCandidates(context, body, candidates);
+        }
+
+        if (candidates.Count == 0)
         {
             return;
         }
 
-        AnalyzeLocals(context, body, enumerableType);
+        ScanAndReport(context, body, candidates, enumerableType);
     }
 
     /// <summary>Resolves the parameters, body, and prepass scope of a body-carrying declaration.</summary>
@@ -220,16 +226,14 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Reports each lazy-sequence parameter the body walks twice.</summary>
+    /// <summary>Adds each lazy-sequence parameter to the candidate set.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="parameters">The declaring member's parameters.</param>
-    /// <param name="body">The member's body or expression body.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type, when the compilation has LINQ.</param>
-    private static void AnalyzeParameters(
+    /// <param name="candidates">The candidate set to add to.</param>
+    private static void CollectParameterCandidates(
         SyntaxNodeAnalysisContext context,
         SeparatedSyntaxList<ParameterSyntax> parameters,
-        SyntaxNode body,
-        INamedTypeSymbol? enumerableType)
+        List<WalkCandidate> candidates)
     {
         for (var i = 0; i < parameters.Count; i++)
         {
@@ -243,15 +247,15 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            ReportIfWalkedTwice(context, body, symbol, parameter.Identifier.ValueText, enumerableType);
+            candidates.Add(new WalkCandidate(symbol, parameter.Identifier.ValueText));
         }
     }
 
-    /// <summary>Reports each lazy-sequence local the method walks twice.</summary>
+    /// <summary>Adds each lazy-sequence local to the candidate set.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="body">The method's body or expression body.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type, when the compilation has LINQ.</param>
-    private static void AnalyzeLocals(SyntaxNodeAnalysisContext context, SyntaxNode body, INamedTypeSymbol? enumerableType)
+    /// <param name="candidates">The candidate set to add to.</param>
+    private static void CollectLocalCandidates(SyntaxNodeAnalysisContext context, SyntaxNode body, List<WalkCandidate> candidates)
     {
         var declarations = new List<LocalDeclarationStatementSyntax>(2);
         var state = new LocalScanState(declarations);
@@ -259,7 +263,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
 
         for (var i = 0; i < declarations.Count; i++)
         {
-            AnalyzeLocalDeclaration(context, body, declarations[i], enumerableType);
+            CollectLocalDeclarationCandidates(context, declarations[i], candidates);
         }
     }
 
@@ -278,16 +282,14 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <summary>Reports each lazy-sequence variable of one local declaration that the method walks twice.</summary>
+    /// <summary>Adds each lazy-sequence variable of one local declaration to the candidate set.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="body">The method's body or expression body.</param>
     /// <param name="declaration">The local declaration to inspect.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type, when the compilation has LINQ.</param>
-    private static void AnalyzeLocalDeclaration(
+    /// <param name="candidates">The candidate set to add to.</param>
+    private static void CollectLocalDeclarationCandidates(
         SyntaxNodeAnalysisContext context,
-        SyntaxNode body,
         LocalDeclarationStatementSyntax declaration,
-        INamedTypeSymbol? enumerableType)
+        List<WalkCandidate> candidates)
     {
         var variables = declaration.Declaration.Variables;
         for (var i = 0; i < variables.Count; i++)
@@ -300,7 +302,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            ReportIfWalkedTwice(context, body, symbol, variable.Identifier.ValueText, enumerableType);
+            candidates.Add(new WalkCandidate(symbol, variable.Identifier.ValueText));
         }
     }
 
@@ -322,53 +324,67 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
             && MaterializingMethodNames.Contains(access.Name.Identifier.ValueText);
     }
 
-    /// <summary>Scans the body for a symbol's walks and reports the second one when two can both run.</summary>
+    /// <summary>Walks the body once for every candidate, then reports each one that is enumerated twice.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="body">The method's body or expression body.</param>
-    /// <param name="symbol">The candidate parameter or local.</param>
-    /// <param name="name">The candidate's name, used for the message and the identifier prefilter.</param>
+    /// <param name="candidates">The candidates to track.</param>
     /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type, when the compilation has LINQ.</param>
-    private static void ReportIfWalkedTwice(
+    /// <remarks>
+    /// One scan covers every candidate. Scanning per candidate walked the whole body once for each lazy
+    /// sequence a member declares, so a member with several of them re-walked the same tree that many
+    /// times to answer questions a single pass answers together.
+    /// </remarks>
+    private static void ScanAndReport(
         SyntaxNodeAnalysisContext context,
         SyntaxNode body,
-        ISymbol symbol,
-        string name,
+        List<WalkCandidate> candidates,
         INamedTypeSymbol? enumerableType)
     {
-        var walks = new List<IdentifierNameSyntax>(MinimumWalkCount);
-        var state = new UsageScanState(name, symbol, context.SemanticModel, enumerableType, walks, context.CancellationToken);
+        var state = new UsageScanState(candidates, context.SemanticModel, enumerableType, candidates.Count, context.CancellationToken);
         DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, UsageScanState>(body, ref state, VisitIdentifier);
 
-        if (state.Disqualified || walks.Count < MinimumWalkCount || FindReenumeration(walks) is not { } offending)
+        for (var i = 0; i < candidates.Count; i++)
         {
-            return;
-        }
+            var candidate = candidates[i];
+            if (candidate.Disqualified
+                || candidate.Walks is not { } walks
+                || walks.Count < MinimumWalkCount
+                || FindReenumeration(walks) is not { } offending)
+            {
+                continue;
+            }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(
-            CollectionRules.MultipleEnumeration,
-            offending.GetLocation(),
-            name));
+            context.ReportDiagnostic(DiagnosticHelper.Create(
+                CollectionRules.MultipleEnumeration,
+                offending.GetLocation(),
+                candidate.Name));
+        }
     }
 
-    /// <summary>Classifies one identifier usage of the candidate: a write that disqualifies it, or a walk.</summary>
+    /// <summary>Classifies one identifier usage: a write that disqualifies a candidate, or a walk of one.</summary>
     /// <param name="identifier">The visited identifier.</param>
     /// <param name="state">The current scan state.</param>
-    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once the candidate is disqualified.</returns>
+    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once every candidate is out.</returns>
+    /// <remarks>
+    /// A write disqualifies only the candidate it names, so the scan continues for the rest; it stops
+    /// early only when nothing is left to learn.
+    /// </remarks>
     private static bool VisitIdentifier(IdentifierNameSyntax identifier, ref UsageScanState state)
     {
-        if (identifier.Identifier.ValueText != state.Name
+        if (state.MatchByName(identifier.Identifier.ValueText) is not { } candidate
             || !CanChangeTheOutcome(identifier)
             || !SymbolEqualityComparer.Default.Equals(
                 state.Model.GetSymbolInfo(identifier, state.CancellationToken).Symbol,
-                state.Symbol))
+                candidate.Symbol))
         {
             return true;
         }
 
         if (IsWrittenThrough(identifier))
         {
-            state.Disqualified = true;
-            return false;
+            candidate.Disqualified = true;
+            state.Active--;
+            return state.Active > 0;
         }
 
         if (!IsWalk(identifier, state.Model, state.EnumerableType, state.CancellationToken))
@@ -376,7 +392,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        state.Walks.Add(identifier);
+        candidate.AddWalk(identifier);
         return true;
     }
 
@@ -592,22 +608,69 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <param name="Declarations">The declarations found so far.</param>
     private record struct LocalScanState(List<LocalDeclarationStatementSyntax> Declarations);
 
-    /// <summary>Tracks one candidate's walks while scanning the method body.</summary>
-    /// <param name="Name">The candidate's name, used as a free prefilter before binding.</param>
-    /// <param name="Symbol">The candidate parameter or local.</param>
+    /// <summary>Tracks every candidate's walks while scanning the member body once.</summary>
+    /// <param name="Candidates">The candidates being tracked.</param>
     /// <param name="Model">The semantic model.</param>
     /// <param name="EnumerableType">The <c>System.Linq.Enumerable</c> type, when the compilation has LINQ.</param>
-    /// <param name="Walks">The walks found so far, in document order.</param>
+    /// <param name="Active">The number of candidates still in play.</param>
     /// <param name="CancellationToken">A token that cancels the operation.</param>
     private record struct UsageScanState(
-        string Name,
-        ISymbol Symbol,
+        List<WalkCandidate> Candidates,
         SemanticModel Model,
         INamedTypeSymbol? EnumerableType,
-        List<IdentifierNameSyntax> Walks,
+        int Active,
         CancellationToken CancellationToken)
     {
+        /// <summary>Finds the candidate an identifier could name, before anything is bound.</summary>
+        /// <param name="name">The identifier's text.</param>
+        /// <returns>The matching candidate, or <see langword="null"/> when no live candidate shares the name.</returns>
+        /// <remarks>
+        /// The free prefilter in front of the semantic model. A member declares very few lazy sequences,
+        /// so a short scan beats hashing every identifier in the body.
+        /// </remarks>
+        public readonly WalkCandidate? MatchByName(string name)
+        {
+            for (var i = 0; i < Candidates.Count; i++)
+            {
+                var candidate = Candidates[i];
+                if (!candidate.Disqualified && candidate.Name == name)
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>One parameter or local the scan is tracking through the body.</summary>
+    private sealed class WalkCandidate
+    {
+        /// <summary>Initializes a new instance of the <see cref="WalkCandidate"/> class.</summary>
+        /// <param name="symbol">The candidate parameter or local.</param>
+        /// <param name="name">The candidate's name, used as a free prefilter before binding.</param>
+        public WalkCandidate(ISymbol symbol, string name)
+        {
+            Symbol = symbol;
+            Name = name;
+        }
+
+        /// <summary>Gets the candidate parameter or local.</summary>
+        public ISymbol Symbol { get; }
+
+        /// <summary>Gets the candidate's name.</summary>
+        public string Name { get; }
+
+        /// <summary>Gets the walks found so far, in document order, or <see langword="null"/> when there are none.</summary>
+        /// <remarks>Left unallocated until a walk turns up, because most candidates never have one.</remarks>
+        public List<IdentifierNameSyntax>? Walks { get; private set; }
+
         /// <summary>Gets or sets a value indicating whether the candidate was rebound, dropping it from the rule.</summary>
         public bool Disqualified { get; set; }
+
+        /// <summary>Records one walk of this candidate.</summary>
+        /// <param name="identifier">The identifier that walks it.</param>
+        public void AddWalk(IdentifierNameSyntax identifier)
+            => (Walks ??= new List<IdentifierNameSyntax>(MinimumWalkCount)).Add(identifier);
     }
 }

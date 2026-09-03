@@ -486,6 +486,60 @@ public class MultipleEnumerationAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies two lazy parameters walked twice in one member are both reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TwoCandidatesInOneMemberAreBothReportedAsync()
+        => await VerifyAsync(
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+
+            public class C
+            {
+                public int M(IEnumerable<int> first, IEnumerable<int> second)
+                {
+                    var total = first.Count() + second.Count();
+                    foreach (var value in {|PSH1125:first|})
+                    {
+                        total += value;
+                    }
+
+                    foreach (var value in {|PSH1125:second|})
+                    {
+                        total += value;
+                    }
+
+                    return total;
+                }
+            }
+            """);
+
+    /// <summary>Verifies disqualifying one candidate does not stop the scan for another.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WriteToOneCandidateLeavesTheOtherReportedAsync()
+        => await VerifyAsync(
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+
+            public class C
+            {
+                public int M(IEnumerable<int> first, IEnumerable<int> second)
+                {
+                    first = second;
+                    var total = first.Count() + second.Count();
+                    foreach (var value in {|PSH1125:second|})
+                    {
+                        total += value;
+                    }
+
+                    return total + first.Count();
+                }
+            }
+            """);
+
     /// <summary>Runs an analyzer verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

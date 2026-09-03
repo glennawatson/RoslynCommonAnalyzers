@@ -7,38 +7,38 @@ using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
-/// <summary>Allocation-profile benchmarks for modern-syntax value analysis.</summary>
+/// <summary>CPU-profile benchmarks for modern-flow analysis.</summary>
 [ShortRunJob]
-[EventPipeProfiler(EventPipeProfile.GcVerbose)]
-public class ModernSyntaxValueProfiledAllocBenchmarks
+[EventPipeProfiler(EventPipeProfile.CpuSampling)]
+public class ModernSyntaxFlowProfiledCpuBenchmarks
 {
     /// <summary>The prepared benchmark state.</summary>
     private SingleAnalyzerBenchmarkState _state = null!;
 
-    /// <summary>Gets or sets the synthetic node count used for each benchmark corpus.</summary>
+    /// <summary>Gets or sets the synthetic Nodes count used for each benchmark corpus.</summary>
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
     public int Nodes { get; set; }
 
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = ModernSyntaxValueBenchmarkCases.Create(Nodes);
+    public void Setup() => _state = ModernSyntaxFlowBenchmarkCases.Create(Nodes);
 
-    /// <summary>Benchmarks the clean modern-syntax value path.</summary>
+    /// <summary>Benchmarks the clean path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
     [Benchmark]
-    public Task<int> ModernSyntaxValue_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
+    public Task<int> ModernSyntaxFlow_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
-    /// <summary>Benchmarks the violating modern-syntax value path.</summary>
+    /// <summary>Benchmarks the violating path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
     [Benchmark]
-    public Task<int> ModernSyntaxValue_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
+    public Task<int> ModernSyntaxFlow_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 
     /// <summary>Benchmarks the same corpus with an analyzer that reports nothing.</summary>
     /// <returns>The number of diagnostics produced, always zero.</returns>
     /// <remarks>
-    /// The floor to subtract: what the compiler costs to bind this corpus, before the rule under
+    /// The floor to subtract: what the driver and the compiler cost on this corpus, before the rule under
     /// test does any work of its own.
     /// </remarks>
     [Benchmark(Baseline = true)]
-    public Task<int> ModernSyntaxValue_HarnessBaseline() => SingleAnalyzerBenchmarkHelper.RunCompilerBaselineAsync(_state);
+    public Task<int> ModernSyntaxFlow_HarnessBaseline() => SingleAnalyzerBenchmarkHelper.RunCompilerBaselineAsync(_state);
 }

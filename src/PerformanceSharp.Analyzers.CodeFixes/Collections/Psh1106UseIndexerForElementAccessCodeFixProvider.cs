@@ -44,8 +44,14 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    /// <remarks>
+    /// The reported span is the invocation itself, so the innermost tie-breaking node is the one to
+    /// rewrite. Taking the outermost node of a tie would pick the enclosing <c>ArgumentSyntax</c> when
+    /// the call sits in an argument list, and walking up from there lands on the surrounding call —
+    /// rewriting <c>M(values.First())</c> into <c>M[values.First()]</c>.
+    /// </remarks>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>() is { Expression: MemberAccessExpressionSyntax } invocation
+        => root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation
             && CanApply(invocation)
             ? new NodeReplacement(invocation, CreateReplacement(invocation, GetCountSourceName(diagnostic)))
             : null;

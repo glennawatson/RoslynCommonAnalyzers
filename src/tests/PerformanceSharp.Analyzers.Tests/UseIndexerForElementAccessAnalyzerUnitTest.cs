@@ -165,6 +165,88 @@ public class UseIndexerForElementAccessAnalyzerUnitTest
         await VerifyNet90Async(Source, FixedSource);
     }
 
+    /// <summary>Verifies an element access nested in an argument list is rewritten, not its enclosing call.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ArgumentPositionFirstReplacedWithIndexerAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              public class C
+                              {
+                                  public bool M(List<string> values) => string.IsNullOrWhiteSpace({|PSH1106:values.First()|});
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+
+                                   public class C
+                                   {
+                                       public bool M(List<string> values) => string.IsNullOrWhiteSpace(values[0]);
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
+    /// <summary>Verifies element accesses in a receiver position and an argument position are both rewritten in place.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task LastInsideLargerExpressionReplacedWithCountIndexAsync()
+    {
+        const string Source = """
+                              using System;
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              public class C
+                              {
+                                  public bool M(List<string> values)
+                                      => {|PSH1106:values.Last()|}.Equals("x", StringComparison.Ordinal) || string.IsNullOrWhiteSpace({|PSH1106:values.Last()|});
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+
+                                   public class C
+                                   {
+                                       public bool M(List<string> values)
+                                           => values[values.Count - 1].Equals("x", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(values[values.Count - 1]);
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
+    /// <summary>Verifies an ElementAt call in an argument position keeps its own index argument.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ArgumentPositionElementAtReplacedWithIndexerAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              public class C
+                              {
+                                  public bool M(List<string> values, int index) => string.IsNullOrEmpty({|PSH1106:values.ElementAt(index)|});
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+
+                                   public class C
+                                   {
+                                       public bool M(List<string> values, int index) => string.IsNullOrEmpty(values[index]);
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
     /// <summary>Verifies Fix All rewrites every reported element access in one pass.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

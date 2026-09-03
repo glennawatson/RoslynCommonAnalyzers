@@ -35,7 +35,7 @@ public sealed class Sst2282ReferenceEqualsNullPatternCodeFixProvider : CodeFixPr
     /// <returns>The node replacement, or <see langword="null"/> when the shape no longer matches.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { } invocation
+        if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not InvocationExpressionSyntax invocation
             || !Sst2282ReferenceEqualsNullPatternAnalyzer.TryGetNonNullOperand(invocation, out var nonNullOperand))
         {
             return null;

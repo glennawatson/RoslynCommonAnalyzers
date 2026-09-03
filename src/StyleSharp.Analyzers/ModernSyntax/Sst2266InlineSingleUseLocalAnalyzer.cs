@@ -15,8 +15,10 @@ namespace StyleSharp.Analyzers;
 /// The rewrite is only offered when it is provably behaviour-preserving: the initializer is a side-effect-free
 /// expression whose type is the local's own, the single read immediately follows the declaration, nothing
 /// side-effecting is evaluated before the read within that statement, and the local is neither captured by a
-/// nested function, aliased by <c>ref</c>/<c>out</c>/<c>in</c>, nor written after its declaration. An
-/// initializer wider than <c>stylesharp.SST2266.max_initializer_length</c> is left alone as well.
+/// nested function, aliased by <c>ref</c>/<c>out</c>/<c>in</c>, nor written after its declaration. A read
+/// inside a loop keeps its local unless the initializer is a leaf, because inlining anything more would
+/// re-evaluate it on every iteration. An initializer wider than
+/// <c>stylesharp.SST2266.max_initializer_length</c> is left alone as well.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
@@ -163,6 +165,20 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
+    /// <summary>Returns whether inlining would move work that costs something into a loop that repeats it.</summary>
+    /// <param name="value">The initializer that would be inlined.</param>
+    /// <param name="reference">The single read the initializer would be spliced into.</param>
+    /// <param name="boundary">The block that bounds the local's scope.</param>
+    /// <returns><see langword="true"/> when a loop encloses the read and the initializer is more than a leaf.</returns>
+    /// <remarks>
+    /// The declaration evaluates its initializer once; the read may run many times. A property chain, a cast, or
+    /// an operator expression therefore turns into one evaluation per iteration once it is inlined, which is a
+    /// worse program than the local it replaced. A leaf — a literal, an identifier, <c>typeof</c> — costs the
+    /// same either way, so it still inlines.
+    /// </remarks>
+    internal static bool RepeatsWorkInLoop(ExpressionSyntax value, SyntaxNode reference, BlockSyntax boundary)
+        => !IsAtomicPure(value) && IsInsideLoop(reference, boundary);
+
     /// <summary>Returns whether a side-effecting expression is evaluated before a reference within a statement.</summary>
     /// <param name="statement">The statement holding the reference.</param>
     /// <param name="reference">The reference the initializer would be inlined into.</param>
@@ -173,6 +189,24 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         foreach (var node in statement.DescendantNodes())
         {
             if (node.Span.End <= referenceStart && IsSideEffecting(node))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a loop encloses a reference within the local's scope.</summary>
+    /// <param name="reference">The reference to inspect.</param>
+    /// <param name="boundary">The block that bounds the local's scope.</param>
+    /// <returns><see langword="true"/> when a <c>for</c>, <c>foreach</c>, <c>while</c>, or <c>do</c> encloses the reference.</returns>
+    private static bool IsInsideLoop(SyntaxNode reference, BlockSyntax boundary)
+    {
+        for (var candidate = reference.Parent; candidate is not null && candidate != boundary; candidate = candidate.Parent)
+        {
+            if (candidate is ForStatementSyntax or ForEachStatementSyntax or ForEachVariableStatementSyntax
+                or WhileStatementSyntax or DoStatementSyntax)
             {
                 return true;
             }
@@ -294,12 +328,19 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <param name="block">The enclosing block.</param>
     /// <param name="useStatement">The statement immediately after the declaration.</param>
     /// <param name="symbol">The local symbol.</param>
+    /// <param name="value">The initializer that would be inlined.</param>
     /// <returns><see langword="true"/> when inlining preserves behaviour.</returns>
-    private static bool IsSafeSingleUse(SemanticModel model, BlockSyntax block, StatementSyntax useStatement, ILocalSymbol symbol)
+    private static bool IsSafeSingleUse(
+        SemanticModel model,
+        BlockSyntax block,
+        StatementSyntax useStatement,
+        ILocalSymbol symbol,
+        ExpressionSyntax value)
         => FindSingleReference(model, block, symbol) is { } reference
             && useStatement.Span.Contains(reference.Span)
             && !IsWriteOrAlias(reference)
             && !IsCaptured(reference, block)
+            && !RepeatsWorkInLoop(value, reference, block)
             && !HasSideEffectBeforeReference(useStatement, reference);
 
     /// <summary>Reports a single-use local whose initializer can be safely inlined into its one read.</summary>
@@ -331,7 +372,7 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         var useStatement = block.Statements[declarationIndex + 1];
         if (context.SemanticModel.GetDeclaredSymbol(declarator, context.CancellationToken) is not ILocalSymbol symbol
             || !PreservesDeclaredMeaning(context.SemanticModel, value, symbol, context.CancellationToken)
-            || !IsSafeSingleUse(context.SemanticModel, block, useStatement, symbol))
+            || !IsSafeSingleUse(context.SemanticModel, block, useStatement, symbol, value))
         {
             return;
         }

@@ -93,6 +93,30 @@ public class ReferenceEqualsNullPatternAnalyzerUnitTest
         await RunAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a call nested in an argument list is rewritten, not its enclosing call.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ArgumentPositionReferenceEqualsBecomesIsNullAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public string M(string value) => Describe({|SST2282:ReferenceEquals(value, null)|});
+
+                                  private static string Describe(bool flag) => flag.ToString();
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public string M(string value) => Describe(value is null);
+
+                                       private static string Describe(bool flag) => flag.ToString();
+                                   }
+                                   """;
+        await RunAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a value-type operand is left alone, because <c>ReferenceEquals</c> boxes it.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

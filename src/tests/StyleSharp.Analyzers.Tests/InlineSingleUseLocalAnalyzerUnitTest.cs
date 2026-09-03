@@ -604,6 +604,97 @@ public class InlineSingleUseLocalAnalyzerUnitTest
         await RunAsync(Source, FixedSource, "stylesharp.SST2266.max_initializer_length = 0");
     }
 
+    /// <summary>Verifies a local whose one read sits in a foreach body keeps its declaration.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ForEachBodyReadKeepsTheLocalAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  private System.Collections.Generic.List<int> Items => new();
+
+                                  public int M(int[] values)
+                                  {
+                                      var total = 0;
+                                      var count = Items.Count;
+                                      foreach (var value in values)
+                                      {
+                                          total += count;
+                                      }
+
+                                      return total;
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source);
+    }
+
+    /// <summary>Verifies a local whose one read sits in a while body keeps its declaration.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WhileBodyReadKeepsTheLocalAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  private System.Collections.Generic.List<int> Items => new();
+
+                                  public int M(int limit)
+                                  {
+                                      var total = 0;
+                                      var count = Items.Count;
+                                      while (total < limit)
+                                      {
+                                          total += count;
+                                      }
+
+                                      return total;
+                                  }
+                              }
+                              """;
+        await VerifyCleanAsync(Source);
+    }
+
+    /// <summary>Verifies a literal initializer is still inlined into a loop, because re-reading it costs nothing.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task LiteralInitializerIsInlinedIntoALoopAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(int[] values)
+                                  {
+                                      var total = 0;
+                                      var {|SST2266:step|} = 2;
+                                      foreach (var value in values)
+                                      {
+                                          total += step;
+                                      }
+
+                                      return total;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public int M(int[] values)
+                                       {
+                                           var total = 0;
+                                           foreach (var value in values)
+                                           {
+                                               total += 2;
+                                           }
+
+                                           return total;
+                                       }
+                                   }
+                                   """;
+        await RunAsync(Source, FixedSource);
+    }
+
     /// <summary>Runs a code-fix verification with the disabled rule enabled.</summary>
     /// <param name="source">The markup source.</param>
     /// <param name="fixedSource">The expected fixed source.</param>

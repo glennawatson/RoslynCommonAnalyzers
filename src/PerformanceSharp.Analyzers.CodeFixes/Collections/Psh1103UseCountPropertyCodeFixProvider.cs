@@ -32,7 +32,7 @@ public sealed class Psh1103UseCountPropertyCodeFixProvider : CodeFixProvider, IB
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { Expression: MemberAccessExpressionSyntax } invocation)
+            if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation)
             {
                 continue;
             }
@@ -50,7 +50,7 @@ public sealed class Psh1103UseCountPropertyCodeFixProvider : CodeFixProvider, IB
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { Expression: MemberAccessExpressionSyntax } invocation)
+        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation)
         {
             return;
         }

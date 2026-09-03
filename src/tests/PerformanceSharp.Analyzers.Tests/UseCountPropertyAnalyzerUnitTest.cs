@@ -340,6 +340,72 @@ public class UseCountPropertyAnalyzerUnitTest
         await VerifyNet90Async(Source, Source);
     }
 
+    /// <summary>Verifies a Count() call nested in a qualified call's argument list rewrites the call, not its host.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ArgumentPositionCountReplacedWithCountPropertyAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              public class C
+                              {
+                                  public string M(List<int> list) => Formatter.Describe({|PSH1103:list.Count()|});
+                              }
+
+                              public static class Formatter
+                              {
+                                  public static string Describe(int value) => value.ToString();
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+
+                                   public class C
+                                   {
+                                       public string M(List<int> list) => Formatter.Describe(list.Count);
+                                   }
+
+                                   public static class Formatter
+                                   {
+                                       public static string Describe(int value) => value.ToString();
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
+    /// <summary>Verifies an Any() call nested in an argument list is rewritten to a count comparison in place.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ArgumentPositionAnyReplacedWithCountComparisonAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              public class C
+                              {
+                                  public string M(List<int> list) => Describe({|PSH1103:list.Any()|});
+
+                                  private static string Describe(bool value) => value.ToString();
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+
+                                   public class C
+                                   {
+                                       public string M(List<int> list) => Describe(list.Count > 0);
+
+                                       private static string Describe(bool value) => value.ToString();
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected fixed source.</param>

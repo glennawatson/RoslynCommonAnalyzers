@@ -348,6 +348,23 @@ public class MultipleEnumerationAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies the same eager call repeated across the operands of one expression is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RepeatedEagerCallInOneExpressionIsReportedAsync()
+        => await VerifyAsync(
+            """
+            using System;
+            using System.Collections.Generic;
+            using System.Linq;
+
+            public class C
+            {
+                public bool M(IEnumerable<string> source)
+                    => source.Last().Equals("x", StringComparison.Ordinal) || string.IsNullOrWhiteSpace({|PSH1125:source|}.Last());
+            }
+            """);
+
     /// <summary>Runs an analyzer verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

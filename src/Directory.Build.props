@@ -98,9 +98,14 @@
   <!-- Non-component projects (tests, benchmarks, package) pin Roslyn here. This
        value drives the central Microsoft.CodeAnalysis.* versions in
        Directory.Packages.props, so per-slot builds stay internally consistent
-       under central transitive pinning. -->
+       under central transitive pinning.
+
+       These take the highest Roslyn the repo builds against, not the floor.
+       They only consume the compiler API, so a newer one costs them nothing,
+       and referencing a lower one than the analyzer under test fails to compile
+       the moment that analyzer is built for a higher slot. -->
   <PropertyGroup>
-    <MicrosoftCodeAnalysisVersion Condition="'$(MicrosoftCodeAnalysisVersion)' == ''">4.14.0</MicrosoftCodeAnalysisVersion>
+    <MicrosoftCodeAnalysisVersion Condition="'$(MicrosoftCodeAnalysisVersion)' == ''">5.3.0</MicrosoftCodeAnalysisVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(IsTestProject)' == 'true'">

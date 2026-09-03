@@ -117,21 +117,13 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     internal static bool TryGetSimplifiedInterpolation(InterpolationSyntax interpolation, out InterpolationSyntax replacement)
     {
         replacement = null!;
-        if (interpolation.Expression is not InvocationExpressionSyntax
-            {
-                Expression: MemberAccessExpressionSyntax
-                {
-                    Name.Identifier.ValueText: "ToString",
-                    Expression: { } receiver
-                },
-                ArgumentList.Arguments: { Count: <= 1 } arguments
-            })
+        if (!TryMatchSimplifiableInterpolation(interpolation, out var receiver, out var formatArgument))
         {
             return false;
         }
 
         InterpolationFormatClauseSyntax? format = null;
-        if (arguments.Count == 1 && !TryCreateInterpolationFormat(arguments[0].Expression, out format))
+        if (formatArgument is not null && !TryCreateInterpolationFormat(formatArgument, out format))
         {
             return false;
         }
@@ -139,6 +131,17 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         replacement = interpolation.WithExpression(receiver.WithTriviaFrom(interpolation.Expression)).WithFormatClause(format);
         return true;
     }
+
+    /// <summary>Returns whether an interpolation has a supported simplification.</summary>
+    /// <param name="interpolation">The interpolation.</param>
+    /// <returns><see langword="true"/> when a simplification applies.</returns>
+    /// <remarks>
+    /// The analyzer only needs the answer, not the rewrite. Asking the version that builds the replacement
+    /// allocated the rewritten interpolation, its receiver and a format clause for every reported hole, all
+    /// of which were discarded. The code fix still calls that one, because it needs what it builds.
+    /// </remarks>
+    internal static bool IsSimplifiableInterpolation(InterpolationSyntax interpolation)
+        => TryMatchSimplifiableInterpolation(interpolation, out _, out _);
 
     /// <summary>Gets the named tuple element represented by an anonymous object initializer.</summary>
     /// <param name="initializer">The anonymous object member.</param>
@@ -182,12 +185,59 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         return IsObjectTypePattern(pattern);
     }
 
+    /// <summary>Returns whether an expression is usable as an interpolation format.</summary>
+    /// <param name="expression">The format expression.</param>
+    /// <returns><see langword="true"/> for a non-empty string literal.</returns>
+    private static bool IsInterpolationFormat(ExpressionSyntax expression)
+        => expression is LiteralExpressionSyntax literal
+            && literal.IsKind(SyntaxKind.StringLiteralExpression)
+            && !string.IsNullOrEmpty(literal.Token.ValueText);
+
+    /// <summary>Matches the interpolation shape without building anything.</summary>
+    /// <param name="interpolation">The interpolation.</param>
+    /// <param name="receiver">The expression the <c>ToString</c> call is made on.</param>
+    /// <param name="formatArgument">The format argument, or <see langword="null"/> when there is none.</param>
+    /// <returns><see langword="true"/> when the interpolation is a removable <c>ToString</c> call.</returns>
+    private static bool TryMatchSimplifiableInterpolation(
+        InterpolationSyntax interpolation,
+        out ExpressionSyntax receiver,
+        out ExpressionSyntax? formatArgument)
+    {
+        receiver = null!;
+        formatArgument = null;
+        if (interpolation.Expression is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Name.Identifier.ValueText: "ToString",
+                    Expression: { } target
+                },
+                ArgumentList.Arguments: { Count: <= 1 } arguments
+            })
+        {
+            return false;
+        }
+
+        if (arguments.Count == 1)
+        {
+            if (!IsInterpolationFormat(arguments[0].Expression))
+            {
+                return false;
+            }
+
+            formatArgument = arguments[0].Expression;
+        }
+
+        receiver = target;
+        return true;
+    }
+
     /// <summary>Reports removable <c>ToString</c> calls inside interpolation holes.</summary>
     /// <param name="context">The syntax context.</param>
     private static void AnalyzeInterpolation(SyntaxNodeAnalysisContext context)
     {
         var interpolation = (InterpolationSyntax)context.Node;
-        if (!TryGetSimplifiedInterpolation(interpolation, out _))
+        if (!IsSimplifiableInterpolation(interpolation))
         {
             return;
         }
@@ -766,9 +816,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static bool TryCreateInterpolationFormat(ExpressionSyntax expression, out InterpolationFormatClauseSyntax format)
     {
         format = null!;
-        if (expression is not LiteralExpressionSyntax literal
-            || !literal.IsKind(SyntaxKind.StringLiteralExpression)
-            || string.IsNullOrEmpty(literal.Token.ValueText))
+        if (expression is not LiteralExpressionSyntax literal || !IsInterpolationFormat(expression))
         {
             return false;
         }

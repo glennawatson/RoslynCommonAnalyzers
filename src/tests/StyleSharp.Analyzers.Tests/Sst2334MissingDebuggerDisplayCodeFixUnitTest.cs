@@ -19,9 +19,9 @@ public class Sst2334MissingDebuggerDisplayCodeFixUnitTest
         }
         """;
 
-    /// <summary>The type after the fix names its first public property.</summary>
+    /// <summary>The type after the fix leads with the type name and names its first public property.</summary>
     private const string WithPropertyFixed = """
-        [System.Diagnostics.DebuggerDisplay("{Amount}")]
+        [System.Diagnostics.DebuggerDisplay("Money: {Amount}")]
         public class Money
         {
             public int Amount { get; set; }
@@ -40,7 +40,7 @@ public class Sst2334MissingDebuggerDisplayCodeFixUnitTest
 
     /// <summary>The type after the fix names the field, which a display string may read in the type's own context.</summary>
     private const string NoPropertyFixed = """
-        [System.Diagnostics.DebuggerDisplay("{_amount}")]
+        [System.Diagnostics.DebuggerDisplay("Money: {_amount}")]
         public class Money
         {
             private int _amount;
@@ -59,7 +59,7 @@ public class Sst2334MissingDebuggerDisplayCodeFixUnitTest
 
     /// <summary>The type after the fix falls back to <c>ToString()</c>.</summary>
     private const string ToStringOnlyFixed = """
-        [System.Diagnostics.DebuggerDisplay("{ToString(),nq}")]
+        [System.Diagnostics.DebuggerDisplay("Money: {ToString(),nq}")]
         public class Money
         {
             public override string ToString() => "money";
@@ -76,10 +76,27 @@ public class Sst2334MissingDebuggerDisplayCodeFixUnitTest
 
     /// <summary>The type after the fix names the internal property in preference to <c>ToString()</c>.</summary>
     private const string NonPublicPropertyFixed = """
-        [System.Diagnostics.DebuggerDisplay("{Amount}")]
+        [System.Diagnostics.DebuggerDisplay("Money: {Amount}")]
         public class Money
         {
             internal int Amount { get; set; }
+        }
+        """;
+
+    /// <summary>A public generic type, whose prefix must not carry its type parameter list.</summary>
+    private const string GenericSource = """
+        public class {|SST2334:Box|}<T>
+        {
+            public T Value { get; set; }
+        }
+        """;
+
+    /// <summary>The type after the fix, prefixed with the bare type name.</summary>
+    private const string GenericFixed = """
+        [System.Diagnostics.DebuggerDisplay("Box: {Value}")]
+        public class Box<T>
+        {
+            public T Value { get; set; }
         }
         """;
 
@@ -106,4 +123,10 @@ public class Sst2334MissingDebuggerDisplayCodeFixUnitTest
     [Test]
     public async Task AddsAttributeFallingBackToToStringAsync()
         => await VerifyDisplay.VerifyCodeFixAsync(ToStringOnlySource, ToStringOnlyFixed);
+
+    /// <summary>Verifies a generic type is prefixed with its bare name, without the type parameter list.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task AddsAttributePrefixedWithBareGenericNameAsync()
+        => await VerifyDisplay.VerifyCodeFixAsync(GenericSource, GenericFixed);
 }

@@ -8,12 +8,17 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Adds a <c>[System.Diagnostics.DebuggerDisplay]</c> skeleton above a publicly visible type that has none
-/// (SST2334), giving the developer a working starting point to refine. The display string names the best
-/// member the type has to identify an instance by: its first public property, else any other readable
-/// property, else its first field — a display string is evaluated in the type's own context, so naming a
-/// private field is legitimate and beats saying nothing. A type with none of those falls back to
-/// <c>ToString()</c>, which the rule only reports when it is overridden.
+/// (SST2334), giving the developer a working starting point to refine. The display string leads with the
+/// type's own name and then names the best member the type has to identify an instance by: its first public
+/// property, else any other readable property, else its first field — a display string is evaluated in the
+/// type's own context, so naming a private field is legitimate and beats saying nothing. A type with none of
+/// those falls back to <c>ToString()</c>, which the rule only reports when it is overridden.
 /// </summary>
+/// <remarks>
+/// The type name is part of the string because a display string replaces the type name the debugger would
+/// otherwise show. Without it a watch window or a mixed collection is a column of bare values — <c>42</c>,
+/// <c>"abc"</c> — with nothing saying what each one is.
+/// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2334MissingDebuggerDisplayCodeFixProvider))]
 [Shared]
 public sealed class Sst2334MissingDebuggerDisplayCodeFixProvider : CodeFixProvider
@@ -21,8 +26,11 @@ public sealed class Sst2334MissingDebuggerDisplayCodeFixProvider : CodeFixProvid
     /// <summary>The fully-qualified attribute name, emitted so the fix needs no <c>using</c>.</summary>
     private const string DebuggerDisplayAttributeName = "System.Diagnostics.DebuggerDisplay";
 
-    /// <summary>The display string used when the type has no member to name.</summary>
-    private const string ToStringDisplay = "{ToString(),nq}";
+    /// <summary>The display expression used when the type has no member to name.</summary>
+    private const string ToStringExpression = "{ToString(),nq}";
+
+    /// <summary>Separates the type-name prefix from the expression that follows it.</summary>
+    private const string PrefixSeparator = ": ";
 
     /// <summary>The rank of a public instance property — the clearest thing to identify an instance by.</summary>
     private const int PublicPropertyRank = 0;
@@ -98,9 +106,14 @@ public sealed class Sst2334MissingDebuggerDisplayCodeFixProvider : CodeFixProvid
         return document.WithSyntaxRoot(root.ReplaceNode(declaration, updated));
     }
 
-    /// <summary>Builds the display string, naming the best member the type has to identify an instance by.</summary>
+    /// <summary>Builds the display string: the type's name, then the best member it has to identify an instance by.</summary>
     /// <param name="declaration">The type declaration.</param>
     /// <returns>The debugger-display format string.</returns>
+    /// <remarks>
+    /// The name is written as literal text, so it survives untouched into the watch window and is not read as a
+    /// member expression. Type parameters are left off: <c>Box</c> reads better than <c>Box&lt;T&gt;</c> in a
+    /// value column, and the debugger shows the constructed type separately anyway.
+    /// </remarks>
     private static string DisplayString(TypeDeclarationSyntax declaration)
     {
         string? best = null;
@@ -115,7 +128,10 @@ public sealed class Sst2334MissingDebuggerDisplayCodeFixProvider : CodeFixProvid
             }
         }
 
-        return best is null ? ToStringDisplay : "{" + best + "}";
+        var typeName = declaration.Identifier.ValueText;
+        return best is null
+            ? typeName + PrefixSeparator + ToStringExpression
+            : typeName + PrefixSeparator + "{" + best + "}";
     }
 
     /// <summary>Names a member a display string could use, and ranks how well it identifies an instance.</summary>

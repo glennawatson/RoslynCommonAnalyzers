@@ -39,6 +39,51 @@ public class ReadonlyStructMemberAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a property returning a writable reference is skipped, since readonly would not compile.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RefReturningPropertyIsCleanAsync()
+        => await VerifyReadonlyStructMember.VerifyAnalyzerAsync(
+            """
+            public struct Counter
+            {
+                private int _value;
+
+                [System.Diagnostics.CodeAnalysis.UnscopedRef]
+                public ref int Value => ref _value;
+            }
+            """);
+
+    /// <summary>Verifies a method returning a writable reference is skipped, since readonly would not compile.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RefReturningMethodIsCleanAsync()
+        => await VerifyReadonlyStructMember.VerifyAnalyzerAsync(
+            """
+            public struct Counter
+            {
+                private int _value;
+
+                [System.Diagnostics.CodeAnalysis.UnscopedRef]
+                public ref int Value() => ref _value;
+            }
+            """);
+
+    /// <summary>Verifies a property returning a readonly reference is still reported, which stays compilable.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task RefReadonlyReturningPropertyIsReportedAsync()
+        => await VerifyReadonlyStructMember.VerifyAnalyzerAsync(
+            """
+            public struct Counter
+            {
+                private int _value;
+
+                [System.Diagnostics.CodeAnalysis.UnscopedRef]
+                public ref readonly int {|SST1460:Value|} => ref _value;
+            }
+            """);
+
     /// <summary>Verifies the rule stays silent below C# 8, where readonly instance members do not exist.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -7,9 +7,9 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Finds struct members that are cheap to prove non-mutating and can therefore be marked
 /// <c>readonly</c>. The analyzer deliberately under-reports: calls, assignments, ref/out
-/// arguments, and increment/decrement operations are treated as possible mutation. That keeps the
-/// rule correct without expensive interprocedural analysis and keeps the no-diagnostic path a
-/// short syntax scan.
+/// arguments, increment/decrement operations, and writable <c>ref</c> returns are all treated as
+/// reasons to stay quiet. That keeps the rule correct without expensive interprocedural analysis
+/// and keeps the no-diagnostic path a short syntax scan.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
@@ -40,6 +40,7 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
 
         var method = (MethodDeclarationSyntax)context.Node;
         if (!IsStructInstanceMember(method.Modifiers, method.Parent)
+            || ReturnsWritableRef(method.ReturnType)
             || (method.Body is null && method.ExpressionBody is null)
             || HasRiskyOperation(method.Body ?? (SyntaxNode)method.ExpressionBody!))
         {
@@ -62,7 +63,9 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
         }
 
         var property = (PropertyDeclarationSyntax)context.Node;
-        if (!IsStructInstanceMember(property.Modifiers, property.Parent) || HasSetter(property))
+        if (!IsStructInstanceMember(property.Modifiers, property.Parent)
+            || ReturnsWritableRef(property.Type)
+            || HasSetter(property))
         {
             return;
         }
@@ -91,6 +94,19 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
             && !ModifierListHelper.Contains(modifiers, SyntaxKind.AbstractKeyword)
             && !ModifierListHelper.Contains(modifiers, SyntaxKind.ExternKeyword)
             && !ModifierListHelper.Contains(modifiers, SyntaxKind.PartialKeyword);
+
+    /// <summary>Returns whether a member hands out a writable reference.</summary>
+    /// <param name="type">The declared return or property type.</param>
+    /// <returns><see langword="true"/> for a <c>ref</c> return that is not <c>ref readonly</c>.</returns>
+    /// <remarks>
+    /// <c>readonly</c> makes the receiver a readonly reference, so a member that returns <c>ref</c> to one of
+    /// the struct's own fields stops compiling ("cannot return 'this' by reference"). Whether the reference
+    /// actually reaches the struct's storage — <c>ref _value</c> does, <c>ref _items[0]</c> through a
+    /// reference-type field does not — takes semantic analysis, so every writable <c>ref</c> return is left
+    /// alone. A <c>ref readonly</c> return is unaffected and is still reported.
+    /// </remarks>
+    private static bool ReturnsWritableRef(TypeSyntax type)
+        => type is RefTypeSyntax { ReadOnlyKeyword.RawKind: 0 };
 
     /// <summary>Returns whether a property declares a setter or init accessor.</summary>
     /// <param name="property">The property declaration.</param>

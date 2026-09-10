@@ -14,7 +14,7 @@
   "prHourlyLimit": 10,
   "labels": ["dependencies"],
   "minimumReleaseAge": "3 days",
-  "recreateWhen": "never",
+  "recreateWhen": "auto",
   "semanticCommits": "enabled",
   "semanticCommitType": "build",
   "semanticCommitScope": "deps",

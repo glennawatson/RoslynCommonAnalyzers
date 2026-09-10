@@ -39,10 +39,13 @@ public sealed class Sst2242EnumSwitchStatementMappingAnalyzer : DiagnosticAnalyz
         }
 
         // The names travel with the diagnostic so the fix writes the sections without re-deriving them.
-        var properties = EnumSwitchCoverageAnalyzer.TryBuildMissingMembers(enumType, switchStatement, context.SemanticModel, context.CancellationToken, out var missingMembers)
-            ? ImmutableDictionary<string, string?>.Empty.Add(EnumSwitchCoverageAnalyzer.MissingMembersProperty, missingMembers)
-            : ImmutableDictionary<string, string?>.Empty;
+        if (!EnumSwitchCoverageAnalyzer.TryBuildMissingMembers(enumType, switchStatement, context.SemanticModel, context.CancellationToken, out var missingMembers))
+        {
+            context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.CompleteEnumSwitchStatementMapping, switchStatement.SwitchKeyword.GetLocation()));
+            return;
+        }
 
+        var properties = ImmutableDictionary<string, string?>.Empty.Add(EnumSwitchCoverageAnalyzer.MissingMembersProperty, missingMembers);
         context.ReportDiagnostic(Diagnostic.Create(
             ModernSyntaxRules.CompleteEnumSwitchStatementMapping,
             switchStatement.SwitchKeyword.GetLocation(),

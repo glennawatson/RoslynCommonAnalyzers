@@ -15,6 +15,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1137ElementIndentationAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The diagnostic property carrying the indentation width the element's siblings use.</summary>
+    internal const string ReferenceIndentProperty = "ReferenceIndent";
+
     /// <summary>The container kinds whose direct children are compared.</summary>
     private static readonly ImmutableArray<SyntaxKind> HandledKinds = ImmutableArrays.Of(
         SyntaxKind.Block,
@@ -113,7 +116,14 @@ public sealed class Sst1137ElementIndentationAnalyzer : DiagnosticAnalyzer
         }
         else if (indent != reference)
         {
-            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.ElementsConsistentIndentation, element.GetFirstToken().GetLocation()));
+            // The width its siblings use travels with the diagnostic so the fix does not re-walk the list.
+            var properties = ImmutableDictionary<string, string?>.Empty.Add(
+                ReferenceIndentProperty,
+                reference.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            context.ReportDiagnostic(Diagnostic.Create(
+                ReadabilityRules.ElementsConsistentIndentation,
+                element.GetFirstToken().GetLocation(),
+                properties));
         }
     }
 

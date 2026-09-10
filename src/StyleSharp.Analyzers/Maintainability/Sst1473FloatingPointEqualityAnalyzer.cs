@@ -57,7 +57,7 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     private const string NaNFieldName = "NaN";
 
     /// <summary>The properties of a diagnostic the code fix cannot rewrite.</summary>
-    private static readonly ImmutableDictionary<string, string?> NoFixProperties = ImmutableDictionary<string, string?>.Empty;
+    private static readonly ImmutableDictionary<string, string?> NoFixProperties = ImmutableDictionaries.Empty<string, string?>();
 
     /// <summary>The properties that rewrite a <see cref="double"/> comparison to <c>double.IsNaN(x)</c>.</summary>
     private static readonly ImmutableDictionary<string, string?> DoubleIsNaNProperties = CreateProperties(FloatingPointTypes.DoubleKeyword, IsNaNFixKind);

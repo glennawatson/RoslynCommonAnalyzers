@@ -10,15 +10,11 @@ namespace StyleSharp.Analyzers;
 /// Reports a classic <c>this</c>-parameter extension method that could be written as a C# 14
 /// extension-block member (SST1703). Disabled by default — adopting the new syntax is a deliberate,
 /// repo-wide migration. The rule is gated on the compilation's language version being C# 14 or later
-/// so it never fires where extension blocks are unavailable; the version is compared numerically to
-/// avoid naming the <c>CSharp14</c> enum value, which does not exist on the Roslyn 4.8 floor.
+/// so it never fires where extension blocks are unavailable.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1703PreferExtensionBlockAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The numeric value of <c>LanguageVersion.CSharp14</c>, the first version with extension blocks.</summary>
-    private const int CSharp14 = 1400;
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ExtensionRules.PreferExtensionBlock);
 
@@ -38,7 +34,7 @@ public sealed class Sst1703PreferExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { } options || (int)options.LanguageVersion < CSharp14)
+        if (!LanguageVersions.SupportsCSharp14(context.Node))
         {
             return;
         }

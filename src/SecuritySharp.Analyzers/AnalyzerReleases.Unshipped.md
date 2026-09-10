@@ -5,3 +5,4 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
+SES1010 | Cryptography | Warning | Do not implement AES key wrapping by hand

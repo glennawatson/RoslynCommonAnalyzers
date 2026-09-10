@@ -25,7 +25,7 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2246ChainedConditionalToSwitchAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The numeric C# 8 language-version value.</summary>
-    private const int CSharp8 = 800;
+    private const LanguageVersion CSharp8 = LanguageVersion.CSharp8;
 
     /// <summary>The smallest arm count worth a switch: two constant arms and a default.</summary>
     private const int MinimumArmCount = 3;
@@ -91,7 +91,7 @@ public sealed class Sst2246ChainedConditionalToSwitchAnalyzer : DiagnosticAnalyz
     {
         var conditional = (ConditionalExpressionSyntax)context.Node;
         if (conditional.SyntaxTree.Options is not CSharpParseOptions options
-            || (int)options.LanguageVersion < CSharp8
+            || options.LanguageVersion < CSharp8
             || !IsChainHead(conditional)
             || !TryBuildSwitchExpression(conditional, context.SemanticModel, context.CancellationToken, out _))
         {

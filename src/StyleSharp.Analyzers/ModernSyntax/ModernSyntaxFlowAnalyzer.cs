@@ -9,7 +9,7 @@ namespace StyleSharp.Analyzers;
 public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The numeric C# 7 language-version value.</summary>
-    private const int CSharp7 = 7;
+    private const LanguageVersion CSharp7 = LanguageVersion.CSharp7;
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
@@ -231,8 +231,8 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
     /// <param name="node">A syntax node in the tree.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, int version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && (int)options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
+        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 
     /// <summary>Finds the identifier checked against <see langword="null"/>.</summary>
     /// <param name="condition">The condition expression.</param>

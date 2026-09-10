@@ -150,11 +150,20 @@ The analyzer + code-fix assemblies build once per Roslyn **slot** and pack under
 `analyzers/dotnet/<slot>/cs` so the SDK auto-loads the highest slot `<=` the host
 compiler's `CompilerApiVersion`:
 
-| Slot | Roslyn | Host |
+The host column is the measured `csc -version` of each SDK, not its marketing
+name — the slot is chosen by `CompilerApiVersion`, and the two diverge badly
+(the .NET 10 SDK reports Roslyn 5.x, not 4.14).
+
+| Slot | Roslyn | Host (`csc -version`) |
 | --- | --- | --- |
-| `roslyn4.8` | 4.8.0 (floor) | .NET 8 SDK / VS 17.8 (C# 12) and .NET 9 |
-| `roslyn4.14` | 4.14.0 | .NET 10 SDK / VS 17.14 (C# 14) |
-| `roslyn5.3` | 5.3.0 | .NET 11 line (C# 15) |
+| `roslyn4.8` | 4.8.0 (floor) | .NET 8 SDK (4.11) / VS 17.8, C# 12 |
+| `roslyn4.14` | 4.14.0 | .NET 9 SDK (4.14), C# 13 |
+| `roslyn5.3` | 5.3.0 | .NET 10 SDK through 10.0.3xx (5.6), C# 14 |
+| `roslyn5.9` | 5.9.0 | .NET 10 SDK 10.0.4xx (5.9) and .NET 11 (5.11), C# 15 |
+
+No shipping SDK reports exactly 5.3; that slot serves the 5.3–5.8 range. 5.9 is
+the highest `Microsoft.CodeAnalysis` on NuGet — the .NET 11 compiler is 5.11 but
+no matching package is published, so 5.9 is the ceiling we can build against.
 
 Slot wiring lives in `src/Directory.Build.props` (`RoslynVersion` → package version +
 `ROSLYN_*_OR_GREATER` constants + segregated `bin`/`obj`). Keep these assemblies
@@ -162,12 +171,24 @@ Slot wiring lives in `src/Directory.Build.props` (`RoslynVersion` → package ve
 `ImmutableArrays.Of(...)` — the 4.8 floor can't bind collection expressions for
 `ImmutableArray` while 4.14+ requires them.
 
-**For new C# 15 syntax** (union types, etc.) the current Roslyn does not yet
-expose the syntax, so prefer **version-tolerant structural detection** — probe a
-well-known type/interface/attribute by name (e.g. the `IUnion` marker in
-`Sst1315UnionMemberNamingAnalyzer`, mirroring `SourceDocParserLib`) — and gate the whole
-rule on the marker being present so it costs nothing otherwise. Use real 5.x APIs
-behind `#if ROSLYN_5_OR_GREATER` only when structural probing won't do.
+**For C# 15 syntax**, the 5.9 slot exposes the real syntax model —
+`UnionDeclarationSyntax`, `SyntaxKind.WithElement` (collection expression
+arguments), `ClosedKeyword`, `SafeKeyword`, `UnsafeExpression`, and indexers
+inside an `ExtensionBlockDeclaration`. Two ways to reach it, in order of
+preference:
+
+1. **Version-tolerant structural detection** where a symbol will do — probe a
+   well-known type/interface/attribute by name (e.g. the `IUnion` marker in
+   `Sst1315UnionMemberNamingAnalyzer`) and gate the whole rule on it being
+   present, so the rule costs nothing otherwise and works on every slot.
+2. **`#if ROSLYN_5_9_OR_GREATER`** when the rule genuinely needs the syntax
+   nodes. Gating loses no coverage: a host too old to load the 5.9 slot cannot
+   compile C# 15 either, so there is nothing for the rule to find there.
+
+Keep the repo's own `LangVersion` pinned rather than `latest` — see the comment
+in `src/Directory.Build.props`. Under `latest` the language surface floats with
+whichever SDK is installed, and the .NET 11 SDK resolving C# 15 turns on style
+rules whose fixes cannot compile on the floor.
 
 ## Never suggest an API without proving it exists
 

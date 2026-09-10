@@ -716,4 +716,34 @@ public class UseInterpolatedStringAnalyzerUnitTest
                 public string M(string[] values) => string.Concat(values);
             }
             """);
+
+    /// <summary>Verifies the rule fires on C# 6, the version that introduced interpolated strings.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReportedOnTheIntroducingVersionAsync()
+    {
+        var test = new VerifyUseInterpolatedString.Test
+        {
+            TestCode = """
+                       public sealed class C
+                       {
+                           public string M(string first, string second) => {|SST2249:string.Format("{0} {1}", first, second)|};
+                       }
+                       """,
+            FixedCode = """
+                        public sealed class C
+                        {
+                            public string M(string first, string second) => $"{first} {second}";
+                        }
+                        """,
+        };
+
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp6));
+        });
+
+        await test.RunAsync(CancellationToken.None);
+    }
 }

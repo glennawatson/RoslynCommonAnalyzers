@@ -22,7 +22,7 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2247MemberCopyDeconstructionAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The numeric C# 7 language-version value, the first with deconstruction declarations.</summary>
-    private const int CSharp7 = 7;
+    private const LanguageVersion CSharp7 = LanguageVersion.CSharp7;
 
     /// <summary>The smallest run of member copies worth folding into a deconstruction.</summary>
     private const int MinimumMemberCopies = 2;
@@ -113,7 +113,7 @@ public sealed class Sst2247MemberCopyDeconstructionAnalyzer : DiagnosticAnalyzer
         startIndex = -1;
         count = 0;
         sourceName = string.Empty;
-        if (first.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: var version } || (int)version < CSharp7
+        if (first.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: var version } || version < CSharp7
             || !TryReadMemberCopy(first, out var firstCopy)
             || first.Parent is not BlockSyntax parent
             || !TryGetStatementIndex(parent, first, out var index)

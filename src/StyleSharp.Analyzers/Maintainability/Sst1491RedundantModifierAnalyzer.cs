@@ -33,7 +33,7 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The first language version whose interface members may state an accessibility.</summary>
-    private const int CSharp8 = (int)LanguageVersion.CSharp8;
+    private const LanguageVersion CSharp8 = LanguageVersion.CSharp8;
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.RedundantModifier);
@@ -152,7 +152,7 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
     {
         if (member.Parent is not InterfaceDeclarationSyntax
             || member.SyntaxTree.Options is not CSharpParseOptions options
-            || (int)options.LanguageVersion < CSharp8
+            || options.LanguageVersion < CSharp8
             || HasExplicitInterfaceSpecifier(member))
         {
             return false;

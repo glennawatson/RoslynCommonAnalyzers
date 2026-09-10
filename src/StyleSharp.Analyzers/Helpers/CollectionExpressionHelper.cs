@@ -8,7 +8,7 @@ namespace StyleSharp.Analyzers;
 internal static class CollectionExpressionHelper
 {
     /// <summary>The numeric C# 12 language-version value.</summary>
-    public const int CSharp12 = 1200;
+    public const LanguageVersion CSharp12 = LanguageVersion.CSharp12;
 
     /// <summary>Resolves the conservative set of generic collection target definitions.</summary>
     /// <param name="compilation">The compilation.</param>
@@ -38,7 +38,7 @@ internal static class CollectionExpressionHelper
     /// <param name="node">A node in the syntax tree.</param>
     /// <returns><see langword="true"/> for C# 12 or later.</returns>
     public static bool IsLanguageSupported(SyntaxNode node)
-        => node.SyntaxTree.Options is CSharpParseOptions options && (int)options.LanguageVersion >= CSharp12;
+        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp12;
 
     /// <summary>Returns whether the expression has an explicit target type and that type is accepted.</summary>
     /// <param name="context">The syntax analysis context.</param>

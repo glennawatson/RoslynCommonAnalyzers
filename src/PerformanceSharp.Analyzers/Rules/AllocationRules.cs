@@ -179,6 +179,22 @@ internal static class AllocationRules
         "Use a tuple instead of allocating an anonymous type",
         PreferTupleOverAnonymousTypeDescription);
 
+    /// <summary>PSH1024 — a temporary array is built only to be copied into a BitArray.</summary>
+    public static readonly DiagnosticDescriptor PreferBitArraySpanConstructor = Create(
+        "PSH1024",
+        "Build a BitArray from a span instead of a temporary array",
+        "This array exists only to be copied into the BitArray; pass a span to the '{0}' overload instead",
+        PreferBitArraySpanConstructorDescription);
+
+    /// <summary>The PSH1024 rule description.</summary>
+    private const string PreferBitArraySpanConstructorDescription =
+        "'new BitArray(new[] { … })' allocates an array that the constructor immediately copies out of and then drops, so the array is pure "
+        + "garbage: it exists for the duration of one call and never escapes. The span constructors read the same values without an "
+        + "intermediate collection, and the source can be a 'stackalloc' or a collection expression targeting the span, which keeps the values "
+        + "off the heap entirely. Reported only where the argument is an array created inline at the call — an array the caller already holds is "
+        + "not a temporary and passing it is fine — and only when the referenced framework actually offers a span constructor, so the suggestion "
+        + "always has somewhere to go.";
+
     /// <summary>The PSH1022 rule description.</summary>
     private const string PreferEventArgsEmptyDescription =
         "A parameterless 'new EventArgs()' carries no state, so every raise allocates an object indistinguishable from the shared "

@@ -80,6 +80,13 @@ internal static class ExtensionRules
         "'{0}' looks like an extension but its first parameter has no 'this' modifier; make it an extension block member",
         AlmostExtensionMethodDescription);
 
+    /// <summary>SST1710 — an extension method that reads like an accessor could be an extension indexer (opt-in).</summary>
+    public static readonly DiagnosticDescriptor PreferExtensionIndexer = CreateOptIn(
+        "SST1710",
+        "Prefer an extension indexer over an accessor-shaped extension method",
+        "'{0}' indexes its receiver; declare it as an extension indexer so callers can write 'receiver[index]'",
+        PreferExtensionIndexerDescription);
+
     /// <summary>The UnusedExtensionReceiver rule description.</summary>
     private const string UnusedExtensionReceiverDescription =
         "An extension method exists to add behaviour to its receiver. A 'this'-parameter the body never reads gains nothing from extension syntax and reads "
@@ -90,6 +97,14 @@ internal static class ExtensionRules
         "A public or internal static method in a class named '…Extensions' whose first parameter has no 'this' modifier reads as an extension that was never "
         + "wired up. Off by default — legitimate plain helpers live in these classes too. The fix converts it into an 'extension(Receiver) { … }' block, the "
         + "modern extension-member form.";
+
+    /// <summary>The PreferExtensionIndexer rule description.</summary>
+    private const string PreferExtensionIndexerDescription =
+        "An extension method that takes a receiver and one index and returns an element is an indexer written as a call. C# 15 allows an indexer inside "
+        + "an 'extension(Receiver) { … }' block, so the operation can be spelled the way indexing is spelled everywhere else -- 'numbers[2]' rather than "
+        + "'numbers.ElementAt(2)' -- and reads as part of the receiver rather than as a helper that happens to take it first. Reported for a classic "
+        + "'this'-parameter extension method whose name reads as an element accessor, which takes exactly one further parameter of an index-like type and "
+        + "returns a value. Off by default: the rewrite changes the call syntax at every call site, so it is a deliberate migration.";
 
     /// <summary>Creates a Warning-severity Extensions descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

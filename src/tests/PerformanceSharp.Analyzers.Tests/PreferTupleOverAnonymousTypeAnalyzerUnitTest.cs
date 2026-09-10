@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
+
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1023PreferTupleOverAnonymousTypeAnalyzer,
     PerformanceSharp.Analyzers.Psh1023PreferTupleOverAnonymousTypeCodeFixProvider>;
@@ -148,4 +150,45 @@ public class PreferTupleOverAnonymousTypeAnalyzerUnitTest
                 public void M() => Consume(new { Left = 1, Right = 2 });
             }
             """);
+
+    /// <summary>Verifies the rule fires on C# 7, the version that introduced named tuples.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ReportedOnTheIntroducingVersionAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M()
+                                  {
+                                      var pair = {|PSH1023:new { Left = 1, Right = 2 }|};
+                                      return pair.Left + pair.Right;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public int M()
+                                       {
+                                           var pair = (Left: 1, Right: 2);
+                                           return pair.Left + pair.Right;
+                                       }
+                                   }
+                                   """;
+
+        var test = new Verify.Test
+        {
+            TestCode = Source,
+            FixedCode = FixedSource,
+        };
+
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.CSharp7));
+        });
+
+        await test.RunAsync(CancellationToken.None);
+    }
 }

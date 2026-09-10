@@ -34,7 +34,7 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2248UseComparisonPatternAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The numeric C# 9 language-version value.</summary>
-    private const int CSharp9 = 900;
+    private const LanguageVersion CSharp9 = LanguageVersion.CSharp9;
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.UseComparisonPattern);
@@ -92,7 +92,7 @@ public sealed class Sst2248UseComparisonPatternAnalyzer : DiagnosticAnalyzer
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (binary.SyntaxTree.Options is not CSharpParseOptions options
-            || (int)options.LanguageVersion < CSharp9
+            || options.LanguageVersion < CSharp9
             || !TryGetComparisonMerge(binary, context.SemanticModel, out _))
         {
             return;

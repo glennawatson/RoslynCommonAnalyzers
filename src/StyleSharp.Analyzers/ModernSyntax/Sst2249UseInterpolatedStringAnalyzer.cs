@@ -22,8 +22,8 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The numeric C# 6 language-version value that first allowed interpolated strings.</summary>
-    private const int CSharp6 = 600;
+    /// <summary>The language version that first allowed interpolated strings.</summary>
+    private const LanguageVersion CSharp6 = LanguageVersion.CSharp6;
 
     /// <summary>The message argument naming a composite format call.</summary>
     private const string FormatSourceDescription = "'string.Format' call";
@@ -187,5 +187,5 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
     /// <param name="tree">The syntax tree.</param>
     /// <returns><see langword="true"/> for C# 6 or later.</returns>
     private static bool SupportsInterpolation(SyntaxTree tree)
-        => tree.Options is CSharpParseOptions options && (int)options.LanguageVersion >= CSharp6;
+        => tree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp6;
 }

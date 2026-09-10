@@ -10,11 +10,13 @@ namespace StyleSharp.Analyzers;
 /// <c>stylesharp.union_member_naming</c> in <c>.editorconfig</c>.
 /// </summary>
 /// <remarks>
-/// C# 15 union syntax is not yet exposed by Roslyn, so — like SourceDocParserLib —
-/// unions are detected structurally by the <c>System.Runtime.CompilerServices.IUnion</c>
-/// marker interface rather than a version-specific API. The whole rule is gated on
-/// that marker being present in the compilation, so it costs nothing when no unions
-/// are in play and lights up automatically once they are.
+/// Unions are detected structurally, by the <c>System.Runtime.CompilerServices.IUnion</c>
+/// marker interface, rather than through the C# 15 <c>UnionDeclarationSyntax</c> that only
+/// the roslyn5.9 slot can bind. Naming is a question about the symbol, not the syntax, so
+/// the marker answers it on every slot and catches a union declared in a referenced
+/// assembly as well as one declared here. The whole rule is gated on that marker being
+/// present in the compilation, so it costs nothing when no unions are in play and lights
+/// up automatically once they are.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1315UnionMemberNamingAnalyzer : DiagnosticAnalyzer

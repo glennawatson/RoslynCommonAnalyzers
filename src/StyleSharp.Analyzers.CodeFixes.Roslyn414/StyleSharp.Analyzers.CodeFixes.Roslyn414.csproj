@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>StyleSharp.Analyzers</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="StyleSharp.Analyzers.Benchmarks" />
+    <InternalsVisibleTo Include="StyleSharp.Analyzers.Tests" />
+    <InternalsVisibleTo Include="StyleSharp.Analyzers.Tests.Roslyn414" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Linq" />
+    <Using Include="System.Collections.Immutable" />
+    <Using Include="System.Composition" />
+    <Using Include="System.Diagnostics.CodeAnalysis" />
+    <Using Include="Microsoft.CodeAnalysis" />
+    <Using Include="Microsoft.CodeAnalysis.CodeActions" />
+    <Using Include="Microsoft.CodeAnalysis.CodeFixes" />
+    <Using Include="Microsoft.CodeAnalysis.Editing" />
+    <Using Include="Microsoft.CodeAnalysis.Text" />
+    <Using Include="Microsoft.CodeAnalysis.CSharp" />
+    <Using Include="Microsoft.CodeAnalysis.CSharp.Syntax" />
+    <Using Include="Microsoft.CodeAnalysis.Diagnostics" />
+    <Using Include="RoslynCommon.Analyzers" />
+    <Using Include="RoslynCommon.Analyzers.CodeFixes" />
+  </ItemGroup>
+
+  <!-- Paired with the analyzer built for the same slot, never with the floor. -->
+  <ItemGroup>
+    <ProjectReference Include="..\StyleSharp.Analyzers.Roslyn414\StyleSharp.Analyzers.Roslyn414.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\StyleSharp.Analyzers.CodeFixes\**\*.cs"
+             Exclude="..\StyleSharp.Analyzers.CodeFixes\bin\**\*.cs;..\StyleSharp.Analyzers.CodeFixes\obj\**\*.cs"
+             LinkBase="StyleSharp.Analyzers.CodeFixes" />
+    <Compile Include="..\Shared\CodeFixes\*.cs" Link="Helpers\Shared\%(Filename).cs" />
+  </ItemGroup>
+
+  <!-- The linked designer binds to this by name, so the manifest name has to match the floor's. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\StyleSharp.Analyzers.CodeFixes\CodeFixResources.resx"
+                      Link="CodeFixResources.resx"
+                      LogicalName="StyleSharp.Analyzers.CodeFixResources.resources" />
+  </ItemGroup>
+
+</Project>

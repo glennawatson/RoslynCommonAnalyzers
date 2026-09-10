@@ -5,3 +5,5 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
+PSH1024 | Allocations | Warning | Build a BitArray from a span instead of a temporary array
+PSH1318 | Concurrency | Warning | Validate options asynchronously instead of blocking

@@ -23,7 +23,7 @@ public sealed class Psh1104UseTryGetValueAnalyzer : DiagnosticAnalyzer
     internal const string TryGetValueMethodName = "TryGetValue";
 
     /// <summary>The numeric C# 7 language-version value, the first with the 'out var' declaration the fix emits.</summary>
-    private const int CSharp7 = 7;
+    private const LanguageVersion CSharp7 = LanguageVersion.CSharp7;
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseTryGetValue);
@@ -92,7 +92,7 @@ public sealed class Psh1104UseTryGetValueAnalyzer : DiagnosticAnalyzer
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: ContainsKeyMethodName } memberAccess
             || invocation.SyntaxTree.Options is not CSharpParseOptions options
-            || (int)options.LanguageVersion < CSharp7)
+            || options.LanguageVersion < CSharp7)
         {
             return;
         }

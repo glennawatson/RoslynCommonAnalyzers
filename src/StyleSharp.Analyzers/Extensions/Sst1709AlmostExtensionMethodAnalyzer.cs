@@ -17,9 +17,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1709AlmostExtensionMethodAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The numeric value of <c>LanguageVersion.CSharp14</c>, the first version with extension blocks.</summary>
-    private const int CSharp14 = 1400;
-
     /// <summary>The container-class name suffix that marks an extension helper class.</summary>
     private const string ExtensionSuffix = "Extensions";
 
@@ -61,7 +58,7 @@ public sealed class Sst1709AlmostExtensionMethodAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        if (context.Node.SyntaxTree.Options is not CSharpParseOptions options || (int)options.LanguageVersion < CSharp14)
+        if (!LanguageVersions.SupportsCSharp14(context.Node))
         {
             return;
         }

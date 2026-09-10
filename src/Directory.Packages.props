@@ -12,8 +12,9 @@
       Microsoft.CodeAnalysis.CSharp / .Workspaces / .VisualBasic are the compiler
       API we build against. Their version is the per-slot
       $(MicrosoftCodeAnalysisVersion) set in Directory.Build.props (roslyn4.8 /
-      roslyn4.14 / roslyn5.3; 4.14.0 for non-component projects). Pinning them to
-      that property keeps central transitive pinning consistent within each slot.
+      roslyn4.14 / roslyn5.3 / roslyn5.9; the highest slot for non-component
+      projects). Pinning them to that property keeps central transitive pinning
+      consistent within each slot.
     -->
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="$(MicrosoftCodeAnalysisVersion)" />

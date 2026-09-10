@@ -25,7 +25,7 @@ namespace PerformanceSharp.Analyzers;
 public sealed class Psh1023PreferTupleOverAnonymousTypeAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The language version that introduced tuples with named members.</summary>
-    private const int CSharp7 = 700;
+    private const LanguageVersion CSharp7 = LanguageVersion.CSharp7;
 
     /// <summary>The number of members below which a tuple is not worth suggesting.</summary>
     private const int MinimumMembers = 2;
@@ -126,7 +126,7 @@ public sealed class Psh1023PreferTupleOverAnonymousTypeAnalyzer : DiagnosticAnal
     /// <param name="node">A node in the syntax tree.</param>
     /// <returns><see langword="true"/> for C# 7 or later.</returns>
     private static bool IsLanguageSupported(SyntaxNode node)
-        => node.SyntaxTree.Options is CSharpParseOptions options && (int)options.LanguageVersion >= CSharp7;
+        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp7;
 
     /// <summary>Threads the local's name and the verdict through the escape traversal.</summary>
     /// <param name="Name">The local's name.</param>

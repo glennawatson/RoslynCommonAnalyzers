@@ -13,7 +13,7 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2243UseRawStringLiteralAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The numeric C# 11 language-version value (raw string literals).</summary>
-    private const int CSharp11 = 1100;
+    private const LanguageVersion CSharp11 = LanguageVersion.CSharp11;
 
     /// <summary>The shortest verbatim token text that can carry a doubled-quote escape or a line break.</summary>
     private const int MinimumTokenLength = 5;
@@ -137,6 +137,6 @@ public sealed class Sst2243UseRawStringLiteralAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The syntax node.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, int version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && (int)options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
+        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 }

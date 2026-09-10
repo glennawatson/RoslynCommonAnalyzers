@@ -30,7 +30,7 @@ public sealed class Sst2019NullCheckOverTypeCheckAnalyzer : DiagnosticAnalyzer
     private const string NullSuggestion = "is null";
 
     /// <summary>The language version that introduced the <c>not</c> pattern.</summary>
-    private const int CSharp9 = 900;
+    private const LanguageVersion CSharp9 = LanguageVersion.CSharp9;
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernizationRules.NullCheckOverTypeCheck);
@@ -113,5 +113,5 @@ public sealed class Sst2019NullCheckOverTypeCheckAnalyzer : DiagnosticAnalyzer
     /// <param name="node">A node in the syntax tree.</param>
     /// <returns><see langword="true"/> for C# 9 or later.</returns>
     private static bool IsLanguageSupported(SyntaxNode node)
-        => node.SyntaxTree.Options is CSharpParseOptions options && (int)options.LanguageVersion >= CSharp9;
+        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp9;
 }

@@ -16,7 +16,7 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1144PreferOrPatternAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The numeric value of <c>LanguageVersion.CSharp9</c>, the first version with <c>or</c> patterns.</summary>
-    private const int CSharp9 = 900;
+    private const LanguageVersion CSharp9 = LanguageVersion.CSharp9;
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ReadabilityRules.PreferOrPattern);
@@ -43,7 +43,7 @@ public sealed class Sst1144PreferOrPatternAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { } options || (int)options.LanguageVersion < CSharp9)
+        if (context.Node.SyntaxTree.Options is not CSharpParseOptions { } options || options.LanguageVersion < CSharp9)
         {
             return;
         }

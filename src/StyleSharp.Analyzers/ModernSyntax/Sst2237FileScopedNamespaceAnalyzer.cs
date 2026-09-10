@@ -18,7 +18,7 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2237FileScopedNamespaceAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The numeric C# 10 language-version value.</summary>
-    private const int CSharp10 = 1000;
+    private const LanguageVersion CSharp10 = LanguageVersion.CSharp10;
 
     /// <summary>The message argument naming the file-scoped form.</summary>
     private const string FileScopedDescription = "file-scoped";
@@ -101,6 +101,6 @@ public sealed class Sst2237FileScopedNamespaceAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The syntax node.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, int version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && (int)options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
+        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 }

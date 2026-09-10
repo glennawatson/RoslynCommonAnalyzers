@@ -1,0 +1,58 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- The oldest analyzers/dotnet/roslyn<version>/cs slot this package ships. -->
+    <_SecuritySharpMinimumCompilerVersion>4.8</_SecuritySharpMinimumCompilerVersion>
+  </PropertyGroup>
+
+  <!--
+    Settle which analyzer slot this build gets.
+
+    Only the .NET SDK narrows a package that ships several slots down to one: its ResolvePackageAssets
+    task picks the highest slot at or below $(CompilerApiVersion). A legacy non-SDK .csproj never runs
+    that task, so it receives every slot at once and loads the analyzer four times over -- which reports
+    every diagnostic four times and runs every rule four times on every keystroke. Dropping the slots
+    this compiler is not being served by gives both kinds of consumer the same single one.
+
+    This needs $(CompilerApiVersion), which the Roslyn targets set long after a .props file is
+    evaluated, so it is a target rather than a plain property group. Every guard is deliberately
+    fail-open: an unset, non-Roslyn or malformed value falls back to the oldest slot rather than
+    breaking a build we do not understand.
+  -->
+  <Target Name="SecuritySharpSelectAnalyzerSlot"
+          BeforeTargets="CoreCompile"
+          Condition="'$(Language)' == 'C#'">
+    <PropertyGroup>
+      <_SecuritySharpCompilerVersion Condition="'$(CompilerApiVersion)' != '' and $(CompilerApiVersion.StartsWith('roslyn'))">$(CompilerApiVersion.Substring(6))</_SecuritySharpCompilerVersion>
+      <_SecuritySharpCompilerVersion Condition="'$(_SecuritySharpCompilerVersion)' == '' or !$(_SecuritySharpCompilerVersion.Contains('.'))">$(_SecuritySharpMinimumCompilerVersion)</_SecuritySharpCompilerVersion>
+
+      <!-- Assigned in ascending order, so the last condition that holds leaves the highest usable slot. -->
+      <_SecuritySharpSlot>roslyn4.8</_SecuritySharpSlot>
+      <_SecuritySharpSlot Condition="'$([System.Version]::Parse($(_SecuritySharpCompilerVersion)).CompareTo($([System.Version]::Parse('4.14'))))' &gt;= '0'">roslyn4.14</_SecuritySharpSlot>
+      <_SecuritySharpSlot Condition="'$([System.Version]::Parse($(_SecuritySharpCompilerVersion)).CompareTo($([System.Version]::Parse('5.3'))))' &gt;= '0'">roslyn5.3</_SecuritySharpSlot>
+      <_SecuritySharpSlot Condition="'$([System.Version]::Parse($(_SecuritySharpCompilerVersion)).CompareTo($([System.Version]::Parse('5.9'))))' &gt;= '0'">roslyn5.9</_SecuritySharpSlot>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_SecuritySharpAnalyzer Include="@(Analyzer)"
+                       Condition="'%(Analyzer.Filename)' == 'SecuritySharp.Analyzers' or '%(Analyzer.Filename)' == 'SecuritySharp.Analyzers.CodeFixes'">
+        <_Slot>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName($([System.IO.Path]::GetDirectoryName('%(Analyzer.FullPath)'))))))</_Slot>
+      </_SecuritySharpAnalyzer>
+
+      <Analyzer Remove="@(_SecuritySharpAnalyzer)" Condition="'%(_SecuritySharpAnalyzer._Slot)' != '$(_SecuritySharpSlot)'" />
+    </ItemGroup>
+
+    <!--
+      Fail loudly on a compiler older than the oldest slot. NuGet asset selection drops a slot newer
+      than the host compiler without reporting anything, so such a consumer would otherwise install the
+      package, see no diagnostics at all, and have no hint as to why.
+    -->
+    <Error Condition="'$(CompilerApiVersion)' != ''
+                      and $(CompilerApiVersion.StartsWith('roslyn'))
+                      and $(_SecuritySharpCompilerVersion.Contains('.'))
+                      and '$([System.Version]::Parse($(_SecuritySharpMinimumCompilerVersion)).CompareTo($([System.Version]::Parse($(_SecuritySharpCompilerVersion)))))' &gt; '0'"
+           Code="SECSHARP100"
+           Text="SecuritySharp.Analyzers requires Roslyn $(_SecuritySharpMinimumCompilerVersion) or later (Visual Studio 2022 17.8+, or .NET SDK 8.0.100+), but this project is building with Roslyn $(_SecuritySharpCompilerVersion). Upgrade the build tools to get these diagnostics." />
+  </Target>
+
+</Project>

@@ -31,16 +31,13 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     internal const string ThrowFold = "Throw";
 
     /// <summary>The numeric C# 7 language-version value.</summary>
-    private const int CSharp7 = 7;
+    private const LanguageVersion CSharp7 = LanguageVersion.CSharp7;
 
     /// <summary>The numeric C# 8 language-version value.</summary>
-    private const int CSharp8 = 800;
+    private const LanguageVersion CSharp8 = LanguageVersion.CSharp8;
 
     /// <summary>The numeric C# 9 language-version value.</summary>
-    private const int CSharp9 = 900;
-
-    /// <summary>The numeric C# 14 language-version value.</summary>
-    private const int CSharp14 = 1400;
+    private const LanguageVersion CSharp9 = LanguageVersion.CSharp9;
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
@@ -83,8 +80,8 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The syntax node.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the syntax tree supports the requested version.</returns>
-    internal static bool IsLanguageVersionAtLeast(SyntaxNode node, int version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && (int)options.LanguageVersion >= version;
+    internal static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
+        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 
     /// <summary>Returns whether an expression can be evaluated without observable side effects.</summary>
     /// <param name="expression">The expression.</param>
@@ -513,7 +510,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(invocation, CSharp14) || !ContainsConcreteGenericNameOfArgument(invocation))
+        if (!LanguageVersions.SupportsCSharp14(invocation) || !ContainsConcreteGenericNameOfArgument(invocation))
         {
             return;
         }

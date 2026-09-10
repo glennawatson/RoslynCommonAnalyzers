@@ -12,13 +12,13 @@ namespace StyleSharp.Analyzers;
 public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The numeric C# 7 language-version value.</summary>
-    private const int CSharp7 = 7;
+    private const LanguageVersion CSharp7 = LanguageVersion.CSharp7;
 
     /// <summary>The numeric C# 7.1 language-version value, the first with inferred tuple element names.</summary>
-    private const int CSharp71 = 701;
+    private const LanguageVersion CSharp71 = LanguageVersion.CSharp7_1;
 
     /// <summary>The numeric C# 11 language-version value.</summary>
-    private const int CSharp11 = 1100;
+    private const LanguageVersion CSharp11 = LanguageVersion.CSharp11;
 
     /// <summary>Diagnostic properties for UTF-8 span replacements.</summary>
     private static readonly ImmutableDictionary<string, string?> Utf8SpanProperties =
@@ -240,8 +240,8 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
     /// <param name="node">A syntax node in the tree.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, int version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && (int)options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
+        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 
     /// <summary>Capability flags resolved once per compilation.</summary>
     /// <param name="HasHashCodeCombine">Whether <c>System.HashCode.Combine</c> is available.</param>

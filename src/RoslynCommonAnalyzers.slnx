@@ -22,10 +22,41 @@
     <Project Path="SecuritySharp.Analyzers.CodeFixes/SecuritySharp.Analyzers.CodeFixes.csproj" />
     <Project Path="SecuritySharp.Analyzers.Package/SecuritySharp.Analyzers.Packages.csproj" />
   </Folder>
+  <Folder Name="/src/slots/">
+    <Project Path="StyleSharp.Analyzers.Roslyn414/StyleSharp.Analyzers.Roslyn414.csproj" />
+    <Project Path="StyleSharp.Analyzers.CodeFixes.Roslyn414/StyleSharp.Analyzers.CodeFixes.Roslyn414.csproj" />
+    <Project Path="StyleSharp.Analyzers.Roslyn53/StyleSharp.Analyzers.Roslyn53.csproj" />
+    <Project Path="StyleSharp.Analyzers.CodeFixes.Roslyn53/StyleSharp.Analyzers.CodeFixes.Roslyn53.csproj" />
+    <Project Path="StyleSharp.Analyzers.Roslyn59/StyleSharp.Analyzers.Roslyn59.csproj" />
+    <Project Path="StyleSharp.Analyzers.CodeFixes.Roslyn59/StyleSharp.Analyzers.CodeFixes.Roslyn59.csproj" />
+    <Project Path="PerformanceSharp.Analyzers.Roslyn414/PerformanceSharp.Analyzers.Roslyn414.csproj" />
+    <Project Path="PerformanceSharp.Analyzers.CodeFixes.Roslyn414/PerformanceSharp.Analyzers.CodeFixes.Roslyn414.csproj" />
+    <Project Path="PerformanceSharp.Analyzers.Roslyn53/PerformanceSharp.Analyzers.Roslyn53.csproj" />
+    <Project Path="PerformanceSharp.Analyzers.CodeFixes.Roslyn53/PerformanceSharp.Analyzers.CodeFixes.Roslyn53.csproj" />
+    <Project Path="PerformanceSharp.Analyzers.Roslyn59/PerformanceSharp.Analyzers.Roslyn59.csproj" />
+    <Project Path="PerformanceSharp.Analyzers.CodeFixes.Roslyn59/PerformanceSharp.Analyzers.CodeFixes.Roslyn59.csproj" />
+    <Project Path="SecuritySharp.Analyzers.Roslyn414/SecuritySharp.Analyzers.Roslyn414.csproj" />
+    <Project Path="SecuritySharp.Analyzers.CodeFixes.Roslyn414/SecuritySharp.Analyzers.CodeFixes.Roslyn414.csproj" />
+    <Project Path="SecuritySharp.Analyzers.Roslyn53/SecuritySharp.Analyzers.Roslyn53.csproj" />
+    <Project Path="SecuritySharp.Analyzers.CodeFixes.Roslyn53/SecuritySharp.Analyzers.CodeFixes.Roslyn53.csproj" />
+    <Project Path="SecuritySharp.Analyzers.Roslyn59/SecuritySharp.Analyzers.Roslyn59.csproj" />
+    <Project Path="SecuritySharp.Analyzers.CodeFixes.Roslyn59/SecuritySharp.Analyzers.CodeFixes.Roslyn59.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj" />
     <Project Path="tests/PerformanceSharp.Analyzers.Tests/PerformanceSharp.Analyzers.Tests.csproj" />
     <Project Path="tests/SecuritySharp.Analyzers.Tests/SecuritySharp.Analyzers.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/slots/">
+    <Project Path="tests/StyleSharp.Analyzers.Tests.Roslyn414/StyleSharp.Analyzers.Tests.Roslyn414.csproj" />
+    <Project Path="tests/StyleSharp.Analyzers.Tests.Roslyn53/StyleSharp.Analyzers.Tests.Roslyn53.csproj" />
+    <Project Path="tests/StyleSharp.Analyzers.Tests.Roslyn59/StyleSharp.Analyzers.Tests.Roslyn59.csproj" />
+    <Project Path="tests/PerformanceSharp.Analyzers.Tests.Roslyn414/PerformanceSharp.Analyzers.Tests.Roslyn414.csproj" />
+    <Project Path="tests/PerformanceSharp.Analyzers.Tests.Roslyn53/PerformanceSharp.Analyzers.Tests.Roslyn53.csproj" />
+    <Project Path="tests/PerformanceSharp.Analyzers.Tests.Roslyn59/PerformanceSharp.Analyzers.Tests.Roslyn59.csproj" />
+    <Project Path="tests/SecuritySharp.Analyzers.Tests.Roslyn414/SecuritySharp.Analyzers.Tests.Roslyn414.csproj" />
+    <Project Path="tests/SecuritySharp.Analyzers.Tests.Roslyn53/SecuritySharp.Analyzers.Tests.Roslyn53.csproj" />
+    <Project Path="tests/SecuritySharp.Analyzers.Tests.Roslyn59/SecuritySharp.Analyzers.Tests.Roslyn59.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/StyleSharp.Analyzers.Benchmarks/StyleSharp.Analyzers.Benchmarks.csproj" />

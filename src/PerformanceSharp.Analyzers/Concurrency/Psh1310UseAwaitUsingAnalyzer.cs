@@ -19,7 +19,7 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
     private const string AsyncDisposableMetadataName = "System.IAsyncDisposable";
 
     /// <summary>The numeric C# 8 language-version value, where <c>await using</c> became available.</summary>
-    private const int CSharp8 = 800;
+    private const LanguageVersion CSharp8 = LanguageVersion.CSharp8;
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.UseAwaitUsing);
@@ -173,6 +173,6 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The syntax node.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, int version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && (int)options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
+        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 }

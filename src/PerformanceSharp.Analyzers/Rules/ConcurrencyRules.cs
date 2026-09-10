@@ -124,6 +124,22 @@ internal static partial class ConcurrencyRules
         "'{0}' parks this thread on '{1}'; await instead of blocking",
         NoBlockingWaitDescription);
 
+    /// <summary>PSH1318 — an options validator blocks a thread on asynchronous work.</summary>
+    public static readonly DiagnosticDescriptor PreferAsyncOptionsValidation = Create(
+        "PSH1318",
+        "Validate options asynchronously instead of blocking",
+        "'{0}' blocks on asynchronous work; implement 'IAsyncValidateOptions<{1}>' instead",
+        PreferAsyncOptionsValidationDescription);
+
+    /// <summary>The PSH1318 rule description.</summary>
+    private const string PreferAsyncOptionsValidationDescription =
+        "'IValidateOptions<T>.Validate' is synchronous, so a validator that needs to reach a database or a remote service has nowhere to await "
+        + "and blocks the calling thread instead. Options are usually validated while the host starts, on a thread pool that is also serving "
+        + "everything else starting at the same time, so each blocked validator removes a worker for the whole round trip and several of them "
+        + "can exhaust the pool and stall startup outright. 'IAsyncValidateOptions<T>' gives validation a real asynchronous entry point, so the "
+        + "thread is released while the work is in flight. Reported for a validator whose synchronous method waits on a task, and only when the "
+        + "asynchronous interface resolves in the compilation.";
+
     /// <summary>The PSH1302 rule description.</summary>
     private const string RunContinuationsAsynchronouslyDescription =
         "Completing a TaskCompletionSource without TaskCreationOptions.RunContinuationsAsynchronously runs every waiter's continuation inline "

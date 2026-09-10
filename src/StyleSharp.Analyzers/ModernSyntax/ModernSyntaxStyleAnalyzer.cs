@@ -9,10 +9,10 @@ namespace StyleSharp.Analyzers;
 public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The numeric C# 8 language-version value.</summary>
-    private const int CSharp8 = 800;
+    private const LanguageVersion CSharp8 = LanguageVersion.CSharp8;
 
     /// <summary>The numeric C# 9 language-version value.</summary>
-    private const int CSharp9 = 900;
+    private const LanguageVersion CSharp9 = LanguageVersion.CSharp9;
 
     /// <summary>The number of arguments in <c>Substring(start)</c>.</summary>
     private const int SubstringStartOnlyArgumentCount = 1;
@@ -420,8 +420,8 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
     /// <param name="node">A syntax node in the tree.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, int version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && (int)options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
+        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 
     /// <summary>Returns whether the supplied type supports intrinsic array/string index-from-end semantics.</summary>
     /// <param name="type">The type symbol.</param>

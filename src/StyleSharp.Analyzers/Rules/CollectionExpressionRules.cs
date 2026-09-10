@@ -49,6 +49,21 @@ internal static class CollectionExpressionRules
         "Replace this fluent array conversion with a collection expression",
         "A literal array immediately converted with ToArray or ToList is written as a collection expression at the target site.");
 
+    /// <summary>SST2106 — a capacity or comparer constructor argument can move into <c>with(...)</c>.</summary>
+    public static readonly DiagnosticDescriptor UseCollectionExpressionArguments = Create(
+        "SST2106",
+        "Pass the capacity or comparer through a collection expression",
+        "Replace this '{0}' creation with a collection expression that carries 'with(...)'",
+        UseCollectionExpressionArgumentsDescription);
+
+    /// <summary>The SST2106 rule description.</summary>
+    private const string UseCollectionExpressionArgumentsDescription =
+        "A collection expression could not previously carry constructor arguments, so a collection that needed a capacity or a comparer had to be written "
+        + "as an object creation and lost the concise element syntax. C# 15 adds a 'with(...)' element that forwards arguments to the underlying constructor, "
+        + "so 'new HashSet<string>(StringComparer.Ordinal) { \"a\" }' becomes '[with(StringComparer.Ordinal), \"a\"]' and keeps both the comparer and the "
+        + "elements in one expression. Only capacity and comparer arguments are reported: an argument that supplies the initial contents is a different "
+        + "rewrite -- a spread element -- and is left to the rules that cover seeding a collection from a source.";
+
     /// <summary>Creates an enabled collection-expression descriptor.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The title.</param>

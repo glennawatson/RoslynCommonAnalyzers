@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis.CSharp;
 using VerifyGoto = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2014AvoidGotoAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -9,22 +10,53 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2014 (avoid goto).</summary>
 public class AvoidGotoAnalyzerUnitTest
 {
-    /// <summary>Verifies a jump to a label is reported.</summary>
+    /// <summary>A jump out of a loop, the shape a labelled break replaces from C# 15.</summary>
+    private const string LoopEscape = """
+                                      public class C
+                                      {
+                                          public int M(int[] values)
+                                          {
+                                              for (var i = 0; i < values.Length; i++)
+                                              {
+                                                  if (values[i] < 0)
+                                                  {
+                                                      {|SST2014:goto Failed;|}
+                                                  }
+                                              }
+
+                                              return 0;
+
+                                          Failed:
+                                              return -1;
+                                          }
+                                      }
+                                      """;
+
+    /// <summary>Verifies a jump out of a loop is reported before C# 15, where nothing else expresses it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task JumpToALabelIsReportedAsync()
-        => await VerifyGoto.VerifyAnalyzerAsync(
+        => await RunAsync(LoopEscape, LanguageVersion.CSharp13);
+
+    /// <summary>Verifies a jump out of a loop is left alone from C# 15, where a labelled break says it directly.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task LoopEscapeIsCleanOnCSharp15Async()
+        => await RunAsync(LoopEscape.Replace("{|SST2014:goto Failed;|}", "goto Failed;", StringComparison.Ordinal));
+
+    /// <summary>Verifies a jump with no enclosing loop is still reported on C# 15.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task JumpOutsideALoopIsStillReportedAsync()
+        => await RunAsync(
             """
             public class C
             {
-                public int M(int[] values)
+                public int M(int value)
                 {
-                    for (var i = 0; i < values.Length; i++)
+                    if (value < 0)
                     {
-                        if (values[i] < 0)
-                        {
-                            {|SST2014:goto Failed;|}
-                        }
+                        {|SST2014:goto Failed;|}
                     }
 
                     return 0;
@@ -35,11 +67,36 @@ public class AvoidGotoAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a jump to a label inside the same loop is still reported on C# 15.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task JumpWithinALoopIsStillReportedAsync()
+        => await RunAsync(
+            """
+            public class C
+            {
+                public int M(int[] values)
+                {
+                    for (var i = 0; i < values.Length; i++)
+                    {
+                    Retry:
+                        if (values[i] < 0)
+                        {
+                            values[i] = -values[i];
+                            {|SST2014:goto Retry;|}
+                        }
+                    }
+
+                    return 0;
+                }
+            }
+            """);
+
     /// <summary>Verifies a jump between switch sections is not reported: the language has no other word for it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task JumpBetweenSwitchSectionsIsCleanAsync()
-        => await VerifyGoto.VerifyAnalyzerAsync(
+        => await RunAsync(
             """
             public class C
             {
@@ -66,7 +123,7 @@ public class AvoidGotoAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task StructuredJumpsAreCleanAsync()
-        => await VerifyGoto.VerifyAnalyzerAsync(
+        => await RunAsync(
             """
             public class C
             {
@@ -91,4 +148,24 @@ public class AvoidGotoAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Runs the analyzer verifier at the requested language version.</summary>
+    /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
+    /// <param name="languageVersion">The language version to parse with.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    private static async Task RunAsync(string source, LanguageVersion languageVersion = LanguageVersion.Preview)
+    {
+        var test = new VerifyGoto.Test
+        {
+            TestCode = source
+        };
+
+        test.SolutionTransforms.Add((solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(languageVersion));
+        });
+
+        await test.RunAsync(CancellationToken.None);
+    }
 }

@@ -602,6 +602,13 @@ internal static class ModernSyntaxRules
         "Move '{0}' and its step into a for loop header",
         UseForOverWhileDescription);
 
+    /// <summary>SST2289 — an unsafe block only performs operations C# 15 permits in safe code.</summary>
+    public static readonly DiagnosticDescriptor UnnecessaryUnsafeContext = CreateInfo(
+        "SST2289",
+        "This unsafe block no longer needs an unsafe context",
+        "Remove 'unsafe' from this block; every pointer operation inside it is permitted in safe code from C# 15",
+        UnnecessaryUnsafeContextDescription);
+
     /// <summary>The SST2287 rule description.</summary>
     private const string UseForOverWhileDescription =
         "A variable declared immediately above a while loop, tested by its condition, stepped by the loop's last "
@@ -971,6 +978,16 @@ internal static class ModernSyntaxRules
         + "nothing sits between the guard and the assignment. The guard-then-return shape, the assign-then-check shape, "
         + "and the argument-null guard whose throw is better expressed as a runtime null-check helper are each left to "
         + "the rule that owns them, so this rule never fires on a guard another already covers.";
+
+    /// <summary>The SST2289 rule description.</summary>
+    private const string UnnecessaryUnsafeContextDescription =
+        "C# 15 ties the unsafe context to the operations that actually read or write unmanaged memory rather than to the mere presence of a pointer "
+        + "type. Declaring a pointer, taking an address with '&', pinning with 'fixed', applying 'sizeof' to an unmanaged type, and converting a "
+        + "'stackalloc' to a pointer no longer need one. A block that does only those things marks a region unsafe that the compiler no longer treats "
+        + "as unsafe, and that matters because the marker is an audit signal: reviewers read every unsafe region, so a region that cannot corrupt "
+        + "memory dilutes the ones that can. Dereferencing ('*p'), pointer member access ('p->m'), pointer indexing ('p[i]'), and function-pointer "
+        + "invocation still require the context, and a block containing any of them is left alone. A block with no pointer operations at all is not "
+        + "reported here either — an unsafe modifier guarding nothing is a separate shape with its own rule.";
 
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

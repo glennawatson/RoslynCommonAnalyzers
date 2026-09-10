@@ -12,7 +12,7 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2201PreferSwitchExpressionAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The numeric C# 8 language-version value.</summary>
-    private const int CSharp8 = 800;
+    private const LanguageVersion CSharp8 = LanguageVersion.CSharp8;
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.PreferSwitchExpression);
@@ -60,7 +60,7 @@ public sealed class Sst2201PreferSwitchExpressionAnalyzer : DiagnosticAnalyzer
     {
         var switchStatement = (SwitchStatementSyntax)context.Node;
         if (switchStatement.SyntaxTree.Options is not CSharpParseOptions options
-            || (int)options.LanguageVersion < CSharp8
+            || options.LanguageVersion < CSharp8
             || !IsReturnOnlySwitchExpressionCandidate(switchStatement))
         {
             return;

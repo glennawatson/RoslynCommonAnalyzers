@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>PerformanceSharp.Analyzers</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PerformanceSharp.Analyzers.Benchmarks" />
+    <InternalsVisibleTo Include="PerformanceSharp.Analyzers.Tests" />
+    <InternalsVisibleTo Include="PerformanceSharp.Analyzers.Tests.Roslyn414" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Linq" />
+    <Using Include="System.Collections.Immutable" />
+    <Using Include="System.Composition" />
+    <Using Include="System.Diagnostics.CodeAnalysis" />
+    <Using Include="Microsoft.CodeAnalysis" />
+    <Using Include="Microsoft.CodeAnalysis.CodeActions" />
+    <Using Include="Microsoft.CodeAnalysis.CodeFixes" />
+    <Using Include="Microsoft.CodeAnalysis.Editing" />
+    <Using Include="Microsoft.CodeAnalysis.Text" />
+    <Using Include="Microsoft.CodeAnalysis.CSharp" />
+    <Using Include="Microsoft.CodeAnalysis.CSharp.Syntax" />
+    <Using Include="Microsoft.CodeAnalysis.Diagnostics" />
+    <Using Include="RoslynCommon.Analyzers" />
+    <Using Include="RoslynCommon.Analyzers.CodeFixes" />
+  </ItemGroup>
+
+  <!-- Paired with the analyzer built for the same slot, never with the floor. -->
+  <ItemGroup>
+    <ProjectReference Include="..\PerformanceSharp.Analyzers.Roslyn414\PerformanceSharp.Analyzers.Roslyn414.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\PerformanceSharp.Analyzers.CodeFixes\**\*.cs"
+             Exclude="..\PerformanceSharp.Analyzers.CodeFixes\bin\**\*.cs;..\PerformanceSharp.Analyzers.CodeFixes\obj\**\*.cs"
+             LinkBase="PerformanceSharp.Analyzers.CodeFixes" />
+    <Compile Include="..\Shared\CodeFixes\*.cs" Link="Helpers\Shared\%(Filename).cs" />
+  </ItemGroup>
+
+</Project>

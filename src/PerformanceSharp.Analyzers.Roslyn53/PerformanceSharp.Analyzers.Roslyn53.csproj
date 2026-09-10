@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>PerformanceSharp.Analyzers</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PerformanceSharp.Analyzers.CodeFixes" />
+    <InternalsVisibleTo Include="PerformanceSharp.Analyzers.Benchmarks" />
+    <InternalsVisibleTo Include="PerformanceSharp.Analyzers.Tests" />
+    <InternalsVisibleTo Include="PerformanceSharp.Analyzers.Tests.Roslyn53" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Linq" />
+    <Using Include="System.Collections.Immutable" />
+    <Using Include="System.Diagnostics.CodeAnalysis" />
+    <Using Include="Microsoft.CodeAnalysis" />
+    <Using Include="Microsoft.CodeAnalysis.CSharp" />
+    <Using Include="Microsoft.CodeAnalysis.CSharp.Syntax" />
+    <Using Include="Microsoft.CodeAnalysis.Diagnostics" />
+    <Using Include="RoslynCommon.Analyzers" />
+  </ItemGroup>
+
+  <!-- The same rules, compiled a second time against roslyn5.3's compiler. Nothing is duplicated: the
+       leaves differ only in which Roslyn they bind to and what the ROSLYN_*_OR_GREATER constants
+       turn on. Only the floor project owns files on disk. -->
+  <ItemGroup>
+    <Compile Include="..\PerformanceSharp.Analyzers\**\*.cs"
+             Exclude="..\PerformanceSharp.Analyzers\bin\**\*.cs;..\PerformanceSharp.Analyzers\obj\**\*.cs"
+             LinkBase="PerformanceSharp.Analyzers" />
+    <Compile Include="..\Shared\Analyzers\*.cs" Link="Helpers\Shared\%(Filename).cs" />
+  </ItemGroup>
+
+  <!-- Release tracking reads these through AdditionalFiles. The SDK auto-includes them from the
+       project directory, which does not reach a linked copy, so they are named explicitly. -->
+  <ItemGroup>
+    <AdditionalFiles Include="..\PerformanceSharp.Analyzers\AnalyzerReleases.Shipped.md" Link="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="..\PerformanceSharp.Analyzers\AnalyzerReleases.Unshipped.md" Link="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+</Project>

@@ -249,7 +249,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     {
         for (var i = 0; i < sections.Count; i++)
         {
-            if (sections[i].Statements.Count == 0 || HasDefaultOrGotoLabel(sections[i]))
+            if (sections[i].Statements.Count == 0 || HasDefaultOrGotoLabel(sections[i]) || BindsANameOrGuards(sections[i]))
             {
                 continue;
             }
@@ -257,6 +257,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
             for (var j = i + 1; j < sections.Count; j++)
             {
                 if (!HasDefaultOrGotoLabel(sections[j])
+                    && !BindsANameOrGuards(sections[j])
                     && AreEquivalentStatements(sections[i].Statements, sections[j].Statements)
                     && !ContainsGoto(switchStatement))
                 {
@@ -345,6 +346,29 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
         foreach (var descendant in pattern.DescendantNodesAndSelf())
         {
             if (descendant is SingleVariableDesignationSyntax)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a section's labels bind a name or carry a guard.</summary>
+    /// <param name="section">The switch section.</param>
+    /// <returns><see langword="true"/> when the section's labels cannot be stacked onto another's.</returns>
+    /// <remarks>
+    /// Merging two sections stacks their labels, and two labels that each declare the same name do not
+    /// compile (CS0128) — nor does the <c>or</c> pattern the stack later folds into (CS8780). A guard runs
+    /// code, so two sections guarded differently are not one case either.
+    /// </remarks>
+    private static bool BindsANameOrGuards(SwitchSectionSyntax section)
+    {
+        var labels = section.Labels;
+        for (var i = 0; i < labels.Count; i++)
+        {
+            if (labels[i] is CasePatternSwitchLabelSyntax pattern
+                && (pattern.WhenClause is not null || BindsAName(pattern.Pattern)))
             {
                 return true;
             }

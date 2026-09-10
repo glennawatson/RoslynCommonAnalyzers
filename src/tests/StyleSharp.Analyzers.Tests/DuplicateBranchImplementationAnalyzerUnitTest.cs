@@ -85,6 +85,36 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies sections whose labels declare a name are left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Stacking two labels that each declare the same name does not compile (CS0128), and neither does the
+    /// or pattern the stack later folds into (CS8780).
+    /// </remarks>
+    [Test]
+    public async Task SectionsDeclaringANameAreCleanAsync()
+        => await VerifyBranches.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public bool M(object value, out ulong bits)
+                {
+                    switch (value)
+                    {
+                        case int number:
+                            bits = (ulong)number;
+                            return true;
+                        case short number:
+                            bits = (ulong)number;
+                            return true;
+                    }
+
+                    bits = 0;
+                    return false;
+                }
+            }
+            """);
+
     /// <summary>Verifies two switch-expression arms with the same value are joined with an or pattern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

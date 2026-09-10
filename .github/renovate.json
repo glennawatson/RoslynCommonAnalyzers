@@ -95,7 +95,7 @@
       "dependencyDashboardApproval": true
     },
     {
-      "description": "Every action here comes from GitHub, Microsoft or NuGet and is referenced by tag. A third-party action added later still gets the digest pinning config:best-practices turns on.",
+      "description": "These publishers stay on version tags. Any other action keeps the digest pinning config:best-practices turns on.",
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["actions/*", "github/*", "dotnet/*", "NuGet/*"],
       "pinDigests": false,

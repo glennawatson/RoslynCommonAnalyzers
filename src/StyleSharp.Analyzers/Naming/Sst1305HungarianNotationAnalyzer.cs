@@ -28,10 +28,15 @@ public sealed class Sst1305HungarianNotationAnalyzer : DiagnosticAnalyzer
     private const int MaxPrefixLength = 2;
 
     /// <summary>Short lower-case words that look like prefixes but are legitimate name starts.</summary>
+    /// <remarks>
+    /// Two kinds of word live here: an English word that happens to be two letters, and the abbreviated
+    /// name of a technology — <c>db</c>, <c>io</c>, <c>ui</c>, <c>js</c>, <c>ef</c>, <c>gc</c>, <c>ms</c>.
+    /// A name like <c>jsRuntime</c> says which runtime it is, not which type it is.
+    /// </remarks>
     private static readonly HashSet<string> AllowedPrefixes = new(StringComparer.Ordinal)
     {
-        "as", "at", "by", "db", "do", "go", "id", "if", "in", "io", "is", "it",
-        "my", "no", "of", "on", "or", "so", "to", "ui", "up", "us", "ok"
+        "as", "at", "by", "db", "do", "ef", "gc", "go", "id", "if", "in", "io", "is", "it",
+        "js", "ms", "my", "no", "of", "on", "or", "so", "to", "ui", "up", "us", "ok"
     };
 
     /// <summary>The kinds whose identifiers are inspected for Hungarian notation.</summary>

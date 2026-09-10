@@ -38,6 +38,26 @@ public class HungarianNotationAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies an abbreviated technology name is not read as a type prefix.</summary>
+    /// <param name="name">The parameter name under test.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks><c>jsRuntime</c> says which runtime it is, the way <c>dbContext</c> says which context.</remarks>
+    [Test]
+    [Arguments("jsRuntime")]
+    [Arguments("efQueryable")]
+    [Arguments("gcType")]
+    [Arguments("msTest")]
+    public async Task AbbreviatedTechnologyNameIsCleanAsync(string name)
+        => await VerifyHungarian.VerifyAnalyzerAsync(
+            $$"""
+            internal class C
+            {
+                private void M(int {{name}})
+                {
+                }
+            }
+            """);
+
     /// <summary>Verifies a prefix outside the built-in allow-list is reported when not configured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

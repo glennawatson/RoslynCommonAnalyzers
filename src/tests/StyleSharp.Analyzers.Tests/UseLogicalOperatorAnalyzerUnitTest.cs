@@ -200,6 +200,32 @@ public class UseLogicalOperatorAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a conditional spread over several lines stays spread after the fix.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>Collapsing the branches onto the condition's line is how the fix used to draw SST1521.</remarks>
+    [Test]
+    public async Task MultiLineConditionalKeepsItsLayoutAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  public bool M(bool a, bool b) =>
+                                      {|SST2288:a
+                                          ? b
+                                          : false|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       public bool M(bool a, bool b) =>
+                                           a
+                                               && b;
+                                   }
+                                   """;
+        await VerifyUseLogicalOperator.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies negating a pattern test flips the pattern rather than wrapping it in <c>!</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>A <c>!(x is T)</c> rewrite would immediately draw SST2008.</remarks>

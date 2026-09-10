@@ -43,18 +43,64 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
             return null;
         }
 
+        // A conditional written across several lines ends its condition with a line break, and that break
+        // is kept so the result stays spread rather than collapsing into one very long line.
+        var conditionTrailing = conditional.Condition.GetTrailingTrivia();
+        var wrapped = ContainsLineBreak(conditionTrailing);
+
         var left = negate ? Negate(conditional.Condition) : conditional.Condition.WithoutTrivia();
-        var operatorToken = SyntaxFactory
-            .Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), conjunction ? SyntaxKind.AmpersandAmpersandToken : SyntaxKind.BarBarToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
+        if (wrapped)
+        {
+            left = left.WithTrailingTrivia(conditionTrailing);
+        }
+
+        var right = Parenthesize(other.WithoutTrivia(), conjunction);
+        var operatorToken = SyntaxFactory.Token(
+            wrapped ? WhitespaceOf(conditional.QuestionToken) : SyntaxFactory.TriviaList(SyntaxFactory.Space),
+            conjunction ? SyntaxKind.AmpersandAmpersandToken : SyntaxKind.BarBarToken,
+            SyntaxFactory.TriviaList(SyntaxFactory.Space));
 
         var replacement = SyntaxFactory.BinaryExpression(
                 conjunction ? SyntaxKind.LogicalAndExpression : SyntaxKind.LogicalOrExpression,
                 left,
                 operatorToken,
-                Parenthesize(other.WithoutTrivia(), conjunction))
+                right)
             .WithTriviaFrom(conditional);
 
         return new NodeReplacement(conditional, replacement);
+    }
+
+    /// <summary>Returns whether a trivia list ends a line.</summary>
+    /// <param name="trivia">The trivia to inspect.</param>
+    /// <returns><see langword="true"/> when it holds a line break.</returns>
+    private static bool ContainsLineBreak(SyntaxTriviaList trivia)
+    {
+        foreach (var item in trivia)
+        {
+            if (item.IsKind(SyntaxKind.EndOfLineTrivia))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Gets the indentation a token sits behind, dropping anything that is not whitespace.</summary>
+    /// <param name="token">The conditional's <c>?</c> token.</param>
+    /// <returns>The indentation to put in front of the operator.</returns>
+    private static SyntaxTriviaList WhitespaceOf(SyntaxToken token)
+    {
+        var kept = new List<SyntaxTrivia>();
+        foreach (var trivia in token.LeadingTrivia)
+        {
+            if (trivia.IsKind(SyntaxKind.WhitespaceTrivia))
+            {
+                kept.Add(trivia);
+            }
+        }
+
+        return SyntaxFactory.TriviaList(kept);
     }
 
     /// <summary>Negates a condition for the forms whose literal branch is the true one.</summary>

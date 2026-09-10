@@ -44,9 +44,16 @@ public sealed class Sst2238NestedPropertyPatternAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a recursive pattern contains only property subpatterns.</summary>
     /// <param name="pattern">The recursive pattern.</param>
     /// <returns><see langword="true"/> when it can be flattened into an extended property path.</returns>
+    /// <remarks>
+    /// A type on the nested pattern is a test in its own right: <c>{ A: T { B: v } }</c> checks that
+    /// <c>A</c> is a <c>T</c>, and <c>{ A.B: v }</c> does not, so that shape is left alone. So is a
+    /// clause holding more than one subpattern, which no single path can carry.
+    /// </remarks>
     private static bool IsPropertyOnlyPattern(RecursivePatternSyntax pattern)
-        => pattern.PositionalPatternClause is null
-            && pattern.PropertyPatternClause is { Subpatterns.Count: > 0 }
+        => pattern.Type is null
+            && pattern.PositionalPatternClause is null
+            && pattern.PropertyPatternClause is { Subpatterns.Count: 1 }
+            && pattern.PropertyPatternClause.Subpatterns[0].NameColon is not null
             && pattern.Designation is null;
 
     /// <summary>Returns whether the syntax tree uses at least the supplied language version.</summary>

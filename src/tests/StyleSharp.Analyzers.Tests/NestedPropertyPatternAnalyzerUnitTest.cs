@@ -6,6 +6,9 @@ using Microsoft.CodeAnalysis.Testing;
 
 using VerifyNestedPropertyPattern = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2238NestedPropertyPatternAnalyzer>;
+using VerifyNestedPropertyPatternFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
+    StyleSharp.Analyzers.Sst2238NestedPropertyPatternAnalyzer,
+    StyleSharp.Analyzers.Sst2238NestedPropertyPatternCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 
@@ -50,6 +53,97 @@ public class NestedPropertyPatternAnalyzerUnitTest
                 public bool M(Person person) => person is { Value: string text };
             }
             """);
+
+    /// <summary>Verifies a typed nested pattern is clean, because the path form drops the type test.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task TypedNestedPatternIsCleanAsync()
+        => await RunAsync(
+            """
+            public sealed class Person
+            {
+                public object Address { get; set; } = new();
+            }
+
+            public sealed class Address
+            {
+                public string City { get; set; } = "";
+            }
+
+            public sealed class C
+            {
+                public bool M(Person person) => person is { Address: Address { City: "Melbourne" } };
+            }
+            """);
+
+    /// <summary>Verifies a nested clause holding two subpatterns is clean, since one path cannot carry both.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MultipleNestedSubpatternsAreCleanAsync()
+        => await RunAsync(
+            """
+            public sealed class Person
+            {
+                public Address Address { get; set; } = new();
+            }
+
+            public sealed class Address
+            {
+                public string City { get; set; } = "";
+
+                public string Country { get; set; } = "";
+            }
+
+            public sealed class C
+            {
+                public bool M(Person person) => person is { Address: { City: "Melbourne", Country: "AU" } };
+            }
+            """);
+
+    /// <summary>Verifies the fix folds the nested pattern into a property path.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NestedPatternIsFlattenedAsync()
+    {
+        const string Source = """
+                              public sealed class Person
+                              {
+                                  public Address Address { get; set; } = new();
+                              }
+
+                              public sealed class Address
+                              {
+                                  public string City { get; set; } = "";
+                              }
+
+                              public sealed class C
+                              {
+                                  public bool M(Person person) => person is { Address: {|SST2238:{ City: "Melbourne" }|} };
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class Person
+                                   {
+                                       public Address Address { get; set; } = new();
+                                   }
+
+                                   public sealed class Address
+                                   {
+                                       public string City { get; set; } = "";
+                                   }
+
+                                   public sealed class C
+                                   {
+                                       public bool M(Person person) => person is { Address.City: "Melbourne" };
+                                   }
+                                   """;
+        await new VerifyNestedPropertyPatternFix.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource,
+        }.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>

@@ -43,7 +43,7 @@ public sealed class Sst1463NameofLiteralAnalyzer : DiagnosticAnalyzer
             || literal.Parent is not ArgumentSyntax argument
             || context.SemanticModel.GetOperation(argument, context.CancellationToken) is not IArgumentOperation { Parameter: { } parameter }
             || !IsNameShapedParameter(parameter.Name)
-            || !HasVisibleSymbolNamed(context.SemanticModel, literal.SpanStart, name))
+            || !HasVisibleSymbolNamed(context.SemanticModel, literal, name, context.CancellationToken))
         {
             return;
         }
@@ -62,8 +62,9 @@ public sealed class Sst1463NameofLiteralAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether a non-namespace symbol with the supplied name is visible at a source position.</summary>
     /// <param name="model">The semantic model.</param>
-    /// <param name="position">The source position.</param>
+    /// <param name="literal">The string literal standing where the name would go.</param>
     /// <param name="name">The symbol name.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> when <c>nameof(name)</c> can bind.</returns>
     /// <remarks>
     /// A generic type does not count, because its bare name is not a name the language will take: where the
@@ -71,17 +72,46 @@ public sealed class Sst1463NameofLiteralAnalyzer : DiagnosticAnalyzer
     /// CS0305 and not a fix at all. The rule suggests <c>nameof</c> only where the name written in the
     /// string is a name that compiles as written.
     /// </remarks>
-    private static bool HasVisibleSymbolNamed(SemanticModel model, int position, string name)
+    private static bool HasVisibleSymbolNamed(SemanticModel model, LiteralExpressionSyntax literal, string name, CancellationToken cancellationToken)
     {
-        var symbols = model.LookupSymbols(position, name: name);
+        var symbols = model.LookupSymbols(literal.SpanStart, name: name);
         for (var i = 0; i < symbols.Length; i++)
         {
-            if (symbols[i] is INamedTypeSymbol { Arity: > 0 })
+            if (symbols[i] is INamedTypeSymbol { Arity: > 0 } || symbols[i].Kind == SymbolKind.Namespace)
             {
                 continue;
             }
 
-            if (symbols[i].Kind != SymbolKind.Namespace)
+            if (!IsDeclaredAroundTheLiteral(symbols[i], literal, cancellationToken))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a local's own declaration is what encloses the literal.</summary>
+    /// <param name="symbol">The symbol the name resolves to.</param>
+    /// <param name="literal">The string literal standing where the name would go.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when naming the symbol here would name it before it exists.</returns>
+    /// <remarks>
+    /// A local is in scope from its declarator onward, so the lookup finds one whose own initializer holds
+    /// the literal — <c>var value = Find(nameof(value))</c>. That is CS0841, not a rename-safe reference.
+    /// </remarks>
+    private static bool IsDeclaredAroundTheLiteral(ISymbol symbol, LiteralExpressionSyntax literal, CancellationToken cancellationToken)
+    {
+        if (symbol is not ILocalSymbol)
+        {
+            return false;
+        }
+
+        var references = symbol.DeclaringSyntaxReferences;
+        for (var i = 0; i < references.Length; i++)
+        {
+            if (references[i].SyntaxTree == literal.SyntaxTree
+                && references[i].GetSyntax(cancellationToken).Span.Contains(literal.Span))
             {
                 return true;
             }

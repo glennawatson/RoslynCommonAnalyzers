@@ -30,6 +30,28 @@ public class NameofLiteralAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a literal inside the initializer of a local of that name is left alone.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// A local is in scope from its declarator onward, so the lookup finds it — but naming it inside its
+    /// own initializer is CS0841, not a rename-safe reference.
+    /// </remarks>
+    [Test]
+    public async Task LiteralInTheLocalsOwnInitializerIsCleanAsync()
+        => await VerifyNameofLiteral.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public string M()
+                {
+                    var value = Find("value");
+                    return value;
+                }
+
+                private static string Find(string elementName) => elementName;
+            }
+            """);
+
     /// <summary>Verifies ordinary message strings are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

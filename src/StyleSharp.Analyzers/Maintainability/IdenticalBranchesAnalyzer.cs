@@ -305,7 +305,9 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
 
             for (var j = i + 1; j < arms.Count; j++)
             {
-                if (!IsDiscardArm(arms[j]) && SyntaxFactory.AreEquivalent(arms[i].Expression, arms[j].Expression, topLevel: false))
+                if (!IsDiscardArm(arms[j])
+                    && SyntaxFactory.AreEquivalent(arms[i].Expression, arms[j].Expression, topLevel: false)
+                    && CanCombine(arms[i], arms[j]))
                 {
                     context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.DuplicateBranchImplementation, arms[j].Pattern.GetLocation()));
                     return;
@@ -319,6 +321,37 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for a <c>_</c> arm.</returns>
     private static bool IsDiscardArm(SwitchExpressionArmSyntax arm)
         => arm.Pattern is DiscardPatternSyntax && arm.WhenClause is null;
+
+    /// <summary>Returns whether two arms could be written as one arm with an <c>or</c> pattern.</summary>
+    /// <param name="first">The earlier arm.</param>
+    /// <param name="second">The later arm.</param>
+    /// <returns><see langword="true"/> when merging them is legal.</returns>
+    /// <remarks>
+    /// A pattern that binds a name cannot join an <c>or</c> (CS8780), and neither can one carrying a
+    /// guard. Two arms that map different shapes onto the same value are then the only way to write it,
+    /// so the repetition says nothing about a mistake.
+    /// </remarks>
+    private static bool CanCombine(SwitchExpressionArmSyntax first, SwitchExpressionArmSyntax second)
+        => first.WhenClause is null
+           && second.WhenClause is null
+           && !BindsAName(first.Pattern)
+           && !BindsAName(second.Pattern);
+
+    /// <summary>Returns whether a pattern introduces a variable.</summary>
+    /// <param name="pattern">The arm's pattern.</param>
+    /// <returns><see langword="true"/> when any designation names a variable.</returns>
+    private static bool BindsAName(PatternSyntax pattern)
+    {
+        foreach (var descendant in pattern.DescendantNodesAndSelf())
+        {
+            if (descendant is SingleVariableDesignationSyntax)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Returns whether a switch section carries a <c>default</c> label.</summary>
     /// <param name="section">The switch section.</param>

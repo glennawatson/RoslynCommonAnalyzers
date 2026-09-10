@@ -232,4 +232,47 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
     [Test]
     public async Task FixMergesDuplicateSectionsAsync()
         => await VerifyFix.VerifyCodeFixAsync(DuplicateSectionSource, DuplicateSectionFixed);
+
+    /// <summary>Verifies arms that bind a name are left alone, since an <c>or</c> cannot join them.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Reading the same member off two different shapes is the only way to write this, so the repeated
+    /// result says nothing about a mistake.
+    /// </remarks>
+    [Test]
+    public async Task ArmsBindingANameAreCleanAsync()
+        => await VerifyBranches.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public bool M(object value, string wanted) => value switch
+                {
+                    System.Text.StringBuilder { Length: var length } => length == wanted.Length,
+                    string { Length: var length } => length == wanted.Length,
+                    _ => false,
+                };
+            }
+            """);
+
+    /// <summary>Verifies arms an <c>or</c> pattern could join are still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CombinableArmsAreStillReportedAsync()
+        => await VerifyBranches.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public int M(int x) => x switch
+                {
+                    1 => A(),
+                    2 => B(),
+                    {|SST2414:3|} => A(),
+                    _ => 0,
+                };
+
+                private static int A() => 1;
+
+                private static int B() => 2;
+            }
+            """);
 }

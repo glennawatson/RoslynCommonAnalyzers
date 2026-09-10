@@ -12,7 +12,7 @@
   "prConcurrentLimit": 10,
   "prHourlyLimit": 10,
   "labels": ["dependencies"],
-  "minimumReleaseAge": "3 days",
+  "minimumReleaseAge": "1 day",
   "recreateWhen": "auto",
   "semanticCommits": "enabled",
   "semanticCommitType": "build",
@@ -65,7 +65,7 @@
         "/^SonarAnalyzer(\\.|$)/"
       ],
       "groupName": null,
-      "minimumReleaseAge": "7 days",
+      "minimumReleaseAge": "3 days",
       "labels": ["dependencies", "build-gate"]
     },
     {

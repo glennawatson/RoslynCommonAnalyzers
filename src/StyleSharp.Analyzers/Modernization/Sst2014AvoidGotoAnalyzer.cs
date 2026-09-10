@@ -18,11 +18,9 @@ namespace StyleSharp.Analyzers;
 /// not something the jump records.
 /// </para>
 /// <para>
-/// One shape is exempt from C# 15 onward. A jump out of an enclosing loop was, until labelled jumps existed,
-/// the only way to leave nested loops in one step, and the rule reported it without being able to name a
-/// replacement. C# 15 gives that shape a direct expression — <c>break outer;</c> — and the SDK reports it with
-/// a fix attached, so continuing to report it here would double up on the same code and offer strictly less.
-/// Every other jump is still reported at every language version.
+/// From C# 15 a jump out of an enclosing loop is exempt: <c>break outer;</c> expresses it directly and the
+/// SDK reports that shape with a fix attached, so reporting it here too would offer strictly less. Every
+/// other jump is still reported at every language version.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]

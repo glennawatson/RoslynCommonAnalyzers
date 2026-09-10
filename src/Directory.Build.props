@@ -61,35 +61,13 @@
   </PropertyGroup>
 
   <!--
-    Multi-Roslyn targeting. The analyzer + code-fix assemblies are built once per
-    Roslyn "slot" and packaged under analyzers/dotnet/<slot>/cs so the SDK loads
-    the highest slot <= the host compiler's Roslyn version (CompilerApiVersion).
-      roslyn4.8  = floor: .NET 8 SDK (csc 4.11), VS 17.8 (C# 12).
-      roslyn4.14 = .NET 9 SDK (csc 4.14), VS 17.14 (C# 13).
-      roslyn5.3  = .NET 10 SDK up to 10.0.3xx (csc 5.6), C# 14.
-      roslyn5.9  = .NET 10 SDK 10.0.4xx (csc 5.9) and the .NET 11 line
-                   (csc 5.11), C# 15: unions, closed hierarchies, collection
-                   expression arguments, extension indexers, labeled
-                   break/continue, unsafe expressions.
-    The slot is chosen by the host's CompilerApiVersion, not by its SDK band, so
-    the mapping above is the measured `csc -version` of each SDK rather than a
-    guess from the marketing name. No shipping SDK reports exactly 5.3, so that
-    slot exists to serve the 5.3-5.8 range (.NET 10 GA through 10.0.302).
-
-    Each slot is a real project rather than a switch on the command line. The
-    floor is the plain project (StyleSharp.Analyzers); every higher slot is a
-    sibling next to it whose name carries the slot (StyleSharp.Analyzers.Roslyn59)
-    and which link-includes the floor project's source, so there is exactly one
-    copy of every rule and the leaves differ only in which Roslyn they bind to.
-    That means `dotnet build` of the solution builds and `dotnet test` tests every
-    shipped assembly, instead of one slot being verified and three being packed on
-    trust. The slot is derived from the project-name suffix below, so adding a
-    future slot is one new csproj with no further wiring.
-
-    Prefer version-tolerant detection (probe well-known type/interface/attribute
-    names structurally, e.g. the IUnion marker check) so one build recognizes new
-    constructs on any host; gate genuinely version-specific syntax APIs behind the
-    ROSLYN_*_OR_GREATER constants. Keep these assemblies netstandard2.0 (RS1041).
+    Multi-Roslyn targeting. Each slot is its own project packing to
+    analyzers/dotnet/<slot>/cs; the SDK loads the highest slot <= the host's
+    CompilerApiVersion. The floor project owns the source and every higher slot is a
+    sibling that link-includes it, so a solution build produces and tests them all.
+    Slot to measured `csc -version`: 4.8 = .NET 8 SDK (4.11); 4.14 = .NET 9 (4.14);
+    5.3 = .NET 10 to 10.0.3xx (5.6); 5.9 = .NET 10.0.4xx (5.9) and .NET 11 (5.11).
+    Keep these assemblies netstandard2.0 (RS1041).
   -->
   <PropertyGroup>
     <IsRoslynComponentProject Condition="$(MSBuildProjectName.Contains('.Analyzers'))
@@ -98,8 +76,7 @@
                                          And !$(MSBuildProjectName.Contains('.Packages'))">true</IsRoslynComponentProject>
   </PropertyGroup>
 
-  <!-- The slot a component project builds for, read off its name. A project with no
-       slot suffix is the floor, which is also the one that owns the source files. -->
+  <!-- The slot, read off the project name; no suffix means the floor. -->
   <PropertyGroup Condition="'$(IsRoslynComponentProject)' == 'true'">
     <RoslynSlot>roslyn4.8</RoslynSlot>
     <RoslynSlot Condition="$(MSBuildProjectName.EndsWith('.Roslyn414'))">roslyn4.14</RoslynSlot>
@@ -122,29 +99,19 @@
     <DefineConstants>$(DefineConstants);ROSLYN_4_8_OR_GREATER;ROSLYN_4_14_OR_GREATER;ROSLYN_5_OR_GREATER</DefineConstants>
   </PropertyGroup>
 
-  <!-- The first slot whose compiler API exposes the C# 15 syntax model:
-       UnionDeclarationSyntax, SyntaxKind.WithElement / ClosedKeyword /
-       SafeKeyword / UnsafeExpression, and indexers inside an extension block.
-       Rules that need those types compile only here; a host old enough to miss
-       this slot cannot compile C# 15 either, so gating costs no coverage. -->
+  <!-- The first slot whose compiler API carries the C# 15 syntax model. -->
   <PropertyGroup Condition="'$(RoslynSlot)' == 'roslyn5.9'">
     <MicrosoftCodeAnalysisVersion>5.9.0</MicrosoftCodeAnalysisVersion>
     <DefineConstants>$(DefineConstants);ROSLYN_4_8_OR_GREATER;ROSLYN_4_14_OR_GREATER;ROSLYN_5_OR_GREATER;ROSLYN_5_9_OR_GREATER</DefineConstants>
   </PropertyGroup>
 
-  <!-- Everything that only consumes the compiler API — tests, benchmarks, the
-       package projects — takes the highest Roslyn the repo builds against rather
-       than the floor. A newer one costs them nothing, and referencing a lower one
-       than the analyzer under test fails to compile the moment that analyzer is
-       built for a higher slot. This drives the central Microsoft.CodeAnalysis.*
-       versions in Directory.Packages.props. -->
+  <!-- Tests, benchmarks and the package projects only consume the compiler API, so
+       they take the highest Roslyn rather than the floor. -->
   <PropertyGroup>
     <MicrosoftCodeAnalysisVersion Condition="'$(MicrosoftCodeAnalysisVersion)' == ''">5.9.0</MicrosoftCodeAnalysisVersion>
   </PropertyGroup>
 
-  <!-- A slot sibling recompiles the floor project's source; only the floor owns files
-       on disk. It therefore has to produce the same assembly identity, so a consumer
-       loading one slot or another sees the same analyzer rather than two. -->
+  <!-- A sibling recompiles the floor's source, so it must keep the floor's assembly name. -->
   <PropertyGroup Condition="'$(IsRoslynComponentProject)' == 'true'">
     <RoslynSlotSourceProject>$(MSBuildProjectName)</RoslynSlotSourceProject>
     <RoslynSlotSourceProject Condition="$(MSBuildProjectName.EndsWith('.Roslyn414'))">$(MSBuildProjectName.Replace('.Roslyn414', ''))</RoslynSlotSourceProject>

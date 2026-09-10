@@ -44,7 +44,8 @@
     <Compile Include="..\Shared\CodeFixes\*.cs" Link="Helpers\Shared\%(Filename).cs" />
   </ItemGroup>
 
-  <!-- The linked designer binds to this by name, so the manifest name has to match the floor's. -->
+  <!-- The manifest name has to match the floor's, which the linked designer binds to. -->
+
   <ItemGroup>
     <EmbeddedResource Include="..\StyleSharp.Analyzers.CodeFixes\CodeFixResources.resx"
                       Link="CodeFixResources.resx"

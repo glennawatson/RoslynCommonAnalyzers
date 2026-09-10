@@ -18,9 +18,8 @@
     <NoWarn>$(NoWarn);NU5128</NoWarn>
   </PropertyGroup>
 
-  <!-- One project per Roslyn slot, each building the same source against its own compiler. Referenced
-       so a plain solution build produces every slot before this project packs them; the assemblies
-       themselves are not referenced, only ordered. -->
+  <!-- Referenced for build ordering only; the assemblies are packed as files below. -->
+
   <ItemGroup>
     <ProjectReference Include="..\StyleSharp.Analyzers\StyleSharp.Analyzers.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\StyleSharp.Analyzers.CodeFixes\StyleSharp.Analyzers.CodeFixes.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" />
@@ -32,12 +31,9 @@
     <ProjectReference Include="..\StyleSharp.Analyzers.CodeFixes.Roslyn59\StyleSharp.Analyzers.CodeFixes.Roslyn59.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
-  <!--
-    Packed as plain files rather than through TargetsForTfmSpecificContentInPackage: that hook runs once
-    per target framework, and the analyzers folder is framework-agnostic, so it would offer the same
-    path repeatedly. The SDK picks the highest slot at or below the host's CompilerApiVersion; the
-    accompanying .targets narrows the choice for builds that do not do that themselves.
-  -->
+  <!-- Plain files, not TargetsForTfmSpecificContentInPackage: that hook runs per target framework
+       and would offer this framework-agnostic path repeatedly. -->
+
   <ItemGroup>
     <None Include="..\StyleSharp.Analyzers\bin\$(Configuration)\netstandard2.0\StyleSharp.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/roslyn4.8/cs" Visible="false" />
     <None Include="..\StyleSharp.Analyzers.CodeFixes\bin\$(Configuration)\netstandard2.0\StyleSharp.Analyzers.CodeFixes.dll" Pack="true" PackagePath="analyzers/dotnet/roslyn4.8/cs" Visible="false" />

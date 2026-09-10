@@ -10,12 +10,7 @@ namespace RoslynCommon.Analyzers.Tests;
 /// The .NET 11 reference assemblies, for rules that only fire when an API introduced in that
 /// version resolves in the analyzed compilation.
 /// </summary>
-/// <remarks>
-/// Declared here rather than taken from <c>ReferenceAssemblies.Net</c>, whose newest entry is .NET 10.
-/// The version is pinned rather than floated because the testing library resolves it as an exact
-/// package identity, and a test that silently changed which framework it compiled against would stop
-/// proving what it claims to prove.
-/// </remarks>
+/// <remarks><c>ReferenceAssemblies.Net</c> stops at .NET 10; see issue #62.</remarks>
 internal static class DotNet11ReferenceAssemblies
 {
     /// <summary>The reference-assembly package that carries the .NET 11 surface.</summary>

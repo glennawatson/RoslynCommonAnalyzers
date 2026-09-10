@@ -10,19 +10,9 @@ namespace RoslynCommon.Analyzers;
 /// version number.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Which versions <c>LanguageVersion</c> names depends on the slot: the roslyn4.8 floor stops at
-/// C# 12, roslyn4.14 stops at C# 13, and none of the published compilers name C# 15. Writing the
-/// numbers by hand instead is how a gate silently ends up wrong — C# 6 is 6 and C# 7 is 7, but C# 7.1
-/// onwards are 701, 800, 900, so a plausible-looking 600 or 700 excludes the very versions it means
-/// to include.
-/// </para>
-/// <para>
-/// <see cref="LanguageVersionFacts"/> resolves the name against the compiler that loaded the
-/// analyzer, so an older build still recognises a newer version when it runs on a newer host, and
-/// reports it unavailable when it does not — which is right, because that host could not compile the
-/// syntax either. Versions the floor already names are used directly and are not repeated here.
-/// </para>
+/// The roslyn4.8 floor's <c>LanguageVersion</c> stops at C# 12 and roslyn4.14 at C# 13, so the newer
+/// versions are resolved by name through <see cref="LanguageVersionFacts"/> against the compiler that
+/// loaded the analyzer. Versions the floor already names are used directly, not repeated here.
 /// </remarks>
 internal static class LanguageVersions
 {
@@ -60,11 +50,7 @@ internal static class LanguageVersions
     /// <param name="node">The syntax node.</param>
     /// <param name="version">The required version, or <see langword="null"/> when the host cannot name it.</param>
     /// <returns><see langword="true"/> when the tree supports that version.</returns>
-    /// <remarks>
-    /// <c>preview</c> satisfies every check: it parses the newest syntax the host knows, including a
-    /// version the host has no numbered member for. <c>latest</c> and <c>latestMajor</c> never reach
-    /// here, the compiler having resolved them to a concrete version before the options are read.
-    /// </remarks>
+    /// <remarks><c>preview</c> satisfies every check, since it parses the newest syntax the host knows.</remarks>
     private static bool IsAtLeast(SyntaxNode node, LanguageVersion? version)
     {
         if (node.SyntaxTree.Options is not CSharpParseOptions options)

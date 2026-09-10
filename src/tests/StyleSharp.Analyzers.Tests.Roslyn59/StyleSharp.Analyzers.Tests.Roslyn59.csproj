@@ -1,9 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- The same tests, run against the analyzers built for roslyn5.9. One target framework rather than
-         the baseline project's two: what varies across the slots is the compiler the rules bind to,
-         not the runtime they execute on, and the baseline already covers both runtimes. -->
+    <!-- The same tests against this slot's analyzers. One TFM: the compiler varies here, not the runtime. -->
     <TargetFramework>net11.0</TargetFramework>
     <RootNamespace>StyleSharp.Analyzers.Tests</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>

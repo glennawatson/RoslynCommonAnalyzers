@@ -10,11 +10,9 @@
       Microsoft.CodeAnalysis.Analyzers is the dev-time analyzer (RS* rules) that
       checks *our* analyzer source — safe to track the latest.
       Microsoft.CodeAnalysis.CSharp / .Workspaces / .VisualBasic are the compiler
-      API we build against. Their version is the per-slot
-      $(MicrosoftCodeAnalysisVersion) set in Directory.Build.props (roslyn4.8 /
-      roslyn4.14 / roslyn5.3 / roslyn5.9; the highest slot for non-component
-      projects). Pinning them to that property keeps central transitive pinning
-      consistent within each slot.
+      API we build against, pinned to the per-slot $(MicrosoftCodeAnalysisVersion)
+      from Directory.Build.props so central transitive pinning stays consistent
+      within each slot.
     -->
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="$(MicrosoftCodeAnalysisVersion)" />

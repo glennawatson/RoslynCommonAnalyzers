@@ -28,9 +28,8 @@
     <Using Include="RoslynCommon.Analyzers" />
   </ItemGroup>
 
-  <!-- The same rules, compiled a second time against roslyn5.9's compiler. Nothing is duplicated: the
-       leaves differ only in which Roslyn they bind to and what the ROSLYN_*_OR_GREATER constants
-       turn on. Only the floor project owns files on disk. -->
+  <!-- The same source, compiled against this slot's compiler. -->
+
   <ItemGroup>
     <Compile Include="..\SecuritySharp.Analyzers\**\*.cs"
              Exclude="..\SecuritySharp.Analyzers\bin\**\*.cs;..\SecuritySharp.Analyzers\obj\**\*.cs"
@@ -38,8 +37,8 @@
     <Compile Include="..\Shared\Analyzers\*.cs" Link="Helpers\Shared\%(Filename).cs" />
   </ItemGroup>
 
-  <!-- Release tracking reads these through AdditionalFiles. The SDK auto-includes them from the
-       project directory, which does not reach a linked copy, so they are named explicitly. -->
+  <!-- Named explicitly: the SDK's auto-include does not reach a linked copy. -->
+
   <ItemGroup>
     <AdditionalFiles Include="..\SecuritySharp.Analyzers\AnalyzerReleases.Shipped.md" Link="AnalyzerReleases.Shipped.md" />
     <AdditionalFiles Include="..\SecuritySharp.Analyzers\AnalyzerReleases.Unshipped.md" Link="AnalyzerReleases.Unshipped.md" />

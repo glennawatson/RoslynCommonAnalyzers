@@ -6,18 +6,10 @@
   </PropertyGroup>
 
   <!--
-    Settle which analyzer slot this build gets.
-
-    Only the .NET SDK narrows a package that ships several slots down to one: its ResolvePackageAssets
-    task picks the highest slot at or below $(CompilerApiVersion). A legacy non-SDK .csproj never runs
-    that task, so it receives every slot at once and loads the analyzer four times over -- which reports
-    every diagnostic four times and runs every rule four times on every keystroke. Dropping the slots
-    this compiler is not being served by gives both kinds of consumer the same single one.
-
-    This needs $(CompilerApiVersion), which the Roslyn targets set long after a .props file is
-    evaluated, so it is a target rather than a plain property group. Every guard is deliberately
-    fail-open: an unset, non-Roslyn or malformed value falls back to the oldest slot rather than
-    breaking a build we do not understand.
+    Narrow the shipped slots to one. Only the .NET SDK does this itself; a non-SDK project receives
+    every slot and loads the analyzer four times, reporting each diagnostic four times. Needs
+    $(CompilerApiVersion), which is set after .props evaluation, hence a target. Guards fail open to
+    the oldest slot.
   -->
   <Target Name="StyleSharpSelectAnalyzerSlot"
           BeforeTargets="CoreCompile"

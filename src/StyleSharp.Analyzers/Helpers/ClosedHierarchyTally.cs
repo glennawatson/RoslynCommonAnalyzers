@@ -27,11 +27,7 @@ internal sealed class ClosedHierarchyTally
     private const string ClosedModifierText = "closed";
 
     /// <summary>The kind the host compiler gives the <c>closed</c> keyword, or <see cref="SyntaxKind.None"/> where it has none.</summary>
-    /// <remarks>
-    /// Resolved through <see cref="SyntaxFacts"/> against the compiler that loaded this analyzer, so
-    /// the floor build recognises the keyword when it runs on a C# 15 host even though its own
-    /// compiler API cannot name that kind.
-    /// </remarks>
+    /// <remarks>Resolved against the host, so the floor build recognises the keyword on a C# 15 host.</remarks>
     private static readonly SyntaxKind ClosedKeywordKind = SyntaxFacts.GetContextualKeywordKind(ClosedModifierText);
 
     /// <summary>The abstract bases that could carry the modifier, used as a set.</summary>

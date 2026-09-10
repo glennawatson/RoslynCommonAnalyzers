@@ -9,12 +9,9 @@ namespace RoslynCommon.Analyzers;
 /// hand to <c>Diagnostic.Create</c> as a property bag.
 /// </summary>
 /// <remarks>
-/// The sibling of <see cref="ImmutableArrays"/>, bridging the same multi-Roslyn split one
-/// collection type further along. <see cref="ImmutableDictionary{TKey, TValue}"/> only gained
-/// a collection builder in the System.Collections.Immutable that the roslyn5.9 slot
-/// references, so a literal <c>[]</c> fails to compile on every earlier slot (CS1729) while
-/// the SDK's own style rules require it on roslyn5.9. Funnelling the site through a method
-/// call keeps that split in one place and leaves neither rule anything to object to.
+/// The sibling of <see cref="ImmutableArrays"/>. A literal <c>[]</c> is CS1729 below roslyn5.9,
+/// where the referenced System.Collections.Immutable has no collection builder for this type, yet
+/// required at roslyn5.9. A method call keeps that split in one place.
 /// </remarks>
 internal static class ImmutableDictionaries
 {

@@ -40,6 +40,7 @@ jobs:
                     dotnet-version: |
                         8.0.x
                         10.0.x
+                        11.0.x
 
             -   name: Cache SonarCloud packages
                 uses: actions/cache@v6

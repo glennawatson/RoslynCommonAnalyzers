@@ -57,6 +57,11 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
+        if (UnwrappingCollidesWithAnotherName(ifStatement))
+        {
+            return false;
+        }
+
         return TryGetOwnerJump(block, out jumpKind);
     }
 
@@ -65,6 +70,112 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
     /// <returns>The block statement count, or 1 for a single embedded statement.</returns>
     internal static int WrappedStatementCount(IfStatementSyntax ifStatement)
         => ifStatement.Statement is BlockSyntax block ? block.Statements.Count : 1;
+
+    /// <summary>Returns whether unwrapping the guard would carry a declared name into a scope that already has one.</summary>
+    /// <param name="ifStatement">The trailing <c>if</c> whose body would be unwrapped.</param>
+    /// <returns><see langword="true"/> when a name declared in the body is declared elsewhere in the same body scope.</returns>
+    /// <remarks>
+    /// The wrapped statements lose a level of nesting, so every name they declare lands in the enclosing scope.
+    /// A name already declared in a sibling block is legal while the two sit side by side and stops compiling
+    /// once one of them encloses the other.
+    /// </remarks>
+    private static bool UnwrappingCollidesWithAnotherName(IfStatementSyntax ifStatement)
+    {
+        var moved = new HashSet<string>(StringComparer.Ordinal);
+        CollectDeclaredNames(ifStatement.Statement, moved);
+        if (moved.Count == 0)
+        {
+            return false;
+        }
+
+        var scope = EnclosingBodyScope(ifStatement);
+        return scope is not null && DeclaresAnyNameOutside(scope, ifStatement.Statement, moved);
+    }
+
+    /// <summary>Gets the function body the statement belongs to.</summary>
+    /// <param name="statement">The statement to start from.</param>
+    /// <returns>The enclosing member, accessor, local function, or lambda, or <see langword="null"/> when there is none.</returns>
+    private static SyntaxNode? EnclosingBodyScope(SyntaxNode statement)
+    {
+        var scope = statement.Parent;
+        while (scope is not null
+            and not BaseMethodDeclarationSyntax
+            and not AccessorDeclarationSyntax
+            and not LocalFunctionStatementSyntax
+            and not AnonymousFunctionExpressionSyntax)
+        {
+            scope = scope.Parent;
+        }
+
+        return scope;
+    }
+
+    /// <summary>Collects every name declared in a subtree.</summary>
+    /// <param name="node">The subtree root.</param>
+    /// <param name="names">The set that receives the declared names.</param>
+    private static void CollectDeclaredNames(SyntaxNode node, HashSet<string> names)
+    {
+        var pending = new Stack<SyntaxNode>();
+        pending.Push(node);
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if (DeclaredName(current) is { Length: > 0 } name)
+            {
+                names.Add(name);
+            }
+
+            foreach (var child in current.ChildNodes())
+            {
+                pending.Push(child);
+            }
+        }
+    }
+
+    /// <summary>Returns whether a subtree declares one of the given names outside an excluded branch.</summary>
+    /// <param name="scope">The subtree to search.</param>
+    /// <param name="excluded">The branch to skip.</param>
+    /// <param name="names">The names to look for.</param>
+    /// <returns><see langword="true"/> when a declaration outside the excluded branch uses one of the names.</returns>
+    private static bool DeclaresAnyNameOutside(SyntaxNode scope, SyntaxNode excluded, HashSet<string> names)
+    {
+        var pending = new Stack<SyntaxNode>();
+        pending.Push(scope);
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if (current == excluded)
+            {
+                continue;
+            }
+
+            if (DeclaredName(current) is { Length: > 0 } name && names.Contains(name))
+            {
+                return true;
+            }
+
+            foreach (var child in current.ChildNodes())
+            {
+                pending.Push(child);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Gets the name a node declares, if it declares one.</summary>
+    /// <param name="node">The candidate declaration.</param>
+    /// <returns>The declared name, or <see langword="null"/> when the node declares nothing.</returns>
+    private static string? DeclaredName(SyntaxNode node) => node switch
+    {
+        VariableDeclaratorSyntax variable => variable.Identifier.ValueText,
+        SingleVariableDesignationSyntax designation => designation.Identifier.ValueText,
+        LocalFunctionStatementSyntax localFunction => localFunction.Identifier.ValueText,
+        ForEachStatementSyntax forEach => forEach.Identifier.ValueText,
+        CatchDeclarationSyntax caught => caught.Identifier.ValueText,
+        ParameterSyntax parameter => parameter.Identifier.ValueText,
+        _ => null,
+    };
 
     /// <summary>Registers the per-compilation options cache, then analyzes every <c>if</c> statement.</summary>
     /// <param name="context">The compilation start context.</param>

@@ -890,6 +890,35 @@ public class PreferGuardClauseAnalyzerUnitTest
             """,
             "stylesharp.SST2273.min_wrapped_statements = 3");
 
+    /// <summary>Verifies a trailing <c>if</c> is left alone when another block already declares one of its names.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Unwrapping moves the body's declarations into the enclosing scope, and a name a sibling block declares
+    /// stops compiling once one of the two encloses the other.
+    /// </remarks>
+    [Test]
+    public async Task TrailingIfIsCleanWhenAnotherBlockDeclaresTheSameNameAsync()
+        => await VerifyCleanAsync(
+            """
+            public sealed class C
+            {
+                public void M(bool first, bool second)
+                {
+                    if (first)
+                    {
+                        var value = 1;
+                        System.Console.WriteLine(value);
+                    }
+
+                    if (second)
+                    {
+                        var value = 2;
+                        System.Console.WriteLine(value);
+                    }
+                }
+            }
+            """);
+
     /// <summary>Runs a code-fix verification with the disabled rule enabled.</summary>
     /// <param name="source">The markup source.</param>
     /// <param name="fixedSource">The expected fixed source.</param>

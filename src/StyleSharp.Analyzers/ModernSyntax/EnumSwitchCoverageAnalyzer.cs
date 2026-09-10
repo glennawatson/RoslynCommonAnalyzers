@@ -32,6 +32,43 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeSwitchExpression, SyntaxKind.SwitchExpression);
     }
 
+    /// <summary>Builds the encoded missing-member list for a switch statement.</summary>
+    /// <param name="enumType">The enum type.</param>
+    /// <param name="switchStatement">The switch statement.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <param name="missingMembers">The encoded missing members.</param>
+    /// <returns><see langword="true"/> when at least one enum member is missing.</returns>
+    internal static bool TryBuildMissingMembers(
+        INamedTypeSymbol enumType,
+        SwitchStatementSyntax switchStatement,
+        SemanticModel model,
+        CancellationToken cancellationToken,
+        out string missingMembers)
+    {
+        missingMembers = string.Empty;
+        System.Text.StringBuilder? builder = null;
+        var members = enumType.GetMembers();
+        for (var i = 0; i < members.Length; i++)
+        {
+            if (!EnumSwitchCoverage.IsEnumValue(members[i], out var field)
+                || EnumSwitchCoverage.IsCaseLabelCovered(field, switchStatement, model, cancellationToken))
+            {
+                continue;
+            }
+
+            AppendMember(ref builder, field);
+        }
+
+        if (builder is null)
+        {
+            return false;
+        }
+
+        missingMembers = builder.ToString();
+        return true;
+    }
+
     /// <summary>Reports an enum switch statement that has neither all cases nor a default section.</summary>
     /// <param name="context">The syntax node context.</param>
     private static void AnalyzeSwitchStatement(SyntaxNodeAnalysisContext context)
@@ -62,43 +99,6 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
 
         var properties = ImmutableDictionary<string, string?>.Empty.Add(MissingMembersProperty, missingMembers);
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.CompleteEnumSwitchExpression, switchExpression.SwitchKeyword.GetLocation(), properties));
-    }
-
-    /// <summary>Builds the encoded missing-member list for a switch statement.</summary>
-    /// <param name="enumType">The enum type.</param>
-    /// <param name="switchStatement">The switch statement.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels analysis.</param>
-    /// <param name="missingMembers">The encoded missing members.</param>
-    /// <returns><see langword="true"/> when at least one enum member is missing.</returns>
-    private static bool TryBuildMissingMembers(
-        INamedTypeSymbol enumType,
-        SwitchStatementSyntax switchStatement,
-        SemanticModel model,
-        CancellationToken cancellationToken,
-        out string missingMembers)
-    {
-        missingMembers = string.Empty;
-        System.Text.StringBuilder? builder = null;
-        var members = enumType.GetMembers();
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (!EnumSwitchCoverage.IsEnumValue(members[i], out var field)
-                || EnumSwitchCoverage.IsCaseLabelCovered(field, switchStatement, model, cancellationToken))
-            {
-                continue;
-            }
-
-            AppendMember(ref builder, field);
-        }
-
-        if (builder is null)
-        {
-            return false;
-        }
-
-        missingMembers = builder.ToString();
-        return true;
     }
 
     /// <summary>Builds the encoded missing-member list for a switch expression.</summary>

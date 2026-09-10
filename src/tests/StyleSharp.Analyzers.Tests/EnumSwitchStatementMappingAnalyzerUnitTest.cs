@@ -6,6 +6,9 @@ using Microsoft.CodeAnalysis.Testing;
 
 using VerifyEnumSwitchStatementMapping = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2242EnumSwitchStatementMappingAnalyzer>;
+using VerifyEnumSwitchStatementMappingFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
+    StyleSharp.Analyzers.Sst2242EnumSwitchStatementMappingAnalyzer,
+    StyleSharp.Analyzers.EnumSwitchCoverageCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 
@@ -75,6 +78,63 @@ public class EnumSwitchStatementMappingAnalyzerUnitTest
                            }
                        }
                        """,
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the fix writes a section for each enum value the switch omits.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MissingEnumCaseIsAddedAsync()
+    {
+        var test = new VerifyEnumSwitchStatementMappingFix.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = """
+                       public enum Color
+                       {
+                           Red,
+                           Blue
+                       }
+
+                       public sealed class C
+                       {
+                           public int M(Color color)
+                           {
+                               {|SST2242:switch|} (color)
+                               {
+                                   case Color.Red:
+                                       return 1;
+                               }
+
+                               return 0;
+                           }
+                       }
+                       """,
+            FixedCode = """
+                        public enum Color
+                        {
+                            Red,
+                            Blue
+                        }
+
+                        public sealed class C
+                        {
+                            public int M(Color color)
+                            {
+                                switch (color)
+                                {
+                                    case Color.Red:
+                                        return 1;
+                                    case global::Color.Blue:
+                                        break;
+                                }
+
+                                return 0;
+                            }
+                        }
+                        """,
         };
 
         await test.RunAsync(CancellationToken.None);

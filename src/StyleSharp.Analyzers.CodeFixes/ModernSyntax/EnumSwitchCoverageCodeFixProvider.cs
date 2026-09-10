@@ -4,7 +4,7 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>Adds explicit enum cases or arms for SST2205 and SST2206.</summary>
+/// <summary>Adds explicit enum cases or arms for SST2205, SST2206, and SST2242.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(EnumSwitchCoverageCodeFixProvider))]
 [Shared]
 public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
@@ -12,7 +12,8 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         ModernSyntaxRules.CompleteEnumSwitchStatement.Id,
-        ModernSyntaxRules.CompleteEnumSwitchExpression.Id);
+        ModernSyntaxRules.CompleteEnumSwitchExpression.Id,
+        ModernSyntaxRules.CompleteEnumSwitchStatementMapping.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -35,9 +36,9 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
 
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    diagnostic.Id == ModernSyntaxRules.CompleteEnumSwitchStatement.Id
-                        ? "Add missing enum cases"
-                        : "Add missing enum arms",
+                    diagnostic.Id == ModernSyntaxRules.CompleteEnumSwitchExpression.Id
+                        ? "Add missing enum arms"
+                        : "Add missing enum cases",
                     _ => Task.FromResult(Apply(context.Document, root, diagnostic)),
                     equivalenceKey: diagnostic.Id),
                 diagnostic);
@@ -61,8 +62,8 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
         var encodedMembers = missingMembers;
         return diagnostic.Id switch
         {
-            "SST2205" => ApplySwitchStatement(document, root, diagnostic, encodedMembers),
             "SST2206" => ApplySwitchExpression(document, root, diagnostic, encodedMembers),
+            "SST2205" or "SST2242" => ApplySwitchStatement(document, root, diagnostic, encodedMembers),
             _ => document
         };
     }

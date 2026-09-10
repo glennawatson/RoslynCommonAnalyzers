@@ -38,7 +38,15 @@ public sealed class Sst2242EnumSwitchStatementMappingAnalyzer : DiagnosticAnalyz
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.CompleteEnumSwitchStatementMapping, switchStatement.SwitchKeyword.GetLocation()));
+        // The names travel with the diagnostic so the fix writes the sections without re-deriving them.
+        var properties = EnumSwitchCoverageAnalyzer.TryBuildMissingMembers(enumType, switchStatement, context.SemanticModel, context.CancellationToken, out var missingMembers)
+            ? ImmutableDictionary<string, string?>.Empty.Add(EnumSwitchCoverageAnalyzer.MissingMembersProperty, missingMembers)
+            : ImmutableDictionary<string, string?>.Empty;
+
+        context.ReportDiagnostic(Diagnostic.Create(
+            ModernSyntaxRules.CompleteEnumSwitchStatementMapping,
+            switchStatement.SwitchKeyword.GetLocation(),
+            properties));
     }
 
     /// <summary>Returns whether a switch has a default label or empty fall-through section.</summary>

@@ -97,8 +97,9 @@ public sealed class Sst1463NameofLiteralAnalyzer : DiagnosticAnalyzer
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> when naming the symbol here would name it before it exists.</returns>
     /// <remarks>
-    /// A local is in scope from its declarator onward, so the lookup finds one whose own initializer holds
-    /// the literal — <c>var value = Find(nameof(value))</c>. That is CS0841, not a rename-safe reference.
+    /// A local is in scope across its whole block, so the lookup finds one that is not declared yet where
+    /// the literal stands — <c>var value = Find(nameof(value))</c>, or <c>Find(nameof(x)) is not { } x</c>.
+    /// Naming it there is CS0841, so the local has to be fully declared ahead of the literal to count.
     /// </remarks>
     private static bool IsDeclaredAroundTheLiteral(ISymbol symbol, LiteralExpressionSyntax literal, CancellationToken cancellationToken)
     {
@@ -111,7 +112,7 @@ public sealed class Sst1463NameofLiteralAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < references.Length; i++)
         {
             if (references[i].SyntaxTree == literal.SyntaxTree
-                && references[i].GetSyntax(cancellationToken).Span.Contains(literal.Span))
+                && references[i].GetSyntax(cancellationToken).Span.End > literal.SpanStart)
             {
                 return true;
             }

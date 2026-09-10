@@ -52,6 +52,29 @@ public class NameofLiteralAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a literal is left alone when a pattern later on the line declares that name.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>The designation comes after the literal, so naming it there is CS0841.</remarks>
+    [Test]
+    public async Task LiteralBeforeAPatternDeclaringThatNameIsCleanAsync()
+        => await VerifyNameofLiteral.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public string M()
+                {
+                    if (Find("summary") is not { } summary)
+                    {
+                        return "";
+                    }
+
+                    return summary.ToString();
+                }
+
+                private static object Find(string elementName) => elementName;
+            }
+            """);
+
     /// <summary>Verifies ordinary message strings are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

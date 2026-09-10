@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     PerformanceSharp.Analyzers.Psh1116AlternateLookupAnalyzer>;
@@ -12,6 +13,31 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1116AlternateLookupAnalyzer"/> (PSH1116 alternate lookups).</summary>
 public class AlternateLookupAnalyzerUnitTest
 {
+    /// <summary>Verifies the rule stays silent on .NET 8, which predates alternate lookups.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WithoutAlternateLookupIsCleanAsync()
+    {
+        var test = new Verify.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.Net80,
+            TestCode = """
+                       using System;
+                       using System.Collections.Generic;
+
+                       public class C
+                       {
+                           public bool M(Dictionary<string, int> map, ReadOnlySpan<char> name)
+                           {
+                               return map.ContainsKey(name.ToString());
+                           }
+                       }
+                       """,
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a span materialized with ToString for a dictionary probe is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

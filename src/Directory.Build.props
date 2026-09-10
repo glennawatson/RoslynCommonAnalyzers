@@ -58,6 +58,8 @@
     <!-- Contains rather than EndsWith: a slot's test sibling carries the slot suffix
          after the word, as in StyleSharp.Analyzers.Tests.Roslyn59. -->
     <IsTestProject>$(MSBuildProjectName.Contains('Tests'))</IsTestProject>
+
+    <AnalyzerTestTargets>net11.0</AnalyzerTestTargets>
   </PropertyGroup>
 
   <!--

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+    <TargetFrameworks>$(AnalyzerTestTargets)</TargetFrameworks>
     <RootNamespace>PerformanceSharp.Analyzers.Tests</RootNamespace>
 
     <!-- Run the analyzer tests against the newest Roslyn we target (5.9) so the test

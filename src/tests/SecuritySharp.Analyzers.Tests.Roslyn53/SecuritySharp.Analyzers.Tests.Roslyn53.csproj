@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- The same tests against this slot's analyzers. One TFM: the compiler varies here, not the runtime. -->
-    <TargetFramework>net11.0</TargetFramework>
+    <TargetFrameworks>$(AnalyzerTestTargets)</TargetFrameworks>
     <RootNamespace>SecuritySharp.Analyzers.Tests</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>

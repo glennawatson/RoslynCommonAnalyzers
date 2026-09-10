@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1114FreezeStaticLookupsAnalyzer,
@@ -20,6 +21,34 @@ public class FreezeStaticLookupsAnalyzerUnitTest
         [*.cs]
         dotnet_diagnostic.PSH1114.severity = warning
         """;
+
+    /// <summary>Verifies the rule stays silent on a framework with no frozen collections.</summary>
+    /// <param name="framework">The target framework being analyzed.</param>
+    /// <param name="assemblies">That framework's reference assemblies.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    [MethodDataSource(typeof(AnalyzerFrameworks), nameof(AnalyzerFrameworks.NetFrameworkOnly))]
+    public async Task WithoutFrozenCollectionsIsCleanAsync(string framework, ReferenceAssemblies assemblies)
+    {
+        var test = new Verify.Test
+        {
+            ReferenceAssemblies = assemblies,
+            TestCode = $$"""
+                         // analyzed as {{framework}}
+                         using System.Collections.Generic;
+
+                         public static class C
+                         {
+                             private static readonly Dictionary<string, int> Map = new Dictionary<string, int> { { "a", 1 } };
+
+                             public static int Read(string key) => Map[key];
+                         }
+                         """,
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Verifies a read-only static dictionary is flagged and frozen by the fix.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

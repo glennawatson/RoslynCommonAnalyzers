@@ -5,12 +5,7 @@
     <_SecuritySharpMinimumCompilerVersion>4.8</_SecuritySharpMinimumCompilerVersion>
   </PropertyGroup>
 
-  <!--
-    Narrow the shipped slots to one. Only the .NET SDK does this itself; a non-SDK project receives
-    every slot and loads the analyzer four times, reporting each diagnostic four times. Needs
-    $(CompilerApiVersion), which is set after .props evaluation, hence a target. Guards fail open to
-    the oldest slot.
-  -->
+  <!-- A non-SDK project gets every slot at once, so drop all but the one this compiler is served by. -->
   <Target Name="SecuritySharpSelectAnalyzerSlot"
           BeforeTargets="CoreCompile"
           Condition="'$(Language)' == 'C#'">
@@ -18,7 +13,7 @@
       <_SecuritySharpCompilerVersion Condition="'$(CompilerApiVersion)' != '' and $(CompilerApiVersion.StartsWith('roslyn'))">$(CompilerApiVersion.Substring(6))</_SecuritySharpCompilerVersion>
       <_SecuritySharpCompilerVersion Condition="'$(_SecuritySharpCompilerVersion)' == '' or !$(_SecuritySharpCompilerVersion.Contains('.'))">$(_SecuritySharpMinimumCompilerVersion)</_SecuritySharpCompilerVersion>
 
-      <!-- Assigned in ascending order, so the last condition that holds leaves the highest usable slot. -->
+      <!-- Ascending, so the last matching condition wins. -->
       <_SecuritySharpSlot>roslyn4.8</_SecuritySharpSlot>
       <_SecuritySharpSlot Condition="'$([System.Version]::Parse($(_SecuritySharpCompilerVersion)).CompareTo($([System.Version]::Parse('4.14'))))' &gt;= '0'">roslyn4.14</_SecuritySharpSlot>
       <_SecuritySharpSlot Condition="'$([System.Version]::Parse($(_SecuritySharpCompilerVersion)).CompareTo($([System.Version]::Parse('5.3'))))' &gt;= '0'">roslyn5.3</_SecuritySharpSlot>
@@ -34,11 +29,7 @@
       <Analyzer Remove="@(_SecuritySharpAnalyzer)" Condition="'%(_SecuritySharpAnalyzer._Slot)' != '$(_SecuritySharpSlot)'" />
     </ItemGroup>
 
-    <!--
-      Fail loudly on a compiler older than the oldest slot. NuGet asset selection drops a slot newer
-      than the host compiler without reporting anything, so such a consumer would otherwise install the
-      package, see no diagnostics at all, and have no hint as to why.
-    -->
+    <!-- NuGet drops a too-new slot silently, so say so rather than reporting nothing. -->
     <Error Condition="'$(CompilerApiVersion)' != ''
                       and $(CompilerApiVersion.StartsWith('roslyn'))
                       and $(_SecuritySharpCompilerVersion.Contains('.'))

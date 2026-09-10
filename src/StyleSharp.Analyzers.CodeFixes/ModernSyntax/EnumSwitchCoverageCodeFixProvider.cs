@@ -29,6 +29,17 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
 
         foreach (var diagnostic in context.Diagnostics)
         {
+            if (diagnostic.Properties.ContainsKey(Sst2242EnumSwitchStatementMappingAnalyzer.CatchAllProperty))
+            {
+                context.RegisterCodeFix(
+                    CodeAction.Create(
+                        "Add a catch-all section",
+                        _ => Task.FromResult(AddCatchAll(context.Document, root, diagnostic)),
+                        equivalenceKey: "CatchAll"),
+                    diagnostic);
+                continue;
+            }
+
             if (!diagnostic.Properties.ContainsKey(EnumSwitchCoverageAnalyzer.MissingMembersProperty))
             {
                 continue;
@@ -66,6 +77,26 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
             "SST2205" or "SST2242" => ApplySwitchStatement(document, root, diagnostic, encodedMembers),
             _ => document
         };
+    }
+
+    /// <summary>Adds a <c>default</c> section that states the switch handles the rest deliberately.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <returns>The updated document.</returns>
+    private static Document AddCatchAll(Document document, SyntaxNode root, Diagnostic diagnostic)
+    {
+        var switchStatement = FindAncestor<SwitchStatementSyntax>(root, diagnostic.Location.SourceSpan);
+        if (switchStatement is null)
+        {
+            return document;
+        }
+
+        var section = SyntaxFactory.SwitchSection(
+            SyntaxFactory.SingletonList<SwitchLabelSyntax>(SyntaxFactory.DefaultSwitchLabel()),
+            SyntaxFactory.SingletonList<StatementSyntax>(SyntaxFactory.BreakStatement()));
+        var updated = switchStatement.AddSections(section).WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
+        return document.WithSyntaxRoot(root.ReplaceNode(switchStatement, updated));
     }
 
     /// <summary>Adds switch statement sections for missing enum values.</summary>

@@ -12,6 +12,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2242EnumSwitchStatementMappingAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The diagnostic property marking a switch whose only worthwhile fix is a catch-all section.</summary>
+    internal const string CatchAllProperty = "CatchAll";
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.CompleteEnumSwitchStatementMapping);
 
@@ -35,6 +38,19 @@ public sealed class Sst2242EnumSwitchStatementMappingAnalyzer : DiagnosticAnalyz
             || context.SemanticModel.GetTypeInfo(switchStatement.Expression, context.CancellationToken).Type is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
             || CoversEveryEnumValue(enumType, switchStatement, context.SemanticModel, context.CancellationToken))
         {
+            return;
+        }
+
+        // An enum this assembly does not declare is not a mapping the author can complete: naming every
+        // value of a framework enum is hundreds of dead sections, so the catch-all the message offers as
+        // the alternative is the only fix worth writing there.
+        if (enumType.DeclaringSyntaxReferences.IsEmpty)
+        {
+            var catchAll = ImmutableDictionary<string, string?>.Empty.Add(CatchAllProperty, "true");
+            context.ReportDiagnostic(Diagnostic.Create(
+                ModernSyntaxRules.CompleteEnumSwitchStatementMapping,
+                switchStatement.SwitchKeyword.GetLocation(),
+                catchAll));
             return;
         }
 

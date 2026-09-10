@@ -83,6 +83,52 @@ public class EnumSwitchStatementMappingAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a switch over an enum this assembly does not declare gains a catch-all instead.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>Naming every value of a framework enum is hundreds of dead sections, not a fix.</remarks>
+    [Test]
+    public async Task ForeignEnumGainsACatchAllAsync()
+    {
+        var test = new VerifyEnumSwitchStatementMappingFix.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = """
+                       public sealed class C
+                       {
+                           public int M(System.DayOfWeek day)
+                           {
+                               {|SST2242:switch|} (day)
+                               {
+                                   case System.DayOfWeek.Monday:
+                                       return 1;
+                               }
+
+                               return 0;
+                           }
+                       }
+                       """,
+            FixedCode = """
+                        public sealed class C
+                        {
+                            public int M(System.DayOfWeek day)
+                            {
+                                switch (day)
+                                {
+                                    case System.DayOfWeek.Monday:
+                                        return 1;
+                                    default:
+                                        break;
+                                }
+
+                                return 0;
+                            }
+                        }
+                        """,
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies the fix writes a section for each enum value the switch omits.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

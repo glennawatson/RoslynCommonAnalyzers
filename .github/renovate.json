@@ -108,6 +108,12 @@
       "groupName": "release actions"
     },
     {
+      "description": "These publishers stay on tags. Listed after the groups so it overrides the digest pinning config:best-practices turns on.",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["actions/*", "github/*", "dotnet/*", "NuGet/*"],
+      "pinDigests": false
+    },
+    {
       "matchManagers": ["github-actions"],
       "matchDepTypes": ["github-runner"],
       "groupName": "runner images"

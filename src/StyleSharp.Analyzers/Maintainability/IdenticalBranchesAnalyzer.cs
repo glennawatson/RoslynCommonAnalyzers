@@ -256,14 +256,13 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
 
             for (var j = i + 1; j < sections.Count; j++)
             {
-                if (!HasDefaultOrGotoLabel(sections[j])
-                    && !BindsANameOrGuards(sections[j])
-                    && AreEquivalentStatements(sections[i].Statements, sections[j].Statements)
-                    && !ContainsGoto(switchStatement))
+                if (!CanMergeSections(switchStatement, sections, i, j))
                 {
-                    context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.DuplicateBranchImplementation, sections[j].Labels[0].GetLocation()));
-                    return;
+                    continue;
                 }
+
+                context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.DuplicateBranchImplementation, sections[j].Labels[0].GetLocation()));
+                return;
             }
         }
     }
@@ -348,6 +347,52 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
             if (descendant is SingleVariableDesignationSyntax)
             {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether two sections run the same body and could be written as one.</summary>
+    /// <param name="switchStatement">The switch statement.</param>
+    /// <param name="sections">The switch's sections.</param>
+    /// <param name="first">The earlier section's position.</param>
+    /// <param name="second">The later section's position.</param>
+    /// <returns><see langword="true"/> when merging them is legal and changes nothing.</returns>
+    private static bool CanMergeSections(SwitchStatementSyntax switchStatement, SyntaxList<SwitchSectionSyntax> sections, int first, int second)
+        => !HasDefaultOrGotoLabel(sections[second])
+            && !BindsANameOrGuards(sections[second])
+            && !MergeWouldReorderPatterns(sections, first, second)
+            && AreEquivalentStatements(sections[first].Statements, sections[second].Statements)
+            && !ContainsGoto(switchStatement);
+
+    /// <summary>Returns whether merging two sections would move a label past one it can subsume.</summary>
+    /// <param name="sections">The switch's sections.</param>
+    /// <param name="first">The earlier section's position.</param>
+    /// <param name="second">The later section's position.</param>
+    /// <returns><see langword="true"/> when the merge could change which label matches.</returns>
+    /// <remarks>
+    /// Merging stacks the later section's labels onto the earlier one, moving them up the switch. Constant
+    /// labels are mutually exclusive, so their order never matters. A pattern label can subsume another, and
+    /// lifting a broad one above a narrower label leaves that label unreachable, so a merge across a gap is
+    /// only offered when every label in the range is a constant.
+    /// </remarks>
+    private static bool MergeWouldReorderPatterns(SyntaxList<SwitchSectionSyntax> sections, int first, int second)
+    {
+        if (second == first + 1)
+        {
+            return false;
+        }
+
+        for (var i = first; i <= second; i++)
+        {
+            var labels = sections[i].Labels;
+            for (var j = 0; j < labels.Count; j++)
+            {
+                if (labels[j] is not CaseSwitchLabelSyntax)
+                {
+                    return true;
+                }
             }
         }
 

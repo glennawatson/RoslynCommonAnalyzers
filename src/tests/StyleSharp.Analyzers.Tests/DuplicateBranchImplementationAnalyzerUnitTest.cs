@@ -85,6 +85,43 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies non-adjacent sections with pattern labels are left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Merging stacks the later labels onto the earlier section, lifting them up the switch. A broad type
+    /// pattern moved above a narrower one leaves that one unreachable.
+    /// </remarks>
+    [Test]
+    public async Task NonAdjacentPatternSectionsAreCleanAsync()
+        => await VerifyBranches.VerifyAnalyzerAsync(
+            """
+            public class Animal
+            {
+            }
+
+            public sealed class Dog : Animal
+            {
+            }
+
+            public sealed class C
+            {
+                public string M(object value)
+                {
+                    switch (value)
+                    {
+                        case string:
+                            return "none";
+                        case Dog:
+                            return "dog";
+                        case Animal:
+                            return "none";
+                    }
+
+                    return "other";
+                }
+            }
+            """);
+
     /// <summary>Verifies sections whose labels declare a name are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

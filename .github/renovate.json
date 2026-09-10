@@ -67,10 +67,11 @@
       "labels": ["dependencies", "build-gate"]
     },
     {
-      "description": "StyleCop has never shipped a stable 1.2.0.",
+      "description": "StyleCop has never shipped a stable 1.2.0, and 1.2.0-beta.556 has been the newest release since December 2023. Take prereleases and stop flagging the age, since there is nothing to move to.",
       "matchManagers": ["nuget"],
       "matchPackageNames": ["/^StyleCop\\.Analyzers$/"],
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "abandonmentThreshold": null
     },
     {
       "description": "MinVer decides the shipped version.",

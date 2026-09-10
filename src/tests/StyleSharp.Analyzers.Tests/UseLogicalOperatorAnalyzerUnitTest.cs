@@ -226,6 +226,31 @@ public class UseLogicalOperatorAnalyzerUnitTest
         await VerifyUseLogicalOperator.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a conditional whose other branch is nullable is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks><c>&amp;&amp;</c> takes two <c>bool</c> operands, so folding a <c>bool?</c> branch stops compiling.</remarks>
+    [Test]
+    public async Task NullableBranchIsCleanAsync()
+        => await VerifyUseLogicalOperator.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                public bool? M(bool a, bool? b) => a ? false : b;
+            }
+            """);
+
+    /// <summary>Verifies a conditional whose other branch is a null literal is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NullBranchIsCleanAsync()
+        => await VerifyUseLogicalOperator.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                public bool? M(bool a) => a ? false : null;
+            }
+            """);
+
     /// <summary>Verifies negating a pattern test flips the pattern rather than wrapping it in <c>!</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>A <c>!(x is T)</c> rewrite would immediately draw SST2008.</remarks>

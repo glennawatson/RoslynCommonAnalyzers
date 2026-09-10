@@ -9,8 +9,8 @@ namespace StyleSharp.Analyzers;
 /// <c>a ? b : false</c> is <c>a &amp;&amp; b</c>, and <c>a ? true : b</c> is <c>a || b</c>.
 /// </summary>
 /// <remarks>
-/// The whole match is syntactic and the rewrite text is only built once a branch is known to be a literal,
-/// so a conditional that is not this shape costs one pattern match.
+/// The shape match is syntactic, so a conditional that is not this shape costs one pattern match. Only once a
+/// branch is known to be a literal is the other branch bound and the rewrite text built.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2288UseLogicalOperatorAnalyzer : DiagnosticAnalyzer
@@ -89,6 +89,13 @@ public sealed class Sst2288UseLogicalOperatorAnalyzer : DiagnosticAnalyzer
     {
         var conditional = (ConditionalExpressionSyntax)context.Node;
         if (!TryClassify(conditional, out var negate, out var conjunction, out var other))
+        {
+            return;
+        }
+
+        // '&&' and '||' take two bool operands. The branch opposite the literal can be 'bool?' or 'null' and
+        // still make a legal conditional, and the folded operator would then have nothing to apply.
+        if (context.SemanticModel.GetTypeInfo(other, context.CancellationToken).Type is not { SpecialType: SpecialType.System_Boolean })
         {
             return;
         }

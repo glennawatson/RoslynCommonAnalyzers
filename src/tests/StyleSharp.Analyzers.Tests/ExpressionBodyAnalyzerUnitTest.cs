@@ -15,6 +15,33 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class ExpressionBodyAnalyzerUnitTest
 {
+    /// <summary>Verifies a body stays a block when folding it up would overrun the line (SST2275).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>The signature is already long; joining the two lines only moves the problem to SST1521.</remarks>
+    [Test]
+    public async Task BodyThatWouldOverrunTheLineIsCleanAsync()
+    {
+        var test = new Verify.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private static int LongEnoughToPushTheJoinedLinePastTheMaximum(int first, int second)
+                           {
+                               return first + second;
+                           }
+                       }
+                       """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.max_line_length = 60
+
+            """));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a body split across preprocessor branches stays a block (SST2275).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

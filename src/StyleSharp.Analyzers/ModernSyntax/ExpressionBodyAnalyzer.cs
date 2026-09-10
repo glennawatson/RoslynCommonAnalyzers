@@ -14,6 +14,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The characters the arrow adds between the signature and the expression.</summary>
+    private const int ArrowWidth = 4;
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         ModernSyntaxRules.UseExpressionBodyForMethod,
@@ -130,6 +133,34 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
     internal static bool AccessorListCollapsesToExpressionBody(AccessorListSyntax? accessorList)
         => TryGetSoleGetAccessorExpression(accessorList, out _);
 
+    /// <summary>Returns whether folding the body onto the signature would push that line past the maximum.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="body">The block body or accessor list the arrow would replace.</param>
+    /// <param name="expression">The expression the body collapses to.</param>
+    /// <returns><see langword="true"/> when the joined line would exceed the configured maximum.</returns>
+    /// <remarks>
+    /// The body sits under a signature that is already as long as it is. Folding it up joins the two, and a
+    /// line over the limit is what SST1521 reports — so the tidier body would buy a longer line.
+    /// </remarks>
+    private static bool WouldOverrunTheLine(SyntaxNodeAnalysisContext context, SyntaxNode body, ExpressionSyntax expression)
+    {
+        var tree = body.SyntaxTree;
+        var text = tree.GetText(context.CancellationToken);
+        var signatureEnd = body.GetFirstToken().GetPreviousToken().Span.End;
+        var line = text.Lines.GetLineFromPosition(signatureEnd);
+        var signature = text.ToString(Microsoft.CodeAnalysis.Text.TextSpan.FromBounds(line.Start, signatureEnd)).TrimEnd();
+
+        // Only the expression's first line lands on the joined line; the rest keeps wrapping as it does now,
+        // and a single-line expression also carries the semicolon.
+        var expressionText = expression.ToString();
+        var firstBreak = expressionText.IndexOf('\n');
+        var head = firstBreak < 0 ? expressionText : expressionText.Substring(0, firstBreak).TrimEnd();
+        var terminator = firstBreak < 0 ? 1 : 0;
+
+        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree);
+        return signature.Length + ArrowWidth + head.Length + terminator > SizeLimitOptions.ReadMaxLineLength(options);
+    }
+
     /// <summary>Reports a single-statement method that can use an expression body.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeMethod(SyntaxNodeAnalysisContext context)
@@ -140,7 +171,7 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
         }
 
         var method = (MethodDeclarationSyntax)context.Node;
-        if (!TryGetMethodExpression(method, out _))
+        if (!TryGetMethodExpression(method, out var expression) || WouldOverrunTheLine(context, method.Body!, expression))
         {
             return;
         }
@@ -158,7 +189,7 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
         }
 
         var constructor = (ConstructorDeclarationSyntax)context.Node;
-        if (!TryGetConstructorExpression(constructor, out _))
+        if (!TryGetConstructorExpression(constructor, out var expression) || WouldOverrunTheLine(context, constructor.Body!, expression))
         {
             return;
         }
@@ -176,7 +207,7 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
         }
 
         var operatorDeclaration = (OperatorDeclarationSyntax)context.Node;
-        if (!TryGetOperatorExpression(operatorDeclaration, out _))
+        if (!TryGetOperatorExpression(operatorDeclaration, out var expression) || WouldOverrunTheLine(context, operatorDeclaration.Body!, expression))
         {
             return;
         }
@@ -194,7 +225,7 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
         }
 
         var conversion = (ConversionOperatorDeclarationSyntax)context.Node;
-        if (!TryGetConversionOperatorExpression(conversion, out _))
+        if (!TryGetConversionOperatorExpression(conversion, out var expression) || WouldOverrunTheLine(context, conversion.Body!, expression))
         {
             return;
         }
@@ -212,7 +243,7 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
         }
 
         var property = (PropertyDeclarationSyntax)context.Node;
-        if (!TryGetPropertyExpression(property, out _))
+        if (!TryGetPropertyExpression(property, out var expression) || WouldOverrunTheLine(context, property.AccessorList!, expression))
         {
             return;
         }
@@ -230,7 +261,7 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
         }
 
         var indexer = (IndexerDeclarationSyntax)context.Node;
-        if (!TryGetIndexerExpression(indexer, out _))
+        if (!TryGetIndexerExpression(indexer, out var expression) || WouldOverrunTheLine(context, indexer.AccessorList!, expression))
         {
             return;
         }
@@ -248,7 +279,7 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
         }
 
         var localFunction = (LocalFunctionStatementSyntax)context.Node;
-        if (!TryGetLocalFunctionExpression(localFunction, out _))
+        if (!TryGetLocalFunctionExpression(localFunction, out var expression) || WouldOverrunTheLine(context, localFunction.Body!, expression))
         {
             return;
         }

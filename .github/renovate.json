@@ -8,6 +8,7 @@
     "group:nugetMonorepo",
     "security:openssf-scorecard"
   ],
+  "mode": "full",
   "timezone": "Australia/Melbourne",
   "prConcurrentLimit": 10,
   "prHourlyLimit": 10,

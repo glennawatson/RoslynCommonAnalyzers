@@ -85,6 +85,37 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies two switch-expression arms with the same value are joined with an or pattern.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DuplicateArmIsJoinedAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public string M(int x) => x switch
+                                  {
+                                      1 => "a",
+                                      2 => "b",
+                                      {|SST2414:3|} => "a",
+                                      _ => "z",
+                                  };
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public string M(int x) => x switch
+                                       {
+                                           1 or 3 => "a",
+                                           2 => "b",
+                                           _ => "z",
+                                       };
+                                   }
+                                   """;
+        await VerifyFix.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies two if-chain branches with the same multi-statement body are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

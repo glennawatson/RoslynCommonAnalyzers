@@ -12,9 +12,9 @@ namespace StyleSharp.Analyzers;
 /// position, and the analyzer has already excluded any switch a <c>goto case</c> could jump into.
 /// </summary>
 /// <remarks>
-/// A fix is offered only for the <c>switch</c>-statement shape, where stacking labels is valid on every
-/// language version. The duplicated <c>if</c>-chain and <c>switch</c>-expression shapes are reported without
-/// a fix, because merging them safely depends on the conditions being side-effect-free.
+/// A <c>switch</c> expression joins its two arms with an <c>or</c> pattern instead, which is equally safe:
+/// a pattern evaluates nothing, so the order of every test survives. The duplicated <c>if</c>-chain shape is
+/// reported without a fix, because merging conditions safely depends on them being side-effect-free.
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2414DuplicateBranchImplementationCodeFixProvider))]
 [Shared]
@@ -44,7 +44,13 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
     /// <returns>The nodes to swap, or <see langword="null"/> when the reported shape no longer matches.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<SwitchSectionSyntax>() is not { Parent: SwitchStatementSyntax switchStatement } duplicate)
+        var reported = root.FindNode(diagnostic.Location.SourceSpan);
+        if (reported?.FirstAncestorOrSelf<SwitchExpressionArmSyntax>() is { Parent: SwitchExpressionSyntax switchExpression } arm)
+        {
+            return TryMergeArms(switchExpression, arm);
+        }
+
+        if (reported?.FirstAncestorOrSelf<SwitchSectionSyntax>() is not { Parent: SwitchStatementSyntax switchStatement } duplicate)
         {
             return null;
         }
@@ -58,6 +64,45 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
         }
 
         return new NodeReplacement(switchStatement, Merge(switchStatement, partnerIndex, duplicateIndex));
+    }
+
+    /// <summary>Joins a duplicated switch-expression arm into the earlier arm that produces the same value.</summary>
+    /// <param name="switchExpression">The switch expression.</param>
+    /// <param name="duplicate">The reported arm.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the arms cannot be joined.</returns>
+    /// <remarks>
+    /// A pattern evaluates nothing, so joining two arms with <c>or</c> keeps the order of every test. A
+    /// <c>when</c> clause does run code, and two arms guarded by different clauses do not describe one case,
+    /// so neither arm may carry one.
+    /// </remarks>
+    private static NodeReplacement? TryMergeArms(SwitchExpressionSyntax switchExpression, SwitchExpressionArmSyntax duplicate)
+    {
+        var arms = switchExpression.Arms;
+        var duplicateIndex = arms.IndexOf(duplicate);
+        if (duplicateIndex <= 0 || duplicate.WhenClause is not null)
+        {
+            return null;
+        }
+
+        for (var i = 0; i < duplicateIndex; i++)
+        {
+            var partner = arms[i];
+            if (partner.WhenClause is not null || !SyntaxFactory.AreEquivalent(partner.Expression, duplicate.Expression, topLevel: false))
+            {
+                continue;
+            }
+
+            var joined = SyntaxFactory.BinaryPattern(
+                SyntaxKind.OrPattern,
+                partner.Pattern.WithoutTrivia(),
+                duplicate.Pattern.WithoutTrivia());
+            var merged = partner
+                .WithPattern(joined.WithTriviaFrom(partner.Pattern))
+                .WithAdditionalAnnotations(Formatter.Annotation);
+            return new NodeReplacement(switchExpression, switchExpression.WithArms(arms.Replace(partner, merged).RemoveAt(duplicateIndex)));
+        }
+
+        return null;
     }
 
     /// <summary>Finds the earlier section whose body matches the duplicate's.</summary>

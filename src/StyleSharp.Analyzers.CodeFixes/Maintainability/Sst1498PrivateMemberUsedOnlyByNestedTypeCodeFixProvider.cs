@@ -25,10 +25,10 @@ namespace StyleSharp.Analyzers;
 /// </para>
 /// <list type="bullet">
 /// <item><description>
-/// A <c>static</c> method. An instance member's state belongs to an instance of the outer type, and the
-/// nested type has no implicit access to one — moving it would mean deciding whose state it now is, which is
-/// a design question. A field's move would also change <em>when</em> its initializer runs, because static
-/// initialization is per type.
+/// A <c>static</c> method or a <c>const</c> field. An instance member's state belongs to an instance of the
+/// outer type, and the nested type has no implicit access to one — moving it would mean deciding whose state
+/// it now is, which is a design question. A <em>static</em> field's move would also change <em>when</em> its
+/// initializer runs, because static initialization is per type; a constant has no such moment.
 /// </description></item>
 /// <item><description>
 /// Every nested use written unqualified. A call spelled <c>Outer.Helper()</c> names the type the method is
@@ -78,7 +78,7 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
 
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    "Move the method into the nested type",
+                    "Move the member into the nested type",
                     _ => Task.FromResult(Apply(context.Document, root, move)),
                     equivalenceKey: nameof(Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider)),
                 diagnostic);
@@ -94,8 +94,8 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
             return;
         }
 
-        var moved = ForNestedType(move.Method, move.NestedType);
-        editor.RemoveNode(move.Method);
+        var moved = ForNestedType(move.Member, move.NestedType);
+        editor.RemoveNode(move.Member);
         editor.ReplaceNode(move.NestedType, (current, _) => Append(current, moved));
 
         if (ClosesTheGap(move) is { } follower)
@@ -120,7 +120,7 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
         for (var i = 0; i < original.Count; i++)
         {
             var member = original[i];
-            if (member == move.Method)
+            if (member == move.Member)
             {
                 continue;
             }
@@ -130,7 +130,7 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
             var closesTheGap = member == follower;
             if (member == move.NestedType)
             {
-                member = (MemberDeclarationSyntax)Append(move.NestedType, ForNestedType(move.Method, move.NestedType));
+                member = (MemberDeclarationSyntax)Append(move.NestedType, ForNestedType(move.Member, move.NestedType));
             }
 
             members.Add(closesTheGap ? WithoutLeadingBlankLine(member) : member);
@@ -152,7 +152,7 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
     private static MemberDeclarationSyntax? ClosesTheGap(MemberMove move)
     {
         var members = move.OuterType.Members;
-        return members.Count > 1 && members[0] == move.Method ? members[1] : null;
+        return members.Count > 1 && members[0] == move.Member ? members[1] : null;
     }
 
     /// <summary>Drops the blank line a member carries above it, keeping any comment it also carries.</summary>
@@ -180,24 +180,24 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
 
     /// <summary>Appends the moved method to a nested type's members.</summary>
     /// <param name="node">The current nested type, including any nested batch edits.</param>
-    /// <param name="method">The method to append.</param>
-    /// <returns>The nested type with the method added.</returns>
-    private static SyntaxNode Append(SyntaxNode node, MethodDeclarationSyntax method)
-        => node is TypeDeclarationSyntax type ? type.WithMembers(type.Members.Add(method)) : node;
+    /// <param name="member">The member to append.</param>
+    /// <returns>The nested type with the member added.</returns>
+    private static SyntaxNode Append(SyntaxNode node, MemberDeclarationSyntax member)
+        => node is TypeDeclarationSyntax type ? type.WithMembers(type.Members.Add(member)) : node;
 
-    /// <summary>Prepares the method for its new home, one level deeper in the file.</summary>
-    /// <param name="method">The method being moved.</param>
+    /// <summary>Prepares the member for its new home, one level deeper in the file.</summary>
+    /// <param name="member">The member being moved.</param>
     /// <param name="nested">The nested type it is moving into.</param>
-    /// <returns>The method, separated from what it now follows and marked for the formatter to re-indent.</returns>
+    /// <returns>The member, separated from what it now follows and marked for the formatter to re-indent.</returns>
     /// <remarks>
-    /// The whitespace the method carried is dropped and one elastic newline put in its place: elastic trivia
+    /// The whitespace the member carried is dropped and one elastic newline put in its place: elastic trivia
     /// is what the formatter is allowed to rewrite, so the blank line comes out in the file's own line ending
-    /// and the method — with its documentation comment — is re-indented for the type it now sits in. Anything
+    /// and the member — with its documentation comment — is re-indented for the type it now sits in. Anything
     /// that is not whitespace is kept exactly as written.
     /// </remarks>
-    private static MethodDeclarationSyntax ForNestedType(MethodDeclarationSyntax method, TypeDeclarationSyntax nested)
+    private static MemberDeclarationSyntax ForNestedType(MemberDeclarationSyntax member, TypeDeclarationSyntax nested)
     {
-        var leading = method.GetLeadingTrivia();
+        var leading = member.GetLeadingTrivia();
         var start = 0;
         while (start < leading.Count && IsLayout(leading[start]))
         {
@@ -209,7 +209,7 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
             ? kept
             : SyntaxFactory.TriviaList(SyntaxFactory.ElasticCarriageReturnLineFeed).AddRange(kept);
 
-        return method.WithLeadingTrivia(separated).WithAdditionalAnnotations(Formatter.Annotation);
+        return member.WithLeadingTrivia(separated).WithAdditionalAnnotations(Formatter.Annotation);
     }
 
     /// <summary>Returns whether a trivia is only layout — whitespace or a line break.</summary>
@@ -245,9 +245,9 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
         Diagnostic diagnostic,
         CancellationToken cancellationToken)
     {
-        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not MethodDeclarationSyntax method
-            || !ModifierListHelper.Contains(method.Modifiers, SyntaxKind.StaticKeyword)
-            || method.Parent is not TypeDeclarationSyntax outer
+        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } candidate
+            || MovableName(candidate) is not { } name
+            || candidate.Parent is not TypeDeclarationSyntax outer
             || outer.ContainsDirectives)
         {
             return null;
@@ -259,27 +259,42 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
             return null;
         }
 
-        return FindMember(reported, method) is { NestedUsesAreUnqualified: true, NestedUser: TypeDeclarationSyntax nested }
-            && CanHost(model, nested, outer, method, cancellationToken)
-                ? new MemberMove(outer, nested, method)
+        return FindMember(reported, candidate) is { NestedUsesAreUnqualified: true, NestedUser: TypeDeclarationSyntax nested }
+            && CanHost(model, nested, outer, name, cancellationToken)
+                ? new MemberMove(outer, nested, candidate)
                 : null;
     }
+
+    /// <summary>Gets the name a member declares, when the member is one this fix relocates.</summary>
+    /// <param name="member">The declaration the diagnostic named.</param>
+    /// <returns>The declared name, or <see langword="null"/> for a member left to a human.</returns>
+    /// <remarks>
+    /// A <c>const</c> is taken one variable at a time: moving one name out of a multi-variable declaration
+    /// would mean splitting the declaration, which is an edit of its own.
+    /// </remarks>
+    private static string? MovableName(MemberDeclarationSyntax member) => member switch
+    {
+        MethodDeclarationSyntax method when ModifierListHelper.Contains(method.Modifiers, SyntaxKind.StaticKeyword)
+            => method.Identifier.ValueText,
+        FieldDeclarationSyntax { Declaration.Variables.Count: 1 } field when ModifierListHelper.Contains(field.Modifiers, SyntaxKind.ConstKeyword)
+            => field.Declaration.Variables[0].Identifier.ValueText,
+        _ => null,
+    };
 
     /// <summary>Returns whether the nested type can host the method without changing what any name means.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="nested">The nested type the method would move into.</param>
     /// <param name="outer">The type the method would leave.</param>
-    /// <param name="method">The method being moved.</param>
+    /// <param name="name">The name the member declares.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the move is a pure relocation.</returns>
     private static bool CanHost(
         SemanticModel model,
         TypeDeclarationSyntax nested,
         TypeDeclarationSyntax outer,
-        MethodDeclarationSyntax method,
+        string name,
         CancellationToken cancellationToken)
     {
-        var name = method.Identifier.ValueText;
         return nested is not InterfaceDeclarationSyntax
             && !ModifierListHelper.Contains(nested.Modifiers, SyntaxKind.PartialKeyword)
             && CountMembersNamed(outer, name) == 1
@@ -303,13 +318,13 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
 
     /// <summary>Finds the reported member that matches one declaration.</summary>
     /// <param name="reported">The members the rule reported in this type.</param>
-    /// <param name="method">The declaration the diagnostic named.</param>
+    /// <param name="member">The declaration the diagnostic named.</param>
     /// <returns>The reported member, or <see langword="null"/> when the code has since changed.</returns>
-    private static NestedTypeOnlyMember? FindMember(List<NestedTypeOnlyMember> reported, MethodDeclarationSyntax method)
+    private static NestedTypeOnlyMember? FindMember(List<NestedTypeOnlyMember> reported, MemberDeclarationSyntax member)
     {
         for (var i = 0; i < reported.Count; i++)
         {
-            if (reported[i].Declaration == method)
+            if (reported[i].Declaration == member)
             {
                 return reported[i];
             }
@@ -380,27 +395,27 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
         }
     }
 
-    /// <summary>One method, the type it leaves, and the nested type it moves into.</summary>
+    /// <summary>One member, the type it leaves, and the nested type it moves into.</summary>
     private sealed class MemberMove
     {
         /// <summary>Initializes a new instance of the <see cref="MemberMove"/> class.</summary>
-        /// <param name="outerType">The type the method leaves.</param>
-        /// <param name="nestedType">The nested type the method moves into.</param>
-        /// <param name="method">The method being moved.</param>
-        public MemberMove(TypeDeclarationSyntax outerType, TypeDeclarationSyntax nestedType, MethodDeclarationSyntax method)
+        /// <param name="outerType">The type the member leaves.</param>
+        /// <param name="nestedType">The nested type the member moves into.</param>
+        /// <param name="member">The member being moved.</param>
+        public MemberMove(TypeDeclarationSyntax outerType, TypeDeclarationSyntax nestedType, MemberDeclarationSyntax member)
         {
             OuterType = outerType;
             NestedType = nestedType;
-            Method = method;
+            Member = member;
         }
 
-        /// <summary>Gets the type the method leaves.</summary>
+        /// <summary>Gets the type the member leaves.</summary>
         public TypeDeclarationSyntax OuterType { get; }
 
-        /// <summary>Gets the nested type the method moves into.</summary>
+        /// <summary>Gets the nested type the member moves into.</summary>
         public TypeDeclarationSyntax NestedType { get; }
 
-        /// <summary>Gets the method being moved.</summary>
-        public MethodDeclarationSyntax Method { get; }
+        /// <summary>Gets the member being moved.</summary>
+        public MemberDeclarationSyntax Member { get; }
     }
 }

@@ -423,4 +423,35 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies a constant only the nested type reads moves in with it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>A constant has no initialization moment to move, so relocating it changes nothing.</remarks>
+    [Test]
+    public async Task ConstantUsedOnlyByNestedTypeIsMovedAsync()
+    {
+        const string Source = """
+                              public sealed class Parser
+                              {
+                                  private const string {|SST1498:Marker|} = "m";
+
+                                  public sealed class Cursor
+                                  {
+                                      public bool Matches(string value) => value == Marker;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class Parser
+                                   {
+                                       public sealed class Cursor
+                                       {
+                                           public bool Matches(string value) => value == Marker;
+
+                                           private const string Marker = "m";
+                                       }
+                                   }
+                                   """;
+        await VerifyNestedOnly.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

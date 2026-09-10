@@ -13,7 +13,6 @@
   "prConcurrentLimit": 10,
   "prHourlyLimit": 10,
   "labels": ["dependencies"],
-  "minimumReleaseAge": "1 day",
   "recreateWhen": "auto",
   "semanticCommits": "enabled",
   "semanticCommitType": "build",
@@ -21,7 +20,6 @@
   "commitMessageAction": "bump",
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
-    "minimumReleaseAge": null,
     "schedule": ["at any time"],
     "labels": ["dependencies", "security"]
   },
@@ -66,7 +64,6 @@
         "/^SonarAnalyzer(\\.|$)/"
       ],
       "groupName": null,
-      "minimumReleaseAge": "3 days",
       "labels": ["dependencies", "build-gate"]
     },
     {
@@ -81,12 +78,6 @@
       "matchPackageNames": ["/^MinVer$/"],
       "matchUpdateTypes": ["major"],
       "dependencyDashboardApproval": true
-    },
-    {
-      "description": "Benchmarks do not ship and cannot reach a consumer.",
-      "matchManagers": ["nuget"],
-      "matchPackageNames": ["/^BenchmarkDotNet(\\.|$)/"],
-      "minimumReleaseAge": "0 days"
     },
     {
       "description": "Still a release candidate, so unstable versions are the only ones on offer.",

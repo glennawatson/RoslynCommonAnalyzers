@@ -165,14 +165,41 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SST1803 when a record struct is not declared readonly.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="record">The record struct declaration.</param>
+    /// <remarks>
+    /// A settable property or a writable field makes <c>readonly</c> a compiler error (CS8341, CS8340), so
+    /// a struct carrying either is a deliberately mutable value and is left alone.
+    /// </remarks>
     private static void CheckReadonlyStruct(SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
     {
-        if (ModifierListHelper.Contains(record.Modifiers, SyntaxKind.ReadOnlyKeyword))
+        if (ModifierListHelper.Contains(record.Modifiers, SyntaxKind.ReadOnlyKeyword) || HasWritableInstanceMember(record))
         {
             return;
         }
 
         context.ReportDiagnostic(DiagnosticHelper.Create(RecordRules.ReadonlyRecordStruct, record.SyntaxTree, record.Identifier.Span, record.Identifier.ValueText));
+    }
+
+    /// <summary>Returns whether a declaration carries an instance member that a readonly struct forbids.</summary>
+    /// <param name="record">The record struct declaration.</param>
+    /// <returns><see langword="true"/> for a settable property or a field that is not readonly.</returns>
+    private static bool HasWritableInstanceMember(RecordDeclarationSyntax record)
+    {
+        for (var i = 0; i < record.Members.Count; i++)
+        {
+            switch (record.Members[i])
+            {
+                case PropertyDeclarationSyntax { AccessorList: { } accessorList } property
+                    when !ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword)
+                         && accessorList.Accessors.Any(SyntaxKind.SetAccessorDeclaration):
+                case FieldDeclarationSyntax field
+                    when !ModifierListHelper.Contains(field.Modifiers, SyntaxKind.StaticKeyword)
+                         && !ModifierListHelper.Contains(field.Modifiers, SyntaxKind.ConstKeyword)
+                         && !ModifierListHelper.Contains(field.Modifiers, SyntaxKind.ReadOnlyKeyword):
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reports SST1800 when a record class is neither sealed nor abstract.</summary>
@@ -223,6 +250,13 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <param name="record">The record declaration.</param>
     private static void CheckProperties(SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
     {
+        // A record struct that is not readonly is a mutable value, and callers write its properties
+        // after construction; 'init' would stop every one of those writes compiling (CS8852).
+        if (record.IsKind(SyntaxKind.RecordStructDeclaration) && !ModifierListHelper.Contains(record.Modifiers, SyntaxKind.ReadOnlyKeyword))
+        {
+            return;
+        }
+
         for (var i = 0; i < record.Members.Count; i++)
         {
             if (record.Members[i] is not PropertyDeclarationSyntax { AccessorList: { } accessorList } property

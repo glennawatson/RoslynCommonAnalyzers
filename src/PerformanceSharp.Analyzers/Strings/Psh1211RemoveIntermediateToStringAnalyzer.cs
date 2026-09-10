@@ -22,6 +22,9 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <summary>The metadata name of the builder type whose appends PSH1203 already covers.</summary>
     private const string StringBuilderMetadataName = "System.Text.StringBuilder";
 
+    /// <summary>The metadata name of the handler that lets a hole format a value without boxing it.</summary>
+    private const string InterpolatedStringHandlerMetadataName = "System.Runtime.CompilerServices.DefaultInterpolatedStringHandler";
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.RemoveIntermediateToString);
 
@@ -37,7 +40,10 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
         context.RegisterCompilationStartAction(start =>
         {
             var builderType = start.Compilation.GetTypeByMetadataName(StringBuilderMetadataName);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, builderType), SyntaxKind.InvocationExpression);
+            var hasInterpolationHandler = start.Compilation.GetTypeByMetadataName(InterpolatedStringHandlerMetadataName) is not null;
+            start.RegisterSyntaxNodeAction(
+                nodeContext => AnalyzeInvocation(nodeContext, builderType, hasInterpolationHandler),
+                SyntaxKind.InvocationExpression);
         });
     }
 
@@ -52,7 +58,8 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <summary>Reports PSH1211 for a ToString result feeding a value-capable consumer.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="builderType">The StringBuilder type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol? builderType)
+    /// <param name="hasInterpolationHandler">Whether the framework can format a ref struct in a hole.</param>
+    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol? builderType, bool hasInterpolationHandler)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsBareToStringShape(invocation))
@@ -62,7 +69,8 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
 
         var report = invocation.Parent switch
         {
-            InterpolationSyntax interpolation => IsPlainStringInterpolation(context, interpolation),
+            InterpolationSyntax interpolation => IsPlainStringInterpolation(context, interpolation)
+                                                 && CanFormatReceiverDirectly(context, invocation, hasInterpolationHandler),
             ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax outer } argument
                 => HasDirectOverload(context, invocation, argument, outer, builderType),
             _ => false,
@@ -93,6 +101,25 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
 
         var typeInfo = context.SemanticModel.GetTypeInfo(interpolated, context.CancellationToken);
         return typeInfo.ConvertedType?.SpecialType == SpecialType.System_String;
+    }
+
+    /// <summary>Returns whether an interpolation hole can hold the receiver without its ToString call.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="invocation">The ToString invocation.</param>
+    /// <param name="hasInterpolationHandler">Whether the framework can format a ref struct in a hole.</param>
+    /// <returns><see langword="true"/> when dropping the call still compiles.</returns>
+    /// <remarks>
+    /// Without the handler an interpolated string formats through <c>object</c>, which a ref struct has no
+    /// conversion to, so the receiver's own <c>ToString</c> is the only way to reach the hole.
+    /// </remarks>
+    private static bool CanFormatReceiverDirectly(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, bool hasInterpolationHandler)
+    {
+        if (hasInterpolationHandler || invocation.Expression is not MemberAccessExpressionSyntax access)
+        {
+            return true;
+        }
+
+        return context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type is not { IsRefLikeType: true };
     }
 
     /// <summary>Returns whether the outer call's method group has an overload taking the value directly.</summary>

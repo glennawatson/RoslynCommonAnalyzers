@@ -15,9 +15,9 @@
 
       <!-- Ascending, so the last matching condition wins. -->
       <_SecuritySharpSlot>roslyn4.8</_SecuritySharpSlot>
-      <_SecuritySharpSlot Condition="'$([System.Version]::Parse($(_SecuritySharpCompilerVersion)).CompareTo($([System.Version]::Parse('4.14'))))' &gt;= '0'">roslyn4.14</_SecuritySharpSlot>
-      <_SecuritySharpSlot Condition="'$([System.Version]::Parse($(_SecuritySharpCompilerVersion)).CompareTo($([System.Version]::Parse('5.3'))))' &gt;= '0'">roslyn5.3</_SecuritySharpSlot>
-      <_SecuritySharpSlot Condition="'$([System.Version]::Parse($(_SecuritySharpCompilerVersion)).CompareTo($([System.Version]::Parse('5.9'))))' &gt;= '0'">roslyn5.9</_SecuritySharpSlot>
+      <_SecuritySharpSlot Condition="$([MSBuild]::VersionGreaterThanOrEquals($(_SecuritySharpCompilerVersion), '4.14'))">roslyn4.14</_SecuritySharpSlot>
+      <_SecuritySharpSlot Condition="$([MSBuild]::VersionGreaterThanOrEquals($(_SecuritySharpCompilerVersion), '5.3'))">roslyn5.3</_SecuritySharpSlot>
+      <_SecuritySharpSlot Condition="$([MSBuild]::VersionGreaterThanOrEquals($(_SecuritySharpCompilerVersion), '5.9'))">roslyn5.9</_SecuritySharpSlot>
     </PropertyGroup>
 
     <ItemGroup>
@@ -33,7 +33,7 @@
     <Error Condition="'$(CompilerApiVersion)' != ''
                       and $(CompilerApiVersion.StartsWith('roslyn'))
                       and $(_SecuritySharpCompilerVersion.Contains('.'))
-                      and '$([System.Version]::Parse($(_SecuritySharpMinimumCompilerVersion)).CompareTo($([System.Version]::Parse($(_SecuritySharpCompilerVersion)))))' &gt; '0'"
+                      and $([MSBuild]::VersionLessThan($(_SecuritySharpCompilerVersion), $(_SecuritySharpMinimumCompilerVersion)))"
            Code="SECSHARP100"
            Text="SecuritySharp.Analyzers requires Roslyn $(_SecuritySharpMinimumCompilerVersion) or later (Visual Studio 2022 17.8+, or .NET SDK 8.0.100+), but this project is building with Roslyn $(_SecuritySharpCompilerVersion). Upgrade the build tools to get these diagnostics." />
   </Target>

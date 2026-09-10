@@ -15,9 +15,9 @@
 
       <!-- Ascending, so the last matching condition wins. -->
       <_StyleSharpSlot>roslyn4.8</_StyleSharpSlot>
-      <_StyleSharpSlot Condition="'$([System.Version]::Parse($(_StyleSharpCompilerVersion)).CompareTo($([System.Version]::Parse('4.14'))))' &gt;= '0'">roslyn4.14</_StyleSharpSlot>
-      <_StyleSharpSlot Condition="'$([System.Version]::Parse($(_StyleSharpCompilerVersion)).CompareTo($([System.Version]::Parse('5.3'))))' &gt;= '0'">roslyn5.3</_StyleSharpSlot>
-      <_StyleSharpSlot Condition="'$([System.Version]::Parse($(_StyleSharpCompilerVersion)).CompareTo($([System.Version]::Parse('5.9'))))' &gt;= '0'">roslyn5.9</_StyleSharpSlot>
+      <_StyleSharpSlot Condition="$([MSBuild]::VersionGreaterThanOrEquals($(_StyleSharpCompilerVersion), '4.14'))">roslyn4.14</_StyleSharpSlot>
+      <_StyleSharpSlot Condition="$([MSBuild]::VersionGreaterThanOrEquals($(_StyleSharpCompilerVersion), '5.3'))">roslyn5.3</_StyleSharpSlot>
+      <_StyleSharpSlot Condition="$([MSBuild]::VersionGreaterThanOrEquals($(_StyleSharpCompilerVersion), '5.9'))">roslyn5.9</_StyleSharpSlot>
     </PropertyGroup>
 
     <ItemGroup>
@@ -33,7 +33,7 @@
     <Error Condition="'$(CompilerApiVersion)' != ''
                       and $(CompilerApiVersion.StartsWith('roslyn'))
                       and $(_StyleSharpCompilerVersion.Contains('.'))
-                      and '$([System.Version]::Parse($(_StyleSharpMinimumCompilerVersion)).CompareTo($([System.Version]::Parse($(_StyleSharpCompilerVersion)))))' &gt; '0'"
+                      and $([MSBuild]::VersionLessThan($(_StyleSharpCompilerVersion), $(_StyleSharpMinimumCompilerVersion)))"
            Code="STYLESHARP100"
            Text="StyleSharp.Analyzers requires Roslyn $(_StyleSharpMinimumCompilerVersion) or later (Visual Studio 2022 17.8+, or .NET SDK 8.0.100+), but this project is building with Roslyn $(_StyleSharpCompilerVersion). Upgrade the build tools to get these diagnostics." />
   </Target>

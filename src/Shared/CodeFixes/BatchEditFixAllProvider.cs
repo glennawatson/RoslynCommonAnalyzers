@@ -122,7 +122,52 @@ internal sealed class BatchEditFixAllProvider : DocumentBasedFixAllProvider
             RegisterBatchEdit(editor, fix, orderedDiagnostics[i]);
         }
 
-        return editor.GetChangedDocument();
+        try
+        {
+            return editor.GetChangedDocument();
+        }
+        catch (InvalidOperationException exception) when (IsDuplicateEditTarget(exception))
+        {
+            // One edit's target was consumed by another's replacement. That only surfaces once the whole
+            // batch is materialised, so the conflicting edits have to be found by applying them in turn.
+            return await ApplyCompatibleEditsAsync(document, fix, orderedDiagnostics, fixAllContext.CancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Applies the edits that compose, dropping any whose target another edit has consumed.</summary>
+    /// <param name="document">The unedited document.</param>
+    /// <param name="fix">The batch fix.</param>
+    /// <param name="diagnostics">The diagnostics in batch-edit order.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The document carrying every edit that could be applied.</returns>
+    private static async Task<Document> ApplyCompatibleEditsAsync(
+        Document document,
+        IBatchFixableCodeFix fix,
+        List<Diagnostic> diagnostics,
+        CancellationToken cancellationToken)
+    {
+        var accepted = new List<Diagnostic>(diagnostics.Count);
+        var result = document;
+        for (var i = 0; i < diagnostics.Count; i++)
+        {
+            accepted.Add(diagnostics[i]);
+            var editor = await DocumentEditor.CreateAsync(document, cancellationToken).ConfigureAwait(false);
+            for (var j = 0; j < accepted.Count; j++)
+            {
+                RegisterBatchEdit(editor, fix, accepted[j]);
+            }
+
+            try
+            {
+                result = editor.GetChangedDocument();
+            }
+            catch (InvalidOperationException exception) when (IsDuplicateEditTarget(exception))
+            {
+                accepted.RemoveAt(accepted.Count - 1);
+            }
+        }
+
+        return result;
     }
 
     /// <summary>Returns unique diagnostics in an order that lets nested edits compose before parent replacements.</summary>

@@ -93,12 +93,31 @@ public sealed class Sst2288UseLogicalOperatorAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var condition = negate ? "!" + conditional.Condition : conditional.Condition.ToString();
+        var condition = negate ? NegatedText(conditional.Condition) : conditional.Condition.ToString();
         var suggestion = $"{condition} {(conjunction ? "&&" : "||")} {other}";
         context.ReportDiagnostic(DiagnosticHelper.Create(
             ModernSyntaxRules.UseLogicalOperatorOverConditional,
             conditional.SyntaxTree,
             conditional.Span,
             suggestion));
+    }
+
+    /// <summary>Renders a negated condition the way the code fix writes it.</summary>
+    /// <param name="condition">The condition to negate.</param>
+    /// <returns>The negated text, parenthesized where <c>!</c> would otherwise bind too tightly.</returns>
+    /// <remarks>
+    /// A bare <c>!</c> in front of a pattern or a binary operator binds to the left operand alone, so the
+    /// message would name an expression that does not compile.
+    /// </remarks>
+    private static string NegatedText(ExpressionSyntax condition)
+    {
+        var inner = ExpressionSimplificationAnalyzer.Unwrap(condition);
+        if (inner is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } negation)
+        {
+            return ExpressionSimplificationAnalyzer.Unwrap(negation.Operand).WithoutTrivia().ToString();
+        }
+
+        var text = inner.WithoutTrivia().ToString();
+        return PrimaryExpressionClassification.IsPrimary(inner) ? "!" + text : "!(" + text + ")";
     }
 }

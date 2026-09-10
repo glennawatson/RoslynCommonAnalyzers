@@ -441,6 +441,72 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
             """,
             "performancesharp.PSH1007.in_parameter_excluded_types = Snapshot");
 
+    /// <summary>Verifies a method converted to a delegate keeps its by-value parameter.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DelegateTargetIsNotReportedAsync()
+        => await VerifyAsync(
+            """
+            internal static class C
+            {
+                internal static void Register(System.Action<Snapshot> handler)
+                {
+                }
+
+                internal static void Setup() => Register(Score);
+
+                private static void Score(Snapshot snapshot)
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies a delegate conversion in one type suppresses the report in another.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DelegateTargetFromAnotherTypeIsNotReportedAsync()
+        => await VerifyAsync(
+            """
+            internal static class Handlers
+            {
+                internal static void Score(Snapshot snapshot)
+                {
+                }
+            }
+
+            internal static class C
+            {
+                internal static void Register(System.Action<Snapshot> handler)
+                {
+                }
+
+                internal static void Setup() => Register(Handlers.Score);
+            }
+            """);
+
+    /// <summary>Verifies a local function converted to a delegate keeps its by-value parameter.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DelegateTargetLocalFunctionIsNotReportedAsync()
+        => await VerifyAsync(
+            """
+            internal static class C
+            {
+                internal static void Register(System.Action<Snapshot> handler)
+                {
+                }
+
+                internal static void Setup()
+                {
+                    Register(Score);
+
+                    static void Score(Snapshot snapshot)
+                    {
+                    }
+                }
+            }
+            """);
+
     /// <summary>Runs an analyzer verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

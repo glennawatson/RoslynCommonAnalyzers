@@ -118,4 +118,52 @@ public class RedundantConstructorAnalyzerUnitTest
                                    """;
         await VerifyRedundantCtor.VerifyCodeFixAsync(Source, FixedSource);
     }
+
+    /// <summary>Verifies a struct with a property initializer keeps the constructor those initializers require.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task StructWithPropertyInitializerIsCleanAsync()
+        => await VerifyRedundantCtor.VerifyAnalyzerAsync(
+            """
+            public struct Position
+            {
+                public Position()
+                {
+                }
+
+                public int Offset { get; set; } = -1;
+            }
+            """);
+
+    /// <summary>Verifies a struct with a field initializer keeps the constructor those initializers require.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task StructWithFieldInitializerIsCleanAsync()
+        => await VerifyRedundantCtor.VerifyAnalyzerAsync(
+            """
+            public struct Position
+            {
+                public int Offset = -1;
+
+                public Position()
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies a struct without initializers still reports its redundant constructor.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task StructWithoutInitializersStillReportsAsync()
+        => await VerifyRedundantCtor.VerifyAnalyzerAsync(
+            """
+            public struct Position
+            {
+                public int Offset;
+
+                public {|SST1433:Position|}()
+                {
+                }
+            }
+            """);
 }

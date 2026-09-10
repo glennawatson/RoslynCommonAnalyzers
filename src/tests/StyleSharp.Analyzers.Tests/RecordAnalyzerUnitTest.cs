@@ -128,6 +128,54 @@ public class RecordAnalyzerUnitTest
             .IsEqualTo(SyntaxKind.SetAccessorDeclaration);
     }
 
+    /// <summary>Verifies a mutable record struct keeps both its set accessor and its mutability.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task MutableRecordStructIsCleanAsync()
+        => await VerifyRecord.VerifyAnalyzerAsync(
+            $$"""
+            public record struct Scan
+            {
+                public bool Found { get; set; }
+            }{{IsExternalInit}}
+            """);
+
+    /// <summary>Verifies a writable field keeps a record struct out of SST1803.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RecordStructWithWritableFieldIsCleanAsync()
+        => await VerifyRecord.VerifyAnalyzerAsync(
+            $$"""
+            public record struct Scan
+            {
+                public int Count;
+            }{{IsExternalInit}}
+            """);
+
+    /// <summary>Verifies a record struct with only readonly members is still asked to become readonly.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ImmutableRecordStructStillReportsAsync()
+        => await VerifyRecord.VerifyAnalyzerAsync(
+            $$"""
+            public record struct {|SST1803:Scan|}
+            {
+                public bool Found { get; init; }
+            }{{IsExternalInit}}
+            """);
+
+    /// <summary>Verifies a settable property on a record class is still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task RecordClassSetAccessorStillReportsAsync()
+        => await VerifyRecord.VerifyAnalyzerAsync(
+            $$"""
+            public sealed record Scan
+            {
+                public bool Found { get; {|SST1802:set|}; }
+            }{{IsExternalInit}}
+            """);
+
     /// <summary>Parses a single property declaration for helper-level tests.</summary>
     /// <param name="source">The property declaration source.</param>
     /// <returns>The parsed property declaration.</returns>

@@ -15,9 +15,9 @@
 
       <!-- Ascending, so the last matching condition wins. -->
       <_PerformanceSharpSlot>roslyn4.8</_PerformanceSharpSlot>
-      <_PerformanceSharpSlot Condition="'$([System.Version]::Parse($(_PerformanceSharpCompilerVersion)).CompareTo($([System.Version]::Parse('4.14'))))' &gt;= '0'">roslyn4.14</_PerformanceSharpSlot>
-      <_PerformanceSharpSlot Condition="'$([System.Version]::Parse($(_PerformanceSharpCompilerVersion)).CompareTo($([System.Version]::Parse('5.3'))))' &gt;= '0'">roslyn5.3</_PerformanceSharpSlot>
-      <_PerformanceSharpSlot Condition="'$([System.Version]::Parse($(_PerformanceSharpCompilerVersion)).CompareTo($([System.Version]::Parse('5.9'))))' &gt;= '0'">roslyn5.9</_PerformanceSharpSlot>
+      <_PerformanceSharpSlot Condition="$([MSBuild]::VersionGreaterThanOrEquals($(_PerformanceSharpCompilerVersion), '4.14'))">roslyn4.14</_PerformanceSharpSlot>
+      <_PerformanceSharpSlot Condition="$([MSBuild]::VersionGreaterThanOrEquals($(_PerformanceSharpCompilerVersion), '5.3'))">roslyn5.3</_PerformanceSharpSlot>
+      <_PerformanceSharpSlot Condition="$([MSBuild]::VersionGreaterThanOrEquals($(_PerformanceSharpCompilerVersion), '5.9'))">roslyn5.9</_PerformanceSharpSlot>
     </PropertyGroup>
 
     <ItemGroup>
@@ -33,7 +33,7 @@
     <Error Condition="'$(CompilerApiVersion)' != ''
                       and $(CompilerApiVersion.StartsWith('roslyn'))
                       and $(_PerformanceSharpCompilerVersion.Contains('.'))
-                      and '$([System.Version]::Parse($(_PerformanceSharpMinimumCompilerVersion)).CompareTo($([System.Version]::Parse($(_PerformanceSharpCompilerVersion)))))' &gt; '0'"
+                      and $([MSBuild]::VersionLessThan($(_PerformanceSharpCompilerVersion), $(_PerformanceSharpMinimumCompilerVersion)))"
            Code="PERFSHARP100"
            Text="PerformanceSharp.Analyzers requires Roslyn $(_PerformanceSharpMinimumCompilerVersion) or later (Visual Studio 2022 17.8+, or .NET SDK 8.0.100+), but this project is building with Roslyn $(_PerformanceSharpCompilerVersion). Upgrade the build tools to get these diagnostics." />
   </Target>

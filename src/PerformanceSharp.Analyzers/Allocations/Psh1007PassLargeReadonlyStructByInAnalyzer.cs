@@ -5,6 +5,8 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 
+using Microsoft.CodeAnalysis.Operations;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -65,23 +67,47 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
 
     /// <summary>Sets up the per-compilation caches, then analyzes every parameter.</summary>
     /// <param name="context">The compilation start context.</param>
+    /// <remarks>
+    /// Whether a method is ever converted to a delegate is a whole-compilation fact — the conversion can
+    /// sit in any file — so candidates are held until every method reference has been seen.
+    /// </remarks>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
         var optionsByTree = new ConcurrentDictionary<SyntaxTree, InParameterOptions>();
         var sizeByType = new ConcurrentDictionary<ITypeSymbol, int>(SymbolEqualityComparer.Default);
+        var delegateTargets = new ConcurrentDictionary<ISymbol, byte>(SymbolEqualityComparer.Default);
+        var candidates = new ConcurrentBag<InParameterCandidate>();
+
+        context.RegisterOperationAction(
+            operationContext => delegateTargets.TryAdd(((IMethodReferenceOperation)operationContext.Operation).Method.OriginalDefinition, 0),
+            OperationKind.MethodReference);
+
         context.RegisterSyntaxNodeAction(
-            nodeContext => AnalyzeParameter(nodeContext, optionsByTree, sizeByType),
+            nodeContext => AnalyzeParameter(nodeContext, optionsByTree, sizeByType, candidates),
             SyntaxKind.Parameter);
+
+        context.RegisterCompilationEndAction(endContext =>
+        {
+            foreach (var candidate in candidates)
+            {
+                if (!delegateTargets.ContainsKey(candidate.Method))
+                {
+                    endContext.ReportDiagnostic(candidate.ToDiagnostic());
+                }
+            }
+        });
     }
 
-    /// <summary>Reports one by-value parameter that would copy less as an <c>in</c> reference.</summary>
+    /// <summary>Records one by-value parameter that would copy less as an <c>in</c> reference.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <param name="sizeByType">The per-compilation struct-size cache.</param>
+    /// <param name="candidates">The candidates held until compilation end.</param>
     private static void AnalyzeParameter(
         SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, InParameterOptions> optionsByTree,
-        ConcurrentDictionary<ITypeSymbol, int> sizeByType)
+        ConcurrentDictionary<ITypeSymbol, int> sizeByType,
+        ConcurrentBag<InParameterCandidate> candidates)
     {
         var parameter = (ParameterSyntax)context.Node;
 
@@ -109,12 +135,12 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(
-            AllocationRules.PassLargeReadonlyStructByIn,
+        candidates.Add(new InParameterCandidate(
+            symbol.ContainingSymbol.OriginalDefinition,
             parameter.Identifier.GetLocation(),
             parameter.Identifier.ValueText,
             type.ToDisplayString(TypeNameFormat),
-            size.ToString(CultureInfo.InvariantCulture)));
+            size));
     }
 
     /// <summary>Gets the size to report, or <see cref="StructSizeEstimator.Unknown"/> when nothing should be.</summary>
@@ -392,4 +418,27 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
         IndexerDeclarationSyntax indexer => (SyntaxNode?)indexer.AccessorList ?? indexer.ExpressionBody,
         _ => null,
     };
+
+    /// <summary>A parameter that cleared every gate, pending the compilation-wide delegate check.</summary>
+    /// <param name="Method">The declaring member's original definition.</param>
+    /// <param name="Location">The parameter identifier's location.</param>
+    /// <param name="ParameterName">The parameter's name.</param>
+    /// <param name="TypeName">The struct's display name.</param>
+    /// <param name="Size">The estimated size in bytes.</param>
+    private readonly record struct InParameterCandidate(
+        ISymbol Method,
+        Location Location,
+        string ParameterName,
+        string TypeName,
+        int Size)
+    {
+        /// <summary>Builds the diagnostic for this candidate.</summary>
+        /// <returns>The diagnostic to report.</returns>
+        public Diagnostic ToDiagnostic() => DiagnosticHelper.Create(
+            AllocationRules.PassLargeReadonlyStructByIn,
+            Location,
+            ParameterName,
+            TypeName,
+            Size.ToString(CultureInfo.InvariantCulture));
+    }
 }

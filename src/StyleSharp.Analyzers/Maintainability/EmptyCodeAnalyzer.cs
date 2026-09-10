@@ -93,12 +93,61 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
             || !ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.PublicKeyword)
             || ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword)
             || constructor.Parent is not TypeDeclarationSyntax type
-            || CountConstructors(type) != 1)
+            || CountConstructors(type) != 1
+            || RequiresExplicitConstructor(type))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.NoRedundantConstructor, constructor.Identifier.GetLocation()));
+    }
+
+    /// <summary>Returns whether a declaration is one the compiler will not supply a default constructor for.</summary>
+    /// <param name="type">The constructor's containing type.</param>
+    /// <returns><see langword="true"/> for a struct carrying a field or property initializer.</returns>
+    /// <remarks>A struct with an initializer must declare a constructor of its own (CS8983).</remarks>
+    private static bool RequiresExplicitConstructor(TypeDeclarationSyntax type)
+    {
+        if (type is not (StructDeclarationSyntax or RecordDeclarationSyntax { ClassOrStructKeyword.RawKind: (int)SyntaxKind.StructKeyword }))
+        {
+            return false;
+        }
+
+        var members = type.Members;
+        for (var i = 0; i < members.Count; i++)
+        {
+            switch (members[i])
+            {
+                case PropertyDeclarationSyntax { Initializer: not null } property
+                    when !ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword):
+                    return true;
+
+                case FieldDeclarationSyntax field
+                    when !ModifierListHelper.Contains(field.Modifiers, SyntaxKind.StaticKeyword)
+                         && !ModifierListHelper.Contains(field.Modifiers, SyntaxKind.ConstKeyword)
+                         && HasInitializer(field):
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether any variable in a field declaration carries an initializer.</summary>
+    /// <param name="field">The field declaration.</param>
+    /// <returns><see langword="true"/> when at least one declarator is initialized.</returns>
+    private static bool HasInitializer(FieldDeclarationSyntax field)
+    {
+        var variables = field.Declaration.Variables;
+        for (var i = 0; i < variables.Count; i++)
+        {
+            if (variables[i].Initializer is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reports SST1435 for a namespace declaration with no members.</summary>

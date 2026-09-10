@@ -99,6 +99,67 @@ public class RemoveIntermediateToStringAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a span hole keeps its ToString where the framework cannot format one.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Without <c>DefaultInterpolatedStringHandler</c> an interpolated string goes through
+    /// <c>string.Format(object)</c>, and a ref struct has no conversion to <c>object</c> (CS0029).
+    /// </remarks>
+    [Test]
+    public async Task SpanHoleOnFrameworkWithoutHandlerIsCleanAsync()
+    {
+        const string Source = """
+                              public ref struct Slice
+                              {
+                                  public override string ToString() => "slice";
+                              }
+
+                              public class C
+                              {
+                                  public string M(Slice slice) => $"[{slice.ToString()}]";
+                              }
+                              """;
+        var test = new Verify.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
+            TestCode = Source,
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a span hole is still reported where the framework can format one.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SpanHoleOnFrameworkWithHandlerIsReportedAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public class C
+                              {
+                                  public string M(string text)
+                                  {
+                                      var span = text.AsSpan();
+                                      return $"[{{|PSH1211:span.ToString()|}}]";
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public class C
+                                   {
+                                       public string M(string text)
+                                       {
+                                           var span = text.AsSpan();
+                                           return $"[{span}]";
+                                       }
+                                   }
+                                   """;
+        await VerifyAsync(Source, FixedSource);
+    }
+
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
     /// <param name="fixedSource">The expected fixed source, when a fix should apply.</param>

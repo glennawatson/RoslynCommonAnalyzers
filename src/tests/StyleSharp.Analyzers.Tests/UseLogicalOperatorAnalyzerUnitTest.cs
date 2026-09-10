@@ -186,4 +186,17 @@ public class UseLogicalOperatorAnalyzerUnitTest
                 public int M(bool a) => a ? 1 : 2;
             }
             """);
+
+    /// <summary>Verifies a negated pattern condition is quoted as compilable C#.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NegatedPatternConditionIsParenthesizedInMessageAsync()
+        => await VerifyUseLogicalOperator.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                public bool M(object value, bool b)
+                    => {|SST2288:value is not string ? false : b|};
+            }
+            """);
 }

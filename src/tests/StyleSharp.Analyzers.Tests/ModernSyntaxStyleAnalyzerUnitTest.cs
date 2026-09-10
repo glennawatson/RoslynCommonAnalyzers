@@ -832,4 +832,43 @@ public class ModernSyntaxStyleAnalyzerUnitTest
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies an argument that fills a parameter array keeps its explicit creation type.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// The parameter's declared type is the array, so target-typed <c>new</c> there asks for an element the
+    /// target cannot supply. Overload resolution still lands on the same method, so the parameter position is
+    /// what tells the two apart.
+    /// </remarks>
+    [Test]
+    public async Task ArgumentFillingAParameterArrayIsCleanAsync()
+    {
+        const string Source = """
+                              public sealed class Item
+                              {
+                                  public Item(int value)
+                                  {
+                                  }
+                              }
+
+                              public static class Sink
+                              {
+                                  public static void Take(params Item[] items)
+                                  {
+                                  }
+                              }
+
+                              public sealed class C
+                              {
+                                  public void M() => Sink.Take(new Item(1));
+                              }
+                              """;
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
 }

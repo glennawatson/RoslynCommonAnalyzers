@@ -209,7 +209,48 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
+        if (model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol called
+            && FillsAParameterArray(called, invocation, argument))
+        {
+            return false;
+        }
+
         return TargetTypedNewKeepsTheSameCall(objectCreation, invocation, model, cancellationToken);
+    }
+
+    /// <summary>Returns whether an argument sits in the parameter-array position of the call it belongs to.</summary>
+    /// <param name="called">The method the call binds to.</param>
+    /// <param name="invocation">The call holding the argument.</param>
+    /// <param name="argument">The argument wrapping the object creation.</param>
+    /// <returns><see langword="true"/> when the argument feeds the trailing parameter array.</returns>
+    /// <remarks>
+    /// The parameter's declared type is the array, so <c>new()</c> there asks for an array element the target
+    /// type cannot supply. Overload resolution still picks the same method, which is why the speculative
+    /// re-bind accepts the rewrite and the compiler then rejects it.
+    /// </remarks>
+    private static bool FillsAParameterArray(IMethodSymbol called, InvocationExpressionSyntax invocation, ArgumentSyntax argument)
+    {
+        var parameters = called.Parameters;
+        if (parameters.Length == 0 || !parameters[parameters.Length - 1].IsParams)
+        {
+            return false;
+        }
+
+        if (argument.NameColon is { Name.Identifier.ValueText: { } name })
+        {
+            return string.Equals(name, parameters[parameters.Length - 1].Name, StringComparison.Ordinal);
+        }
+
+        var arguments = invocation.ArgumentList.Arguments;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i].Span == argument.Span)
+            {
+                return i >= parameters.Length - 1;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether rewriting an argument to target-typed <c>new</c> still binds the call to the same method.</summary>

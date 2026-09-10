@@ -19,6 +19,12 @@ namespace StyleSharp.Analyzers;
 [Shared]
 public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
 {
+    /// <summary>The attribute that names the parameter or type parameter an element documents.</summary>
+    private const string NameAttributePrefix = "name=\"";
+
+    /// <summary>The characters that end a tag name in the element text.</summary>
+    private static readonly char[] TagNameTerminators = [' ', '>'];
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         DocumentationRules.ParametersMustBeDocumented.Id,
@@ -58,11 +64,51 @@ public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
     /// <param name="element">The documentation element text.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
+    /// <remarks>
+    /// A diagnostic is resolved against the tree it was reported on, and another fix can document the member
+    /// before this one runs. Inserting then produces a second element with the same name, which the compiler
+    /// rejects, so the member's documentation is re-read before the stub is written.
+    /// </remarks>
     internal static async Task<Document> InsertElementAsync(Document document, SyntaxNode member, string element, CancellationToken cancellationToken)
     {
+        if (AlreadyDocuments(member, element))
+        {
+            return document;
+        }
+
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var insertion = "/// " + element + LayoutFixHelpers.DetectNewLine(text) + Indent(member);
         return document.WithText(text.WithChanges(new TextChange(new(member.GetFirstToken().SpanStart, 0), insertion)));
+    }
+
+    /// <summary>Returns whether the member's documentation already carries the element about to be inserted.</summary>
+    /// <param name="member">The member declaration.</param>
+    /// <param name="element">The documentation element text.</param>
+    /// <returns><see langword="true"/> when an element of the same name, and same <c>name</c> attribute, is present.</returns>
+    private static bool AlreadyDocuments(SyntaxNode member, string element)
+    {
+        if (XmlDocumentationHelper.GetDocumentationComment(member) is not { } documentation)
+        {
+            return false;
+        }
+
+        var nameEnd = element.IndexOfAny(TagNameTerminators, 1);
+        if (nameEnd < 1)
+        {
+            return false;
+        }
+
+        var elementName = element.Substring(1, nameEnd - 1);
+        var attributeStart = element.IndexOf(NameAttributePrefix, StringComparison.Ordinal);
+        if (attributeStart < 0)
+        {
+            return XmlDocumentationHelper.FindElement(documentation, elementName) is not null;
+        }
+
+        attributeStart += NameAttributePrefix.Length;
+        var attributeEnd = element.IndexOf('"', attributeStart);
+        return attributeEnd >= 0
+            && XmlDocumentationHelper.FindNamedElement(documentation, elementName, element.Substring(attributeStart, attributeEnd - attributeStart)) is not null;
     }
 
     /// <summary>Registers the appropriate stub fix for one diagnostic.</summary>

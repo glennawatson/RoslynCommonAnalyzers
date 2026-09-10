@@ -2,6 +2,9 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MemberDocumentationAnalyzer,
     StyleSharp.Analyzers.DocumentationStubCodeFixProvider>;
@@ -115,5 +118,41 @@ public class DocumentationStubFixUnitTest
             """;
 
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a stub the member already documents is not written a second time.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The diagnostic belongs to the tree it was reported on. Another fix can document the member first, and
+    /// a second element with the same name does not compile.
+    /// </remarks>
+    [Test]
+    public async Task StubAlreadyPresentIsNotInsertedAgainAsync()
+    {
+        const string Source = """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Does a thing.</summary>
+                /// <param name="value">The value.</param>
+                public void M(int value) { }
+            }
+            """;
+
+        using var workspace = new AdhocWorkspace();
+        var project = workspace
+            .AddProject("Stub", LanguageNames.CSharp)
+            .AddMetadataReference(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+        var document = project.AddDocument("C.cs", Source);
+        var root = await document.GetSyntaxRootAsync(CancellationToken.None);
+        var member = root!.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+
+        var updated = await DocumentationStubCodeFixProvider.InsertElementAsync(
+            document,
+            member,
+            "<param name=\"value\"></param>",
+            CancellationToken.None);
+
+        await Assert.That((await updated.GetTextAsync(CancellationToken.None)).ToString()).IsEqualTo(Source);
     }
 }

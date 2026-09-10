@@ -132,17 +132,6 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <summary>Returns whether an interpolation has a supported simplification.</summary>
-    /// <param name="interpolation">The interpolation.</param>
-    /// <returns><see langword="true"/> when a simplification applies.</returns>
-    /// <remarks>
-    /// The analyzer only needs the answer, not the rewrite. Asking the version that builds the replacement
-    /// allocated the rewritten interpolation, its receiver and a format clause for every reported hole, all
-    /// of which were discarded. The code fix still calls that one, because it needs what it builds.
-    /// </remarks>
-    internal static bool IsSimplifiableInterpolation(InterpolationSyntax interpolation)
-        => TryMatchSimplifiableInterpolation(interpolation, out _, out _);
-
     /// <summary>Gets the named tuple element represented by an anonymous object initializer.</summary>
     /// <param name="initializer">The anonymous object member.</param>
     /// <param name="name">The tuple element name.</param>
@@ -198,6 +187,11 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <param name="receiver">The expression the <c>ToString</c> call is made on.</param>
     /// <param name="formatArgument">The format argument, or <see langword="null"/> when there is none.</param>
     /// <returns><see langword="true"/> when the interpolation is a removable <c>ToString</c> call.</returns>
+    /// <remarks>
+    /// The analyzer only needs the answer and the receiver, not the rewrite. Asking the version that builds
+    /// the replacement allocated the rewritten interpolation and a format clause for every reported hole, all
+    /// of which were discarded. The code fix still calls that one, because it needs what it builds.
+    /// </remarks>
     private static bool TryMatchSimplifiableInterpolation(
         InterpolationSyntax interpolation,
         out ExpressionSyntax receiver,
@@ -237,13 +231,26 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeInterpolation(SyntaxNodeAnalysisContext context)
     {
         var interpolation = (InterpolationSyntax)context.Node;
-        if (!IsSimplifiableInterpolation(interpolation))
+        if (!TryMatchSimplifiableInterpolation(interpolation, out var receiver, out _)
+            || HoleWouldHaveToBoxTheReceiver(context, receiver))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.SimplifyInterpolation, interpolation.Expression.GetLocation()));
     }
+
+    /// <summary>Returns whether removing the call would leave a value the hole cannot carry.</summary>
+    /// <param name="context">The syntax context.</param>
+    /// <param name="receiver">The expression the <c>ToString</c> call is made on.</param>
+    /// <returns><see langword="true"/> for a ref struct receiver.</returns>
+    /// <remarks>
+    /// A hole reaches the formatter either as an <see cref="object"/>, when the interpolation compiles to
+    /// <c>string.Format</c>, or as a generic argument to the interpolation handler. A ref struct fits
+    /// neither, so the call that turns it into a string is what makes the hole legal.
+    /// </remarks>
+    private static bool HoleWouldHaveToBoxTheReceiver(SyntaxNodeAnalysisContext context, ExpressionSyntax receiver)
+        => context.SemanticModel.GetTypeInfo(receiver, context.CancellationToken).Type is { IsRefLikeType: true };
 
     /// <summary>Reports ignored expression values and adjacent overwritten assignments.</summary>
     /// <param name="context">The syntax context.</param>

@@ -46,6 +46,31 @@ public class ModernSyntaxValueAnalyzerUnitTest
         await VerifyModernSyntaxValue.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a ref struct keeps the <c>ToString</c> call that makes its hole legal.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// A hole reaches the formatter as an object or as a generic argument to the interpolation handler, and
+    /// a ref struct fits neither, so removing the call stops the interpolation compiling.
+    /// </remarks>
+    [Test]
+    public async Task ToStringOnARefStructIsCleanAsync()
+        => await new VerifyModernSyntaxValue.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = """
+                       public ref struct Slice
+                       {
+                           /// <inheritdoc/>
+                           public override string ToString() => "slice";
+                       }
+
+                       public sealed class C
+                       {
+                           public string M(Slice slice) => $"[{slice.ToString()}]";
+                       }
+                       """,
+        }.RunAsync(CancellationToken.None);
+
     /// <summary>Verifies an intentionally ignored return value can be made explicit when the rule is enabled.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

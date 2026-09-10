@@ -30,6 +30,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The diagnostic property carrying the accessibility the member should be declared with.</summary>
+    internal const string TargetAccessibilityKey = "TargetAccessibility";
+
     /// <summary>Caller category: a derived type in the same assembly.</summary>
     private const int SameAssemblyDerived = 0b0001;
 
@@ -64,6 +67,21 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.MemberMoreAccessibleThanContainingType);
+
+    /// <summary>The property bag for each accessibility the fix can narrow to, built once rather than per report.</summary>
+    private static readonly ImmutableDictionary<string, string?> ProtectedInternalProperties = TargetProperties("protected internal");
+
+    /// <summary>The property bag naming <c>internal</c> as the target.</summary>
+    private static readonly ImmutableDictionary<string, string?> InternalProperties = TargetProperties("internal");
+
+    /// <summary>The property bag naming <c>protected</c> as the target.</summary>
+    private static readonly ImmutableDictionary<string, string?> ProtectedProperties = TargetProperties("protected");
+
+    /// <summary>The property bag naming <c>private protected</c> as the target.</summary>
+    private static readonly ImmutableDictionary<string, string?> PrivateProtectedProperties = TargetProperties("private protected");
+
+    /// <summary>The property bag naming <c>private</c> as the target.</summary>
+    private static readonly ImmutableDictionary<string, string?> PrivateProperties = TargetProperties("private");
 
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
@@ -127,6 +145,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
             context.ReportDiagnostic(Diagnostic.Create(
                 DesignRules.MemberMoreAccessibleThanContainingType,
                 location,
+                ReachProperties(containerReach),
                 member.Name,
                 AccessibilityKeyword(member.DeclaredAccessibility),
                 ReachKeyword(containerReach)));
@@ -267,6 +286,24 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         Accessibility.ProtectedAndInternal => "private protected",
         Accessibility.Private => "private",
         _ => accessibility.ToString(),
+    };
+
+    /// <summary>Builds the property bag naming one target accessibility.</summary>
+    /// <param name="keyword">The keyword text the fix should write.</param>
+    /// <returns>The property bag.</returns>
+    private static ImmutableDictionary<string, string?> TargetProperties(string keyword)
+        => ImmutableDictionary<string, string?>.Empty.Add(TargetAccessibilityKey, keyword);
+
+    /// <summary>Gets the cached property bag for a caller-set mask.</summary>
+    /// <param name="reach">The container's effective caller set, which is never the full reach here.</param>
+    /// <returns>The property bag naming the accessibility the member should carry.</returns>
+    private static ImmutableDictionary<string, string?> ReachProperties(int reach) => reach switch
+    {
+        SameAssemblyDerived | OtherAssemblyDerived | SameAssemblyOther => ProtectedInternalProperties,
+        SameAssemblyDerived | SameAssemblyOther => InternalProperties,
+        SameAssemblyDerived | OtherAssemblyDerived => ProtectedProperties,
+        SameAssemblyDerived => PrivateProtectedProperties,
+        _ => PrivateProperties,
     };
 
     /// <summary>Returns the C# keyword spelling of a caller-set mask for the diagnostic message.</summary>

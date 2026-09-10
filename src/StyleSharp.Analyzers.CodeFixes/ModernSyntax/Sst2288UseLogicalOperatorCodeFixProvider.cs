@@ -124,12 +124,12 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
             switch (inner)
             {
                 case IsPatternExpressionSyntax pattern:
-                    return pattern.WithoutTrivia().WithPattern(NegatePattern(pattern.Pattern.WithoutTrivia()));
+                    return pattern.WithoutTrivia().WithPattern(PatternNegation.Negate(pattern.Pattern.WithoutTrivia()));
 
                 case BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression, Right: TypeSyntax type } typeTest:
                     return SyntaxFactory.IsPatternExpression(
                         typeTest.Left.WithoutTrivia(),
-                        NegatePattern(SyntaxFactory.TypePattern(type.WithoutTrivia())));
+                        PatternNegation.Negate(SyntaxFactory.TypePattern(type.WithoutTrivia())));
             }
         }
 
@@ -144,14 +144,6 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
     /// <returns><see langword="true"/> from C# 9 on.</returns>
     private static bool SupportsNotPattern(ExpressionSyntax condition)
         => condition.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 };
-
-    /// <summary>Flips a pattern between its plain and <c>not</c> forms.</summary>
-    /// <param name="pattern">The pattern to negate.</param>
-    /// <returns>The negated pattern.</returns>
-    private static PatternSyntax NegatePattern(PatternSyntax pattern)
-        => pattern is UnaryPatternSyntax { RawKind: (int)SyntaxKind.NotPattern } negated
-            ? negated.Pattern
-            : SyntaxFactory.UnaryPattern(SyntaxFactory.Token(SyntaxKind.NotKeyword), pattern);
 
     /// <summary>Parenthesizes an operand whose own operator would regroup under the one being built.</summary>
     /// <param name="operand">The non-literal branch.</param>

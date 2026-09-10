@@ -31,6 +31,50 @@ public class Sst2008IsNotPatternCodeFixUnitTest
         await VerifyIsNotPatternFix.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a combined pattern is grouped when it goes under the negation.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// <c>not</c> binds tighter than <c>or</c>, so an ungrouped rewrite reads as <c>(not 'a') or 'b'</c> —
+    /// a different match, and the compiler rejects the later patterns as unreachable.
+    /// </remarks>
+    [Test]
+    public async Task NegatedOrPatternIsGroupedAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public bool M(char value) => {|SST2008:!(value is '{' or '(' or '<')|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public bool M(char value) => value is not ('{' or '(' or '<');
+                                   }
+                                   """;
+        await VerifyIsNotPatternFix.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a grouped negation loses the group along with the negation.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NegatedGroupedPatternUngroupsAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public bool M(char value) => {|SST2008:!(value is not ('{' or '('))|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public bool M(char value) => value is '{' or '(';
+                                   }
+                                   """;
+        await VerifyIsNotPatternFix.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies an already-negated pattern loses its negation rather than gaining another.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

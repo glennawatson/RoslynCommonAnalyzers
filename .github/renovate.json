@@ -1,11 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:best-practices",
-    ":dependencyDashboard",
-    ":semanticCommits",
-    "security:openssf-scorecard"
-  ],
+  "extends": ["config:best-practices", "security:openssf-scorecard"],
   "timezone": "Australia/Melbourne",
   "schedule": ["before 6am on monday"],
   "prConcurrentLimit": 10,
@@ -18,14 +13,13 @@
   "commitMessageAction": "bump",
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
-    "description": "Security fixes bypass the schedule and the release-age hold.",
     "minimumReleaseAge": null,
     "schedule": ["at any time"],
     "labels": ["dependencies", "security"]
   },
   "packageRules": [
     {
-      "description": "The compiler API is versioned by $(MicrosoftCodeAnalysisVersion) per Roslyn slot, not by a literal in Directory.Packages.props.",
+      "description": "The compiler API takes its version from the per-slot $(MicrosoftCodeAnalysisVersion) in Directory.Build.props, so there is no literal here to bump.",
       "matchManagers": ["nuget"],
       "matchPackageNames": [
         "Microsoft.CodeAnalysis",
@@ -39,89 +33,78 @@
       "enabled": false
     },
     {
-      "description": "A new Roslyn wants a new slot rather than a bump of the highest one, so this only ever reaches the dashboard.",
+      "description": "A newer Roslyn means adding a slot, not moving the highest one, so this stays on the dashboard until someone decides.",
       "matchManagers": ["custom.regex"],
       "matchPackageNames": ["Microsoft.CodeAnalysis.CSharp"],
-      "dependencyDashboardApproval": true,
-      "groupName": "roslyn slot ceiling"
+      "dependencyDashboardApproval": true
     },
     {
-      "description": "The .NET 11 reference assemblies are still a release candidate.",
-      "matchManagers": ["custom.regex"],
-      "matchPackageNames": ["Microsoft.NETCore.App.Ref"],
-      "ignoreUnstable": false,
-      "groupName": "dotnet reference assemblies"
+      "description": "The analyzer test verifiers are a matched set and only work on one version together.",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["/^Microsoft\\.CodeAnalysis\\.(CSharp|VisualBasic)\\.(Analyzer|CodeFix|CodeRefactoring)\\.Testing$/"],
+      "groupName": "analyzer test verifiers"
     },
     {
-      "description": "RS rules over our own analyzer source, independent of the compiler API we build against.",
-      "matchPackageNames": ["Microsoft.CodeAnalysis.Analyzers"],
-      "groupName": "analyzer authoring rules"
+      "description": "TUnit and the testing-platform coverage extension move together; a mismatch breaks the run rather than a test.",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["TUnit", "TUnit.*", "Microsoft.Testing.*"],
+      "groupName": "test runner"
     },
     {
-      "description": "These raise new warnings, which this repo treats as errors, so they land alone.",
+      "description": "Each of these can introduce a diagnostic, and this repo builds with warnings as errors. One PR each keeps a red build attributable to the package that caused it.",
+      "matchManagers": ["nuget"],
       "matchPackageNames": [
+        "Microsoft.CodeAnalysis.Analyzers",
         "StyleCop.Analyzers",
         "Roslynator.*",
         "SonarAnalyzer.*"
       ],
-      "groupName": "source quality analyzers"
+      "groupName": null,
+      "minimumReleaseAge": "7 days",
+      "labels": ["dependencies", "build-gate"]
     },
     {
       "description": "StyleCop has never shipped a stable 1.2.0.",
+      "matchManagers": ["nuget"],
       "matchPackageNames": ["StyleCop.Analyzers"],
       "ignoreUnstable": false
     },
     {
-      "matchPackageNames": [
-        "TUnit",
-        "TUnit.*",
-        "NSubstitute",
-        "Microsoft.Testing.*",
-        "/^Microsoft\\.CodeAnalysis\\..*\\.Testing$/"
-      ],
-      "groupName": "test stack"
-    },
-    {
-      "matchPackageNames": ["BenchmarkDotNet", "BenchmarkDotNet.*"],
-      "groupName": "benchmarks"
-    },
-    {
+      "description": "MinVer decides the shipped version, so a major lands on the dashboard first.",
+      "matchManagers": ["nuget"],
       "matchPackageNames": ["MinVer"],
-      "groupName": "versioning"
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
     },
     {
-      "description": "The SDK band decides which Roslyn the analyzers are compiled by, so it is reviewed rather than merged.",
+      "description": "Benchmarks do not ship and cannot break a consumer.",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["BenchmarkDotNet", "BenchmarkDotNet.*"],
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": "Still a release candidate, so unstable versions are the only ones on offer.",
+      "matchManagers": ["custom.regex"],
+      "matchPackageNames": ["Microsoft.NETCore.App.Ref"],
+      "ignoreUnstable": false
+    },
+    {
+      "description": "The SDK band decides which Roslyn compiles the analyzers.",
       "matchManagers": ["nuget"],
       "matchDepTypes": ["dotnet-sdk", "msbuild-sdk"],
-      "dependencyDashboardApproval": true,
-      "groupName": "dotnet sdk"
+      "dependencyDashboardApproval": true
     },
     {
-      "matchManagers": ["github-actions"],
-      "matchPackageNames": ["actions/*", "github/*", "dotnet/*"],
-      "groupName": "core actions"
-    },
-    {
-      "description": "Signing and publishing actions land together so a release change is one PR.",
-      "matchManagers": ["github-actions"],
-      "matchPackageNames": ["NuGet/*", "SSLcom/*"],
-      "groupName": "release actions"
-    },
-    {
-      "description": "These publishers stay on tags. Listed after the groups so it overrides the digest pinning config:best-practices turns on.",
+      "description": "Every action here comes from GitHub, Microsoft or NuGet and is referenced by tag. A third-party action added later still gets the digest pinning config:best-practices turns on.",
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["actions/*", "github/*", "dotnet/*", "NuGet/*"],
-      "pinDigests": false
-    },
-    {
-      "matchManagers": ["github-actions"],
-      "matchDepTypes": ["github-runner"],
-      "groupName": "runner images"
+      "pinDigests": false,
+      "groupName": "actions"
     }
   ],
   "customManagers": [
     {
-      "description": "The highest Roslyn slot in Directory.Build.props. The lower pins are the floor contract and are deliberately not tracked.",
+      "description": "The highest Roslyn slot. The lower pins are the floor contract and are deliberately untracked.",
       "customType": "regex",
       "managerFilePatterns": ["src/Directory.Build.props"],
       "matchStrings": [
@@ -131,7 +114,7 @@
       "datasourceTemplate": "nuget"
     },
     {
-      "description": "The reference assemblies the analyzer tests compile against, pinned in C# because the testing library takes an exact package identity.",
+      "description": "Pinned in C# because the testing library takes an exact package identity.",
       "customType": "regex",
       "managerFilePatterns": ["src/Shared/Tests/DotNet11ReferenceAssemblies.cs"],
       "matchStrings": [

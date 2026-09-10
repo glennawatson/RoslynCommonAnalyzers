@@ -1,12 +1,20 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:best-practices", "security:openssf-scorecard"],
+  "extends": [
+    "config:best-practices",
+    ":separateMajorReleases",
+    ":combinePatchMinorReleases",
+    "group:dotnetMonorepo",
+    "group:nugetMonorepo",
+    "security:openssf-scorecard"
+  ],
   "timezone": "Australia/Melbourne",
   "schedule": ["before 6am on monday"],
   "prConcurrentLimit": 10,
-  "prHourlyLimit": 2,
+  "prHourlyLimit": 10,
   "labels": ["dependencies"],
   "minimumReleaseAge": "3 days",
+  "recreateWhen": "never",
   "semanticCommits": "enabled",
   "semanticCommitType": "build",
   "semanticCommitScope": "deps",
@@ -22,42 +30,40 @@
       "description": "The compiler API takes its version from the per-slot $(MicrosoftCodeAnalysisVersion) in Directory.Build.props, so there is no literal here to bump.",
       "matchManagers": ["nuget"],
       "matchPackageNames": [
-        "Microsoft.CodeAnalysis",
-        "Microsoft.CodeAnalysis.Common",
-        "Microsoft.CodeAnalysis.CSharp",
-        "Microsoft.CodeAnalysis.CSharp.Workspaces",
-        "Microsoft.CodeAnalysis.VisualBasic",
-        "Microsoft.CodeAnalysis.VisualBasic.Workspaces",
-        "Microsoft.CodeAnalysis.Workspaces.Common"
+        "/^Microsoft\\.CodeAnalysis$/",
+        "/^Microsoft\\.CodeAnalysis\\.Common$/",
+        "/^Microsoft\\.CodeAnalysis\\.(CSharp|VisualBasic)$/",
+        "/^Microsoft\\.CodeAnalysis\\.(CSharp|VisualBasic)\\.Workspaces$/",
+        "/^Microsoft\\.CodeAnalysis\\.Workspaces\\.Common$/"
       ],
       "enabled": false
     },
     {
-      "description": "A newer Roslyn means adding a slot, not moving the highest one, so this stays on the dashboard until someone decides.",
+      "description": "A newer Roslyn means adding a slot, not moving the highest one, so this waits on the dashboard.",
       "matchManagers": ["custom.regex"],
-      "matchPackageNames": ["Microsoft.CodeAnalysis.CSharp"],
+      "matchPackageNames": ["/^Microsoft\\.CodeAnalysis\\.CSharp$/"],
       "dependencyDashboardApproval": true
     },
     {
-      "description": "The analyzer test verifiers are a matched set and only work on one version together.",
+      "description": "The analyzer test verifiers only work on one version together.",
       "matchManagers": ["nuget"],
       "matchPackageNames": ["/^Microsoft\\.CodeAnalysis\\.(CSharp|VisualBasic)\\.(Analyzer|CodeFix|CodeRefactoring)\\.Testing$/"],
       "groupName": "analyzer test verifiers"
     },
     {
-      "description": "TUnit and the testing-platform coverage extension move together; a mismatch breaks the run rather than a test.",
+      "description": "TUnit and the testing-platform extensions move together; a mismatch breaks the run rather than a test.",
       "matchManagers": ["nuget"],
-      "matchPackageNames": ["TUnit", "TUnit.*", "Microsoft.Testing.*"],
+      "matchPackageNames": ["/^TUnit(\\.|$)/", "/^Microsoft\\.Testing\\./"],
       "groupName": "test runner"
     },
     {
-      "description": "Each of these can introduce a diagnostic, and this repo builds with warnings as errors. One PR each keeps a red build attributable to the package that caused it.",
+      "description": "Each of these can introduce a diagnostic and the build treats warnings as errors, so one PR each keeps a red build attributable.",
       "matchManagers": ["nuget"],
       "matchPackageNames": [
-        "Microsoft.CodeAnalysis.Analyzers",
-        "StyleCop.Analyzers",
-        "Roslynator.*",
-        "SonarAnalyzer.*"
+        "/^Microsoft\\.CodeAnalysis\\.Analyzers$/",
+        "/^StyleCop\\.Analyzers$/",
+        "/^Roslynator(\\.|$)/",
+        "/^SonarAnalyzer(\\.|$)/"
       ],
       "groupName": null,
       "minimumReleaseAge": "7 days",
@@ -66,26 +72,26 @@
     {
       "description": "StyleCop has never shipped a stable 1.2.0.",
       "matchManagers": ["nuget"],
-      "matchPackageNames": ["StyleCop.Analyzers"],
+      "matchPackageNames": ["/^StyleCop\\.Analyzers$/"],
       "ignoreUnstable": false
     },
     {
-      "description": "MinVer decides the shipped version, so a major lands on the dashboard first.",
+      "description": "MinVer decides the shipped version.",
       "matchManagers": ["nuget"],
-      "matchPackageNames": ["MinVer"],
+      "matchPackageNames": ["/^MinVer$/"],
       "matchUpdateTypes": ["major"],
       "dependencyDashboardApproval": true
     },
     {
-      "description": "Benchmarks do not ship and cannot break a consumer.",
+      "description": "Benchmarks do not ship and cannot reach a consumer.",
       "matchManagers": ["nuget"],
-      "matchPackageNames": ["BenchmarkDotNet", "BenchmarkDotNet.*"],
+      "matchPackageNames": ["/^BenchmarkDotNet(\\.|$)/"],
       "minimumReleaseAge": "0 days"
     },
     {
       "description": "Still a release candidate, so unstable versions are the only ones on offer.",
       "matchManagers": ["custom.regex"],
-      "matchPackageNames": ["Microsoft.NETCore.App.Ref"],
+      "matchPackageNames": ["/^Microsoft\\.NETCore\\.App\\.Ref$/"],
       "ignoreUnstable": false
     },
     {
@@ -95,11 +101,14 @@
       "dependencyDashboardApproval": true
     },
     {
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    },
+    {
       "description": "These publishers stay on version tags. Any other action keeps the digest pinning config:best-practices turns on.",
       "matchManagers": ["github-actions"],
-      "matchPackageNames": ["actions/*", "github/*", "dotnet/*", "NuGet/*"],
-      "pinDigests": false,
-      "groupName": "actions"
+      "matchPackageNames": ["/^actions\\//", "/^github\\//", "/^dotnet\\//", "/^microsoft\\//", "/^NuGet\\//"],
+      "pinDigests": false
     }
   ],
   "customManagers": [

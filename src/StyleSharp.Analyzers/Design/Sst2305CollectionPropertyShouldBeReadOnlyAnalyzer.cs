@@ -85,7 +85,8 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer : Diagnost
 
         if (context.SemanticModel.GetDeclaredSymbol(property, context.CancellationToken) is not { } symbol
             || !CollectionTypeClassification.IsMutableCollection(symbol.Type)
-            || InterfaceImplementationLookup.ImplementsInterfaceMember(symbol))
+            || InterfaceImplementationLookup.ImplementsInterfaceMember(symbol)
+            || IsAssignedWhereOnlyItsOwnTypeCanSee(context, property, symbol))
         {
             return;
         }
@@ -94,6 +95,74 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer : Diagnost
             DesignRules.CollectionPropertyShouldBeReadOnly,
             property.Identifier.GetLocation(),
             property.Identifier.ValueText));
+    }
+
+    /// <summary>Returns whether nothing outside one type declaration can name the property.</summary>
+    /// <param name="symbol">The property symbol.</param>
+    /// <returns><see langword="true"/> when a private type around it, or the property itself, closes it off.</returns>
+    /// <remarks>
+    /// A public property on a private nested type is still unreachable from outside the type that declares
+    /// that nested type, so the enclosing chain decides this rather than the property's own modifier.
+    /// </remarks>
+    private static bool IsSealedInsideOneType(IPropertySymbol symbol)
+    {
+        for (var container = symbol.ContainingType; container is not null; container = container.ContainingType)
+        {
+            if (container.DeclaredAccessibility is Accessibility.Private)
+            {
+                return true;
+            }
+        }
+
+        return symbol.DeclaredAccessibility is Accessibility.Private;
+    }
+
+    /// <summary>Gets the outermost type declaration around a property.</summary>
+    /// <param name="property">The property declaration.</param>
+    /// <returns>The outermost enclosing type, or <see langword="null"/>.</returns>
+    private static TypeDeclarationSyntax? FindOutermostType(PropertyDeclarationSyntax property)
+    {
+        var outermost = property.FirstAncestorOrSelf<TypeDeclarationSyntax>();
+        for (var candidate = outermost; candidate is not null; candidate = candidate.Parent as TypeDeclarationSyntax)
+        {
+            outermost = candidate;
+        }
+
+        return outermost;
+    }
+
+    /// <summary>Returns whether a property only its own type can reach is assigned somewhere in that type.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="property">The property declaration.</param>
+    /// <param name="symbol">The property symbol.</param>
+    /// <returns><see langword="true"/> when removing the setter would break an existing assignment.</returns>
+    /// <remarks>
+    /// Only a property sealed inside one type declaration can be settled this way: everything that could
+    /// assign it is in that declaration. A property anything else can reach is not searched.
+    /// </remarks>
+    private static bool IsAssignedWhereOnlyItsOwnTypeCanSee(SyntaxNodeAnalysisContext context, PropertyDeclarationSyntax property, IPropertySymbol symbol)
+    {
+        if (!IsSealedInsideOneType(symbol) || FindOutermostType(property) is not { } outermost)
+        {
+            return false;
+        }
+
+        foreach (var descendant in outermost.DescendantNodes())
+        {
+            if (descendant is not AssignmentExpressionSyntax { Left: MemberAccessExpressionSyntax access })
+            {
+                continue;
+            }
+
+            if (SymbolEqualityComparer.Default.Equals(
+                context.SemanticModel.GetSymbolInfo(access, context.CancellationToken).Symbol?.OriginalDefinition,
+                symbol.OriginalDefinition))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether the declaration itself puts the property outside the rule.</summary>
@@ -105,8 +174,8 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer : Diagnost
     /// property or on its type — is the serialization escape hatch: a contract that needs a setter says
     /// so, the rule cannot know every attribute that means it, and so it steps back from all of them.
     /// </remarks>
-    private static bool IsExemptDeclaration(PropertyDeclarationSyntax property)
-        => property.AttributeLists.Count > 0
+    private static bool IsExemptDeclaration(PropertyDeclarationSyntax property) =>
+        property.AttributeLists.Count > 0
             || property.ExplicitInterfaceSpecifier is not null
             || ModifierListHelper.ContainsEither(property.Modifiers, SyntaxKind.PrivateKeyword, SyntaxKind.OverrideKeyword)
             || ModifierListHelper.Contains(property.Modifiers, SyntaxKind.RequiredKeyword)

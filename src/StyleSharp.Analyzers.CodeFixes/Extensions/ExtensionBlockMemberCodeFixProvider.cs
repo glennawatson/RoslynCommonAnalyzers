@@ -6,10 +6,7 @@ using Microsoft.CodeAnalysis.Formatting;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Moves a classic <c>this</c>-parameter extension method into an <c>extension(Receiver) { … }</c>
-/// block (SST1703, SST1705).
-/// </summary>
+/// <summary>Moves a classic <c>this</c>-parameter extension method into an <c>extension(Receiver) { … }</c> block (SST1703, SST1705).</summary>
 /// <remarks>
 /// The block is built by parsing its text rather than through the typed factory, because the
 /// <c>ExtensionBlockDeclaration</c> syntax kind does not exist on the Roslyn 4.8 floor this assembly
@@ -37,6 +34,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             TryRewrite);
 
     /// <inheritdoc/>
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
         => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
@@ -66,8 +64,33 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             return null;
         }
 
-        var introduced = block.AddMembers(member).WithTriviaFrom(method).WithAdditionalAnnotations(Formatter.Annotation);
+        var introduced = block.AddMembers(member)
+            .WithLeadingTrivia(LayoutTriviaOf(method))
+            .WithTrailingTrivia(method.GetTrailingTrivia())
+            .WithAdditionalAnnotations(Formatter.Annotation);
         return new NodeReplacement(containingClass, containingClass.ReplaceNode(method, introduced));
+    }
+
+    /// <summary>Gets a method's leading trivia without its documentation comment.</summary>
+    /// <param name="method">The classic extension method being moved.</param>
+    /// <returns>The blank lines and indentation that position the declaration.</returns>
+    /// <remarks>
+    /// The documentation travels with the member into the block. Leaving a copy on the block itself
+    /// documents parameters the block does not declare (CS1572).
+    /// </remarks>
+    private static SyntaxTriviaList LayoutTriviaOf(MethodDeclarationSyntax method)
+    {
+        var kept = new List<SyntaxTrivia>();
+        foreach (var trivia in method.GetLeadingTrivia())
+        {
+            if (!trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
+                && !trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia))
+            {
+                kept.Add(trivia);
+            }
+        }
+
+        return SyntaxFactory.TriviaList(kept);
     }
 
     /// <summary>Adds the member to an existing block and drops the method it came from.</summary>
@@ -101,7 +124,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         // member inherits that position.
         if (methodIndex == 0 && blockIndex > methodIndex)
         {
-            updatedBlock = updatedBlock.WithLeadingTrivia(method.GetLeadingTrivia());
+            updatedBlock = updatedBlock.WithLeadingTrivia(LayoutTriviaOf(method));
         }
 
         var updated = members.Replace(block, updatedBlock).RemoveAt(methodIndex);
@@ -162,8 +185,8 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         return parsed is TypeDeclarationSyntax block
             && ExtensionBlockHelper.IsExtensionBlock(block)
             && !parsed.ContainsDiagnostics
-                ? block
-                : null;
+            ? block
+            : null;
     }
 
     /// <summary>Rewrites a classic extension method as an extension-block member.</summary>

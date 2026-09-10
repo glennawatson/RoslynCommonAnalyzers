@@ -23,13 +23,13 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         None = 0,
 
         /// <summary>The value is read.</summary>
-        Read = 1,
+        Read = 1 << 0,
 
         /// <summary>The value is written.</summary>
-        Write = 2,
+        Write = 1 << 1,
 
         /// <summary>The value is both read and written.</summary>
-        ReadWrite = Read | Write
+        ReadWrite = Read | Write,
     }
 
     /// <inheritdoc/>
@@ -97,7 +97,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         }
 
         MarkReferences(candidates, references, context.CancellationToken);
-        ReportCandidates(context.ReportDiagnostic, candidates);
+        ReportCandidates(context.ReportDiagnostic, candidates, context.SemanticModel.Compilation.GetEntryPoint(context.CancellationToken));
     }
 
     /// <summary>Collects private fields, properties, methods, and events that are safe to analyze locally.</summary>
@@ -166,7 +166,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         {
             if (model.GetDeclaredSymbol(variables[i], cancellationToken) is IFieldSymbol symbol)
             {
-                usage.AddMemberCandidate(new PrivateMemberCandidate(symbol, field, variables[i].Identifier, isFieldLike: true));
+                usage.AddMemberCandidate(new(symbol, field, variables[i].Identifier, isFieldLike: true));
             }
         }
     }
@@ -193,7 +193,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        usage.AddMemberCandidate(new PrivateMemberCandidate(symbol, property, identifier, isFieldLike));
+        usage.AddMemberCandidate(new(symbol, property, identifier, isFieldLike));
     }
 
     /// <summary>Adds a private method candidate when it is safe to remove mechanically.</summary>
@@ -216,7 +216,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        usage.AddMemberCandidate(new PrivateMemberCandidate(symbol, method, method.Identifier, isFieldLike: false));
+        usage.AddMemberCandidate(new(symbol, method, method.Identifier, isFieldLike: false));
     }
 
     /// <summary>Collects private event candidates from one event-field declaration.</summary>
@@ -240,7 +240,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         {
             if (model.GetDeclaredSymbol(variables[i], cancellationToken) is IEventSymbol symbol)
             {
-                usage.AddMemberCandidate(new PrivateMemberCandidate(symbol, eventField, variables[i].Identifier, isFieldLike: false));
+                usage.AddMemberCandidate(new(symbol, eventField, variables[i].Identifier, isFieldLike: false));
             }
         }
     }
@@ -290,7 +290,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            usage.AddMemberReference(new PrivateMemberReference(symbol, simpleName));
+            usage.AddMemberReference(new(symbol, simpleName));
         }
     }
 
@@ -298,8 +298,8 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="reference">The symbol resolved at the reference site.</param>
     /// <param name="candidate">The candidate declaration symbol.</param>
     /// <returns><see langword="true"/> when the symbols represent the same member.</returns>
-    private static bool SymbolMatches(ISymbol reference, ISymbol candidate)
-        => SymbolEqualityComparer.Default.Equals(reference, candidate)
+    private static bool SymbolMatches(ISymbol reference, ISymbol candidate) =>
+        SymbolEqualityComparer.Default.Equals(reference, candidate)
             || SymbolEqualityComparer.Default.Equals(reference.OriginalDefinition, candidate.OriginalDefinition);
 
     /// <summary>Updates read/write state for one reference.</summary>
@@ -344,17 +344,27 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         }
 
         MarkReferences(candidates, references, context.CancellationToken);
-        ReportCandidates(context.ReportDiagnostic, candidates);
+        ReportCandidates(context.ReportDiagnostic, candidates, context.Compilation.GetEntryPoint(context.CancellationToken));
     }
 
     /// <summary>Reports the unused or unread candidates.</summary>
     /// <param name="reportDiagnostic">The diagnostic reporting callback.</param>
     /// <param name="candidates">The candidate list.</param>
-    private static void ReportCandidates(Action<Diagnostic> reportDiagnostic, List<PrivateMemberCandidate> candidates)
+    /// <param name="entryPoint">The compilation's entry point, when it has one.</param>
+    /// <remarks>
+    /// The runtime calls the entry point, so nothing in the source references it. Removing it leaves a
+    /// program that cannot start (CS5001).
+    /// </remarks>
+    private static void ReportCandidates(Action<Diagnostic> reportDiagnostic, List<PrivateMemberCandidate> candidates, IMethodSymbol? entryPoint)
     {
         for (var i = 0; i < candidates.Count; i++)
         {
             var candidate = candidates[i];
+            if (entryPoint is not null && SymbolEqualityComparer.Default.Equals(candidate.Symbol, entryPoint))
+            {
+                continue;
+            }
+
             if (candidate.IsFieldLike)
             {
                 if (!candidate.Read && !candidate.Written)
@@ -421,8 +431,8 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether modifiers declare private accessibility.</summary>
     /// <param name="modifiers">The modifiers.</param>
     /// <returns><see langword="true"/> when the declaration is private.</returns>
-    private static bool IsPrivate(SyntaxTokenList modifiers)
-        => HasModifier(modifiers, SyntaxKind.PrivateKeyword)
+    private static bool IsPrivate(SyntaxTokenList modifiers) =>
+        HasModifier(modifiers, SyntaxKind.PrivateKeyword)
             && !HasModifier(modifiers, SyntaxKind.ProtectedKeyword)
             && !HasModifier(modifiers, SyntaxKind.InternalKeyword)
             && !HasModifier(modifiers, SyntaxKind.PublicKeyword);
@@ -453,8 +463,8 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="name">The reference name.</param>
     /// <param name="declaration">The candidate declaration.</param>
     /// <returns><see langword="true"/> when the reference is self-contained in the declaration.</returns>
-    private static bool IsInsideDeclaration(SyntaxNode name, SyntaxNode declaration)
-        => name.FirstAncestorOrSelf<MemberDeclarationSyntax>() == declaration;
+    private static bool IsInsideDeclaration(SyntaxNode name, SyntaxNode declaration) =>
+        name.FirstAncestorOrSelf<MemberDeclarationSyntax>() == declaration;
 
     /// <summary>Gets whether a field-like reference reads, writes, or both.</summary>
     /// <param name="name">The referenced name.</param>
@@ -470,19 +480,14 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
             return assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) ? ValueUsages.Write : ValueUsages.ReadWrite;
         }
 
-        if (IsIncrementOrDecrement(expression.Parent))
-        {
-            return ValueUsages.ReadWrite;
-        }
-
-        return GetArgumentUsages(expression.Parent) ?? ValueUsages.Read;
+        return IsIncrementOrDecrement(expression.Parent) ? ValueUsages.ReadWrite : GetArgumentUsages(expression.Parent) ?? ValueUsages.Read;
     }
 
     /// <summary>Returns whether a parent node is an increment or decrement operation.</summary>
     /// <param name="parent">The parent node.</param>
     /// <returns><see langword="true"/> when the parent reads and writes the operand.</returns>
-    private static bool IsIncrementOrDecrement(SyntaxNode? parent)
-        => (parent is PrefixUnaryExpressionSyntax prefix
+    private static bool IsIncrementOrDecrement(SyntaxNode? parent) =>
+        (parent is PrefixUnaryExpressionSyntax prefix
                 && (prefix.IsKind(SyntaxKind.PreIncrementExpression) || prefix.IsKind(SyntaxKind.PreDecrementExpression)))
             || (parent is PostfixUnaryExpressionSyntax postfix
                 && (postfix.IsKind(SyntaxKind.PostIncrementExpression) || postfix.IsKind(SyntaxKind.PostDecrementExpression)));
@@ -490,20 +495,12 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets usage semantics for ref-like argument passing.</summary>
     /// <param name="parent">The parent node.</param>
     /// <returns>The usage kind, or <see langword="null"/> when the parent is not an argument.</returns>
-    private static ValueUsages? GetArgumentUsages(SyntaxNode? parent)
-    {
-        if (parent is not ArgumentSyntax argument)
-        {
-            return null;
-        }
-
-        return argument.RefOrOutKeyword.RawKind switch
+    private static ValueUsages? GetArgumentUsages(SyntaxNode? parent) => parent is not ArgumentSyntax argument ? null : argument.RefOrOutKeyword.RawKind switch
         {
             (int)SyntaxKind.OutKeyword => ValueUsages.Write,
             (int)SyntaxKind.RefKeyword or (int)SyntaxKind.InKeyword => ValueUsages.ReadWrite,
             _ => ValueUsages.Read
         };
-    }
 
     /// <summary>Tracks private member candidates and references for one type symbol.</summary>
     private sealed class PrivateTypeUsage
@@ -548,11 +545,6 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>Tracks one member reference.</summary>
-    /// <param name="Symbol">The symbol resolved at the reference site.</param>
-    /// <param name="Name">The reference name syntax.</param>
-    private sealed record PrivateMemberReference(ISymbol Symbol, SimpleNameSyntax Name);
-
     /// <summary>Tracks one private member candidate.</summary>
     private sealed class PrivateMemberCandidate
     {
@@ -587,4 +579,9 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         /// <summary>Gets or sets a value indicating whether the member is written.</summary>
         public bool Written { get; set; }
     }
+
+    /// <summary>Tracks one member reference.</summary>
+    /// <param name="Symbol">The symbol resolved at the reference site.</param>
+    /// <param name="Name">The reference name syntax.</param>
+    private sealed record PrivateMemberReference(ISymbol Symbol, SimpleNameSyntax Name);
 }

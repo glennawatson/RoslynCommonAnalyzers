@@ -121,6 +121,38 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
         await RunPreferBlockAsync(Source, Source);
     }
 
+    /// <summary>Verifies the documentation travels with the member instead of landing on the block.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A copy on the block would document parameters the block does not declare, which is CS1572.
+    /// </remarks>
+    [Test]
+    public async Task DocumentationStaysWithTheMovedMemberAsync()
+    {
+        const string Source = """
+                              public static class StringExtensions
+                              {
+                                  /// <summary>Returns whether the text is empty.</summary>
+                                  /// <param name="text">The text to measure.</param>
+                                  /// <returns><see langword="true"/> when the text is empty.</returns>
+                                  public static bool {|SST1703:IsBlank|}(this string text) => text.Length == 0;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public static class StringExtensions
+                                   {
+                                       extension(string text)
+                                       {
+                                           /// <summary>Returns whether the text is empty.</summary>
+                                           /// <param name="text">The text to measure.</param>
+                                           /// <returns><see langword="true"/> when the text is empty.</returns>
+                                           public bool IsBlank() => text.Length == 0;
+                                       }
+                                   }
+                                   """;
+        await RunPreferBlockAsync(Source, FixedSource);
+    }
+
     /// <summary>Runs the SST1703 verifier at a language version that has extension blocks.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected source after the fix.</param>

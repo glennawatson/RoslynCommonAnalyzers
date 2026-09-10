@@ -152,6 +152,39 @@ public class RecordAnalyzerUnitTest
             }{{IsExternalInit}}
             """);
 
+    /// <summary>Verifies a positional record struct written by its declaring type keeps its mutability.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PositionalRecordStructWrittenByItsOwnTypeIsCleanAsync()
+        => await VerifyRecord.VerifyAnalyzerAsync(
+            $$"""
+            internal sealed class Scanner
+            {
+                internal bool Run()
+                {
+                    var scan = new Scan(false);
+                    scan.Found = true;
+                    return scan.Found;
+                }
+
+                private record struct Scan(bool Found);
+            }{{IsExternalInit}}
+            """);
+
+    /// <summary>Verifies an untouched positional record struct is still asked to become readonly.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PositionalRecordStructLeftAloneStillReportsAsync()
+        => await VerifyRecord.VerifyAnalyzerAsync(
+            $$"""
+            internal sealed class Scanner
+            {
+                internal bool Run() => new Scan(true).Found;
+
+                private record struct {|SST1803:Scan|}(bool Found);
+            }{{IsExternalInit}}
+            """);
+
     /// <summary>Verifies a record struct with only readonly members is still asked to become readonly.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

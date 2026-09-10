@@ -79,8 +79,8 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         return name.Length != 0
                && !NamingHelper.IsAllUnderscores(name)
                && (convention == NamingConvention.PascalCase
-                    ? !IsPascalCaseFastPathCompliant(name)
-                    : !NamingConventions.Conforms(name, convention));
+                   ? !IsPascalCaseFastPathCompliant(name)
+                   : !NamingConventions.Conforms(name, convention));
     }
 
     /// <summary>Returns the set accessor that should produce SST1802, or <see langword="null"/> for clean shapes.</summary>
@@ -167,16 +167,55 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <param name="record">The record struct declaration.</param>
     /// <remarks>
     /// A settable property or a writable field makes <c>readonly</c> a compiler error (CS8341, CS8340), so
-    /// a struct carrying either is a deliberately mutable value and is left alone.
+    /// a struct carrying either is a deliberately mutable value and is left alone. A positional record
+    /// struct synthesizes settable properties from its parameter list, and the modifier turns each into
+    /// <c>init</c>, so one is only reported when it is sealed off inside the type that declares it and
+    /// nothing there writes to it.
     /// </remarks>
     private static void CheckReadonlyStruct(SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
     {
-        if (ModifierListHelper.Contains(record.Modifiers, SyntaxKind.ReadOnlyKeyword) || HasWritableInstanceMember(record))
+        if (ModifierListHelper.Contains(record.Modifiers, SyntaxKind.ReadOnlyKeyword)
+            || HasWritableInstanceMember(record)
+            || IsMutatedPositionalRecord(context, record))
         {
             return;
         }
 
         context.ReportDiagnostic(DiagnosticHelper.Create(RecordRules.ReadonlyRecordStruct, record.SyntaxTree, record.Identifier.Span, record.Identifier.ValueText));
+    }
+
+    /// <summary>Returns whether a positional record struct has a synthesized property written after construction.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="record">The record struct declaration.</param>
+    /// <returns><see langword="true"/> when the modifier would break an existing write.</returns>
+    /// <remarks>
+    /// The search is the declaring type's own body, which is the whole world for a record the containing
+    /// type seals off. A record anything else can reach is not searched and stays reported.
+    /// </remarks>
+    private static bool IsMutatedPositionalRecord(SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
+    {
+        if (record.ParameterList is not { Parameters.Count: > 0 }
+            || record.Parent is not TypeDeclarationSyntax container
+            || context.SemanticModel.GetDeclaredSymbol(record, context.CancellationToken) is not { } declared)
+        {
+            return false;
+        }
+
+        foreach (var descendant in container.DescendantNodes())
+        {
+            if (descendant is not AssignmentExpressionSyntax { Left: MemberAccessExpressionSyntax access })
+            {
+                continue;
+            }
+
+            var owner = context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type;
+            if (owner is not null && SymbolEqualityComparer.Default.Equals(owner.OriginalDefinition, declared))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether a declaration carries an instance member that a readonly struct forbids.</summary>
@@ -279,11 +318,12 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="property">The property declaration.</param>
     /// <param name="accessor">The set accessor to flag.</param>
+    [global::System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     private static void ReportSetAccessor(
         SyntaxNodeAnalysisContext context,
         PropertyDeclarationSyntax property,
-        AccessorDeclarationSyntax accessor)
-        => context.ReportDiagnostic(DiagnosticHelper.Create(RecordRules.InitOnlyProperty, accessor.SyntaxTree, accessor.Keyword.Span, property.Identifier.ValueText));
+        AccessorDeclarationSyntax accessor) =>
+        context.ReportDiagnostic(DiagnosticHelper.Create(RecordRules.InitOnlyProperty, accessor.SyntaxTree, accessor.Keyword.Span, property.Identifier.ValueText));
 
     /// <summary>Caches the most recent per-tree parameter convention for one compilation.</summary>
     private sealed class ParameterConventionCache

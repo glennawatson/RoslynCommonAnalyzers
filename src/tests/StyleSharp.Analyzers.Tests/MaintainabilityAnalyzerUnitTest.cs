@@ -722,4 +722,23 @@ public class MaintainabilityAnalyzerUnitTest
                 public IDisposable Subscribe(IObserver<T> observer) => throw new NotImplementedException();
             }
             """);
+
+    /// <summary>Verifies the entry point survives, even though nothing in the source calls it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task EntryPointIsNotReportedAsync()
+    {
+        var test = new VerifyPrivateUsageAnalyzer.Test
+        {
+            TestCode = """
+                internal static class Program
+                {
+                    private static int Main(string[] args) => args.Length;
+                }
+                """,
+        };
+
+        test.TestState.OutputKind = Microsoft.CodeAnalysis.OutputKind.ConsoleApplication;
+        await test.RunAsync(CancellationToken.None);
+    }
 }

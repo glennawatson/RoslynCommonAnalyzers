@@ -299,4 +299,27 @@ public class CollectionPropertyShouldBeReadOnlyAnalyzerUnitTest
                 public static List<int> {|SST2305:Items|} { get; set; }
             }
             """);
+
+    /// <summary>Verifies a property only its own type can reach keeps a setter that type uses.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PropertyAssignedInsideItsOwnTypeIsCleanAsync()
+        => await VerifyCollectionProperty.VerifyAnalyzerAsync(
+            """
+            using System.Collections.Generic;
+
+            public sealed class Scanner
+            {
+                public void Run()
+                {
+                    var scan = default(ScanState);
+                    scan.Seen = new List<int>();
+                }
+
+                private struct ScanState
+                {
+                    public List<int> Seen { get; set; }
+                }
+            }
+            """);
 }

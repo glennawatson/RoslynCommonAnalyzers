@@ -101,6 +101,32 @@ public class ExpressionBodyArrowNewLineUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies an arrow is left where it is when pulling it up would overrun the line.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>The arrow wrapped because the signature is long; joining the lines only moves the problem.</remarks>
+    [Test]
+    public async Task ArrowThatWouldOverrunTheLineIsCleanAsync()
+    {
+        var test = new VerifyArrow.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private static int LongEnoughToPushTheJoinedLinePastTheConfiguredMaximum(int first, int second)
+                               => first + second;
+                       }
+                       """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1527.severity = warning
+            stylesharp.max_line_length = 60
+
+            """));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies an expression body written once per conditional branch is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

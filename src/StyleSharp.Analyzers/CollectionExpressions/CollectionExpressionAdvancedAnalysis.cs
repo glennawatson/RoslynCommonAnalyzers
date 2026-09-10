@@ -50,10 +50,17 @@ internal static class CollectionExpressionAdvancedAnalysis
     /// <summary>Gets a collection-expression replacement for an inline initializer.</summary>
     /// <param name="initializer">The initializer.</param>
     /// <returns>The collection expression text.</returns>
+    /// <remarks>
+    /// The braces are located by token offset. An initializer that opens on its own line carries the
+    /// indentation ahead of <c>{</c> as leading trivia, which the full string includes, so trimming a
+    /// character off each end would keep both braces inside the brackets.
+    /// </remarks>
     public static string CollectionExpressionText(InitializerExpressionSyntax initializer)
     {
         var full = initializer.ToFullString().AsSpan();
-        return "[" + full[1..^1].ToString() + "]";
+        var start = initializer.OpenBraceToken.Span.End - initializer.FullSpan.Start;
+        var end = initializer.CloseBraceToken.SpanStart - initializer.FullSpan.Start;
+        return "[" + full[start..end].ToString() + "]";
     }
 
     /// <summary>Gets a collection-expression replacement for a factory or fluent invocation.</summary>

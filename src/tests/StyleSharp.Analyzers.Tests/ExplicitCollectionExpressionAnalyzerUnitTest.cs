@@ -40,6 +40,41 @@ public class ExplicitCollectionExpressionAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies an initializer that opens on its own line keeps its braces out of the brackets.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>The indentation ahead of the brace is trivia the initializer carries, not part of the elements.</remarks>
+    [Test]
+    public async Task InitializerOpeningOnItsOwnLineIsFixedAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public int[] Values = {|SST2101:new[]
+                                  {
+                                      1,
+                                      2
+                                  }|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public int[] Values = [
+                                           1,
+                                           2
+                                       ];
+                                   }
+                                   """;
+        var test = new VerifyExplicitCollection.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies an argument a generic call infers its type argument from is left alone.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>

@@ -199,4 +199,25 @@ public class UseLogicalOperatorAnalyzerUnitTest
                     => {|SST2288:value is not string ? false : b|};
             }
             """);
+
+    /// <summary>Verifies negating a pattern test flips the pattern rather than wrapping it in <c>!</c>.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>A <c>!(x is T)</c> rewrite would immediately draw SST2008.</remarks>
+    [Test]
+    public async Task PatternConditionIsNegatedAsAPatternAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  public bool M(object value, bool b) => {|SST2288:value is string ? false : b|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class C
+                                   {
+                                       public bool M(object value, bool b) => value is not string && b;
+                                   }
+                                   """;
+        await VerifyUseLogicalOperator.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

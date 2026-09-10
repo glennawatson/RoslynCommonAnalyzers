@@ -149,7 +149,7 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer : Diagnost
 
         foreach (var descendant in outermost.DescendantNodes())
         {
-            if (descendant is not AssignmentExpressionSyntax { Left: MemberAccessExpressionSyntax access })
+            if (RecordAnalyzer.WrittenMemberAccess(descendant) is not { } access)
             {
                 continue;
             }

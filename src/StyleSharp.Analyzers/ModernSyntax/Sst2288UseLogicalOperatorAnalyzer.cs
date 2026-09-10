@@ -117,6 +117,23 @@ public sealed class Sst2288UseLogicalOperatorAnalyzer : DiagnosticAnalyzer
             return ExpressionSimplificationAnalyzer.Unwrap(negation.Operand).WithoutTrivia().ToString();
         }
 
+        if (condition.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 })
+        {
+            switch (inner)
+            {
+                case IsPatternExpressionSyntax pattern:
+                {
+                    var flipped = pattern.Pattern is UnaryPatternSyntax { RawKind: (int)SyntaxKind.NotPattern } negated
+                        ? negated.Pattern.WithoutTrivia().ToString()
+                        : "not " + pattern.Pattern.WithoutTrivia();
+                    return $"{pattern.Expression.WithoutTrivia()} is {flipped}";
+                }
+
+                case BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression } typeTest:
+                    return $"{typeTest.Left.WithoutTrivia()} is not {typeTest.Right.WithoutTrivia()}";
+            }
+        }
+
         var text = inner.WithoutTrivia().ToString();
         return PrimaryExpressionClassification.IsPrimary(inner) ? "!" + text : "!(" + text + ")";
     }

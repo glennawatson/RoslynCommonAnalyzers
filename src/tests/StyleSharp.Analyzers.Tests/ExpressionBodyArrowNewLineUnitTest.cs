@@ -100,4 +100,35 @@ public class ExpressionBodyArrowNewLineUnitTest
             """));
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies an expression body written once per conditional branch is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Moving the arrow up to the signature would lift it out of the branch, so there is no fix to offer.
+    /// </remarks>
+    [Test]
+    public async Task ArrowInsideAConditionalBranchIsCleanAsync()
+    {
+        var test = new VerifyArrow.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private static int M(int x)
+                       #if DEBUG
+                               => x + 1;
+                       #else
+                               => x;
+                       #endif
+                       }
+                       """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1527.severity = warning
+
+            """));
+        await test.RunAsync(CancellationToken.None);
+    }
 }

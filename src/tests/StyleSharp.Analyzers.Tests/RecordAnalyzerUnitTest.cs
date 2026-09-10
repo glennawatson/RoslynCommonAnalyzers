@@ -171,6 +171,25 @@ public class RecordAnalyzerUnitTest
             }{{IsExternalInit}}
             """);
 
+    /// <summary>Verifies a positional record struct stepped with <c>--</c> keeps its mutability.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PositionalRecordStructSteppedByItsOwnTypeIsCleanAsync()
+        => await VerifyRecord.VerifyAnalyzerAsync(
+            $$"""
+            internal sealed class Scanner
+            {
+                internal int Run()
+                {
+                    var scan = new Scan(2);
+                    scan.Remaining--;
+                    return scan.Remaining;
+                }
+
+                private record struct Scan(int Remaining);
+            }{{IsExternalInit}}
+            """);
+
     /// <summary>Verifies an untouched positional record struct is still asked to become readonly.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -121,6 +121,18 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
+    /// <summary>Gets the member access a node writes through, if it writes to one.</summary>
+    /// <param name="node">The candidate node.</param>
+    /// <returns>The written member access, or <see langword="null"/>.</returns>
+    /// <remarks><c>x.Count++</c> and <c>x.Count += 1</c> write just as much as <c>x.Count = 1</c> does.</remarks>
+    internal static MemberAccessExpressionSyntax? WrittenMemberAccess(SyntaxNode node) => node switch
+    {
+        AssignmentExpressionSyntax { Left: MemberAccessExpressionSyntax assigned } => assigned,
+        PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PreIncrementExpression or (int)SyntaxKind.PreDecrementExpression, Operand: MemberAccessExpressionSyntax stepped } => stepped,
+        PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PostIncrementExpression or (int)SyntaxKind.PostDecrementExpression, Operand: MemberAccessExpressionSyntax stepped } => stepped,
+        _ => null,
+    };
+
     /// <summary>Applies the record-class rules to a single record declaration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="parameterConventionCache">The per-tree positional-parameter convention cache.</param>
@@ -203,7 +215,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
 
         foreach (var descendant in container.DescendantNodes())
         {
-            if (descendant is not AssignmentExpressionSyntax { Left: MemberAccessExpressionSyntax access })
+            if (WrittenMemberAccess(descendant) is not { } access)
             {
                 continue;
             }

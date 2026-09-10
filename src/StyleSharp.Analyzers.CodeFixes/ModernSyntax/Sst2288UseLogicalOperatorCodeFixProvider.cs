@@ -61,8 +61,9 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
     /// <param name="condition">The condition to negate.</param>
     /// <returns>The negated condition.</returns>
     /// <remarks>
-    /// A leading <c>!</c> is dropped rather than doubled; anything that is not already a primary expression is
-    /// parenthesized so the <c>!</c> binds to the whole condition.
+    /// A leading <c>!</c> is dropped rather than doubled, a pattern test flips its own <c>not</c> rather
+    /// than wearing one, and anything else that is not already a primary expression is parenthesized so
+    /// the <c>!</c> binds to the whole condition.
     /// </remarks>
     private static ExpressionSyntax Negate(ExpressionSyntax condition)
     {
@@ -72,11 +73,39 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
             return ExpressionSimplificationAnalyzer.Unwrap(negation.Operand).WithoutTrivia();
         }
 
+        if (SupportsNotPattern(condition))
+        {
+            switch (inner)
+            {
+                case IsPatternExpressionSyntax pattern:
+                    return pattern.WithoutTrivia().WithPattern(NegatePattern(pattern.Pattern.WithoutTrivia()));
+
+                case BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression, Right: TypeSyntax type } typeTest:
+                    return SyntaxFactory.IsPatternExpression(
+                        typeTest.Left.WithoutTrivia(),
+                        NegatePattern(SyntaxFactory.TypePattern(type.WithoutTrivia())));
+            }
+        }
+
         var operand = PrimaryExpressionClassification.IsPrimary(inner)
             ? inner.WithoutTrivia()
             : SyntaxFactory.ParenthesizedExpression(inner.WithoutTrivia());
         return SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, operand);
     }
+
+    /// <summary>Returns whether the tree was parsed at a language version that has <c>not</c> patterns.</summary>
+    /// <param name="condition">The condition being negated.</param>
+    /// <returns><see langword="true"/> from C# 9 on.</returns>
+    private static bool SupportsNotPattern(ExpressionSyntax condition)
+        => condition.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 };
+
+    /// <summary>Flips a pattern between its plain and <c>not</c> forms.</summary>
+    /// <param name="pattern">The pattern to negate.</param>
+    /// <returns>The negated pattern.</returns>
+    private static PatternSyntax NegatePattern(PatternSyntax pattern)
+        => pattern is UnaryPatternSyntax { RawKind: (int)SyntaxKind.NotPattern } negated
+            ? negated.Pattern
+            : SyntaxFactory.UnaryPattern(SyntaxFactory.Token(SyntaxKind.NotKeyword), pattern);
 
     /// <summary>Parenthesizes an operand whose own operator would regroup under the one being built.</summary>
     /// <param name="operand">The non-literal branch.</param>

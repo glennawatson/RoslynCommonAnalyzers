@@ -42,7 +42,7 @@ public sealed class Sst1527ArrowTokenNewLineAnalyzer : DiagnosticAnalyzer
         var arrow = clause.ArrowToken;
         var breakBefore = LayoutHelpers.HasLineBreakBefore(arrow);
         var breakAfter = LayoutHelpers.HasLineBreakAfter(arrow);
-        if (!breakBefore && !breakAfter)
+        if ((!breakBefore && !breakAfter) || SitsAcrossADirective(arrow))
         {
             return;
         }
@@ -59,5 +59,33 @@ public sealed class Sst1527ArrowTokenNewLineAnalyzer : DiagnosticAnalyzer
             arrow.GetLocation(),
             LayoutHelpers.PlacementProperties(wantBreakBefore),
             wantBreakBefore ? "start" : "end"));
+    }
+
+    /// <summary>Returns whether a conditional directive sits between the arrow and the signature.</summary>
+    /// <param name="arrow">The expression body's arrow token.</param>
+    /// <returns><see langword="true"/> when moving the arrow would move it across the directive.</returns>
+    /// <remarks>
+    /// An expression body written once per <c>#if</c> branch keeps the arrow inside the branch. Moving it
+    /// up to the signature would hoist it out of the branch and change which body each one selects.
+    /// </remarks>
+    private static bool SitsAcrossADirective(SyntaxToken arrow)
+    {
+        foreach (var trivia in arrow.LeadingTrivia)
+        {
+            if (trivia.IsDirective)
+            {
+                return true;
+            }
+        }
+
+        foreach (var trivia in arrow.GetPreviousToken().TrailingTrivia)
+        {
+            if (trivia.IsDirective)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

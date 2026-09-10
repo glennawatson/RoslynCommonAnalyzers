@@ -144,7 +144,6 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
                                        extension(string text)
                                        {
                                            /// <summary>Returns whether the text is empty.</summary>
-                                           /// <param name="text">The text to measure.</param>
                                            /// <returns><see langword="true"/> when the text is empty.</returns>
                                            public bool IsBlank() => text.Length == 0;
                                        }
@@ -191,6 +190,10 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
         => test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
-            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Preview));
+            return solution.WithProjectParseOptions(
+                projectId,
+                parseOptions
+                    .WithLanguageVersion(LanguageVersion.Preview)
+                    .WithDocumentationMode(Microsoft.CodeAnalysis.DocumentationMode.Diagnose));
         });
 }

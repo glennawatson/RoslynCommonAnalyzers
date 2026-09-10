@@ -26,17 +26,17 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Move into an extension block",
             nameof(ExtensionBlockMemberCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [global::System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Rewrites the containing class so the reported method lives in an extension block.</summary>
     /// <param name="root">The syntax root.</param>
@@ -139,8 +139,8 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// mention the receiver, and a receiver carrying attributes or a default has no equivalent on the
     /// block's parameter. Those need a decision, so no fix is offered for them.
     /// </remarks>
-    private static bool IsConvertible(MethodDeclarationSyntax method)
-        => ExtensionBlockHelper.IsClassicExtensionMethod(method)
+    private static bool IsConvertible(MethodDeclarationSyntax method) =>
+        ExtensionBlockHelper.IsClassicExtensionMethod(method)
         && method.TypeParameterList is null
         && method.ConstraintClauses.Count == 0
         && method.ParameterList.Parameters[0] is { AttributeLists.Count: 0, Default: null, Type: not null }
@@ -194,22 +194,94 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// <returns>The member as it is declared inside the block.</returns>
     /// <remarks>
     /// Inside a block the receiver is the block's parameter, so the method drops its own receiver
-    /// parameter and its <c>static</c> modifier; everything else — attributes, documentation, the body —
-    /// moves across untouched.
+    /// parameter, that parameter's documentation, and its <c>static</c> modifier; everything else —
+    /// attributes, the rest of the documentation, the body — moves across untouched.
     /// </remarks>
     private static MethodDeclarationSyntax ToExtensionMember(MethodDeclarationSyntax method)
     {
+        var receiverName = method.ParameterList.Parameters[0].Identifier.ValueText;
         var parameters = method.ParameterList.Parameters.RemoveAt(0);
 
+        // The trivia goes on last: replacing the modifiers restores the tokens' own leading trivia,
+        // which still carries the documentation this strips.
         return method
             .WithModifiers(WithoutStatic(method.Modifiers))
-            .WithParameterList(method.ParameterList.WithParameters(parameters));
+            .WithParameterList(method.ParameterList.WithParameters(parameters))
+            .WithLeadingTrivia(WithoutParameterDocumentation(method.GetLeadingTrivia(), receiverName));
+    }
+
+    /// <summary>Removes one <c>&lt;param&gt;</c> element from a declaration's documentation comment.</summary>
+    /// <param name="trivia">The declaration's leading trivia.</param>
+    /// <param name="parameterName">The parameter whose documentation should go.</param>
+    /// <returns>The trivia with that element removed.</returns>
+    /// <remarks>
+    /// The receiver becomes the block's parameter, so documenting it on the member describes a parameter
+    /// the member no longer declares (CS1572).
+    /// </remarks>
+    private static SyntaxTriviaList WithoutParameterDocumentation(SyntaxTriviaList trivia, string parameterName)
+    {
+        for (var i = 0; i < trivia.Count; i++)
+        {
+            if (trivia[i].GetStructure() is not DocumentationCommentTriviaSyntax documentation)
+            {
+                continue;
+            }
+
+            var kept = documentation.Content;
+            for (var j = kept.Count - 1; j >= 0; j--)
+            {
+                if (kept[j] is XmlElementSyntax { StartTag.Name.LocalName.ValueText: "param" } element
+                    && NamesParameter(element, parameterName))
+                {
+                    kept = RemoveWithPrecedingExterior(kept, j);
+                }
+            }
+
+            if (kept.Count == documentation.Content.Count)
+            {
+                continue;
+            }
+
+            return trivia.Replace(trivia[i], SyntaxFactory.Trivia(documentation.WithContent(kept)));
+        }
+
+        return trivia;
+    }
+
+    /// <summary>Returns whether a <c>&lt;param&gt;</c> element carries the given name attribute.</summary>
+    /// <param name="element">The documentation element.</param>
+    /// <param name="parameterName">The parameter name to match.</param>
+    /// <returns><see langword="true"/> when the element documents that parameter.</returns>
+    private static bool NamesParameter(XmlElementSyntax element, string parameterName)
+    {
+        foreach (var attribute in element.StartTag.Attributes)
+        {
+            if (attribute is XmlNameAttributeSyntax name && name.Identifier.Identifier.ValueText == parameterName)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Removes a documentation element together with the <c>///</c> run that introduces it.</summary>
+    /// <param name="content">The documentation content.</param>
+    /// <param name="index">The element to remove.</param>
+    /// <returns>The content without that element or its exterior text.</returns>
+    private static SyntaxList<XmlNodeSyntax> RemoveWithPrecedingExterior(SyntaxList<XmlNodeSyntax> content, int index)
+    {
+        var withoutElement = content.RemoveAt(index);
+        var previous = index - 1;
+        return previous >= 0 && withoutElement.Count > previous && withoutElement[previous] is XmlTextSyntax
+            ? withoutElement.RemoveAt(previous)
+            : withoutElement;
     }
 
     /// <summary>Removes the <c>static</c> modifier, keeping the member's leading trivia in place.</summary>
     /// <param name="modifiers">The method's modifiers.</param>
     /// <returns>The modifiers without <c>static</c>.</returns>
-    private static SyntaxTokenList WithoutStatic(SyntaxTokenList modifiers)
+    private static SyntaxTokenList WithoutStatic(in SyntaxTokenList modifiers)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {

@@ -457,8 +457,26 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         }
 
         return GetEmbeddedReturn(next) is { } whenFalse
-            && !WouldNestConditionalExpression(ifStatement.Condition, whenTrue, whenFalse);
+            && !WouldNestConditionalExpression(ifStatement.Condition, whenTrue, whenFalse)
+            && !HasOneBooleanLiteralBranch(whenTrue, whenFalse);
     }
+
+    /// <summary>Returns whether exactly one of the two returned values is a boolean literal.</summary>
+    /// <param name="whenTrue">The value returned from the <c>if</c>.</param>
+    /// <param name="whenFalse">The value returned after it.</param>
+    /// <returns><see langword="true"/> when one branch is <c>true</c> or <c>false</c> and the other is not.</returns>
+    /// <remarks>
+    /// <c>cond ? false : value</c> is a logical operator written the long way, which is the shape SST2288
+    /// reports, so collapsing to it would trade one diagnostic for another.
+    /// </remarks>
+    private static bool HasOneBooleanLiteralBranch(ExpressionSyntax whenTrue, ExpressionSyntax whenFalse)
+        => IsBooleanLiteral(whenTrue) != IsBooleanLiteral(whenFalse);
+
+    /// <summary>Returns whether an expression is the <c>true</c> or <c>false</c> literal.</summary>
+    /// <param name="expression">The expression to inspect.</param>
+    /// <returns><see langword="true"/> for a boolean literal.</returns>
+    private static bool IsBooleanLiteral(ExpressionSyntax expression)
+        => expression.IsKind(SyntaxKind.TrueLiteralExpression) || expression.IsKind(SyntaxKind.FalseLiteralExpression);
 
     /// <summary>Returns whether a conditional rewrite would create nested conditional expressions.</summary>
     /// <param name="condition">The condition expression.</param>

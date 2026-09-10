@@ -568,4 +568,28 @@ public class LanguageStyleAnalyzerUnitTest
                               """;
         await VerifyLanguageStyle.VerifyAnalyzerAsync(Source);
     }
+
+    /// <summary>Verifies a guard returning a boolean literal is left as two statements.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The conditional it would collapse to is a logical operator written the long way, which is the shape
+    /// SST2288 reports.
+    /// </remarks>
+    [Test]
+    public async Task GuardReturningABooleanLiteralIsCleanAsync()
+        => await VerifyLanguageStyle.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public bool M(bool first, bool second)
+                {
+                    if (!first)
+                    {
+                        return false;
+                    }
+
+                    return second;
+                }
+            }
+            """);
 }

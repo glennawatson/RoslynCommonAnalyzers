@@ -9,7 +9,6 @@
     "security:openssf-scorecard"
   ],
   "timezone": "Australia/Melbourne",
-  "schedule": ["before 6am on monday"],
   "prConcurrentLimit": 10,
   "prHourlyLimit": 10,
   "labels": ["dependencies"],

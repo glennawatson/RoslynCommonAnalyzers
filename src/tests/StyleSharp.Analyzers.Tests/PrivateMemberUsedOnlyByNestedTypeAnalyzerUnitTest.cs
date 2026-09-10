@@ -43,6 +43,36 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
         await VerifyNestedOnly.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a private static property only a nested type reads is moved into it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PrivateStaticPropertyIsMovedIntoTheNestedTypeAsync()
+    {
+        const string Source = """
+                              internal class Outer
+                              {
+                                  private static int {|SST1498:Factor|} => 2;
+
+                                  internal sealed class Inner
+                                  {
+                                      public int Run(int value) => value * Factor;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   internal class Outer
+                                   {
+                                       internal sealed class Inner
+                                       {
+                                           public int Run(int value) => value * Factor;
+
+                                           private static int Factor => 2;
+                                       }
+                                   }
+                                   """;
+        await VerifyNestedOnly.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies the moved method takes its documentation comment with it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -129,15 +159,16 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
         await VerifyNestedOnly.VerifyCodeFixAsync(Source, Source);
     }
 
-    /// <summary>Verifies a private property a nested type has taken over is reported, and left for a human to move.</summary>
+    /// <summary>Verifies a private property with an initializer is reported, and left for a human to move.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>The initializer runs when its declaring type is first used, and moving it moves that moment.</remarks>
     [Test]
     public async Task PrivatePropertyIsReportedWithoutAFixAsync()
     {
         const string Source = """
                               internal class Outer
                               {
-                                  private static int {|SST1498:Factor|} => 2;
+                                  private static int {|SST1498:Factor|} { get; } = 2;
 
                                   internal sealed class Inner
                                   {

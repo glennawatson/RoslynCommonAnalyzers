@@ -269,13 +269,18 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
     /// <param name="member">The declaration the diagnostic named.</param>
     /// <returns>The declared name, or <see langword="null"/> for a member left to a human.</returns>
     /// <remarks>
-    /// A <c>const</c> is taken one variable at a time: moving one name out of a multi-variable declaration
-    /// would mean splitting the declaration, which is an edit of its own.
+    /// Only a static member relocates: an instance member reaches the outer instance, which the nested type
+    /// has no reference to. A member that carries an initializer stays put as well, because the initializer
+    /// runs when its declaring type is first used and moving it moves that moment. A <c>const</c> is taken
+    /// one variable at a time: moving one name out of a multi-variable declaration would mean splitting the
+    /// declaration, which is an edit of its own.
     /// </remarks>
     private static string? MovableName(MemberDeclarationSyntax member) => member switch
     {
         MethodDeclarationSyntax method when ModifierListHelper.Contains(method.Modifiers, SyntaxKind.StaticKeyword)
             => method.Identifier.ValueText,
+        PropertyDeclarationSyntax { Initializer: null } property when ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword)
+            => property.Identifier.ValueText,
         FieldDeclarationSyntax { Declaration.Variables.Count: 1 } field when ModifierListHelper.Contains(field.Modifiers, SyntaxKind.ConstKeyword)
             => field.Declaration.Variables[0].Identifier.ValueText,
         _ => null,

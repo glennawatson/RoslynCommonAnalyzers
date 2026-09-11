@@ -164,7 +164,9 @@ public sealed class Sst2013MergeNestedIfCodeFixProvider : CodeFixProvider, IBatc
     /// <returns>The comments that would otherwise be dropped, in source order.</returns>
     private static List<SyntaxTrivia> CollectDiscardedComments(IfStatementSyntax outer, IfStatementSyntax inner)
     {
-        var comments = new List<SyntaxTrivia>(2);
+        const int InitialDiscardedCommentCapacity = 2;
+
+        var comments = new List<SyntaxTrivia>(InitialDiscardedCommentCapacity);
         AddComments(comments, outer.CloseParenToken.TrailingTrivia);
         AddComments(comments, outer.Statement.GetLeadingTrivia());
 

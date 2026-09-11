@@ -47,7 +47,12 @@ internal static class TypeFileNaming
             return $"{identifier}`{typeParameters.Parameters.Count}";
         }
 
-        var builder = new StringBuilder(identifier.Length + (typeParameters.Parameters.Count * 4) + 2);
+        // A one-letter name plus the separating comma is the common case, with a little room to spare.
+        const int AssumedTypeParameterWidth = 4;
+        const int TypeParameterBraceLength = 2;
+
+        var builder = new StringBuilder(
+            identifier.Length + (typeParameters.Parameters.Count * AssumedTypeParameterWidth) + TypeParameterBraceLength);
         builder.Append(identifier).Append('{');
         for (var index = 0; index < typeParameters.Parameters.Count; index++)
         {

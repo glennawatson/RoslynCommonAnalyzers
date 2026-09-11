@@ -42,8 +42,11 @@ public sealed class DoubledNegationCodeFixProvider : CodeFixProvider, IBatchFixa
             current = peeled.Operand;
         }
 
+        // Negations cancel in pairs, so only an odd count leaves one behind.
+        const int NegationsPerCancellingPair = 2;
+
         var operand = ExpressionSimplificationAnalyzer.Unwrap(current).WithoutTrivia();
-        ExpressionSyntax replacement = count % 2 == 0
+        ExpressionSyntax replacement = count % NegationsPerCancellingPair == 0
             ? operand
             : SyntaxFactory.PrefixUnaryExpression(unary.Kind(), operand);
 

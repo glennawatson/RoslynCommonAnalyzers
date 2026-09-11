@@ -307,7 +307,9 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
                 return null;
             }
 
-            var constraintTypes = new Dictionary<string, ITypeSymbol>(8, StringComparer.Ordinal);
+            const int RouteConstraintKeywordCount = 8;
+
+            var constraintTypes = new Dictionary<string, ITypeSymbol>(RouteConstraintKeywordCount, StringComparer.Ordinal);
             AddSpecial(constraintTypes, compilation, "int", SpecialType.System_Int32);
             AddSpecial(constraintTypes, compilation, "long", SpecialType.System_Int64);
             AddSpecial(constraintTypes, compilation, "bool", SpecialType.System_Boolean);

@@ -15,6 +15,9 @@ namespace StyleSharp.Analyzers;
 [Shared]
 public sealed class Sst1531InitializerOnSingleLineCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
+    /// <summary>The gaps at the initializer's two braces, rewritten on top of one gap per expression.</summary>
+    private const int InitializerBraceGapCount = 2;
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.InitializerOnSingleLine.Id);
 
@@ -71,7 +74,7 @@ public sealed class Sst1531InitializerOnSingleLineCodeFixProvider : CodeFixProvi
             return document;
         }
 
-        var changes = new List<TextChange>(initializer.Expressions.Count + 2);
+        var changes = new List<TextChange>(initializer.Expressions.Count + InitializerBraceGapCount);
         AppendCollapse(text, initializer, changes);
         return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
     }
@@ -83,7 +86,7 @@ public sealed class Sst1531InitializerOnSingleLineCodeFixProvider : CodeFixProvi
     private static void AppendCollapse(SourceText text, InitializerExpressionSyntax initializer, List<TextChange> changes)
     {
         var close = initializer.CloseBraceToken;
-        var pending = new List<TextChange>(initializer.Expressions.Count + 2);
+        var pending = new List<TextChange>(initializer.Expressions.Count + InitializerBraceGapCount);
         var token = initializer.OpenBraceToken.GetPreviousToken();
         while (!token.IsKind(SyntaxKind.None))
         {

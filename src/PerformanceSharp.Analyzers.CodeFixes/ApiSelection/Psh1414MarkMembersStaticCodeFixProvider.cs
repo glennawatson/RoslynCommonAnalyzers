@@ -133,7 +133,9 @@ public sealed class Psh1414MarkMembersStaticCodeFixProvider : CodeFixProvider, I
             return null;
         }
 
-        var qualified = new List<MemberAccessExpressionSyntax>(2);
+        const int InitialQualifiedReferenceCapacity = 2;
+
+        var qualified = new List<MemberAccessExpressionSyntax>(InitialQualifiedReferenceCapacity);
         return TryCollectReferences(model, typeDeclaration, symbol, qualified)
             ? new StaticFixPlan(member, qualified)
             : null;

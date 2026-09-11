@@ -260,7 +260,9 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <param name="candidates">The candidate set to add to.</param>
     private static void CollectLocalCandidates(SyntaxNodeAnalysisContext context, SyntaxNode body, List<WalkCandidate> candidates)
     {
-        var declarations = new List<LocalDeclarationStatementSyntax>(2);
+        const int InitialLocalDeclarationCapacity = 2;
+
+        var declarations = new List<LocalDeclarationStatementSyntax>(InitialLocalDeclarationCapacity);
         var state = new LocalScanState(declarations);
         DescendantTraversalHelper.VisitDescendants<LocalDeclarationStatementSyntax, LocalScanState>(body, ref state, VisitLocalDeclaration);
 

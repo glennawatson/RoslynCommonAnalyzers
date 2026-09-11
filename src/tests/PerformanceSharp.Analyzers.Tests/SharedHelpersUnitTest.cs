@@ -43,14 +43,16 @@ public class SharedHelpersUnitTest
     [Test]
     public async Task VisitDescendantTokensStopsWhenTheVisitorSaysSoAsync()
     {
+        const int TokensVisitedBeforeStop = 3;
+
         var root = await CSharpSyntaxTree.ParseText("class C { int F; }").GetRootAsync();
         var count = 0;
         DescendantTraversalHelper.VisitDescendantTokens(
             root,
             ref count,
-            static (in SyntaxToken _, ref int state) => ++state < 3);
+            static (in SyntaxToken _, ref int state) => ++state < TokensVisitedBeforeStop);
 
-        await Assert.That(count).IsEqualTo(3);
+        await Assert.That(count).IsEqualTo(TokensVisitedBeforeStop);
     }
 
     /// <summary>Verifies the modifier scan finds present kinds and rejects absent ones.</summary>
@@ -88,8 +90,10 @@ public class SharedHelpersUnitTest
     [Test]
     public async Task DiagnosticHelperCarriesSpanAndMessageArgumentsAsync()
     {
+        const int TypeNameSpanStart = 6;
+
         var tree = CSharpSyntaxTree.ParseText("class C { }");
-        var span = new TextSpan(6, 1);
+        var span = new TextSpan(TypeNameSpanStart, 1);
 
         var diagnostic = DiagnosticHelper.Create(ConcurrencyRules.VolatileInterlockedField, tree, span, "first", "second");
 
@@ -103,10 +107,12 @@ public class SharedHelpersUnitTest
     [Test]
     public async Task DiagnosticHelperCarriesPropertiesAsync()
     {
+        const int ClassKeywordLength = 5;
+
         var tree = CSharpSyntaxTree.ParseText("class C { }");
         var properties = ImmutableDictionary<string, string?>.Empty.Add("key", "value");
 
-        var diagnostic = DiagnosticHelper.Create(ConcurrencyRules.VolatileInterlockedField, tree, new TextSpan(0, 5), properties, "first", "second");
+        var diagnostic = DiagnosticHelper.Create(ConcurrencyRules.VolatileInterlockedField, tree, new TextSpan(0, ClassKeywordLength), properties, "first", "second");
 
         await Assert.That(diagnostic.Properties["key"]).IsEqualTo("value");
     }
@@ -116,9 +122,11 @@ public class SharedHelpersUnitTest
     [Test]
     public async Task ImmutableArraysOfBuildsInOrderAsync()
     {
+        const int RequestedElementCount = 2;
+
         var two = ImmutableArrays.Of("a", "b");
 
-        await Assert.That(two.Length).IsEqualTo(2);
+        await Assert.That(two.Length).IsEqualTo(RequestedElementCount);
         await Assert.That(two[0]).IsEqualTo("a");
         await Assert.That(two[1]).IsEqualTo("b");
     }

@@ -44,6 +44,7 @@ internal static class UniqueLinesCodeFixBenchmarkHelper
     private static TNode FindMiddleNode<TNode>(SyntaxNode root)
         where TNode : SyntaxNode
     {
+        const int MiddleCandidateDivisor = 2;
         var nodeCount = 0;
         foreach (var candidate in root.DescendantNodes())
         {
@@ -58,7 +59,7 @@ internal static class UniqueLinesCodeFixBenchmarkHelper
             throw new InvalidOperationException($"No {typeof(TNode).Name} nodes were found in the benchmark source.");
         }
 
-        var targetIndex = nodeCount / 2;
+        var targetIndex = nodeCount / MiddleCandidateDivisor;
         var currentIndex = 0;
         foreach (var candidate in root.DescendantNodes())
         {

@@ -36,7 +36,12 @@ public class LayoutBlankLineUnitTest
                 private int b;
             }
             """;
-        await VerifyBlanks.VerifyCodeFixAsync(Source, VerifyBlanks.Diagnostic("SST1507").WithSpan(5, 1, 6, 1), FixedSource);
+        const int ExtraBlankLine = 5;
+        const int LineAfterExtraBlank = 6;
+        await VerifyBlanks.VerifyCodeFixAsync(
+            Source,
+            VerifyBlanks.Diagnostic("SST1507").WithSpan(ExtraBlankLine, 1, LineAfterExtraBlank, 1),
+            FixedSource);
     }
 
     /// <summary>Verifies Fix All collapses every multiple-blank-line run in the document in a single pass.</summary>
@@ -66,11 +71,15 @@ public class LayoutBlankLineUnitTest
                 private int c;
             }
             """;
+        const int FirstExtraBlankLine = 5;
+        const int LineAfterFirstExtraBlank = 6;
+        const int SecondExtraBlankLine = 8;
+        const int LineAfterSecondExtraBlank = 9;
         await VerifyBlanks.VerifyCodeFixAsync(
             Source,
             [
-                VerifyBlanks.Diagnostic("SST1507").WithSpan(5, 1, 6, 1),
-                VerifyBlanks.Diagnostic("SST1507").WithSpan(8, 1, 9, 1),
+                VerifyBlanks.Diagnostic("SST1507").WithSpan(FirstExtraBlankLine, 1, LineAfterFirstExtraBlank, 1),
+                VerifyBlanks.Diagnostic("SST1507").WithSpan(SecondExtraBlankLine, 1, LineAfterSecondExtraBlank, 1),
             ],
             FixedSource);
     }

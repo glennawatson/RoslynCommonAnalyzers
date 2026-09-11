@@ -296,7 +296,9 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
     /// <returns>The lowercase words; empty when the identifier holds no letters or digits.</returns>
     private static List<string> SplitIntoWords(string name)
     {
-        var words = new List<string>(4);
+        const int InitialIdentifierWordCapacity = 4;
+
+        var words = new List<string>(InitialIdentifierWordCapacity);
         var start = -1;
         for (var i = 0; i < name.Length; i++)
         {

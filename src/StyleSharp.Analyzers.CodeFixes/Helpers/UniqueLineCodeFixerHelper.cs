@@ -7,6 +7,9 @@ namespace StyleSharp.Analyzers;
 /// <summary>Helper methods for reformatting parameter and argument lists so each entry is on its own line.</summary>
 internal static class UniqueLineCodeFixerHelper
 {
+    /// <summary>The spaces a split list entry is indented past the declaration or expression that owns it.</summary>
+    private const int IndentationSpacesPerLevel = 4;
+
     /// <summary>Returns the end-of-line trivia matching the line-ending convention of the supplied node's source text.</summary>
     /// <param name="node">The node whose source text to inspect.</param>
     /// <param name="elastic">
@@ -75,7 +78,7 @@ internal static class UniqueLineCodeFixerHelper
         var endOfLine = GetEndOfLine(node, elastic: true);
 
         // Indent each entry one level deeper than the owning declaration/expression.
-        var leadingSpaces = GetLeadingSpaces(node) + 4;
+        var leadingSpaces = GetLeadingSpaces(node) + IndentationSpacesPerLevel;
         var indentedEntries = IndentEntries(entries, leadingSpaces);
         var separators = CreateSeparators(indentedEntries.Length, endOfLine);
 
@@ -103,7 +106,7 @@ internal static class UniqueLineCodeFixerHelper
 
         var endOfLine = GetEndOfLine(ownerNode, elastic: false);
 
-        var leadingSpaces = GetLeadingSpaces(ownerNode) + 4;
+        var leadingSpaces = GetLeadingSpaces(ownerNode) + IndentationSpacesPerLevel;
         var indentedEntries = IndentEntries(list, leadingSpaces);
         var separators = CreateSeparators(indentedEntries.Length, endOfLine);
 

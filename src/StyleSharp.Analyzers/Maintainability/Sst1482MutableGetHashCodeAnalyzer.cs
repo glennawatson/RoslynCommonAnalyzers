@@ -263,6 +263,8 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
         /// <returns><see langword="true"/> when the member has not been reported yet.</returns>
         public bool TryMarkReported(ISymbol symbol)
         {
+            const int InitialReportedMemberCapacity = 2;
+
             if (Reported is { } reported)
             {
                 for (var i = 0; i < reported.Count; i++)
@@ -275,7 +277,7 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
             }
             else
             {
-                reported = new List<ISymbol>(2);
+                reported = new List<ISymbol>(InitialReportedMemberCapacity);
                 Reported = reported;
             }
 

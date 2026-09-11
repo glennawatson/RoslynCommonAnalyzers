@@ -165,15 +165,22 @@ public class ModernSyntaxValueAnalyzerUnitTest
     [Test]
     public async Task IgnoredExpressionValueDuplicateDiagnosticsAreDeduplicatedAsync()
     {
+        const int FirstStatementSpanStart = 42;
+        const int SecondStatementSpanStart = 120;
+        const int ReportedStatementSpanLength = 24;
+        const int DeduplicatedDiagnosticCount = 2;
+
         var descriptor = ModernSyntaxRules.MakeIgnoredExpressionValueExplicit;
-        var first = Diagnostic.Create(descriptor, Location.Create("Test0.cs", new TextSpan(42, 24), default));
-        var duplicate = Diagnostic.Create(descriptor, Location.Create("Test0.cs", new TextSpan(42, 24), default));
-        var second = Diagnostic.Create(descriptor, Location.Create("Test0.cs", new TextSpan(120, 24), default));
+        var firstSpan = new TextSpan(FirstStatementSpanStart, ReportedStatementSpanLength);
+        var secondSpan = new TextSpan(SecondStatementSpanStart, ReportedStatementSpanLength);
+        var first = Diagnostic.Create(descriptor, Location.Create("Test0.cs", firstSpan, default));
+        var duplicate = Diagnostic.Create(descriptor, Location.Create("Test0.cs", firstSpan, default));
+        var second = Diagnostic.Create(descriptor, Location.Create("Test0.cs", secondSpan, default));
 
         var diagnostics = ImmutableArray.Create(first, duplicate, second);
         var unique = BatchEditFixAllProvider.UniqueDiagnostics(diagnostics).ToArray();
 
-        await Assert.That(unique).Count().IsEqualTo(2);
+        await Assert.That(unique).Count().IsEqualTo(DeduplicatedDiagnosticCount);
         await Assert.That(unique[0]).IsSameReferenceAs(first);
         await Assert.That(unique[1]).IsSameReferenceAs(second);
     }
@@ -305,6 +312,9 @@ public class ModernSyntaxValueAnalyzerUnitTest
     [Test]
     public async Task IgnoredExpressionValueFixAllSkipsBoundUnderscoreOccurrencesAsync()
     {
+        const int SkippedLambdaCallLine = 10;
+        const int SkippedLambdaCallStartColumn = 13;
+        const int SkippedLambdaCallEndColumn = 22;
         const string Source = """
                               public delegate void Sink(int value);
 
@@ -345,7 +355,8 @@ public class ModernSyntaxValueAnalyzerUnitTest
                                    """;
         var test = CreateNet80Test(Source, FixedSource);
         Enable(test, "SST2221");
-        test.FixedState.ExpectedDiagnostics.Add(VerifyModernSyntaxValue.Diagnostic("SST2221").WithSpan(10, 13, 10, 22));
+        test.FixedState.ExpectedDiagnostics.Add(VerifyModernSyntaxValue.Diagnostic("SST2221")
+            .WithSpan(SkippedLambdaCallLine, SkippedLambdaCallStartColumn, SkippedLambdaCallLine, SkippedLambdaCallEndColumn));
 
         await test.RunAsync(CancellationToken.None);
     }

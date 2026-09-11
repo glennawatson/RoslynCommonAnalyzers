@@ -155,7 +155,9 @@ public sealed class Sst2200PreferFieldKeywordCodeFixProvider : CodeFixProvider
         IFieldSymbol symbol,
         CancellationToken cancellationToken)
     {
-        var references = new List<ExpressionSyntax>(4);
+        const int InitialBackingFieldReferenceCapacity = 4;
+
+        var references = new List<ExpressionSyntax>(InitialBackingFieldReferenceCapacity);
         var state = new FieldReferenceCollectionState(model, symbol, references, cancellationToken);
         DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, FieldReferenceCollectionState>(property, ref state, CollectFieldReference);
 

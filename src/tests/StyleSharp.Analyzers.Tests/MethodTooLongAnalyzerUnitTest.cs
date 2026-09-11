@@ -14,6 +14,14 @@ public class MethodTooLongAnalyzerUnitTest
     [Test]
     public async Task MethodOverTheDefaultMaximumIsReportedAsync()
     {
+        const int DefaultMaxMemberLines = 60;
+        const int LongMethodStatementCount = 60;
+        const int ShortMethodStatementCount = 20;
+        const int LongMethodMeasuredLineCount = 65;
+        const int ReportedMethodNameLineNumber = 3;
+        const int ReportedMethodNameStartColumn = 16;
+        const int ReportedMethodNameEndColumn = 20;
+
         var test = new VerifyMemberLength.Test
         {
             TestCode = $$"""
@@ -22,14 +30,14 @@ public class MethodTooLongAnalyzerUnitTest
                            public int Long()
                            {
                                var total = 0;
-                       {{BuildStatements(60)}}
+                       {{BuildStatements(LongMethodStatementCount)}}
                                return total;
                            }
 
                            public int Short()
                            {
                                var total = 0;
-                       {{BuildStatements(20)}}
+                       {{BuildStatements(ShortMethodStatementCount)}}
                                return total;
                            }
                        }
@@ -37,7 +45,10 @@ public class MethodTooLongAnalyzerUnitTest
         };
 
         // Signature, both braces, the declaration, 60 additions and the return.
-        test.ExpectedDiagnostics.Add(VerifyMemberLength.Diagnostic().WithSpan(3, 16, 3, 20).WithArguments("Long", 65, 60));
+        test.ExpectedDiagnostics.Add(
+            VerifyMemberLength.Diagnostic()
+                .WithSpan(ReportedMethodNameLineNumber, ReportedMethodNameStartColumn, ReportedMethodNameLineNumber, ReportedMethodNameEndColumn)
+                .WithArguments("Long", LongMethodMeasuredLineCount, DefaultMaxMemberLines));
         await test.RunAsync(CancellationToken.None);
     }
 

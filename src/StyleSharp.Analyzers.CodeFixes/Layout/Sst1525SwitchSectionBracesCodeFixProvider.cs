@@ -69,8 +69,12 @@ public sealed class Sst1525SwitchSectionBracesCodeFixProvider : CodeFixProvider,
     /// <returns>The updated document.</returns>
     internal static async Task<Document> WrapAsync(Document document, SwitchSectionSyntax section, CancellationToken cancellationToken)
     {
+        // Wrapping the section body inserts the opening brace before its first statement and the closing
+        // brace after its last.
+        const int BraceWrapChangeCapacity = 2;
+
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var changes = new List<TextChange>(2);
+        var changes = new List<TextChange>(BraceWrapChangeCapacity);
         return LayoutFixHelpers.TryAppendSwitchSectionBraceWrap(
             text,
             section.Statements[0],

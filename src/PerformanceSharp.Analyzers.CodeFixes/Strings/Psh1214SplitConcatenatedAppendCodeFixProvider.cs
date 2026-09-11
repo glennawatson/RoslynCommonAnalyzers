@@ -117,7 +117,11 @@ public sealed class Psh1214SplitConcatenatedAppendCodeFixProvider : CodeFixProvi
     /// <returns>The operands in source order; parenthesized operands keep their parentheses.</returns>
     private static ExpressionSyntax[] CollectOperands(BinaryExpressionSyntax concatenation, int depth)
     {
-        var operands = new ExpressionSyntax[depth + 2];
+        // Each unrolled level yields one right operand; the spine's two ends — the innermost left operand and
+        // the top '+' right operand — sit outside them.
+        const int SpineEndOperandCount = 2;
+
+        var operands = new ExpressionSyntax[depth + SpineEndOperandCount];
         var current = concatenation;
         for (var index = depth + 1; index >= 1; index--)
         {

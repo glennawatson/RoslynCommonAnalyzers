@@ -729,8 +729,10 @@ public class PreferGuardClauseAnalyzerUnitTest
         test.FixedCode = FixedSource;
 
         // Two passes: the inner 'if' only becomes a trailing statement once the outer one is lifted.
-        test.NumberOfIncrementalIterations = 2;
-        test.NumberOfFixAllIterations = 2;
+        const int NestedIfFlattenPassCount = 2;
+
+        test.NumberOfIncrementalIterations = NestedIfFlattenPassCount;
+        test.NumberOfFixAllIterations = NestedIfFlattenPassCount;
         await test.RunAsync(CancellationToken.None);
     }
 

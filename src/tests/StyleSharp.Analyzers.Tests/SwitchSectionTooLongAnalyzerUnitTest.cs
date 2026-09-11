@@ -14,6 +14,13 @@ public class SwitchSectionTooLongAnalyzerUnitTest
     [Test]
     public async Task SectionOverTheDefaultMaximumIsReportedAsync()
     {
+        const int DefaultMaxSwitchSectionLines = 20;
+        const int LongSectionStatementCount = 21;
+        const int LongSectionMeasuredLineCount = 23;
+        const int ReportedCaseLabelLineNumber = 8;
+        const int ReportedCaseLabelStartColumn = 13;
+        const int ReportedCaseLabelEndColumn = 20;
+
         var test = new VerifySectionLength.Test
         {
             TestCode = $$"""
@@ -25,7 +32,7 @@ public class SwitchSectionTooLongAnalyzerUnitTest
                                switch (state)
                                {
                                    case 1:
-                       {{BuildStatements(21)}}
+                       {{BuildStatements(LongSectionStatementCount)}}
                                        return total;
 
                                    case 2:
@@ -40,7 +47,10 @@ public class SwitchSectionTooLongAnalyzerUnitTest
         };
 
         // The label, 21 additions, and the return.
-        test.ExpectedDiagnostics.Add(VerifySectionLength.Diagnostic().WithSpan(8, 13, 8, 20).WithArguments(23, 20));
+        test.ExpectedDiagnostics.Add(
+            VerifySectionLength.Diagnostic()
+                .WithSpan(ReportedCaseLabelLineNumber, ReportedCaseLabelStartColumn, ReportedCaseLabelLineNumber, ReportedCaseLabelEndColumn)
+                .WithArguments(LongSectionMeasuredLineCount, DefaultMaxSwitchSectionLines));
         await test.RunAsync(CancellationToken.None);
     }
 

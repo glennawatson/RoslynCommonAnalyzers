@@ -40,10 +40,15 @@ public class ModernSyntaxStyleCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
+        // Two of the four cycled member shapes emit an object creation, so half the generated members carry one.
+        const int GeneratedMembersPerObjectCreation = 2;
         _workspace = new AdhocWorkspace();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ModernSyntaxStyleBenchmarkSource.Generate(Nodes, violating: true));
         _root = (await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
-        var creation = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<ObjectCreationExpressionSyntax>(_root, Nodes / (MiddleNodeDivisor * 2), static _ => true);
+        var creation = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<ObjectCreationExpressionSyntax>(
+            _root,
+            Nodes / (MiddleNodeDivisor * GeneratedMembersPerObjectCreation),
+            static _ => true);
         _diagnostic = Diagnostic.Create(ModernSyntaxRules.UseTargetTypedNew, creation.Type.GetLocation());
     }
 

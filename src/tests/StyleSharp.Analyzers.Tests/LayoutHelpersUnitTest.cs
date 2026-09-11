@@ -11,6 +11,15 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Helper-level tests for shared layout cursor utilities.</summary>
 public sealed class LayoutHelpersUnitTest
 {
+    /// <summary>Zero-based index of "third", the last line of the three-line cursor fixture.</summary>
+    private const int ThirdLineIndex = 2;
+
+    /// <summary>Character position inside "third", the last line of the three-line cursor fixture.</summary>
+    private const int ThirdLineInteriorPosition = 14;
+
+    /// <summary>Zero-based line index of the "// docs" leading comment in the commented-method snippets.</summary>
+    private const int LeadingCommentLine = 2;
+
     /// <summary>Verifies the shared cursor can resolve both start and end lines for later spans.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -23,13 +32,21 @@ public sealed class LayoutHelpersUnitTest
             second
             third{{"\n"}}
             """.ReplaceLineEndings("\n"));
+        const int SecondLineStartPosition = 6;
         var lineNumber = 0;
         var line = text.Lines[0];
 
-        LayoutHelpers.GetLineSpanOfOrLater(text, 6, 14, ref lineNumber, ref line, out var startLine, out var endLine);
+        LayoutHelpers.GetLineSpanOfOrLater(
+            text,
+            SecondLineStartPosition,
+            ThirdLineInteriorPosition,
+            ref lineNumber,
+            ref line,
+            out var startLine,
+            out var endLine);
 
         await Assert.That(startLine).IsEqualTo(1);
-        await Assert.That(endLine).IsEqualTo(2);
+        await Assert.That(endLine).IsEqualTo(ThirdLineIndex);
     }
 
     /// <summary>Verifies the shared line cursor advances monotonically across later positions.</summary>
@@ -44,16 +61,17 @@ public sealed class LayoutHelpersUnitTest
             second
             third{{"\n"}}
             """.ReplaceLineEndings("\n"));
+        const int SecondLineInteriorPosition = 7;
         var lineNumber = 0;
         var line = text.Lines[0];
 
         var firstLine = LayoutHelpers.LineOfOrLater(text, 0, ref lineNumber, ref line);
-        var secondLine = LayoutHelpers.LineOfOrLater(text, 7, ref lineNumber, ref line);
-        var thirdLine = LayoutHelpers.LineOfOrLater(text, 14, ref lineNumber, ref line);
+        var secondLine = LayoutHelpers.LineOfOrLater(text, SecondLineInteriorPosition, ref lineNumber, ref line);
+        var thirdLine = LayoutHelpers.LineOfOrLater(text, ThirdLineInteriorPosition, ref lineNumber, ref line);
 
         await Assert.That(firstLine).IsEqualTo(0);
         await Assert.That(secondLine).IsEqualTo(1);
-        await Assert.That(thirdLine).IsEqualTo(2);
+        await Assert.That(thirdLine).IsEqualTo(ThirdLineIndex);
     }
 
     /// <summary>Verifies line-relationship helpers classify an Allman opening brace correctly.</summary>
@@ -114,10 +132,11 @@ public sealed class LayoutHelpersUnitTest
                 void M() { }
             }
             """);
+        const int MethodDeclarationLine = 2;
         var method = ParseSingleMethod(root);
         var text = await root.SyntaxTree.GetTextAsync();
 
-        await Assert.That(LayoutHelpers.ContentStartLine(text, method)).IsEqualTo(2);
+        await Assert.That(LayoutHelpers.ContentStartLine(text, method)).IsEqualTo(MethodDeclarationLine);
     }
 
     /// <summary>Verifies content start still honors leading comment trivia when present.</summary>
@@ -136,7 +155,7 @@ public sealed class LayoutHelpersUnitTest
         var method = ParseSingleMethod(root);
         var text = await root.SyntaxTree.GetTextAsync();
 
-        await Assert.That(LayoutHelpers.ContentStartLine(text, method)).IsEqualTo(2);
+        await Assert.That(LayoutHelpers.ContentStartLine(text, method)).IsEqualTo(LeadingCommentLine);
     }
 
     /// <summary>Verifies the header-trivia helper exits immediately when no leading trivia exists.</summary>
@@ -174,7 +193,7 @@ public sealed class LayoutHelpersUnitTest
         var text = await root.SyntaxTree.GetTextAsync();
 
         await Assert.That(LayoutHelpers.TryGetHeaderStartLine(text, method, out var startLine)).IsTrue();
-        await Assert.That(startLine).IsEqualTo(2);
+        await Assert.That(startLine).IsEqualTo(LeadingCommentLine);
     }
 
     /// <summary>Verifies cursor-aware content-start lookup reuses the running line cursor without changing behavior.</summary>
@@ -190,6 +209,8 @@ public sealed class LayoutHelpersUnitTest
                 void N() { }
             }
             """);
+        const int FirstMethodLine = 2;
+        const int SecondMethodLine = 3;
         var methods = ParseMethods(root);
         var text = await root.SyntaxTree.GetTextAsync();
         var lineNumber = 0;
@@ -198,8 +219,8 @@ public sealed class LayoutHelpersUnitTest
         var firstLine = LayoutHelpers.ContentStartLineOrLater(text, methods[0], ref lineNumber, ref line);
         var secondLine = LayoutHelpers.ContentStartLineOrLater(text, methods[1], ref lineNumber, ref line);
 
-        await Assert.That(firstLine).IsEqualTo(2);
-        await Assert.That(secondLine).IsEqualTo(3);
+        await Assert.That(firstLine).IsEqualTo(FirstMethodLine);
+        await Assert.That(secondLine).IsEqualTo(SecondMethodLine);
     }
 
     /// <summary>Verifies cursor-aware content-start lookup still honors leading comment trivia.</summary>
@@ -219,8 +240,9 @@ public sealed class LayoutHelpersUnitTest
         var text = await root.SyntaxTree.GetTextAsync();
         var lineNumber = 0;
         var line = text.Lines[0];
+        var contentStartLine = LayoutHelpers.ContentStartLineOrLater(text, method, ref lineNumber, ref line);
 
-        await Assert.That(LayoutHelpers.ContentStartLineOrLater(text, method, ref lineNumber, ref line)).IsEqualTo(2);
+        await Assert.That(contentStartLine).IsEqualTo(LeadingCommentLine);
     }
 
     /// <summary>Verifies a combined token-line facts helper captures both previous and next sharing facts.</summary>

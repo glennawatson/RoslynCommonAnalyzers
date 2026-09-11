@@ -185,7 +185,9 @@ internal static class NestedTypeOnlyMembers
             return;
         }
 
-        candidates ??= new List<NestedTypeOnlyMember>(4);
+        const int InitialMovableMemberCapacity = 4;
+
+        candidates ??= new List<NestedTypeOnlyMember>(InitialMovableMemberCapacity);
         candidates.Add(new NestedTypeOnlyMember(symbol, declaration, identifier));
     }
 

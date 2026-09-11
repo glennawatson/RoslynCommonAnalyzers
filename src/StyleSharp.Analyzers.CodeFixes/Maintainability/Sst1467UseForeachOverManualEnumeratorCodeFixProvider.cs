@@ -285,7 +285,9 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
     /// <returns>The collected member accesses in document order.</returns>
     private static List<MemberAccessExpressionSyntax> CollectCurrentAccesses(StatementSyntax body, string name)
     {
-        var state = new CurrentAccessCollector(name, new List<MemberAccessExpressionSyntax>(4));
+        const int InitialCurrentAccessCapacity = 4;
+
+        var state = new CurrentAccessCollector(name, new List<MemberAccessExpressionSyntax>(InitialCurrentAccessCapacity));
         DescendantTraversalHelper.VisitDescendants(body, ref state, CurrentAccessVisitor);
         return state.Accesses;
     }

@@ -9,13 +9,18 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1521 (lines should not be too long).</summary>
 public class LineTooLongAnalyzerUnitTest
 {
+    /// <summary>The number of <c>Name</c> terms concatenated into one expression to push its line past the default maximum.</summary>
+    private const int OverlongLineTermCount = 25;
+
     /// <summary>Verifies a line over the default maximum is reported and one inside it is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task LineOverTheDefaultMaximumIsReportedAsync()
     {
-        var wide = string.Join(" + ", Enumerable.Repeat("Name", 25));
-        var narrow = string.Join(" + ", Enumerable.Repeat("Name", 5));
+        const int InsideMaximumLineTermCount = 5;
+
+        var wide = string.Join(" + ", Enumerable.Repeat("Name", OverlongLineTermCount));
+        var narrow = string.Join(" + ", Enumerable.Repeat("Name", InsideMaximumLineTermCount));
         var source = $$"""
                      public class C
                      {
@@ -35,6 +40,11 @@ public class LineTooLongAnalyzerUnitTest
     [Test]
     public async Task MessageReportsTheMeasuredLengthAsync()
     {
+        const int ConfiguredMaxLineLength = 40;
+        const int MeasuredLineLength = 42;
+        const int ReportedLineNumber = 3;
+        const int ReportedLineEndColumn = 43;
+
         var test = new VerifyLineLength.Test
         {
             TestCode = """
@@ -46,7 +56,10 @@ public class LineTooLongAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1521.max_line_length = 40")));
-        test.ExpectedDiagnostics.Add(VerifyLineLength.Diagnostic().WithSpan(3, 1, 3, 43).WithArguments(42, 40));
+        test.ExpectedDiagnostics.Add(
+            VerifyLineLength.Diagnostic()
+                .WithSpan(ReportedLineNumber, 1, ReportedLineNumber, ReportedLineEndColumn)
+                .WithArguments(MeasuredLineLength, ConfiguredMaxLineLength));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -55,7 +68,9 @@ public class LineTooLongAnalyzerUnitTest
     [Test]
     public async Task UnbreakableWordInACommentIsExemptAsync()
     {
-        var url = "https://example.invalid/" + new string('x', 120);
+        const int UnbreakableUrlPaddingLength = 120;
+
+        var url = "https://example.invalid/" + new string('x', UnbreakableUrlPaddingLength);
         var source = $$"""
                      public class C
                      {
@@ -72,7 +87,9 @@ public class LineTooLongAnalyzerUnitTest
     [Test]
     public async Task UnbreakableRunInAStringLiteralIsExemptAsync()
     {
-        var blob = new string('Z', 160);
+        const int UnbreakableLiteralRunLength = 160;
+
+        var blob = new string('Z', UnbreakableLiteralRunLength);
         var source = $$"""
                      public class C
                      {
@@ -88,7 +105,9 @@ public class LineTooLongAnalyzerUnitTest
     [Test]
     public async Task WrappableCommentIsReportedAsync()
     {
-        var prose = string.Join(" ", Enumerable.Repeat("word", 30));
+        const int WrappableCommentWordCount = 30;
+
+        var prose = string.Join(" ", Enumerable.Repeat("word", WrappableCommentWordCount));
         var source = $$"""
                      public class C
                      {
@@ -105,7 +124,9 @@ public class LineTooLongAnalyzerUnitTest
     [Test]
     public async Task UnbreakableRunOfCodeIsStillReportedAsync()
     {
-        var chain = string.Concat(Enumerable.Repeat(".Self", 30));
+        const int SelfAccessChainLinkCount = 30;
+
+        var chain = string.Concat(Enumerable.Repeat(".Self", SelfAccessChainLinkCount));
         var source = $$"""
                      public class C
                      {
@@ -164,7 +185,7 @@ public class LineTooLongAnalyzerUnitTest
     [Test]
     public async Task UnparsableMaximumFallsBackToTheDefaultAsync()
     {
-        var wide = string.Join(" + ", Enumerable.Repeat("Name", 25));
+        var wide = string.Join(" + ", Enumerable.Repeat("Name", OverlongLineTermCount));
         var test = new VerifyLineLength.Test
         {
             TestCode = $$"""

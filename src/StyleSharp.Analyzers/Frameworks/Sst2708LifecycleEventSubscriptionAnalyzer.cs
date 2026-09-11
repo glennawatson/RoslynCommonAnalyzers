@@ -172,7 +172,12 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
 
         /// <summary>Records one external subscription.</summary>
         /// <param name="subscription">The subscription to record.</param>
-        public void Add(EventSubscription subscription) => (Subscriptions ??= new List<EventSubscription>(4)).Add(subscription);
+        public void Add(EventSubscription subscription)
+        {
+            const int InitialSubscriptionCapacity = 4;
+
+            (Subscriptions ??= new List<EventSubscription>(InitialSubscriptionCapacity)).Add(subscription);
+        }
     }
 
     /// <summary>The state threaded through the component-wide search for a matching <c>-=</c>.</summary>

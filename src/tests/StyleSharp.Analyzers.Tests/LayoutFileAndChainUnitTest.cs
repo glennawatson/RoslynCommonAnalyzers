@@ -33,9 +33,10 @@ public class LayoutFileAndChainUnitTest
             {
             }{{"\n"}}
             """;
+        const int FirstCodeLine = 2;
         await VerifyFileStart.VerifyCodeFixAsync(
             Source,
-            VerifyFileStart.Diagnostic("SST1517").WithSpan(1, 1, 2, 1),
+            VerifyFileStart.Diagnostic("SST1517").WithSpan(1, 1, FirstCodeLine, 1),
             FixedSource);
     }
 
@@ -56,9 +57,12 @@ public class LayoutFileAndChainUnitTest
             {
             }{{"\n"}}
             """.ReplaceLineEndings("\n");
+        const int ClosingBraceLine = 3;
+        const int ColumnAfterClosingBrace = 2;
         await VerifyFileEnd.VerifyCodeFixAsync(
             source,
-            VerifyFileEnd.Diagnostic("SST1518").WithSpan(3, 2, 3, 2),
+            VerifyFileEnd.Diagnostic("SST1518")
+                .WithSpan(ClosingBraceLine, ColumnAfterClosingBrace, ClosingBraceLine, ColumnAfterClosingBrace),
             fixedSource);
     }
 

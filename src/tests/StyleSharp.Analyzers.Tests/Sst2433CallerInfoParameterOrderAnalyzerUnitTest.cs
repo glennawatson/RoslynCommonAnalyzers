@@ -43,9 +43,16 @@ public class Sst2433CallerInfoParameterOrderAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task CallerInfoWithoutDefaultIsReportedAsync()
-        => await VerifyCallerInfoOrder.VerifyAnalyzerAsync(
+    {
+        const int CallerMemberNameAttributeLine = 5;
+        const int CallerMemberNameAttributeStartColumn = 22;
+        const int CallerMemberNameAttributeEndColumn = 38;
+
+        await VerifyCallerInfoOrder.VerifyAnalyzerAsync(
             MissingDefaultSource,
-            DiagnosticResult.CompilerError("CS4022").WithSpan(5, 22, 5, 38));
+            DiagnosticResult.CompilerError("CS4022")
+                .WithSpan(CallerMemberNameAttributeLine, CallerMemberNameAttributeStartColumn, CallerMemberNameAttributeLine, CallerMemberNameAttributeEndColumn));
+    }
 
     /// <summary>Verifies a caller-argument-expression parameter out of place is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

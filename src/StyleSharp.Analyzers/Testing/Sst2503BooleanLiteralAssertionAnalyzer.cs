@@ -102,7 +102,11 @@ public sealed class Sst2503BooleanLiteralAssertionAnalyzer : DiagnosticAnalyzer
     /// <returns>The zero-based index of the boolean-literal argument among the first two, or <c>-1</c>.</returns>
     internal static int GetBooleanLiteralArgumentIndex(SeparatedSyntaxList<ArgumentSyntax> arguments)
     {
-        var limit = arguments.Count < 2 ? arguments.Count : 2;
+        // An equality assertion carries the expected and actual values as its first two arguments; a boolean
+        // literal any further along is a message or comparer argument, not the compared value.
+        const int EqualityAssertionArgumentCount = 2;
+
+        var limit = arguments.Count < EqualityAssertionArgumentCount ? arguments.Count : EqualityAssertionArgumentCount;
         for (var i = 0; i < limit; i++)
         {
             var expression = arguments[i].Expression;

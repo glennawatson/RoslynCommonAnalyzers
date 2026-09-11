@@ -29,10 +29,12 @@ public class MultipleBlankLinesCodeFixBenchmarks
             LayoutTriviaCodeFixBenchmarkSource.GenerateMultipleBlankLines,
             static async (document, root, index) =>
             {
+                // The generator emits two blank lines ahead of every field; stepping back that far lands on the first of them.
+                const int BlankLinesBeforeEachField = 2;
                 var text = await document.GetTextAsync().ConfigureAwait(false);
                 var field = CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<FieldDeclarationSyntax>(root, index == 0 ? 1 : index);
                 var fieldLine = text.Lines.GetLineFromPosition(field.SpanStart).LineNumber;
-                var blankLine = text.Lines[fieldLine - 2];
+                var blankLine = text.Lines[fieldLine - BlankLinesBeforeEachField];
                 return TextSpan.FromBounds(blankLine.Start, blankLine.EndIncludingLineBreak);
             }).ConfigureAwait(false);
 

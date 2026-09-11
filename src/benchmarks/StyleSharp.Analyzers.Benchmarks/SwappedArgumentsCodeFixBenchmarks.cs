@@ -44,6 +44,8 @@ public class SwappedArgumentsCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
+        // SST2400 only reports a call whose two arguments can trade places.
+        const int SwappableArgumentPairSize = 2;
         _workspace = new AdhocWorkspace();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(
             _workspace,
@@ -52,7 +54,7 @@ public class SwappedArgumentsCodeFixBenchmarks : IDisposable
         var argument = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<ArgumentSyntax>(
             _root,
             Nodes / MiddleNodeDivisor,
-            static candidate => candidate.Parent is ArgumentListSyntax { Arguments.Count: 2 } list
+            static candidate => candidate.Parent is ArgumentListSyntax { Arguments.Count: SwappableArgumentPairSize } list
                 && list.Arguments[0] == candidate);
         var properties = ImmutableDictionary<string, string?>.Empty.Add(
             Sst2400SwappedArgumentsAnalyzer.SwapWithKey,

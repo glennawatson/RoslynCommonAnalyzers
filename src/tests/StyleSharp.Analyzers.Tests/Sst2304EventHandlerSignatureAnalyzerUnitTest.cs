@@ -78,7 +78,12 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
     /// <remarks>The shape already matches, so the message names the exact replacement.</remarks>
     [Test]
     public async Task CustomDelegateWithTheRightShapeIsReportedWithItsReplacementAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    {
+        const int ChangedEventDeclarationLine = 11;
+        const int ChangedEventNameStartColumn = 38;
+        const int ChangedEventNameEndColumn = 45;
+
+        await VerifyEvents.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -93,13 +98,21 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
                 public event ValueChangedHandler Changed;
             }
             """,
-            VerifyEvents.Diagnostic().WithSpan(11, 38, 11, 45).WithArguments("Changed", "EventHandler<ValueChangedEventArgs>", "ValueChangedHandler"));
+            VerifyEvents.Diagnostic()
+                .WithSpan(ChangedEventDeclarationLine, ChangedEventNameStartColumn, ChangedEventDeclarationLine, ChangedEventNameEndColumn)
+                .WithArguments("Changed", "EventHandler<ValueChangedEventArgs>", "ValueChangedHandler"));
+    }
 
     /// <summary>Verifies a payload of exactly <c>EventArgs</c> is pointed at the non-generic handler.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
     public async Task EventArgsPayloadSuggestsTheNonGenericHandlerAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    {
+        const int PressedEventDeclarationLine = 7;
+        const int PressedEventNameStartColumn = 24;
+        const int PressedEventNameEndColumn = 31;
+
+        await VerifyEvents.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -110,13 +123,21 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
                 public event Poked Pressed;
             }
             """,
-            VerifyEvents.Diagnostic().WithSpan(7, 24, 7, 31).WithArguments("Pressed", "EventHandler", "Poked"));
+            VerifyEvents.Diagnostic()
+                .WithSpan(PressedEventDeclarationLine, PressedEventNameStartColumn, PressedEventDeclarationLine, PressedEventNameEndColumn)
+                .WithArguments("Pressed", "EventHandler", "Poked"));
+    }
 
     /// <summary>Verifies a generic delegate constrained to <c>EventArgs</c> is offered the generic handler over its own type parameter.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
     public async Task GenericHandlerConstrainedToEventArgsIsReportedWithItsReplacementAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    {
+        const int UpdatedEventDeclarationLine = 9;
+        const int UpdatedEventNameStartColumn = 29;
+        const int UpdatedEventNameEndColumn = 36;
+
+        await VerifyEvents.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -129,13 +150,21 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
                 public event Handler<T> Updated;
             }
             """,
-            VerifyEvents.Diagnostic().WithSpan(9, 29, 9, 36).WithArguments("Updated", "EventHandler<T>", "Handler<T>"));
+            VerifyEvents.Diagnostic()
+                .WithSpan(UpdatedEventDeclarationLine, UpdatedEventNameStartColumn, UpdatedEventDeclarationLine, UpdatedEventNameEndColumn)
+                .WithArguments("Updated", "EventHandler<T>", "Handler<T>"));
+    }
 
     /// <summary>Verifies a constructed generic delegate is offered the handler closed over the same payload.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
     public async Task ConstructedGenericHandlerIsReportedWithItsReplacementAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    {
+        const int MovedEventDeclarationLine = 12;
+        const int MovedEventNameStartColumn = 42;
+        const int MovedEventNameEndColumn = 47;
+
+        await VerifyEvents.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -151,14 +180,22 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
                 public event Handler<MovedEventArgs> Moved;
             }
             """,
-            VerifyEvents.Diagnostic().WithSpan(12, 42, 12, 47).WithArguments("Moved", "EventHandler<MovedEventArgs>", "Handler<MovedEventArgs>"));
+            VerifyEvents.Diagnostic()
+                .WithSpan(MovedEventDeclarationLine, MovedEventNameStartColumn, MovedEventDeclarationLine, MovedEventNameEndColumn)
+                .WithArguments("Moved", "EventHandler<MovedEventArgs>", "Handler<MovedEventArgs>"));
+    }
 
     /// <summary>Verifies a by-reference parameter disqualifies a delegate from the mechanical replacement.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The signature differs from the standard shape, so only the shape itself is suggested.</remarks>
     [Test]
     public async Task ByRefLookalikeIsNotOfferedTheMechanicalReplacementAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    {
+        const int PokedEventDeclarationLine = 7;
+        const int PokedEventNameStartColumn = 26;
+        const int PokedEventNameEndColumn = 31;
+
+        await VerifyEvents.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -169,7 +206,10 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
                 public event Prodded Poked;
             }
             """,
-            VerifyEvents.Diagnostic().WithSpan(7, 26, 7, 31).WithArguments("Poked", "EventHandler<TEventArgs>", "Prodded"));
+            VerifyEvents.Diagnostic()
+                .WithSpan(PokedEventDeclarationLine, PokedEventNameStartColumn, PokedEventDeclarationLine, PokedEventNameEndColumn)
+                .WithArguments("Poked", "EventHandler<TEventArgs>", "Prodded"));
+    }
 
     /// <summary>Verifies a right-shape delegate dictated by an interface is reported at the interface, not the implementation.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>

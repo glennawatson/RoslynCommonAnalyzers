@@ -40,12 +40,14 @@ public class NameSimplificationCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
+        // Two of the four cycled member shapes emit a this-qualified access, so half the generated members carry one.
+        const int GeneratedMembersPerThisAccess = 2;
         _workspace = new AdhocWorkspace();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, NameSimplificationBenchmarkSource.Generate(Nodes, violating: true));
         _root = (await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var access = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<MemberAccessExpressionSyntax>(
             _root,
-            Nodes / (MiddleNodeDivisor * 2),
+            Nodes / (MiddleNodeDivisor * GeneratedMembersPerThisAccess),
             static node => node.Expression is ThisExpressionSyntax);
         _diagnostic = Diagnostic.Create(ReadabilityRules.SimplifyMemberAccess, access.GetLocation());
     }

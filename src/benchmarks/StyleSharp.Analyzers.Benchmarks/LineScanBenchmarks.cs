@@ -62,11 +62,12 @@ class C
 }";
         _tree = CSharpSyntaxTree.ParseText(Source);
         var members = ((ClassDeclarationSyntax)((CompilationUnitSyntax)_tree.GetRoot()).Members[0]).Members;
+        const int JaggedLayoutMethodIndex = 2;
         var methodIndex = Scenario switch
         {
             Layout.OneLine => 0,
             Layout.EachOwnLine => 1,
-            _ => 2
+            _ => JaggedLayoutMethodIndex
         };
 
         _list = ((MethodDeclarationSyntax)members[methodIndex]).ParameterList;

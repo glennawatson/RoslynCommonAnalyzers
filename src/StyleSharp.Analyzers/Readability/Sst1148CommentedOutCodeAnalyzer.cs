@@ -58,8 +58,10 @@ public sealed class Sst1148CommentedOutCodeAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for a conservative code-like shape.</returns>
     private static bool TryGetCodeSignal(SourceText text, TextSpan span, out string signal)
     {
+        const int SingleLineCommentMarkerLength = 2;
+
         signal = string.Empty;
-        var start = span.Start + 2;
+        var start = span.Start + SingleLineCommentMarkerLength;
         var end = span.End;
         while (start < end && char.IsWhiteSpace(text[start]))
         {

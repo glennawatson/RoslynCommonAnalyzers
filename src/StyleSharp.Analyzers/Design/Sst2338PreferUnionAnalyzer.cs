@@ -126,7 +126,9 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
     /// <returns>The number of distinct nullable or reference-typed members.</returns>
     private static int CountDistinctPayloads(INamedTypeSymbol type)
     {
-        var seen = new List<ITypeSymbol>(4);
+        const int InitialPayloadTypeCapacity = 4;
+
+        var seen = new List<ITypeSymbol>(InitialPayloadTypeCapacity);
         foreach (var member in type.GetMembers())
         {
             var memberType = PayloadType(member);

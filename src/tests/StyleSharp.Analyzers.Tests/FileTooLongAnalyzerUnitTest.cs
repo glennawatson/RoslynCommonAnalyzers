@@ -14,13 +14,21 @@ public class FileTooLongAnalyzerUnitTest
     [Test]
     public async Task FileOverTheDefaultMaximumIsReportedAsync()
     {
+        const int DefaultMaxFileLines = 500;
+        const int OverlongFilePropertyCount = 500;
+        const int OverlongFileMeasuredLineCount = 503;
+        const int ReportedFirstTokenEndColumn = 7;
+
         var test = new VerifyFileLength.Test
         {
-            TestCode = BuildClass(500),
+            TestCode = BuildClass(OverlongFilePropertyCount),
         };
 
         // The declaration, its opening brace, 500 properties, and the closing brace.
-        test.ExpectedDiagnostics.Add(VerifyFileLength.Diagnostic().WithSpan(1, 1, 1, 7).WithArguments(503, 500));
+        test.ExpectedDiagnostics.Add(
+            VerifyFileLength.Diagnostic()
+                .WithSpan(1, 1, 1, ReportedFirstTokenEndColumn)
+                .WithArguments(OverlongFileMeasuredLineCount, DefaultMaxFileLines));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -29,14 +37,20 @@ public class FileTooLongAnalyzerUnitTest
     /// <remarks>The generated file has 801 raw lines and 403 code lines, so only the counted lines can save it.</remarks>
     [Test]
     public async Task FileInsideTheDefaultMaximumIsCleanAsync()
-        => await VerifyFileLength.VerifyAnalyzerAsync(BuildClass(400));
+    {
+        const int InsideMaximumFilePropertyCount = 400;
+
+        await VerifyFileLength.VerifyAnalyzerAsync(BuildClass(InsideMaximumFilePropertyCount));
+    }
 
     /// <summary>Verifies blank lines and comments do not count toward the limit.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task BlankLinesAndCommentsDoNotCountAsync()
     {
-        var padding = string.Join("\n", Enumerable.Repeat("// filler\n", 20));
+        const int FillerCommentLineCount = 20;
+
+        var padding = string.Join("\n", Enumerable.Repeat("// filler\n", FillerCommentLineCount));
         var test = new VerifyFileLength.Test
         {
             TestCode = $$"""

@@ -94,10 +94,14 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
     /// <returns>The rewritten method.</returns>
     private static MethodDeclarationSyntax Split(MethodDeclarationSyntax method, BlockSyntax body, int guards)
     {
+        // Beyond the guards the rewritten body holds the return that calls the iterator and the local
+        // function that is the iterator.
+        const int ReturnAndIteratorStatementCount = 2;
+
         var name = CreateIteratorName(method);
         var lineBreak = LineEndingHelper.GetLineBreak(method);
         var statements = body.Statements;
-        var rewritten = new StatementSyntax[guards + 2];
+        var rewritten = new StatementSyntax[guards + ReturnAndIteratorStatementCount];
         for (var i = 0; i < guards; i++)
         {
             rewritten[i] = statements[i];

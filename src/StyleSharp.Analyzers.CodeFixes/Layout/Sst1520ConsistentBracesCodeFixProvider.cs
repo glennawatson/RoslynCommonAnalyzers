@@ -61,8 +61,11 @@ public sealed class Sst1520ConsistentBracesCodeFixProvider : CodeFixProvider, IT
     /// <returns>The updated document.</returns>
     internal static async Task<Document> WrapChainAsync(Document document, IfStatementSyntax ifStatement, CancellationToken cancellationToken)
     {
+        // Each bare clause body costs an opening brace before it and a closing brace after it.
+        const int BraceChangesPerClause = 2;
+
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var changes = new List<TextChange>(CountClauses(ifStatement) * 2);
+        var changes = new List<TextChange>(CountClauses(ifStatement) * BraceChangesPerClause);
         AppendChainBraces(text, ifStatement, changes);
         return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
     }

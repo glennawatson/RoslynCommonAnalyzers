@@ -108,7 +108,9 @@ public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFi
         var name = declaration.Identifier.ValueText;
         var newLine = DetectLineEnding(declaration);
 
-        var additions = new List<MemberDeclarationSyntax>(3);
+        const int StandardExceptionConstructorCount = 3;
+
+        var additions = new List<MemberDeclarationSyntax>(StandardExceptionConstructorCount);
         if ((missing & (int)StandardExceptionConstructors.Parameterless) != 0)
         {
             additions.Add(BuildConstructor(name, accessibility, newLine, withMessage: false, withInner: false));

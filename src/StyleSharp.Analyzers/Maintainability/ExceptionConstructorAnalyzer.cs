@@ -266,7 +266,9 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
     /// <returns>The phrase, e.g. <c>a parameterless constructor and a constructor taking a message</c>.</returns>
     private static string Describe(StandardExceptionConstructors missing)
     {
-        var parts = new List<string>(3);
+        const int StandardExceptionConstructorCount = 3;
+
+        var parts = new List<string>(StandardExceptionConstructorCount);
         if ((missing & StandardExceptionConstructors.Parameterless) != 0)
         {
             parts.Add("a parameterless constructor");

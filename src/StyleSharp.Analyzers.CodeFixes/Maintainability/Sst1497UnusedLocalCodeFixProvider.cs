@@ -137,7 +137,10 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
             return null;
         }
 
-        var edits = new List<LocalEdit>(2) { declarationEdit };
+        // Removing the declaration and clearing one dead write is the usual shape.
+        const int InitialLocalEditCapacity = 2;
+
+        var edits = new List<LocalEdit>(InitialLocalEditCapacity) { declarationEdit };
         return TryAddDeadWriteEdits(scope, local, model, edits, cancellationToken) ? edits : null;
     }
 

@@ -29,7 +29,13 @@ public class DocumentationCommentStyleUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task MisplacedDocumentationCommentReportedAsync()
-        => await VerifyDocStyle.VerifyAnalyzerAsync(
+    {
+        const int MisplacedDocCommentLine = 5;
+        const int MisplacedDocCommentStartColumn = 12;
+        const int MisplacedDocCommentEndLine = 6;
+        const int MisplacedDocCommentEndColumn = 1;
+
+        await VerifyDocStyle.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -40,7 +46,12 @@ public class DocumentationCommentStyleUnitTest
                 }
             }
             """,
-            VerifyDocStyle.Diagnostic("SST1626").WithSpan(5, 12, 6, 1));
+            VerifyDocStyle.Diagnostic("SST1626").WithSpan(
+                MisplacedDocCommentLine,
+                MisplacedDocCommentStartColumn,
+                MisplacedDocCommentEndLine,
+                MisplacedDocCommentEndColumn));
+    }
 
     /// <summary>Verifies a documentation comment that documents a member is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

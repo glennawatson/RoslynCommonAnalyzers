@@ -85,6 +85,8 @@ public sealed class Sst1663SummaryCommentCodeFixProvider : CodeFixProvider, ITex
     /// <returns><see langword="true"/> when a change was built.</returns>
     private static bool TryBuildChange(SyntaxNode root, Diagnostic diagnostic, out TextChange change)
     {
+        const int SingleLineCommentMarkerLength = 2;
+
         change = default;
 
         var trivia = root.FindTrivia(diagnostic.Location.SourceSpan.Start);
@@ -94,7 +96,7 @@ public sealed class Sst1663SummaryCommentCodeFixProvider : CodeFixProvider, ITex
         }
 
         var raw = trivia.ToString();
-        var content = Escape(raw.Substring(2).Trim());
+        var content = Escape(raw.Substring(SingleLineCommentMarkerLength).Trim());
         change = new TextChange(trivia.Span, "/// <summary>" + content + "</summary>");
         return true;
     }

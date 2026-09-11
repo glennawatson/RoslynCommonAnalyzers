@@ -56,8 +56,11 @@ public sealed class Psh1207SpecifyStringComparisonCodeFixProvider : CodeFixProvi
     /// <returns>The rewritten argument list.</returns>
     private static ArgumentListSyntax AppendOrdinal(ArgumentListSyntax arguments)
     {
+        // Appending the comparison adds the separating comma and the argument itself.
+        const int AppendedCommaAndArgumentCount = 2;
+
         var separated = arguments.Arguments.GetWithSeparators();
-        var items = new SyntaxNodeOrToken[separated.Count + 2];
+        var items = new SyntaxNodeOrToken[separated.Count + AppendedCommaAndArgumentCount];
         for (var i = 0; i < separated.Count; i++)
         {
             items[i] = separated[i];

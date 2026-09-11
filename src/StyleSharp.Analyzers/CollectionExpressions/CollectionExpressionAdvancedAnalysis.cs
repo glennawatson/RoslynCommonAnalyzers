@@ -281,9 +281,13 @@ internal static class CollectionExpressionAdvancedAnalysis
         out ExpressionSyntax[] elements,
         out ReturnStatementSyntax returnStatement)
     {
+        // The builder declaration and the terminal return statement are the two statements in the block
+        // that are not Add calls, so the rest bound how many elements the sequence can hold.
+        const int BuilderDeclarationAndReturnStatementCount = 2;
+
         elements = [];
         returnStatement = null!;
-        var maxElements = block.Statements.Count - index - 2;
+        var maxElements = block.Statements.Count - index - BuilderDeclarationAndReturnStatementCount;
         if (maxElements <= 0)
         {
             return false;

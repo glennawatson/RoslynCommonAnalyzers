@@ -33,11 +33,13 @@ public sealed class SwappedArgumentCodeFixUnitTest
     [Test]
     public async Task IsSwappablePairAcceptsDistinctInRangePositionsAsync()
     {
+        const int PositionPastLastArgument = 5;
+
         var list = ParseFirstArgumentList("class C { void M() { N(a, b); } }");
 
         await Assert.That(SwappedArgumentCodeFix.IsSwappablePair(list, 0, 1)).IsTrue();
         await Assert.That(SwappedArgumentCodeFix.IsSwappablePair(list, 0, 0)).IsFalse();
-        await Assert.That(SwappedArgumentCodeFix.IsSwappablePair(list, 0, 5)).IsFalse();
+        await Assert.That(SwappedArgumentCodeFix.IsSwappablePair(list, 0, PositionPastLastArgument)).IsFalse();
         await Assert.That(SwappedArgumentCodeFix.IsSwappablePair(list, -1, 1)).IsFalse();
     }
 

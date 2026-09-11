@@ -67,8 +67,11 @@ public sealed class Sst1503RequireBracesCodeFixProvider : CodeFixProvider, IText
     /// <returns>The updated document.</returns>
     internal static async Task<Document> WrapAsync(Document document, StatementSyntax statement, CancellationToken cancellationToken)
     {
+        // Wrapping a statement inserts the opening brace before it and the closing brace after it.
+        const int BraceWrapChangeCapacity = 2;
+
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var changes = new List<TextChange>(2);
+        var changes = new List<TextChange>(BraceWrapChangeCapacity);
         LayoutFixHelpers.AppendBraceWrap(text, statement, LayoutFixHelpers.DetectNewLine(text), changes);
         return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
     }

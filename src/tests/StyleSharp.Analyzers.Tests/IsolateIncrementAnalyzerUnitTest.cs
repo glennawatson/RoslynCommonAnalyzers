@@ -75,6 +75,10 @@ public class IsolateIncrementAnalyzerUnitTest
     [Test]
     public async Task MessageNamesTheIncrementAndItsTargetAsync()
     {
+        const int IncrementLine = 3;
+        const int IncrementStartColumn = 49;
+        const int IncrementEndColumn = 52;
+
         var test = new VerifyIncrement.Test
         {
             TestCode = """
@@ -85,7 +89,10 @@ public class IsolateIncrementAnalyzerUnitTest
                        """,
         };
 
-        test.ExpectedDiagnostics.Add(VerifyIncrement.Diagnostic().WithSpan(3, 49, 3, 52).WithArguments("i++", "i"));
+        test.ExpectedDiagnostics.Add(
+            VerifyIncrement.Diagnostic()
+                .WithSpan(IncrementLine, IncrementStartColumn, IncrementLine, IncrementEndColumn)
+                .WithArguments("i++", "i"));
         await test.RunAsync(CancellationToken.None);
     }
 }

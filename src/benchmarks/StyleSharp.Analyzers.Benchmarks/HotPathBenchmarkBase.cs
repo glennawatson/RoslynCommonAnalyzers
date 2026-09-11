@@ -277,8 +277,10 @@ public abstract class HotPathBenchmarkBase
     /// <returns>The object-creation expressions.</returns>
     private static ObjectCreationExpressionSyntax[] GetObjectCreations(CompilationUnitSyntax root)
     {
+        // The generated body brackets the object-creation assignments with one local declaration and one return.
+        const int DeclarationAndReturnStatementCount = 2;
         var statements = GetSingleMethod(root).Body!.Statements;
-        var objectCreations = new ObjectCreationExpressionSyntax[statements.Count - 2];
+        var objectCreations = new ObjectCreationExpressionSyntax[statements.Count - DeclarationAndReturnStatementCount];
         for (var i = 1; i < statements.Count - 1; i++)
         {
             objectCreations[i - 1] = (ObjectCreationExpressionSyntax)((AssignmentExpressionSyntax)((ExpressionStatementSyntax)statements[i]).Expression).Right;

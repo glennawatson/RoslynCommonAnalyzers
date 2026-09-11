@@ -147,7 +147,9 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
     /// <returns>The matching element accesses in document order.</returns>
     private static List<ElementAccessExpressionSyntax> CollectGuardedReads(in Psh1104UseTryGetValueAnalyzer.GuardShape shape)
     {
-        var state = new ReadCollectorState(shape.Receiver, shape.Key, new List<ElementAccessExpressionSyntax>(4));
+        const int InitialGuardedReadCapacity = 4;
+
+        var state = new ReadCollectorState(shape.Receiver, shape.Key, new List<ElementAccessExpressionSyntax>(InitialGuardedReadCapacity));
         CollectRegion(shape.FirstRegion, ref state);
         if (shape.SecondRegion is { } secondRegion)
         {

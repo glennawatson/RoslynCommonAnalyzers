@@ -14,6 +14,9 @@ namespace StyleSharp.Analyzers.Benchmarks;
 [ShortRunJob]
 public class DescendantTraversalBenchmarks
 {
+    /// <summary>The number of backing-field references the benchmark property is expected to contain.</summary>
+    private const int ExpectedBackingFieldReferenceCount = 4;
+
     /// <summary>The file-name benchmark root.</summary>
     private CompilationUnitSyntax _fileNameRoot = null!;
 
@@ -386,7 +389,7 @@ public class DescendantTraversalBenchmarks
     private static int BaselineCollectFieldReferences(PropertyDeclarationSyntax property, SemanticModel model, IFieldSymbol symbol)
     {
         // Intentional baseline: keep the original DescendantNodes() shape for comparison.
-        var references = new List<IdentifierNameSyntax>(4);
+        var references = new List<IdentifierNameSyntax>(ExpectedBackingFieldReferenceCount);
         foreach (var node in property.DescendantNodes())
         {
             if (node is IdentifierNameSyntax identifier
@@ -406,7 +409,7 @@ public class DescendantTraversalBenchmarks
     /// <returns>The number of references collected.</returns>
     private static int OptimizedCollectFieldReferences(PropertyDeclarationSyntax property, SemanticModel model, IFieldSymbol symbol)
     {
-        var references = new List<IdentifierNameSyntax>(4);
+        var references = new List<IdentifierNameSyntax>(ExpectedBackingFieldReferenceCount);
         var state = (Model: model, Symbol: symbol, References: references);
 
         DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (SemanticModel Model, IFieldSymbol Symbol, List<IdentifierNameSyntax> References)>(

@@ -73,6 +73,9 @@ public class SpacingAnalyzerUnitTest
     [Test]
     public async Task TrailingWhitespaceRemovedAsync()
     {
+        const int TrailingSpaceLine = 1;
+        const int TrailingSpaceStartColumn = 17;
+        const int TrailingSpaceEndColumn = 18;
         const string Source = """
                               internal class C 
                               {
@@ -86,7 +89,7 @@ public class SpacingAnalyzerUnitTest
 
         await VerifySpacing.VerifyCodeFixAsync(
             Source,
-            VerifySpacing.Diagnostic("SST1028").WithSpan(1, 17, 1, 18),
+            VerifySpacing.Diagnostic("SST1028").WithSpan(TrailingSpaceLine, TrailingSpaceStartColumn, TrailingSpaceLine, TrailingSpaceEndColumn),
             FixedSource);
     }
 
@@ -95,6 +98,9 @@ public class SpacingAnalyzerUnitTest
     [Test]
     public async Task TabReplacedWithSpacesAsync()
     {
+        const int TabIndentLine = 3;
+        const int TabIndentStartColumn = 1;
+        const int TabIndentEndColumn = 2;
         var source = $$"""
                       internal class C
                       {
@@ -110,7 +116,7 @@ public class SpacingAnalyzerUnitTest
 
         await VerifySpacing.VerifyCodeFixAsync(
             source,
-            VerifySpacing.Diagnostic("SST1027").WithSpan(3, 1, 3, 2),
+            VerifySpacing.Diagnostic("SST1027").WithSpan(TabIndentLine, TabIndentStartColumn, TabIndentLine, TabIndentEndColumn),
             FixedSource);
     }
 
@@ -119,6 +125,9 @@ public class SpacingAnalyzerUnitTest
     [Test]
     public async Task MultipleWhitespaceCollapsedAsync()
     {
+        const int DoubledSpaceLine = 3;
+        const int DoubledSpaceStartColumn = 12;
+        const int DoubledSpaceEndColumn = 14;
         const string Source = """
                               internal class C
                               {
@@ -134,7 +143,7 @@ public class SpacingAnalyzerUnitTest
 
         await VerifySpacing.VerifyCodeFixAsync(
             Source,
-            VerifySpacing.Diagnostic("SST1025").WithSpan(3, 12, 3, 14),
+            VerifySpacing.Diagnostic("SST1025").WithSpan(DoubledSpaceLine, DoubledSpaceStartColumn, DoubledSpaceLine, DoubledSpaceEndColumn),
             FixedSource);
     }
 

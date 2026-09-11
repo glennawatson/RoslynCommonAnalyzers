@@ -119,11 +119,16 @@ public sealed class Sst2243UseRawStringLiteralCodeFixProvider : CodeFixProvider,
     /// <returns>The raw string token text with the delimiters on their own lines.</returns>
     private static string BuildMultiLineText(LiteralExpressionSyntax literal, string value, string delimiter)
     {
+        // The raw string carries the delimiter twice, opening the literal and closing it.
+        const int OpeningAndClosingDelimiterCount = 2;
+
         var text = literal.SyntaxTree.GetText();
         var newLine = LayoutFixHelpers.DetectNewLine(text);
         var indent = LayoutFixHelpers.IndentOfLine(text, literal.SpanStart);
         var lineCount = CountLines(value);
-        var capacity = value.Length + (2 * delimiter.Length) + ((lineCount + 1) * (indent.Length + newLine.Length));
+        var capacity = value.Length
+            + (OpeningAndClosingDelimiterCount * delimiter.Length)
+            + ((lineCount + 1) * (indent.Length + newLine.Length));
         var builder = new StringBuilder(capacity);
         builder.Append(delimiter).Append(newLine);
 

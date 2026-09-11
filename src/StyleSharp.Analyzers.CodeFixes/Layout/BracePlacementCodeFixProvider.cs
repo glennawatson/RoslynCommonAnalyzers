@@ -68,8 +68,11 @@ public sealed class BracePlacementCodeFixProvider : CodeFixProvider, ITextChange
     /// <returns>The updated document.</returns>
     internal static async Task<Document> PlaceOnOwnLineAsync(Document document, SyntaxToken brace, CancellationToken cancellationToken)
     {
+        // Putting the brace on its own line takes at most a break before it and a break after it.
+        const int BraceLineBreakChangeCapacity = 2;
+
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var changes = new List<TextChange>(2);
+        var changes = new List<TextChange>(BraceLineBreakChangeCapacity);
 
         BuildChanges(text, brace, changes);
 

@@ -401,24 +401,34 @@ public class MemberOrderingAnalyzerUnitTest
     [Test]
     public async Task KindRankMapsOrderedMemberKindsAsync()
     {
+        const int MethodKindRank = 9;
+        const int RecordKindRank = 12;
+
         await Assert.That(MemberOrder.KindRank(SyntaxKind.FieldDeclaration, isUnion: false)).IsEqualTo(0);
-        await Assert.That(MemberOrder.KindRank(SyntaxKind.MethodDeclaration, isUnion: false)).IsEqualTo(9);
-        await Assert.That(MemberOrder.KindRank(SyntaxKind.RecordDeclaration, isUnion: false)).IsEqualTo(12);
+        await Assert.That(MemberOrder.KindRank(SyntaxKind.MethodDeclaration, isUnion: false)).IsEqualTo(MethodKindRank);
+        await Assert.That(MemberOrder.KindRank(SyntaxKind.RecordDeclaration, isUnion: false)).IsEqualTo(RecordKindRank);
     }
 
     /// <summary>Verifies kind ranking places nested unions after records and classes.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task KindRankMapsUnionAfterRecordAsync()
-        => await Assert.That(MemberOrder.KindRank(SyntaxKind.ClassDeclaration, isUnion: true)).IsEqualTo(13);
+    {
+        const int UnionKindRank = 13;
+
+        await Assert.That(MemberOrder.KindRank(SyntaxKind.ClassDeclaration, isUnion: true)).IsEqualTo(UnionKindRank);
+    }
 
     /// <summary>Verifies direct member-order comparisons stop at the first differing dimension.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task CompareDimensionsUsesFirstDifferenceAsync()
     {
-        var left = new MemberOrder(7, 0, 1, 1, 1);
-        var right = new MemberOrder(7, 3, 0, 0, 0);
+        const int PropertyKindRank = 7;
+        const int ProtectedAccessRank = 3;
+
+        var left = new MemberOrder(PropertyKindRank, 0, 1, 1, 1);
+        var right = new MemberOrder(PropertyKindRank, ProtectedAccessRank, 0, 0, 0);
 
         await Assert.That(MemberOrder.CompareDimensions(left, right)).IsLessThan(0);
     }
@@ -428,8 +438,10 @@ public class MemberOrderingAnalyzerUnitTest
     [Test]
     public async Task SelectViolationRuleUsesInstanceReadonlyRuleAsync()
     {
-        var previous = new MemberOrder(0, 5, 1, 1, 1);
-        var current = new MemberOrder(0, 5, 1, 1, 0);
+        const int PrivateAccessRank = 5;
+
+        var previous = new MemberOrder(0, PrivateAccessRank, 1, 1, 1);
+        var current = new MemberOrder(0, PrivateAccessRank, 1, 1, 0);
 
         await Assert.That(MemberOrder.SelectViolationRule(current, previous)?.Id)
             .IsEqualTo(OrderingRules.InstanceReadonlyBeforeNonReadonly.Id);

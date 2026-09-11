@@ -45,9 +45,13 @@ public sealed class PrecedenceAnalyzerUnitTest
     [Test]
     public async Task ClassifyOperatorMapsArithmeticFamiliesAsync()
     {
-        await Assert.That(PrecedenceAnalyzer.ClassifyOperator(SyntaxKind.MultiplyExpression)).IsEqualTo(3);
-        await Assert.That(PrecedenceAnalyzer.ClassifyOperator(SyntaxKind.AddExpression)).IsEqualTo(4);
-        await Assert.That(PrecedenceAnalyzer.ClassifyOperator(SyntaxKind.LeftShiftExpression)).IsEqualTo(5);
+        const int MultiplicativeCategory = 3;
+        const int AdditiveCategory = 4;
+        const int ShiftCategory = 5;
+
+        await Assert.That(PrecedenceAnalyzer.ClassifyOperator(SyntaxKind.MultiplyExpression)).IsEqualTo(MultiplicativeCategory);
+        await Assert.That(PrecedenceAnalyzer.ClassifyOperator(SyntaxKind.AddExpression)).IsEqualTo(AdditiveCategory);
+        await Assert.That(PrecedenceAnalyzer.ClassifyOperator(SyntaxKind.LeftShiftExpression)).IsEqualTo(ShiftCategory);
     }
 
     /// <summary>Verifies operator classification distinguishes the two conditional operators.</summary>
@@ -55,7 +59,10 @@ public sealed class PrecedenceAnalyzerUnitTest
     [Test]
     public async Task ClassifyOperatorMapsConditionalOperatorsAsync()
     {
-        await Assert.That(PrecedenceAnalyzer.ClassifyOperator(SyntaxKind.LogicalAndExpression)).IsEqualTo(1);
-        await Assert.That(PrecedenceAnalyzer.ClassifyOperator(SyntaxKind.LogicalOrExpression)).IsEqualTo(2);
+        const int ConditionalAndCategory = 1;
+        const int ConditionalOrCategory = 2;
+
+        await Assert.That(PrecedenceAnalyzer.ClassifyOperator(SyntaxKind.LogicalAndExpression)).IsEqualTo(ConditionalAndCategory);
+        await Assert.That(PrecedenceAnalyzer.ClassifyOperator(SyntaxKind.LogicalOrExpression)).IsEqualTo(ConditionalOrCategory);
     }
 }

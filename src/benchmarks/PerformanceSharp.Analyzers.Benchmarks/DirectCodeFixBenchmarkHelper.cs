@@ -21,10 +21,11 @@ internal static class DirectCodeFixBenchmarkHelper
         Func<int, string> sourceFactory,
         Func<Document, CompilationUnitSyntax, int, Task<TTarget>> targetFactory)
     {
+        const int MiddleGeneratedNodeDivisor = 2;
         var workspace = new AdhocWorkspace();
         var document = CodeFixBenchmarkDocumentFactory.CreateDocument(workspace, sourceFactory(count));
         var root = (CompilationUnitSyntax)(await document.GetSyntaxRootAsync().ConfigureAwait(false))!;
-        var target = await targetFactory(document, root, count / 2).ConfigureAwait(false);
+        var target = await targetFactory(document, root, count / MiddleGeneratedNodeDivisor).ConfigureAwait(false);
         return new DirectCodeFixBenchmarkContext<TTarget>(workspace, document, root, target);
     }
 }

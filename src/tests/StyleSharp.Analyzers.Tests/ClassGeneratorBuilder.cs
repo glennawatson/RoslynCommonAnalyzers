@@ -9,6 +9,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Builds C# source-code strings used as fixtures in analyzer unit tests.</summary>
 internal sealed class ClassGeneratorBuilder
 {
+    /// <summary>The number of leading spaces indenting a staggered parameter or argument line nested inside a method body.</summary>
+    private const int NestedBodyIndentSpaces = 16;
+
+    /// <summary>The number of lines a jagged parameter or argument list is split across.</summary>
+    private const int JaggedLineCount = 2;
+
     /// <summary>The accumulating buffer holding the generated source code.</summary>
     private readonly StringBuilder _builder = new();
 
@@ -54,7 +60,12 @@ internal sealed class ClassGeneratorBuilder
                     }
             """);
 
-        return (13, 9, 16, 10);
+        const int StartLine = 13;
+        const int EndLine = StartLine + 3;
+        const int StartColumn = 9;
+        const int EndColumn = 10;
+
+        return (StartLine, StartColumn, EndLine, EndColumn);
     }
 
     /// <summary>Appends a method declaration with each parameter on its own line.</summary>
@@ -94,7 +105,13 @@ internal sealed class ClassGeneratorBuilder
                     {
                     }
             """);
-        return (13, 9, 16, 10);
+
+        const int StartLine = 13;
+        const int EndLine = StartLine + 3;
+        const int StartColumn = 9;
+        const int EndColumn = 10;
+
+        return (StartLine, StartColumn, EndLine, EndColumn);
     }
 
     /// <summary>Appends a constructor declaration with each parameter on its own line.</summary>
@@ -204,7 +221,7 @@ internal sealed class ClassGeneratorBuilder
                     public void MyInnerMethod()
                     {
                         DelegateDefinition action = delegate (
-            """).Append(GenerateStaggeredLineParameters(parameterCount, 16)).AppendLine("""
+            """).Append(GenerateStaggeredLineParameters(parameterCount, NestedBodyIndentSpaces)).AppendLine("""
             )
                         {
                         };
@@ -265,7 +282,7 @@ internal sealed class ClassGeneratorBuilder
                                     public void MyInnerMethod()
                                     {
                                         var action = (
-                            """).Append(GenerateStaggeredLineParameters(parameterCount, 16)).AppendLine("""
+                            """).Append(GenerateStaggeredLineParameters(parameterCount, NestedBodyIndentSpaces)).AppendLine("""
             ) =>
                         {
                         };
@@ -296,7 +313,11 @@ internal sealed class ClassGeneratorBuilder
 
         _builder.AppendLine(input);
 
-        return (13, 9, 14, endColumn);
+        const int StartLine = 13;
+        const int EndLine = StartLine + 1;
+        const int StartColumn = 9;
+
+        return (StartLine, StartColumn, EndLine, endColumn);
     }
 
     /// <summary>Appends an indexer declaration with each parameter on its own line.</summary>
@@ -359,7 +380,7 @@ internal sealed class ClassGeneratorBuilder
                                     public void MyInnerMethod()
                                     {
                                         MyMethod(
-                            """).Append(GenerateStaggeredLineArguments(parameterCount, 16)).AppendLine("""
+                            """).Append(GenerateStaggeredLineArguments(parameterCount, NestedBodyIndentSpaces)).AppendLine("""
             );
                     }
             """);
@@ -440,7 +461,7 @@ internal sealed class ClassGeneratorBuilder
                     public void MyInnerMethod()
                     {
                         var myInnerTest = new MyInnerTest(
-            """).Append(GenerateStaggeredLineArguments(parameterCount, 16)).AppendLine("""
+            """).Append(GenerateStaggeredLineArguments(parameterCount, NestedBodyIndentSpaces)).AppendLine("""
             );
                     }
             """);
@@ -560,7 +581,8 @@ internal sealed class ClassGeneratorBuilder
 
         var splitLines = input.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
 
-        var endColumn = splitLines[^1].Length - 4;
+        const int TrailingAssignmentColumns = 4;
+        var endColumn = splitLines[^1].Length - TrailingAssignmentColumns;
         const int StartLine = 16;
         const int EndLine = StartLine + 1;
         const int StartColumn = 13;
@@ -579,7 +601,7 @@ internal sealed class ClassGeneratorBuilder
                         """).Append(GenerateOneLineArguments(parameterCount)).AppendLine("""
             ];
                         myArray[
-            """).Append(GenerateStaggeredLineArguments(parameterCount, 16)).AppendLine("""
+            """).Append(GenerateStaggeredLineArguments(parameterCount, NestedBodyIndentSpaces)).AppendLine("""
             ] = 1;
                     }
             """);
@@ -607,7 +629,7 @@ internal sealed class ClassGeneratorBuilder
     /// <returns>The jagged-line parameter list text.</returns>
     private static string GenerateJaggedLineParameters(int parameterCount)
     {
-        var halfWayPoint = parameterCount / 2;
+        var halfWayPoint = parameterCount / JaggedLineCount;
         var remainingCount = parameterCount - halfWayPoint;
 
         return $"""
@@ -646,7 +668,7 @@ internal sealed class ClassGeneratorBuilder
     /// <returns>The jagged-line argument list text.</returns>
     private static string GenerateJaggedLineArguments(int parameterCount)
     {
-        var halfWayPoint = parameterCount / 2;
+        var halfWayPoint = parameterCount / JaggedLineCount;
         var remainingCount = parameterCount - halfWayPoint;
 
         return $"""

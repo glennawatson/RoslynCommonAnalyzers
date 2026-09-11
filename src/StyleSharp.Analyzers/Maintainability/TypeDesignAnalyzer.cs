@@ -239,7 +239,7 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
         // The member is exempt when it uses a type parameter anywhere — signature, attributes,
         // initializer, accessor, or body — including inside the closed self-type (typeof(G<T>)),
         // because then the per-closed-generic instantiation is intentional.
-        if (MemberMentionsAnyTypeParameter(member))
+        if (MemberMentionsAnyTypeParameter(member) || MemberMentionsNestedType(context, member))
         {
             return;
         }
@@ -294,6 +294,54 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
         var state = new TypeParameterScan(member);
         DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, TypeParameterScan>(member, ref state, MatchTypeParameterName);
         return state.Found;
+    }
+
+    /// <summary>Returns whether the member names a type nested inside the generic type it belongs to.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="member">The static member.</param>
+    /// <returns><see langword="true"/> when the member reaches a type that carries the enclosing type parameters.</returns>
+    /// <remarks>
+    /// A type nested in a generic type is a different type for every instantiation, so naming one uses the
+    /// enclosing type parameters just as surely as writing them out. The name alone does not show it —
+    /// <c>Test</c> means <c>Verifier&lt;TAnalyzer, TCodeFix&gt;.Test</c> — and where the generic type is
+    /// declared in several parts the nested type need not even be in this file, so the symbol decides.
+    /// </remarks>
+    private static bool MemberMentionsNestedType(SyntaxNodeAnalysisContext context, MemberDeclarationSyntax member)
+    {
+        if (member.Parent is not TypeDeclarationSyntax owner
+            || context.SemanticModel.GetDeclaredSymbol(owner, context.CancellationToken) is not { } ownerSymbol)
+        {
+            return false;
+        }
+
+        var state = new NestedTypeScan(context.SemanticModel, ownerSymbol.OriginalDefinition, context.CancellationToken);
+        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NestedTypeScan>(member, ref state, MatchNestedType);
+        return state.Found;
+    }
+
+    /// <summary>Records whether an identifier binds to a type nested in the enclosing generic type.</summary>
+    /// <param name="node">The visited identifier name.</param>
+    /// <param name="state">The scan state.</param>
+    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> to stop.</returns>
+    private static bool MatchNestedType(IdentifierNameSyntax node, ref NestedTypeScan state)
+    {
+        if (state.Model.GetSymbolInfo(node, state.CancellationToken).Symbol is not INamedTypeSymbol type)
+        {
+            return true;
+        }
+
+        for (var containing = type.ContainingType; containing is not null; containing = containing.ContainingType)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(containing.OriginalDefinition, state.Owner))
+            {
+                continue;
+            }
+
+            state.Found = true;
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>Records whether an identifier names one of the member's enclosing type parameters.</summary>
@@ -397,6 +445,16 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
     private record struct TypeParameterScan(MemberDeclarationSyntax Member)
     {
         /// <summary>Gets or sets a value indicating whether an enclosing type parameter was referenced.</summary>
+        public bool Found { get; set; }
+    }
+
+    /// <summary>Mutable accumulator for the nested-type usage scan over a member.</summary>
+    /// <param name="Model">The semantic model that binds each name.</param>
+    /// <param name="Owner">The generic type the member belongs to.</param>
+    /// <param name="CancellationToken">A token that cancels the scan.</param>
+    private record struct NestedTypeScan(SemanticModel Model, INamedTypeSymbol Owner, CancellationToken CancellationToken)
+    {
+        /// <summary>Gets or sets a value indicating whether a type nested in the owner was referenced.</summary>
         public bool Found { get; set; }
     }
 }

@@ -28,6 +28,64 @@ public class StaticMemberInGenericTypeAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a static member that reaches a nested type is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A type nested in a generic type is a different type for every instantiation, so naming one uses the
+    /// enclosing type parameters as surely as writing them out.
+    /// </remarks>
+    [Test]
+    public async Task StaticMemberReachingANestedTypeIsCleanAsync()
+        => await VerifyStaticGeneric.VerifyAnalyzerAsync(
+            """
+            public class Cache<T>
+            {
+                private int _hits;
+
+                public int Hits => _hits;
+
+                public static bool Reset()
+                {
+                    var state = new Entry();
+                    return state.Used;
+                }
+
+                public sealed class Entry
+                {
+                    public bool Used { get; set; }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a nested type declared in another part of the type still counts.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>The name alone cannot show it, so the symbol decides rather than the syntax in this file.</remarks>
+    [Test]
+    public async Task NestedTypeFromAnotherPartIsCleanAsync()
+        => await VerifyStaticGeneric.VerifyAnalyzerAsync(
+            """
+            public partial class Cache<T>
+            {
+                private int _hits;
+
+                public int Hits => _hits;
+
+                public static bool Reset()
+                {
+                    var state = new Entry();
+                    return state.Used;
+                }
+            }
+
+            public partial class Cache<T>
+            {
+                public sealed class Entry
+                {
+                    public bool Used { get; set; }
+                }
+            }
+            """);
+
     /// <summary>Verifies static members that use the type parameter and a private static helper are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

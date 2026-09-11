@@ -10,6 +10,40 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the documentation text-quality rules (SST1628/SST1630/SST1631/SST1632).</summary>
 public class DocumentationTextAnalyzerUnitTest
 {
+    /// <summary>Verifies a summary that captions one code form is not measured as prose.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The spacing and the ratio of letters to symbols belong to the language, not the author, so neither
+    /// SST1630 nor SST1631 says anything about the summary.
+    /// </remarks>
+    [Test]
+    public async Task CodeCaptionSummaryIsCleanAsync()
+        => await VerifyText.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                /// <summary><c>string.IsNullOrEmpty(text.Trim())</c>.</summary>
+                public void M()
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies a summary mixing prose with a code element is still measured.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SummaryWithProseAroundACodeElementIsMeasuredAsync()
+        => await VerifyText.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                /// {|SST1631:<summary>Calls <c>M()</c> ;;;;;;;;;;;;;;;;;;;;.</summary>|}
+                public void M()
+                {
+                }
+            }
+            """);
+
     /// <summary>Verifies a summary that begins with a lower-case letter is reported (SST1628).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -63,9 +63,14 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
 
         var location = summary.GetLocation();
         CheckCapital(context, summary, text, location);
+        CheckLength(context, text, location);
+        if (IsCodeCaption(summary))
+        {
+            return;
+        }
+
         CheckWhitespace(context, text, location);
         CheckPercentage(context, text, location);
-        CheckLength(context, text, location);
     }
 
     /// <summary>Reports empty non-summary section elements.</summary>
@@ -150,8 +155,55 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
             {
                 case XmlElementSyntax or XmlEmptyElementSyntax:
                     return true;
-                case XmlTextSyntax text when XmlDocumentationHelper.NormalizedText(text).Length > 0:
+                case XmlTextSyntax text when HasLetterOrDigit(text):
                     return false;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a summary is a caption for a code form rather than prose.</summary>
+    /// <param name="summary">The summary element.</param>
+    /// <returns><see langword="true"/> when everything outside the summary's elements is punctuation.</returns>
+    /// <remarks>
+    /// A member whose whole meaning is one code form is documented as that form —
+    /// <c>&lt;summary&gt;&lt;c&gt;while (true)&lt;/c&gt;.&lt;/summary&gt;</c>. Its spacing and its ratio of
+    /// letters to symbols are the language's, not the author's, so the prose measures say nothing about it.
+    /// </remarks>
+    private static bool IsCodeCaption(XmlNodeSyntax summary)
+    {
+        if (summary is not XmlElementSyntax element || !HasChildElement(element))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < element.Content.Count; i++)
+        {
+            if (element.Content[i] is XmlTextSyntax text && HasLetterOrDigit(text))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Returns whether a text node carries anything but punctuation and spacing.</summary>
+    /// <param name="text">The text node to inspect.</param>
+    /// <returns><see langword="true"/> when a letter or digit is present.</returns>
+    private static bool HasLetterOrDigit(XmlTextSyntax text)
+    {
+        var tokens = text.TextTokens;
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            var value = tokens[i].ValueText;
+            for (var j = 0; j < value.Length; j++)
+            {
+                if (char.IsLetterOrDigit(value[j]))
+                {
+                    return true;
+                }
             }
         }
 

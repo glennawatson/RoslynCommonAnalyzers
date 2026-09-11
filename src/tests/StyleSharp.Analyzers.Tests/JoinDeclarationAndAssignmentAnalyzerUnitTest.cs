@@ -11,6 +11,31 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst2250JoinDeclarationAndAssignmentAnalyzer"/> and its code fix (SST2250).</summary>
 public class JoinDeclarationAndAssignmentAnalyzerUnitTest
 {
+    /// <summary>Verifies a declaration separated from its assignment by a region is not joined.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Joining deletes the assignment statement, and the <c>#region</c> is its leading trivia, so the close
+    /// would be left with nothing to close.
+    /// </remarks>
+    [Test]
+    public async Task DeclarationAcrossADirectiveIsNotJoinedAsync()
+    {
+        const string Source = """
+            public sealed class C
+            {
+                public int M()
+                {
+                    int {|SST2250:value|};
+            #region Compute
+                    value = 1;
+            #endregion
+                    return value;
+                }
+            }
+            """;
+        await VerifyJoin.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies a bare declaration and its next-statement assignment are joined.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

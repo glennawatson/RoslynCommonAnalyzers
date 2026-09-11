@@ -33,8 +33,11 @@ public sealed class Sst2274AsAssignmentToIsPatternCodeFixProvider : CodeFixProvi
     /// <returns>The block replacement, or <see langword="null"/> when the shape no longer matches.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
+        // The declaration is deleted and its test folded into the `if`. A directive between the two travels
+        // with the statement that goes and leaves the other half behind.
         if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<LocalDeclarationStatementSyntax>() is not { } local
-            || !Sst2274AsAssignmentToIsPatternAnalyzer.TryGetSyntacticCandidate(local, out var candidate))
+            || !Sst2274AsAssignmentToIsPatternAnalyzer.TryGetSyntacticCandidate(local, out var candidate)
+            || DirectiveBoundaries.Separate(candidate.Declaration, candidate.IfStatement))
         {
             return null;
         }

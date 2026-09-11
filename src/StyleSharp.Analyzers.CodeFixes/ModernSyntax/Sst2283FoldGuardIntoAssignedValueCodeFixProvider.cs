@@ -48,7 +48,8 @@ public sealed class Sst2283FoldGuardIntoAssignedValueCodeFixProvider : CodeFixPr
                 out var guardedValue,
                 out var throwOperand,
                 out var assignmentStatement)
-            || assignmentStatement.Expression is not AssignmentExpressionSyntax assignment)
+            || assignmentStatement.Expression is not AssignmentExpressionSyntax assignment
+            || DirectiveBoundaries.Separate(ifStatement, assignmentStatement))
         {
             return null;
         }

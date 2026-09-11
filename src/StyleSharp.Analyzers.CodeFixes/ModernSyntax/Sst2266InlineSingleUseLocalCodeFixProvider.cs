@@ -82,18 +82,33 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
             || !Sst2266InlineSingleUseLocalAnalyzer.IsPureInlinable(equalsValue.Value)
             || model.GetDeclaredSymbol(declaration.Variables[0]) is not ILocalSymbol symbol
             || !Sst2266InlineSingleUseLocalAnalyzer.PreservesDeclaredMeaning(model, equalsValue.Value, symbol, CancellationToken.None)
-            || Sst2266InlineSingleUseLocalAnalyzer.FindSingleReference(model, block, symbol) is not { } reference)
+            || Sst2266InlineSingleUseLocalAnalyzer.FindSingleReference(model, block, symbol) is not { } reference
+            || CrossesADirective(local, reference))
         {
             return null;
         }
 
-        var value = equalsValue.Value;
-        ExpressionSyntax inlined = Sst2266InlineSingleUseLocalAnalyzer.NeedsParentheses(value, reference)
+        return new InlineEdit(local, reference, Inline(equalsValue.Value, reference).WithTriviaFrom(reference));
+    }
+
+    /// <summary>Returns whether a directive stands between the declaration and the read it folds into.</summary>
+    /// <param name="local">The declaration being removed.</param>
+    /// <param name="reference">The single read the value moves to.</param>
+    /// <returns><see langword="true"/> when the inline would carry half a directive pair.</returns>
+    private static bool CrossesADirective(LocalDeclarationStatementSyntax local, ExpressionSyntax reference)
+    {
+        SyntaxNode anchor = reference.FirstAncestorOrSelf<StatementSyntax>() is { } statement ? statement : reference;
+        return DirectiveBoundaries.Separate(local, anchor);
+    }
+
+    /// <summary>Builds the expression that takes the read's place.</summary>
+    /// <param name="value">The declaration's initializer.</param>
+    /// <param name="reference">The read being replaced.</param>
+    /// <returns>The initializer, parenthesized where the surrounding precedence needs it.</returns>
+    private static ExpressionSyntax Inline(ExpressionSyntax value, ExpressionSyntax reference)
+        => Sst2266InlineSingleUseLocalAnalyzer.NeedsParentheses(value, reference)
             ? SyntaxFactory.ParenthesizedExpression(value.WithoutTrivia())
             : value.WithoutTrivia();
-
-        return new InlineEdit(local, reference, inlined.WithTriviaFrom(reference));
-    }
 
     /// <summary>The declaration to remove, the reference to replace, and its inlined replacement.</summary>
     /// <param name="Declaration">The single-use local declaration being removed.</param>

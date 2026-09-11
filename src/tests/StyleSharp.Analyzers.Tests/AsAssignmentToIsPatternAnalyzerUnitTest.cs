@@ -14,6 +14,34 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class AsAssignmentToIsPatternAnalyzerUnitTest
 {
+    /// <summary>Verifies a declaration separated from its guard by a region is not folded.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Folding deletes the declaration, and the <c>#region</c> is the guard's leading trivia, so the open
+    /// and the close would end up on the same side of what is left.
+    /// </remarks>
+    [Test]
+    public async Task DeclarationAcrossADirectiveIsNotFoldedAsync()
+    {
+        const string Source = """
+            public sealed class C
+            {
+                public int M(object o)
+                {
+                    var {|SST2274:text|} = o as string;
+            #region Guard
+                    if (text is null)
+                    {
+                        return 0;
+                    }
+            #endregion
+                    return text.Length;
+                }
+            }
+            """;
+        await VerifyAsPattern.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies the guarded-use shape becomes a positive declaration pattern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

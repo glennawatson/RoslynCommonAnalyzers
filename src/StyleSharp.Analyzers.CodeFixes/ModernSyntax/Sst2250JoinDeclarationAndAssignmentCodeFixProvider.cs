@@ -77,8 +77,11 @@ public sealed class Sst2250JoinDeclarationAndAssignmentCodeFixProvider : CodeFix
     /// <returns>The edit, or <see langword="null"/> when the shape no longer matches.</returns>
     private static JoinEdit? Resolve(SyntaxNode root, Diagnostic diagnostic)
     {
+        // Joining deletes the assignment statement and folds its value into the declaration. A directive
+        // between them travels with the statement that goes and leaves the other half behind.
         if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<LocalDeclarationStatementSyntax>() is not { } local
-            || !Sst2250JoinDeclarationAndAssignmentAnalyzer.TryGetJoinCandidate(local, out var variable, out var assignment))
+            || !Sst2250JoinDeclarationAndAssignmentAnalyzer.TryGetJoinCandidate(local, out var variable, out var assignment)
+            || DirectiveBoundaries.Separate(local, assignment))
         {
             return null;
         }

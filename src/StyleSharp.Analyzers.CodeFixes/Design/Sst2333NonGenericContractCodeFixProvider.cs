@@ -65,7 +65,10 @@ public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, 
     /// <returns>The declaration and its rewrite, or <see langword="null"/> when the shape no longer matches.</returns>
     private static (TypeDeclarationSyntax Declaration, TypeDeclarationSyntax Updated)? Resolve(SyntaxNode root, Diagnostic diagnostic)
     {
+        // The members are appended after the last one and before the closing brace, which is where the
+        // directive closing a region over the tail sits — so they would land inside it.
         if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } declaration
+            || DirectiveBoundaries.SeparateMembers(declaration)
             || !diagnostic.Properties.TryGetValue(Sst2333NonGenericContractAnalyzer.ContractKey, out var contract)
             || contract is null
             || !diagnostic.Properties.TryGetValue(Sst2333NonGenericContractAnalyzer.TypeArgumentKey, out var argument)

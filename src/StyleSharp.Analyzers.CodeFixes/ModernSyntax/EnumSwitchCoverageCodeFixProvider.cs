@@ -29,6 +29,13 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
 
         foreach (var diagnostic in context.Diagnostics)
         {
+            // A section appended before the closing brace lands inside whatever region closes there, so a
+            // switch carrying a directive gets no action rather than one that cannot run.
+            if (CarriesADirective(root, diagnostic))
+            {
+                continue;
+            }
+
             if (diagnostic.Properties.ContainsKey(Sst2242EnumSwitchStatementMappingAnalyzer.CatchAllProperty))
             {
                 context.RegisterCodeFix(
@@ -79,6 +86,22 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
         };
     }
 
+    /// <summary>Returns whether the reported switch carries a directive among its cases.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns><see langword="true"/> when an appended case would land inside a region.</returns>
+    private static bool CarriesADirective(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var reported = root.FindNode(diagnostic.Location.SourceSpan);
+        if (reported.FirstAncestorOrSelf<SwitchStatementSyntax>() is { } switchStatement)
+        {
+            return DirectiveBoundaries.Cross(switchStatement, switchStatement.Span);
+        }
+
+        return reported.FirstAncestorOrSelf<SwitchExpressionSyntax>() is { } switchExpression
+            && DirectiveBoundaries.Cross(switchExpression, switchExpression.Span);
+    }
+
     /// <summary>Adds a <c>default</c> section that states the switch handles the rest deliberately.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
@@ -86,8 +109,10 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
     /// <returns>The updated document.</returns>
     private static Document AddCatchAll(Document document, SyntaxNode root, Diagnostic diagnostic)
     {
+        // The section is appended after the last one and before the closing brace, which is where the
+        // directive closing a region over the tail sits — so the new section would land inside it.
         var switchStatement = FindAncestor<SwitchStatementSyntax>(root, diagnostic.Location.SourceSpan);
-        if (switchStatement is null)
+        if (switchStatement is null || DirectiveBoundaries.Cross(switchStatement, switchStatement.Span))
         {
             return document;
         }
@@ -108,7 +133,7 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
     private static Document ApplySwitchStatement(Document document, SyntaxNode root, Diagnostic diagnostic, string missingMembers)
     {
         var switchStatement = FindAncestor<SwitchStatementSyntax>(root, diagnostic.Location.SourceSpan);
-        if (switchStatement is null)
+        if (switchStatement is null || DirectiveBoundaries.Cross(switchStatement, switchStatement.Span))
         {
             return document;
         }

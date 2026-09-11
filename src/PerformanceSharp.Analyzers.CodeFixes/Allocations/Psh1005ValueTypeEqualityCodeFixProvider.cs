@@ -45,7 +45,10 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
 
         foreach (var diagnostic in context.Diagnostics)
         {
+            // The members are appended after the last one and before the closing brace, which is where the
+            // directive closing a region over the tail sits — so they would land inside it.
             if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<StructDeclarationSyntax>() is not { } declaration
+                || DirectiveBoundaries.SeparateMembers(declaration)
                 || HasEqualityShapedMember(declaration)
                 || TryGetDataMembers(declaration) is not { } members)
             {

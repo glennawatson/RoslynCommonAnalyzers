@@ -66,7 +66,10 @@ public sealed class Sst2315OwnsDisposableFieldCodeFixProvider : CodeFixProvider,
     /// <returns>The type declaration and member names, or <see langword="null"/> when no fix is offered.</returns>
     private static (TypeDeclarationSyntax Declaration, string[] Members)? Resolve(SyntaxNode root, Diagnostic diagnostic)
     {
+        // The member is appended after the last one and before the closing brace, which is where the
+        // directive closing a region over the tail sits — so the new member would land inside it.
         if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } declaration
+            || DirectiveBoundaries.SeparateMembers(declaration)
             || !diagnostic.Properties.TryGetValue(Sst2315OwnsDisposableFieldAnalyzer.MembersToDisposeKey, out var members)
             || string.IsNullOrEmpty(members))
         {

@@ -13,6 +13,41 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for enum switch coverage rules (SST2205/SST2206).</summary>
 public class EnumSwitchCoverageAnalyzerUnitTest
 {
+    /// <summary>Verifies a switch carrying a region is reported but gains no section.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// The section is appended before the closing brace, which is where the <c>#endregion</c> closing a
+    /// region over the last case sits — so the new section would land inside it.
+    /// </remarks>
+    [Test]
+    public async Task SwitchCarryingADirectiveGainsNoSectionAsync()
+    {
+        const string Source = """
+            public enum Level
+            {
+                Low,
+                High
+            }
+
+            public sealed class C
+            {
+                public int M(Level level)
+                {
+                    {|SST2205:switch|} (level)
+                    {
+            #region Known
+                        case Level.Low:
+                            return 0;
+            #endregion
+                    }
+
+                    return -1;
+                }
+            }
+            """;
+        await VerifyEnumSwitchCoverage.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies a switch statement missing an enum case is fixed.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

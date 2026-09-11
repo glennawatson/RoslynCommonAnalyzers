@@ -13,6 +13,32 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1420 (use an auto-property for trivial accessors).</summary>
 public class TrivialAutoPropertyAnalyzerUnitTest
 {
+    /// <summary>Verifies a type carrying a region is reported but keeps its backing field.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// The backing field is deleted from the member list, so a directive among the members would lose the
+    /// half that sits on it.
+    /// </remarks>
+    [Test]
+    public async Task TypeCarryingADirectiveKeepsItsFieldAsync()
+    {
+        const string Source = """
+            public class C
+            {
+            #region State
+                private int _value;
+            #endregion
+
+                public int {|SST1420:Value|}
+                {
+                    get => _value;
+                    set => _value = value;
+                }
+            }
+            """;
+        await VerifyAutoProperty.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies a trivial get/set property is converted to an auto-property.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

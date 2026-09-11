@@ -111,9 +111,13 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
     {
         declaration = null;
         whileStatement = root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<WhileStatementSyntax>();
+
+        // The declaration is deleted and the loop rewritten in its place, so a directive between the two
+        // would lose the half that travels with the statement that goes.
         return whileStatement is not null
             && Sst1467UseForeachOverManualEnumeratorAnalyzer.TryGetEnumeratorName(whileStatement, out var name)
-            && Sst1467UseForeachOverManualEnumeratorAnalyzer.TryGetEnumeratorDeclaration(whileStatement, name, out declaration, out _);
+            && Sst1467UseForeachOverManualEnumeratorAnalyzer.TryGetEnumeratorDeclaration(whileStatement, name, out declaration, out _)
+            && !DirectiveBoundaries.Separate(declaration!, whileStatement);
     }
 
     /// <summary>Builds the replacement foreach statement for one manual-enumerator loop.</summary>

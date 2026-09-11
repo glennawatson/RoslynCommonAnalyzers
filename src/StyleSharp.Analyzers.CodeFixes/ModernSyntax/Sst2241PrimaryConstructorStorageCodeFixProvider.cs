@@ -123,7 +123,11 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
         out TypeDeclarationSyntax? replacement)
     {
         replacement = null;
+
+        // The member list is rebuilt without the constructor and the fields it assigned, so a directive
+        // among the members would lose the half that sits on one of them.
         if (constructor.Body is not { } body
+            || DirectiveBoundaries.SeparateMembers(containingType)
             || !TryCollectAssignments(body, out var assignments)
             || HasBodyScopeNameCollision(containingType, constructor)
             || !TryRewriteMembers(containingType, constructor, assignments, out var members)

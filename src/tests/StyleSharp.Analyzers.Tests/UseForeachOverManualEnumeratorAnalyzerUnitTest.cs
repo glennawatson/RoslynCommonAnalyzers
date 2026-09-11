@@ -11,6 +11,37 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1467 (enumerate with foreach instead of driving the enumerator by hand) and its fix.</summary>
 public class UseForeachOverManualEnumeratorAnalyzerUnitTest
 {
+    /// <summary>Verifies a declaration separated from its loop by a region is not rewritten.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The declaration is deleted and the loop rewritten in its place, so a directive between the two
+    /// would lose the half that travels with the statement that goes.
+    /// </remarks>
+    [Test]
+    public async Task DeclarationAcrossADirectiveIsNotRewrittenAsync()
+    {
+        const string Source = """
+            using System.Collections.Generic;
+
+            public sealed class C
+            {
+                public int M(List<int> items)
+                {
+                    var total = 0;
+                    var enumerator = items.GetEnumerator();
+            #region Walk
+                    {|SST1467:while|} (enumerator.MoveNext())
+                    {
+                        total += enumerator.Current;
+                    }
+            #endregion
+                    return total;
+                }
+            }
+            """;
+        await VerifyForeach.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies the canonical pattern is reported and the fix reuses the body's own declaration as the iteration variable.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -28,7 +28,12 @@ public sealed class Sst1420TrivialAutoPropertyCodeFixProvider : CodeFixProvider
         for (var i = 0; i < context.Diagnostics.Length; i++)
         {
             var diagnostic = context.Diagnostics[i];
+
+            // The backing field is deleted from the member list, so a directive among the members would
+            // lose the half that sits on it.
             if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<PropertyDeclarationSyntax>() is not { } property
+                || property.Parent is not TypeDeclarationSyntax containing
+                || DirectiveBoundaries.SeparateMembers(containing)
                 || !Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out var fieldName)
                 || !FieldReferenceAnalysis.TryFindSingleUseBackingField(
                     model,

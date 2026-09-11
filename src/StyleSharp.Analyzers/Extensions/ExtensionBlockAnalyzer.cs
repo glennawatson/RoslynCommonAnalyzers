@@ -274,19 +274,45 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <returns>The constraint-aware merge key.</returns>
     private static string MergeKey(TypeDeclarationSyntax block, string receiver)
     {
+        var keyed = WithReceiverModifiers(block, receiver);
         var constraints = block.ConstraintClauses;
         if (constraints.Count == 0)
         {
-            return receiver;
+            return keyed;
         }
 
-        var builder = new System.Text.StringBuilder(receiver);
+        var builder = new System.Text.StringBuilder(keyed);
         for (var i = 0; i < constraints.Count; i++)
         {
             builder.Append('\u0001').Append(constraints[i].ToString());
         }
 
         return builder.ToString();
+    }
+
+    /// <summary>Adds how a block takes its receiver to the receiver text.</summary>
+    /// <param name="block">The extension block.</param>
+    /// <param name="receiver">The receiver type text.</param>
+    /// <returns>The receiver text, prefixed by the receiver's modifiers when it has any.</returns>
+    /// <remarks>
+    /// A by-value block and a by-readonly-reference block over the same type are not one block: merging
+    /// them would copy the struct at every call the reference form was written to avoid.
+    /// </remarks>
+    private static string WithReceiverModifiers(TypeDeclarationSyntax block, string receiver)
+    {
+        if (block.ParameterList?.Parameters is not { Count: 1 } parameters || parameters[0].Modifiers.Count == 0)
+        {
+            return receiver;
+        }
+
+        var builder = new System.Text.StringBuilder();
+        var modifiers = parameters[0].Modifiers;
+        for (var i = 0; i < modifiers.Count; i++)
+        {
+            builder.Append(modifiers[i].ValueText).Append(' ');
+        }
+
+        return builder.Append(receiver).ToString();
     }
 
     /// <summary>Reports SST1707 when the current receiver sorts before the previous receiver.</summary>

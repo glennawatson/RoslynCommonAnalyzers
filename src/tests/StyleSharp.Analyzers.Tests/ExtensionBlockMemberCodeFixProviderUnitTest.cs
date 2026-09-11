@@ -152,6 +152,86 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
         await RunPreferBlockAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a receiver taken by readonly reference keeps its <c>in</c>.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Dropping the modifier turns a readonly reference into a copy of the struct at every call, which
+    /// is the cost the declaration was written to avoid.
+    /// </remarks>
+    [Test]
+    public async Task ReadonlyReferenceReceiverKeepsItsModifierAsync()
+    {
+        const string Source = """
+                              public readonly struct Point
+                              {
+                                  public int X { get; }
+                              }
+
+                              public static class PointExtensions
+                              {
+                                  public static int {|SST1703:Doubled|}(this in Point point) => point.X * 2;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public readonly struct Point
+                                   {
+                                       public int X { get; }
+                                   }
+
+                                   public static class PointExtensions
+                                   {
+                                       extension(in Point point)
+                                       {
+                                           public int Doubled() => point.X * 2;
+                                       }
+                                   }
+                                   """;
+        await RunPreferBlockAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a by-value block does not take a method that receives by readonly reference.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ByValueBlockDoesNotAbsorbAReadonlyReferenceReceiverAsync()
+    {
+        const string Source = """
+                              public readonly struct Point
+                              {
+                                  public int X { get; }
+                              }
+
+                              public static class PointExtensions
+                              {
+                                  public static int {|SST1705:Doubled|}(this in Point point) => point.X * 2;
+
+                                  extension(Point point)
+                                  {
+                                      public int Tripled => point.X * 3;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public readonly struct Point
+                                   {
+                                       public int X { get; }
+                                   }
+
+                                   public static class PointExtensions
+                                   {
+                                       extension(in Point point)
+                                       {
+                                           public int Doubled() => point.X * 2;
+                                       }
+
+                                       extension(Point point)
+                                       {
+                                           public int Tripled => point.X * 3;
+                                       }
+                                   }
+                                   """;
+        await RunMixedStylesAsync(Source, FixedSource);
+    }
+
     /// <summary>Runs the SST1703 verifier at a language version that has extension blocks.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected source after the fix.</param>

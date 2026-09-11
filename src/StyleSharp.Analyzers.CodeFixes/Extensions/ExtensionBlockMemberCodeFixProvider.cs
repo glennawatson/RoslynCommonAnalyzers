@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Text;
+
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace StyleSharp.Analyzers;
@@ -53,13 +55,14 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         }
 
         var receiverName = receiver.Identifier.ValueText;
+        var receiverModifiers = ReceiverModifierText(receiver.Modifiers);
         var member = ToExtensionMember(method).WithAdditionalAnnotations(Formatter.Annotation);
-        if (FindMatchingBlock(containingClass, receiverType, receiverName) is { } existing)
+        if (FindMatchingBlock(containingClass, receiverType, receiverName, receiverModifiers) is { } existing)
         {
             return MergeIntoBlock(containingClass, existing, method, member);
         }
 
-        if (ParseExtensionBlock(receiverType, receiverName) is not { } block)
+        if (ParseExtensionBlock(receiverType, receiverName, receiverModifiers) is not { } block)
         {
             return null;
         }
@@ -150,12 +153,19 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// <param name="containingClass">The static class holding the extensions.</param>
     /// <param name="receiverType">The receiver type of the method being moved.</param>
     /// <param name="receiverName">The receiver parameter name the method's body refers to.</param>
+    /// <param name="receiverModifiers">How the method takes its receiver, without <c>this</c>.</param>
     /// <returns>The matching block, or <see langword="null"/>.</returns>
     /// <remarks>
     /// The name has to match as well as the type: the moved body refers to the receiver by the name the
-    /// method gave it, and a block declaring the same type under a different name would not compile.
+    /// method gave it, and a block declaring the same type under a different name would not compile. How
+    /// the receiver is passed has to match too — a by-value block cannot host a method that took its
+    /// receiver by readonly reference.
     /// </remarks>
-    private static TypeDeclarationSyntax? FindMatchingBlock(ClassDeclarationSyntax containingClass, TypeSyntax receiverType, string receiverName)
+    private static TypeDeclarationSyntax? FindMatchingBlock(
+        ClassDeclarationSyntax containingClass,
+        TypeSyntax receiverType,
+        string receiverName,
+        string receiverModifiers)
     {
         var receiverText = ExtensionBlockHelper.ReceiverTypeText(receiverType);
         foreach (var member in containingClass.Members)
@@ -164,6 +174,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
                 || member is not TypeDeclarationSyntax block
                 || block.ParameterList?.Parameters is not { Count: 1 } parameters
                 || parameters[0].Identifier.ValueText != receiverName
+                || ReceiverModifierText(parameters[0].Modifiers) != receiverModifiers
                 || ExtensionBlockHelper.ReceiverTypeText(block) != receiverText)
             {
                 continue;
@@ -175,13 +186,47 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         return null;
     }
 
+    /// <summary>Renders how a receiver is passed, leaving out the <c>this</c> that marks the method.</summary>
+    /// <param name="modifiers">The receiver parameter's modifiers.</param>
+    /// <returns>The remaining modifiers in source order, space separated.</returns>
+    /// <remarks>
+    /// <c>this in T</c> passes a large readonly struct by readonly reference, and dropping the <c>in</c>
+    /// would copy it at every call. The block's parameter carries the same modifiers the method did.
+    /// </remarks>
+    private static string ReceiverModifierText(in SyntaxTokenList modifiers)
+    {
+        var rendered = new StringBuilder();
+        for (var i = 0; i < modifiers.Count; i++)
+        {
+            if (modifiers[i].IsKind(SyntaxKind.ThisKeyword))
+            {
+                continue;
+            }
+
+            if (rendered.Length > 0)
+            {
+                rendered.Append(' ');
+            }
+
+            rendered.Append(modifiers[i].ValueText);
+        }
+
+        return rendered.ToString();
+    }
+
     /// <summary>Parses an empty extension block for a receiver.</summary>
     /// <param name="receiverType">The receiver type.</param>
     /// <param name="receiverName">The receiver parameter name.</param>
+    /// <param name="receiverModifiers">How the method takes its receiver, without <c>this</c>.</param>
     /// <returns>The parsed block, or <see langword="null"/> when the host parser does not accept it.</returns>
-    private static TypeDeclarationSyntax? ParseExtensionBlock(TypeSyntax receiverType, string receiverName)
+    /// <remarks>
+    /// A modifier the language does not allow on a block's receiver comes back from the parser as a
+    /// diagnostic, which declines the fix rather than writing something that will not compile.
+    /// </remarks>
+    private static TypeDeclarationSyntax? ParseExtensionBlock(TypeSyntax receiverType, string receiverName, string receiverModifiers)
     {
-        var parsed = SyntaxFactory.ParseMemberDeclaration($"extension({receiverType} {receiverName})\n{{\n}}\n");
+        var prefix = receiverModifiers.Length == 0 ? string.Empty : receiverModifiers + " ";
+        var parsed = SyntaxFactory.ParseMemberDeclaration($"extension({prefix}{receiverType} {receiverName})\n{{\n}}\n");
         return parsed is TypeDeclarationSyntax block
             && ExtensionBlockHelper.IsExtensionBlock(block)
             && !parsed.ContainsDiagnostics

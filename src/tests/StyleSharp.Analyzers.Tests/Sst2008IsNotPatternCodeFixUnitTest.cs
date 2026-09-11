@@ -31,6 +31,78 @@ public class Sst2008IsNotPatternCodeFixUnitTest
         await VerifyIsNotPatternFix.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a negated declaration pattern becomes an is-not pattern that still binds the name.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NegatedDeclarationPatternKeepsItsNameAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(object value)
+                                  {
+                                      if ({|SST2008:!(value is string text)|})
+                                      {
+                                          return 0;
+                                      }
+
+                                      return text.Length;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public int M(object value)
+                                       {
+                                           if (value is not string text)
+                                           {
+                                               return 0;
+                                           }
+
+                                           return text.Length;
+                                       }
+                                   }
+                                   """;
+        await VerifyIsNotPatternFix.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a negated recursive pattern that binds a name keeps both the pattern and the name.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NegatedRecursivePatternWithDesignationIsRewrittenAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(object value)
+                                  {
+                                      if ({|SST2008:!(value is string { Length: > 0 } text)|})
+                                      {
+                                          return 0;
+                                      }
+
+                                      return text.Length;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public sealed class C
+                                   {
+                                       public int M(object value)
+                                       {
+                                           if (value is not string { Length: > 0 } text)
+                                           {
+                                               return 0;
+                                           }
+
+                                           return text.Length;
+                                       }
+                                   }
+                                   """;
+        await VerifyIsNotPatternFix.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a combined pattern is grouped when it goes under the negation.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>

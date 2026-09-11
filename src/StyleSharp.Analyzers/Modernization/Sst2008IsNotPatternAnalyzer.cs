@@ -6,8 +6,8 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Reports negated pattern expressions that can be written with <c>is not</c>. The analyzer is
-/// syntax-only and skips declaration patterns because moving a declaration under a negative
-/// pattern changes where a variable can be used.
+/// syntax-only and skips a <c>var</c> pattern, which matches everything and so can never match
+/// under a <c>not</c>.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2008IsNotPatternAnalyzer : DiagnosticAnalyzer
@@ -26,7 +26,7 @@ public sealed class Sst2008IsNotPatternAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.LogicalNotExpression);
     }
 
-    /// <summary>Reports <c>!(value is pattern)</c> when the pattern has no declaration.</summary>
+    /// <summary>Reports <c>!(value is pattern)</c> when the pattern can be negated.</summary>
     /// <param name="context">The syntax node context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
@@ -37,7 +37,7 @@ public sealed class Sst2008IsNotPatternAnalyzer : DiagnosticAnalyzer
         }
 
         var notExpression = (PrefixUnaryExpressionSyntax)context.Node;
-        if (Unwrap(notExpression.Operand) is not IsPatternExpressionSyntax isPattern || ContainsDeclaration(isPattern.Pattern))
+        if (Unwrap(notExpression.Operand) is not IsPatternExpressionSyntax isPattern || MatchesEverything(isPattern.Pattern))
         {
             return;
         }
@@ -58,24 +58,23 @@ public sealed class Sst2008IsNotPatternAnalyzer : DiagnosticAnalyzer
         return expression;
     }
 
-    /// <summary>Returns whether a pattern declares a local variable.</summary>
+    /// <summary>Returns whether a pattern accepts every value.</summary>
     /// <param name="pattern">The pattern to inspect.</param>
-    /// <returns><see langword="true"/> when rewriting would affect variable availability.</returns>
-    private static bool ContainsDeclaration(PatternSyntax pattern)
+    /// <returns><see langword="true"/> when negating the pattern leaves something that can never match.</returns>
+    /// <remarks>
+    /// Only a whole pattern that is <c>var</c> matters: it accepts everything, so <c>not var v</c> is
+    /// unsatisfiable and the compiler rejects it. A <c>var</c> inside a subpattern is reached only once
+    /// the enclosing pattern has matched, so that pattern can still fail and negating it is fine. A
+    /// declaration pattern is not affected either — a name bound under a <c>not</c> is assigned on exactly
+    /// the branch it was assigned on before, which is what makes the early-return form work.
+    /// </remarks>
+    private static bool MatchesEverything(PatternSyntax pattern)
     {
-        if (pattern is DeclarationPatternSyntax)
+        while (pattern is ParenthesizedPatternSyntax parenthesized)
         {
-            return true;
+            pattern = parenthesized.Pattern;
         }
 
-        foreach (var child in pattern.DescendantNodes())
-        {
-            if (child is DeclarationPatternSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return pattern is VarPatternSyntax;
     }
 }

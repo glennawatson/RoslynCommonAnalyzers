@@ -24,15 +24,84 @@ public class IsNotPatternAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies a declaration pattern is skipped because the declared name cannot be preserved.</summary>
+    /// <summary>Verifies a negated declaration pattern is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// A name bound under a <c>not</c> is assigned on exactly the branch it was assigned on before, so the
+    /// early-return form this produces compiles and reads the same.
+    /// </remarks>
     [Test]
-    public async Task NegatedDeclarationPatternIsCleanAsync()
+    public async Task NegatedDeclarationPatternIsReportedAsync()
         => await VerifyIsNotPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
-                public bool M(object value) => !(value is string text);
+                public int M(object value)
+                {
+                    if ({|SST2008:!(value is string text)|})
+                    {
+                        return 0;
+                    }
+
+                    return text.Length;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a negated recursive pattern that binds a name is reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task NegatedRecursivePatternWithDesignationIsReportedAsync()
+        => await VerifyIsNotPattern.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public int M(object value)
+                {
+                    if ({|SST2008:!(value is string { Length: > 0 } text)|})
+                    {
+                        return 0;
+                    }
+
+                    return text.Length;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a <c>var</c> pattern is skipped because nothing can fail to match it.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// A <c>var</c> pattern accepts every value, so the negated form is unsatisfiable and the compiler
+    /// rejects it outright.
+    /// </remarks>
+    [Test]
+    public async Task NegatedVarPatternIsCleanAsync()
+        => await VerifyIsNotPattern.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public bool M(object value) => !(value is var text) || text is null;
+            }
+            """);
+
+    /// <summary>Verifies a <c>var</c> reached through a subpattern does not withhold the report.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>The enclosing pattern can still fail, so negating the whole thing remains satisfiable.</remarks>
+    [Test]
+    public async Task VarInsideASubpatternIsStillReportedAsync()
+        => await VerifyIsNotPattern.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public int M(object value)
+                {
+                    if ({|SST2008:!(value is string { Length: var length })|})
+                    {
+                        return 0;
+                    }
+
+                    return length;
+                }
             }
             """);
 

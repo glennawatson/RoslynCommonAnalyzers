@@ -112,6 +112,33 @@ public class PreferOrPatternAnalyzerUnitTest
         await VerifyOrPattern.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies labels that would not fit on one line are left stacked.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Merging them writes a line past the layout ceiling, so the code that came out of the fix would draw
+    /// SST1521 and satisfy neither rule.
+    /// </remarks>
+    [Test]
+    public async Task LabelsThatWouldOverrunTheLineAreCleanAsync()
+        => await VerifyOrPattern.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public int M(object value)
+                {
+                    switch (value)
+                    {
+                        case System.Collections.Generic.List<int>:
+                        case System.Collections.Generic.HashSet<int>:
+                        case System.Collections.Generic.Queue<int>:
+                            return 0;
+                        default:
+                            return 1;
+                    }
+                }
+            }
+            """);
+
     /// <summary>Verifies a single-label section and a guarded label are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

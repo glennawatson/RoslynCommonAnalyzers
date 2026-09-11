@@ -103,22 +103,154 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
         await RunMixedStylesAsync(Source, FixedSource);
     }
 
-    /// <summary>Verifies a generic extension method is reported but not fixed, since its type parameters need a decision.</summary>
+    /// <summary>Verifies a type parameter the receiver names moves onto the block with its constraint.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task GenericExtensionMethodIsNotFixedAsync()
+    public async Task ReceiverTypeParameterMovesOntoTheBlockAsync()
     {
         const string Source = """
                               using System.Collections.Generic;
 
+                              public static class CollectionExtensions
+                              {
+                                  public static bool {|SST1703:IsEmpty|}<T>(this IReadOnlyCollection<T> items)
+                                      where T : struct => items.Count == 0;
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+
+                                   public static class CollectionExtensions
+                                   {
+                                       extension<T>(IReadOnlyCollection<T> items) where T : struct
+                                       {
+                                           public bool IsEmpty() => items.Count == 0;
+                                       }
+                                   }
+                                   """;
+        await RunPreferBlockAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a type parameter the receiver does not name stays on the member.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TypeParameterOutsideTheReceiverStaysOnTheMemberAsync()
+    {
+        const string Source = """
                               public static class StringExtensions
                               {
-                                  public static bool {|SST1703:IsEmpty|}<T>(this IReadOnlyCollection<T> items) => items.Count == 0;
+                                  public static string {|SST1703:Describe|}<TValue>(this string text, TValue value)
+                                      where TValue : struct => text + value.ToString();
+                              }
+                              """;
+        const string FixedSource = """
+                                   public static class StringExtensions
+                                   {
+                                       extension(string text)
+                                       {
+                                           public string Describe<TValue>(TValue value)
+                                               where TValue : struct => text + value.ToString();
+                                       }
+                                   }
+                                   """;
+        await RunPreferBlockAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a method whose type parameters split across the divide takes only its own onto the member.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TypeParametersSplitBetweenTheBlockAndTheMemberAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+
+                              public static class CollectionExtensions
+                              {
+                                  /// <summary>Counts the items.</summary>
+                                  /// <typeparam name="T">The item type.</typeparam>
+                                  /// <typeparam name="TKey">The key type.</typeparam>
+                                  /// <param name="items">The items to count.</param>
+                                  /// <param name="key">The key to report.</param>
+                                  /// <returns>The item count.</returns>
+                                  public static int {|SST1703:CountFor|}<T, TKey>(this IReadOnlyCollection<T> items, TKey key)
+                                      where T : class
+                                      where TKey : notnull => items.Count + key.GetHashCode();
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+
+                                   public static class CollectionExtensions
+                                   {
+                                       extension<T>(IReadOnlyCollection<T> items) where T : class
+                                       {
+                                           /// <summary>Counts the items.</summary>
+                                           /// <typeparam name="TKey">The key type.</typeparam>
+                                           /// <param name="key">The key to report.</param>
+                                           /// <returns>The item count.</returns>
+                                           public int CountFor<TKey>(TKey key)
+                                               where TKey : notnull => items.Count + key.GetHashCode();
+                                       }
+                                   }
+                                   """;
+        await RunPreferBlockAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a constraint reaching across the divide leaves the method where it is.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The member's type parameters are not in scope on the block, so such a constraint cannot be written
+    /// on either side.
+    /// </remarks>
+    [Test]
+    public async Task ConstraintReachingAcrossTheDivideIsNotFixedAsync()
+    {
+        const string Source = """
+                              using System;
+                              using System.Collections.Generic;
+
+                              public static class CollectionExtensions
+                              {
+                                  public static int {|SST1703:RankOf|}<T, TKey>(this IReadOnlyCollection<T> items, TKey key)
+                                      where T : IComparable<TKey> => items.Count + key.GetHashCode();
                               }
                               """;
 
         // The diagnostic survives, because no fix is offered for it — the source is expected to be untouched.
         await RunPreferBlockAsync(Source, Source);
+    }
+
+    /// <summary>Verifies a generic method joins a block only when that block declares the same type parameters.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task GenericMethodJoinsTheBlockDeclaringItsTypeParametersAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+
+                              public static class CollectionExtensions
+                              {
+                                  public static bool {|SST1705:IsEmpty|}<T>(this IReadOnlyCollection<T> items) => items.Count == 0;
+
+                                  extension<T>(IReadOnlyCollection<T> items)
+                                  {
+                                      public int Size => items.Count;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+
+                                   public static class CollectionExtensions
+                                   {
+                                       extension<T>(IReadOnlyCollection<T> items)
+                                       {
+                                           public int Size => items.Count;
+                                           public bool IsEmpty() => items.Count == 0;
+                                       }
+                                   }
+                                   """;
+        await RunMixedStylesAsync(Source, FixedSource);
     }
 
     /// <summary>Verifies the documentation travels with the member instead of landing on the block.</summary>

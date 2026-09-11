@@ -52,20 +52,21 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             || method.Parent is not ClassDeclarationSyntax containingClass
             || DirectiveBoundaries.SeparateMembers(containingClass)
             || !IsConvertible(method)
-            || method.ParameterList.Parameters[0] is not { Type: { } receiverType } receiver)
+            || method.ParameterList.Parameters[0] is not { Type: { } receiverType } receiver
+            || !TrySplitTypeParameters(method, receiverType, out var split))
         {
             return null;
         }
 
         var receiverName = receiver.Identifier.ValueText;
         var receiverModifiers = ReceiverModifierText(receiver.Modifiers);
-        var member = ToExtensionMember(method).WithAdditionalAnnotations(Formatter.Annotation);
-        if (FindMatchingBlock(containingClass, receiverType, receiverName, receiverModifiers) is { } existing)
+        var member = ToExtensionMember(method, split).WithAdditionalAnnotations(Formatter.Annotation);
+        if (FindMatchingBlock(containingClass, receiverType, receiverName, receiverModifiers, split) is { } existing)
         {
             return MergeIntoBlock(containingClass, existing, method, member);
         }
 
-        if (ParseExtensionBlock(receiverType, receiverName, receiverModifiers) is not { } block)
+        if (ParseExtensionBlock(receiverType, receiverName, receiverModifiers, split) is not { } block)
         {
             return null;
         }
@@ -141,53 +142,261 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// <param name="method">The method declaration.</param>
     /// <returns><see langword="true"/> when the move is mechanical.</returns>
     /// <remarks>
-    /// A generic method's type parameters may belong on the block or on the member depending on which
-    /// mention the receiver, and a receiver carrying attributes or a default has no equivalent on the
-    /// block's parameter. Those need a decision, so no fix is offered for them.
+    /// A receiver carrying attributes or a default has no equivalent on the block's parameter, so no fix
+    /// is offered for one.
     /// </remarks>
     private static bool IsConvertible(MethodDeclarationSyntax method) =>
         ExtensionBlockHelper.IsClassicExtensionMethod(method)
-        && method.TypeParameterList is null
-        && method.ConstraintClauses.Count == 0
         && method.ParameterList.Parameters[0] is { AttributeLists.Count: 0, Default: null, Type: not null }
         && (method.Body is not null || method.ExpressionBody is not null);
+
+    /// <summary>Decides which of a generic method's type parameters the block declares and which the member keeps.</summary>
+    /// <param name="method">The classic extension method being moved.</param>
+    /// <param name="receiverType">The receiver parameter's type syntax.</param>
+    /// <param name="split">The resulting division of type parameters and constraints.</param>
+    /// <returns><see langword="true"/> when the division can be written.</returns>
+    /// <remarks>
+    /// The block declares whatever the receiver type names, because those are inferred from the receiver
+    /// at the call site exactly as the method inferred them; everything else stays on the member, where it
+    /// is still inferred from the arguments.
+    /// </remarks>
+    private static bool TrySplitTypeParameters(MethodDeclarationSyntax method, TypeSyntax receiverType, out TypeParameterSplit split)
+    {
+        split = new TypeParameterSplit(null, default, method.TypeParameterList, method.ConstraintClauses);
+        if (method.TypeParameterList is not { } declared)
+        {
+            return true;
+        }
+
+        var onBlock = new List<TypeParameterSyntax>(declared.Parameters.Count);
+        var onMember = new List<TypeParameterSyntax>(declared.Parameters.Count);
+        SplitParameters(declared, receiverType, onBlock, onMember);
+
+        var blockClauses = new List<TypeParameterConstraintClauseSyntax>(method.ConstraintClauses.Count);
+        var memberClauses = new List<TypeParameterConstraintClauseSyntax>(method.ConstraintClauses.Count);
+        if (!TrySplitConstraints(method.ConstraintClauses, onBlock, onMember, blockClauses, memberClauses))
+        {
+            return false;
+        }
+
+        split = new TypeParameterSplit(
+            onBlock.Count == 0 ? null : SyntaxFactory.TypeParameterList(SyntaxFactory.SeparatedList(onBlock)),
+            SyntaxFactory.List(blockClauses),
+            onMember.Count == 0 ? null : declared.WithParameters(SyntaxFactory.SeparatedList(onMember)),
+            SyntaxFactory.List(memberClauses));
+        return true;
+    }
+
+    /// <summary>Sorts declared type parameters into the ones the receiver names and the ones it does not.</summary>
+    /// <param name="declared">The method's type parameter list.</param>
+    /// <param name="receiverType">The receiver parameter's type syntax.</param>
+    /// <param name="onBlock">Receives the type parameters the receiver names.</param>
+    /// <param name="onMember">Receives the rest.</param>
+    private static void SplitParameters(
+        TypeParameterListSyntax declared,
+        TypeSyntax receiverType,
+        List<TypeParameterSyntax> onBlock,
+        List<TypeParameterSyntax> onMember)
+    {
+        var parameters = declared.Parameters;
+        for (var index = 0; index < parameters.Count; index++)
+        {
+            var parameter = parameters[index];
+            var destination = MentionsName(receiverType, parameter.Identifier.ValueText) ? onBlock : onMember;
+            destination.Add(parameter);
+        }
+    }
+
+    /// <summary>Sends each constraint clause to whichever side declares the type parameter it narrows.</summary>
+    /// <param name="clauses">The method's constraint clauses.</param>
+    /// <param name="onBlock">The type parameters the block declares.</param>
+    /// <param name="onMember">The type parameters the member keeps.</param>
+    /// <param name="blockClauses">Receives the block's clauses.</param>
+    /// <param name="memberClauses">Receives the member's clauses.</param>
+    /// <returns><see langword="true"/> when every clause can be written where its type parameter lives.</returns>
+    /// <remarks>
+    /// A member's type parameters are not in scope on the block, so a block clause that names one cannot be
+    /// written on either side and the whole move is declined.
+    /// </remarks>
+    private static bool TrySplitConstraints(
+        SyntaxList<TypeParameterConstraintClauseSyntax> clauses,
+        List<TypeParameterSyntax> onBlock,
+        List<TypeParameterSyntax> onMember,
+        List<TypeParameterConstraintClauseSyntax> blockClauses,
+        List<TypeParameterConstraintClauseSyntax> memberClauses)
+    {
+        for (var index = 0; index < clauses.Count; index++)
+        {
+            var clause = clauses[index];
+            if (!Declares(onBlock, clause.Name.Identifier.ValueText))
+            {
+                memberClauses.Add(clause);
+                continue;
+            }
+
+            if (MentionsAny(clause, onMember))
+            {
+                return false;
+            }
+
+            blockClauses.Add(clause);
+        }
+
+        return true;
+    }
+
+    /// <summary>Returns whether a type parameter list declares a name.</summary>
+    /// <param name="parameters">The type parameters to search.</param>
+    /// <param name="name">The name to find.</param>
+    /// <returns><see langword="true"/> when one of them carries the name.</returns>
+    private static bool Declares(List<TypeParameterSyntax> parameters, string name)
+    {
+        for (var index = 0; index < parameters.Count; index++)
+        {
+            if (parameters[index].Identifier.ValueText == name)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a node names any of the given type parameters.</summary>
+    /// <param name="node">The node to search.</param>
+    /// <param name="parameters">The type parameters to look for.</param>
+    /// <returns><see langword="true"/> when the node names one of them.</returns>
+    private static bool MentionsAny(SyntaxNode node, List<TypeParameterSyntax> parameters)
+    {
+        for (var index = 0; index < parameters.Count; index++)
+        {
+            if (MentionsName(node, parameters[index].Identifier.ValueText))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a node names an identifier anywhere within it.</summary>
+    /// <param name="node">The node to search.</param>
+    /// <param name="name">The identifier to find.</param>
+    /// <returns><see langword="true"/> when the identifier appears.</returns>
+    private static bool MentionsName(SyntaxNode node, string name)
+    {
+        if (node is IdentifierNameSyntax identifier)
+        {
+            return identifier.Identifier.ValueText == name;
+        }
+
+        foreach (var child in node.ChildNodes())
+        {
+            if (MentionsName(child, name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Renders a type parameter list as the text a parsed block declares.</summary>
+    /// <param name="list">The type parameter list, or <see langword="null"/>.</param>
+    /// <returns>The rendered list, or an empty string when there is none.</returns>
+    private static string RenderTypeParameters(TypeParameterListSyntax? list)
+    {
+        if (list is not { Parameters.Count: > 0 } parameters)
+        {
+            return string.Empty;
+        }
+
+        var rendered = new StringBuilder("<");
+        for (var index = 0; index < parameters.Parameters.Count; index++)
+        {
+            if (index > 0)
+            {
+                rendered.Append(", ");
+            }
+
+            rendered.Append(parameters.Parameters[index].WithoutTrivia().ToString());
+        }
+
+        return rendered.Append('>').ToString();
+    }
+
+    /// <summary>Renders constraint clauses as the text a parsed block declares, one per line.</summary>
+    /// <param name="clauses">The constraint clauses.</param>
+    /// <returns>The rendered clauses, or an empty string when there are none.</returns>
+    private static string RenderConstraints(SyntaxList<TypeParameterConstraintClauseSyntax> clauses)
+    {
+        if (clauses.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var rendered = new StringBuilder();
+        for (var index = 0; index < clauses.Count; index++)
+        {
+            rendered.Append('\n').Append(clauses[index].NormalizeWhitespace().ToString());
+        }
+
+        return rendered.ToString();
+    }
 
     /// <summary>Returns the extension block in the class that already declares this receiver, if any.</summary>
     /// <param name="containingClass">The static class holding the extensions.</param>
     /// <param name="receiverType">The receiver type of the method being moved.</param>
     /// <param name="receiverName">The receiver parameter name the method's body refers to.</param>
     /// <param name="receiverModifiers">How the method takes its receiver, without <c>this</c>.</param>
+    /// <param name="split">The division of type parameters and constraints the move produces.</param>
     /// <returns>The matching block, or <see langword="null"/>.</returns>
     /// <remarks>
     /// The name has to match as well as the type: the moved body refers to the receiver by the name the
     /// method gave it, and a block declaring the same type under a different name would not compile. How
     /// the receiver is passed has to match too — a by-value block cannot host a method that took its
-    /// receiver by readonly reference.
+    /// receiver by readonly reference — as do the block's own type parameters and their constraints.
     /// </remarks>
     private static TypeDeclarationSyntax? FindMatchingBlock(
         ClassDeclarationSyntax containingClass,
         TypeSyntax receiverType,
         string receiverName,
-        string receiverModifiers)
+        string receiverModifiers,
+        in TypeParameterSplit split)
     {
         var receiverText = ExtensionBlockHelper.ReceiverTypeText(receiverType);
         foreach (var member in containingClass.Members)
         {
-            if (!ExtensionBlockHelper.IsExtensionBlock(member)
-                || member is not TypeDeclarationSyntax block
-                || block.ParameterList?.Parameters is not { Count: 1 } parameters
-                || parameters[0].Identifier.ValueText != receiverName
-                || ReceiverModifierText(parameters[0].Modifiers) != receiverModifiers
-                || ExtensionBlockHelper.ReceiverTypeText(block) != receiverText)
+            if (member is TypeDeclarationSyntax block
+                && ExtensionBlockHelper.IsExtensionBlock(block)
+                && BlockMatches(block, receiverText, receiverName, receiverModifiers, split))
             {
-                continue;
+                return block;
             }
-
-            return block;
         }
 
         return null;
     }
+
+    /// <summary>Returns whether an existing block declares exactly what the moved method needs.</summary>
+    /// <param name="block">The candidate extension block.</param>
+    /// <param name="receiverText">The receiver type text of the method being moved.</param>
+    /// <param name="receiverName">The receiver parameter name the method's body refers to.</param>
+    /// <param name="receiverModifiers">How the method takes its receiver, without <c>this</c>.</param>
+    /// <param name="split">The division of type parameters and constraints the move produces.</param>
+    /// <returns><see langword="true"/> when the member can be added to the block as written.</returns>
+    private static bool BlockMatches(
+        TypeDeclarationSyntax block,
+        string? receiverText,
+        string receiverName,
+        string receiverModifiers,
+        in TypeParameterSplit split)
+        => block.ParameterList?.Parameters is { Count: 1 } parameters
+            && parameters[0].Identifier.ValueText == receiverName
+            && ReceiverModifierText(parameters[0].Modifiers) == receiverModifiers
+            && ExtensionBlockHelper.ReceiverTypeText(block) == receiverText
+            && RenderTypeParameters(block.TypeParameterList) == RenderTypeParameters(split.BlockTypeParameters)
+            && RenderConstraints(block.ConstraintClauses) == RenderConstraints(split.BlockConstraints);
 
     /// <summary>Renders how a receiver is passed, leaving out the <c>this</c> that marks the method.</summary>
     /// <param name="modifiers">The receiver parameter's modifiers.</param>
@@ -221,53 +430,98 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// <param name="receiverType">The receiver type.</param>
     /// <param name="receiverName">The receiver parameter name.</param>
     /// <param name="receiverModifiers">How the method takes its receiver, without <c>this</c>.</param>
+    /// <param name="split">The division of type parameters and constraints the move produces.</param>
     /// <returns>The parsed block, or <see langword="null"/> when the host parser does not accept it.</returns>
     /// <remarks>
     /// A modifier the language does not allow on a block's receiver comes back from the parser as a
-    /// diagnostic, which declines the fix rather than writing something that will not compile.
+    /// diagnostic, which declines the fix rather than writing something that will not compile. The
+    /// constraints are attached afterwards rather than written into the text, so that the formatter rather
+    /// than this decides where they sit: a line break written into the text it leaves at column zero.
     /// </remarks>
-    private static TypeDeclarationSyntax? ParseExtensionBlock(TypeSyntax receiverType, string receiverName, string receiverModifiers)
+    private static TypeDeclarationSyntax? ParseExtensionBlock(
+        TypeSyntax receiverType,
+        string receiverName,
+        string receiverModifiers,
+        in TypeParameterSplit split)
     {
         var prefix = receiverModifiers.Length == 0 ? string.Empty : receiverModifiers + " ";
-        var parsed = SyntaxFactory.ParseMemberDeclaration($"extension({prefix}{receiverType} {receiverName})\n{{\n}}\n");
-        return parsed is TypeDeclarationSyntax block
-            && ExtensionBlockHelper.IsExtensionBlock(block)
-            && !parsed.ContainsDiagnostics
+        var typeParameters = RenderTypeParameters(split.BlockTypeParameters);
+        var parsed = SyntaxFactory.ParseMemberDeclaration(
+            $"extension{typeParameters}({prefix}{receiverType} {receiverName})\n{{\n}}\n");
+        if (parsed is not TypeDeclarationSyntax block
+            || !ExtensionBlockHelper.IsExtensionBlock(block)
+            || parsed.ContainsDiagnostics)
+        {
+            return null;
+        }
+
+        return split.BlockConstraints.Count == 0
             ? block
-            : null;
+            : block
+                .WithParameterList(block.ParameterList!.WithCloseParenToken(block.ParameterList.CloseParenToken.WithTrailingTrivia(SyntaxFactory.ElasticMarker)))
+                .WithConstraintClauses(Elastic(split.BlockConstraints));
+    }
+
+    /// <summary>Hands constraint clauses to the formatter to place.</summary>
+    /// <param name="clauses">The constraint clauses.</param>
+    /// <returns>The clauses with their surrounding whitespace left elastic.</returns>
+    private static SyntaxList<TypeParameterConstraintClauseSyntax> Elastic(SyntaxList<TypeParameterConstraintClauseSyntax> clauses)
+    {
+        var placed = new List<TypeParameterConstraintClauseSyntax>(clauses.Count);
+        for (var index = 0; index < clauses.Count; index++)
+        {
+            placed.Add(clauses[index]
+                .NormalizeWhitespace()
+                .WithLeadingTrivia(SyntaxFactory.ElasticSpace)
+                .WithTrailingTrivia(SyntaxFactory.ElasticMarker));
+        }
+
+        return SyntaxFactory.List(placed);
     }
 
     /// <summary>Rewrites a classic extension method as an extension-block member.</summary>
     /// <param name="method">The method declaration.</param>
+    /// <param name="split">The division of type parameters and constraints the move produces.</param>
     /// <returns>The member as it is declared inside the block.</returns>
     /// <remarks>
     /// Inside a block the receiver is the block's parameter, so the method drops its own receiver
-    /// parameter, that parameter's documentation, and its <c>static</c> modifier; everything else —
+    /// parameter, its <c>static</c> modifier, and whatever the block now declares; everything else —
     /// attributes, the rest of the documentation, the body — moves across untouched.
     /// </remarks>
-    private static MethodDeclarationSyntax ToExtensionMember(MethodDeclarationSyntax method)
+    private static MethodDeclarationSyntax ToExtensionMember(MethodDeclarationSyntax method, in TypeParameterSplit split)
     {
         var receiverName = method.ParameterList.Parameters[0].Identifier.ValueText;
-        var parameters = method.ParameterList.Parameters.RemoveAt(0);
+        var parameterList = method.ParameterList.WithParameters(method.ParameterList.Parameters.RemoveAt(0));
+
+        // The closing parenthesis holds the line break that introduced the constraints. When they all
+        // move to the block it would push the body onto a line of its own, so it goes with them.
+        if (split.MemberConstraints.Count == 0 && method.ConstraintClauses.Count > 0)
+        {
+            parameterList = parameterList.WithCloseParenToken(parameterList.CloseParenToken.WithTrailingTrivia(SyntaxFactory.ElasticMarker));
+        }
 
         // The trivia goes on last: replacing the modifiers restores the tokens' own leading trivia,
         // which still carries the documentation this strips.
         return method
             .WithModifiers(WithoutStatic(method.Modifiers))
-            .WithParameterList(method.ParameterList.WithParameters(parameters))
-            .WithLeadingTrivia(WithoutParameterDocumentation(method.GetLeadingTrivia(), receiverName));
+            .WithTypeParameterList(split.MemberTypeParameters)
+            .WithConstraintClauses(split.MemberConstraints)
+            .WithParameterList(parameterList)
+            .WithLeadingTrivia(WithoutMovedDocumentation(method.GetLeadingTrivia(), receiverName, split));
     }
 
-    /// <summary>Removes one <c>&lt;param&gt;</c> element from a declaration's documentation comment.</summary>
+    /// <summary>Removes the documentation for everything the block now declares.</summary>
     /// <param name="trivia">The declaration's leading trivia.</param>
-    /// <param name="parameterName">The parameter whose documentation should go.</param>
-    /// <returns>The trivia with that element removed.</returns>
+    /// <param name="receiverName">The receiver parameter's name.</param>
+    /// <param name="split">The division of type parameters and constraints the move produces.</param>
+    /// <returns>The trivia with those elements removed.</returns>
     /// <remarks>
-    /// The receiver becomes the block's parameter, so documenting it on the member describes a parameter
-    /// the member no longer declares (CS1572).
+    /// The receiver and the block's type parameters belong to the block, so documenting them on the member
+    /// describes what the member no longer declares (CS1572, CS1711).
     /// </remarks>
-    private static SyntaxTriviaList WithoutParameterDocumentation(SyntaxTriviaList trivia, string parameterName)
+    private static SyntaxTriviaList WithoutMovedDocumentation(SyntaxTriviaList trivia, string receiverName, in TypeParameterSplit split)
     {
+        var blockTypeParameters = split.BlockTypeParameters;
         for (var i = 0; i < trivia.Count; i++)
         {
             if (trivia[i].GetStructure() is not DocumentationCommentTriviaSyntax documentation)
@@ -278,8 +532,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             var kept = documentation.Content;
             for (var j = kept.Count - 1; j >= 0; j--)
             {
-                if (kept[j] is XmlElementSyntax { StartTag.Name.LocalName.ValueText: "param" } element
-                    && NamesParameter(element, parameterName))
+                if (DocumentsMovedName(kept[j], receiverName, blockTypeParameters))
                 {
                     kept = RemoveWithPrecedingExterior(kept, j);
                 }
@@ -294,6 +547,49 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         }
 
         return trivia;
+    }
+
+    /// <summary>Returns whether a documentation element describes something the block now declares.</summary>
+    /// <param name="node">The documentation node.</param>
+    /// <param name="receiverName">The receiver parameter's name.</param>
+    /// <param name="blockTypeParameters">The type parameters the block declares.</param>
+    /// <returns><see langword="true"/> when the element belongs with the block rather than the member.</returns>
+    private static bool DocumentsMovedName(XmlNodeSyntax node, string receiverName, TypeParameterListSyntax? blockTypeParameters)
+    {
+        if (node is not XmlElementSyntax element)
+        {
+            return false;
+        }
+
+        return element.StartTag.Name.LocalName.ValueText switch
+        {
+            "param" => NamesParameter(element, receiverName),
+            "typeparam" => NamesBlockTypeParameter(element, blockTypeParameters),
+            _ => false
+        };
+    }
+
+    /// <summary>Returns whether a <c>&lt;typeparam&gt;</c> element names one of the block's type parameters.</summary>
+    /// <param name="element">The documentation element.</param>
+    /// <param name="blockTypeParameters">The type parameters the block declares.</param>
+    /// <returns><see langword="true"/> when the element documents one of them.</returns>
+    private static bool NamesBlockTypeParameter(XmlElementSyntax element, TypeParameterListSyntax? blockTypeParameters)
+    {
+        if (blockTypeParameters is null)
+        {
+            return false;
+        }
+
+        var parameters = blockTypeParameters.Parameters;
+        for (var index = 0; index < parameters.Count; index++)
+        {
+            if (NamesParameter(element, parameters[index].Identifier.ValueText))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether a <c>&lt;param&gt;</c> element carries the given name attribute.</summary>
@@ -349,4 +645,15 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
 
         return modifiers;
     }
+
+    /// <summary>How a moved method's type parameters and constraints divide between the block and the member.</summary>
+    /// <param name="BlockTypeParameters">The type parameters the block declares, or <see langword="null"/>.</param>
+    /// <param name="BlockConstraints">The constraints on the block's type parameters.</param>
+    /// <param name="MemberTypeParameters">The type parameters the member keeps, or <see langword="null"/>.</param>
+    /// <param name="MemberConstraints">The constraints on the member's type parameters.</param>
+    private readonly record struct TypeParameterSplit(
+        TypeParameterListSyntax? BlockTypeParameters,
+        SyntaxList<TypeParameterConstraintClauseSyntax> BlockConstraints,
+        TypeParameterListSyntax? MemberTypeParameters,
+        SyntaxList<TypeParameterConstraintClauseSyntax> MemberConstraints);
 }

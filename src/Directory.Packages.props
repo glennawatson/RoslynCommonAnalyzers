@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup Label="Analyzers">
-    <PackageVersion Include="PerformanceSharp.Analyzers" Version="4.0.12" />
+    <PackageVersion Include="PerformanceSharp.Analyzers" Version="4.0.13" />
     <PackageVersion Include="PublicApiSharp.Analyzers" Version="1.0.7" />
     <PackageVersion Include="SecuritySharp.Analyzers" Version="4.0.12" />
     <PackageVersion Include="StyleSharp.Analyzers" Version="4.0.12" />

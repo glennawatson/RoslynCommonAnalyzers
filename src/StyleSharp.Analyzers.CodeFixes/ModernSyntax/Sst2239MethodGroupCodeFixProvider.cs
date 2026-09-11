@@ -35,9 +35,13 @@ public sealed class Sst2239MethodGroupCodeFixProvider : CodeFixProvider, IBatchF
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the reported shape no longer matches.</returns>
+    /// <remarks>
+    /// A lambda passed positionally shares its span with the argument that holds it, and the outermost
+    /// node of a tie is the argument, so the innermost one is the one to ask for.
+    /// </remarks>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        if (root.FindNode(diagnostic.Location.SourceSpan) is not AnonymousFunctionExpressionSyntax lambda
+        if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not AnonymousFunctionExpressionSyntax lambda
             || lambda.Body is not InvocationExpressionSyntax invocation)
         {
             return null;

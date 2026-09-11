@@ -75,6 +75,42 @@ public class MethodGroupCodeFixProviderUnitTest
         await VerifyMethodGroupFix.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a lambda passed straight as an argument is replaced by the method group.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A positional argument shares its span with the expression it holds, so the reported span resolves
+    /// to two nodes and the fix has to take the inner one.
+    /// </remarks>
+    [Test]
+    public async Task LambdaPassedAsAnArgumentIsReplacedByTheMethodGroupAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public int M(int value) => Apply(value, {|SST2239:static x => Square(x)|});
+
+                                  private static int Apply(int value, Func<int, int> project) => project(value);
+
+                                  private static int Square(int value) => value * value;
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+
+                                   public sealed class C
+                                   {
+                                       public int M(int value) => Apply(value, Square);
+
+                                       private static int Apply(int value, Func<int, int> project) => project(value);
+
+                                       private static int Square(int value) => value * value;
+                                   }
+                                   """;
+        await VerifyMethodGroupFix.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies Fix All replaces every forwarding lambda in a document in one pass.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

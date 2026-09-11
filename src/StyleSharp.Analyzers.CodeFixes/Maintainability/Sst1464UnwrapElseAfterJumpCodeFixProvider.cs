@@ -90,6 +90,7 @@ public sealed class Sst1464UnwrapElseAfterJumpCodeFixProvider : CodeFixProvider,
         if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent
                 is not ElseClauseSyntax { Parent: IfStatementSyntax { Parent: BlockSyntax containingBlock } target } elseClause
             || !Sst1464UnwrapElseAfterJumpAnalyzer.BranchAlwaysJumps(target.Statement)
+            || DirectiveBoundaries.Cross(elseClause, elseClause.FullSpan)
             || !IsScopeSafe(containingBlock, containingBlock.Statements.IndexOf(target), elseClause))
         {
             return false;

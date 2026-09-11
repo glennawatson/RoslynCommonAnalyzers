@@ -11,6 +11,36 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1464 (unwrap else after a branch that does not fall through) and its fix.</summary>
 public class UnwrapElseAfterJumpAnalyzerUnitTest
 {
+    /// <summary>Verifies an else carrying a region is reported but not unwrapped.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Unwrapping drops the else block's braces, and the <c>#endregion</c> is the leading trivia of the
+    /// brace that goes.
+    /// </remarks>
+    [Test]
+    public async Task ElseCarryingADirectiveIsNotUnwrappedAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(int value)
+                                  {
+                                      if (value > 0)
+                                      {
+                                          return 1;
+                                      }
+                                      {|SST1464:else|}
+                                      {
+                              #region Fallback
+                                          return 2;
+                              #endregion
+                                      }
+                                  }
+                              }
+                              """;
+        await VerifyUnwrapElse.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies an else after an if branch ending in return is reported and unwrapped.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

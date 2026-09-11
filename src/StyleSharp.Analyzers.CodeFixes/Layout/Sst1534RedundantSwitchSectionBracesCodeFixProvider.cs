@@ -41,7 +41,8 @@ public sealed class Sst1534RedundantSwitchSectionBracesCodeFixProvider : CodeFix
     {
         if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<SwitchSectionSyntax>() is not { } section
             || section.Statements.Count != 1
-            || section.Statements[0] is not BlockSyntax block)
+            || section.Statements[0] is not BlockSyntax block
+            || DirectiveBoundaries.Cross(section, block.FullSpan))
         {
             return null;
         }

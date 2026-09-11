@@ -77,8 +77,15 @@ public sealed class Sst1138FreeStandingBlockCodeFixProvider : CodeFixProvider, I
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The block, or <see langword="null"/> when the shape no longer matches.</returns>
+    /// <remarks>
+    /// A directive inside the block declines the fix: splicing drops the braces, and the <c>#endif</c> or
+    /// <c>#endregion</c> closing a region inside is the leading trivia of the brace that goes.
+    /// </remarks>
     private static BlockSyntax? Resolve(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is BlockSyntax { Parent: BlockSyntax } block ? block : null;
+        => root.FindNode(diagnostic.Location.SourceSpan) is BlockSyntax { Parent: BlockSyntax } block
+            && !DirectiveBoundaries.Cross(block, block.FullSpan)
+                ? block
+                : null;
 
     /// <summary>Rebuilds a parent block with the child block at the given index spliced in.</summary>
     /// <param name="parent">The enclosing block.</param>

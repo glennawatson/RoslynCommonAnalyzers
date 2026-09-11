@@ -42,6 +42,33 @@ public class FreeStandingBlockAnalyzerUnitTest
         }
         """;
 
+    /// <summary>Verifies a block carrying a region is reported but not spliced.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Splicing drops the braces, and the <c>#endregion</c> is the leading trivia of the brace that goes.
+    /// </remarks>
+    [Test]
+    public async Task BlockCarryingADirectiveIsNotSplicedAsync()
+    {
+        const string Source = """
+            using System;
+
+            public sealed class C
+            {
+                public void M()
+                {
+                    {|SST1138:{
+            #region Work
+                        Console.WriteLine("a");
+                        Console.WriteLine("b");
+            #endregion
+                    }|}
+                }
+            }
+            """;
+        await VerifyFix.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies a free-standing block that declares nothing is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

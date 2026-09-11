@@ -11,6 +11,35 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst1534RedundantSwitchSectionBracesAnalyzer"/> and its code fix (SST1534).</summary>
 public class RedundantSwitchSectionBracesAnalyzerUnitTest
 {
+    /// <summary>Verifies a braced section carrying a region keeps its braces.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>Removing the braces drops the one whose leading trivia is the <c>#endregion</c>.</remarks>
+    [Test]
+    public async Task SectionCarryingADirectiveKeepsItsBracesAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  public int M(int value)
+                                  {
+                                      switch (value)
+                                      {
+                                          case 1:
+                                              {|SST1534:{|}
+                              #region Answer
+                                                  return 2;
+                              #endregion
+                                              }
+
+                                          default:
+                                              return 0;
+                                      }
+                                  }
+                              }
+                              """;
+        await VerifyRedundantSwitchSectionBraces.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies braces around a section that declares nothing are reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

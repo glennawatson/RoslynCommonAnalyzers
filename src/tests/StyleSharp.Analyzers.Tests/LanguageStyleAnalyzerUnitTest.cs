@@ -266,6 +266,56 @@ public class LanguageStyleAnalyzerUnitTest
         await VerifyLanguageStyle.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a collapsed return too wide for one line wraps at its branch operators.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalReturnTooWideForOneLineIsWrappedAsync()
+    {
+        const string Config = """
+            root = true
+            [*.cs]
+            stylesharp.max_line_length = 60
+
+            """;
+        var test = new VerifyLanguageStyle.Test
+        {
+            TestCode = """
+                       public sealed class C
+                       {
+                           private const int FirstAlternative = 1;
+                           private const int SecondAlternative = 2;
+
+                           public int M(bool conditionThatIsRatherLong)
+                           {
+                               {|SST1197:if|} (conditionThatIsRatherLong)
+                               {
+                                   return FirstAlternative;
+                               }
+
+                               return SecondAlternative;
+                           }
+                       }
+                       """,
+            FixedCode = """
+                        public sealed class C
+                        {
+                            private const int FirstAlternative = 1;
+                            private const int SecondAlternative = 2;
+
+                            public int M(bool conditionThatIsRatherLong)
+                            {
+                                return conditionThatIsRatherLong
+                                    ? FirstAlternative
+                                    : SecondAlternative;
+                            }
+                        }
+                        """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies adjacent returns are not collapsed when the result would nest conditional expressions.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -435,6 +485,60 @@ public class LanguageStyleAnalyzerUnitTest
                                    }
                                    """;
         await VerifyLanguageStyle.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a collapsed assignment too wide for one line wraps at its branch operators.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ConditionalAssignmentTooWideForOneLineIsWrappedAsync()
+    {
+        const string Config = """
+            root = true
+            [*.cs]
+            stylesharp.max_line_length = 60
+
+            """;
+        var test = new VerifyLanguageStyle.Test
+        {
+            TestCode = """
+                       public sealed class C
+                       {
+                           private const int FirstAlternative = 1;
+                           private const int SecondAlternative = 2;
+
+                           public void M(bool conditionThatIsRatherLong)
+                           {
+                               var chosenValue = 0;
+                               {|SST1198:if|} (conditionThatIsRatherLong)
+                               {
+                                   chosenValue = FirstAlternative;
+                               }
+                               else
+                               {
+                                   chosenValue = SecondAlternative;
+                               }
+                           }
+                       }
+                       """,
+            FixedCode = """
+                        public sealed class C
+                        {
+                            private const int FirstAlternative = 1;
+                            private const int SecondAlternative = 2;
+
+                            public void M(bool conditionThatIsRatherLong)
+                            {
+                                var chosenValue = 0;
+                                chosenValue = conditionThatIsRatherLong
+                                    ? FirstAlternative
+                                    : SecondAlternative;
+                            }
+                        }
+                        """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies <c>typeof(T).Name</c> is reported when <c>nameof(T)</c> is equivalent.</summary>

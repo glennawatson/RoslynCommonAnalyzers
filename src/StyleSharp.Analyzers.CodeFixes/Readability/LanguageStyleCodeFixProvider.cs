@@ -9,6 +9,12 @@ namespace StyleSharp.Analyzers;
 [Shared]
 public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
+    /// <summary>The characters a conditional return adds around the expression: <c>return </c> and <c>;</c>.</summary>
+    private const int ReturnWidth = 8;
+
+    /// <summary>The characters a conditional assignment adds around the expression: <c> = </c> and <c>;</c>.</summary>
+    private const int AssignmentWidth = 4;
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         ReadabilityRules.UseObjectInitializer.Id,
@@ -31,10 +37,11 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
             return;
         }
 
+        var options = context.Document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(root.SyntaxTree);
         foreach (var diagnostic in context.Diagnostics)
         {
             if (GetTitle(diagnostic.Id) is not { } title
-                || CreateReplacement(root, diagnostic, out _, out _) is null)
+                || CreateReplacement(root, options, diagnostic, out _, out _) is null)
             {
                 continue;
             }
@@ -51,7 +58,8 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        var replacement = CreateReplacement(editor.OriginalRoot, diagnostic, out var oldNode, out var removeNode);
+        var options = editor.OriginalDocument.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(editor.OriginalRoot.SyntaxTree);
+        var replacement = CreateReplacement(editor.OriginalRoot, options, diagnostic, out var oldNode, out var removeNode);
         if (oldNode is null || replacement is null)
         {
             return;
@@ -73,7 +81,8 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
     {
-        var replacement = CreateReplacement(root, diagnostic, out var oldNode, out var removeNode);
+        var options = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(root.SyntaxTree);
+        var replacement = CreateReplacement(root, options, diagnostic, out var oldNode, out var removeNode);
         if (oldNode is null || replacement is null)
         {
             return document;
@@ -97,11 +106,17 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
 
     /// <summary>Creates the replacement node for one diagnostic.</summary>
     /// <param name="root">The syntax root.</param>
+    /// <param name="options">The tree's configuration.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <param name="oldNode">The syntax node to replace.</param>
     /// <param name="removeNode">The optional follow-up statement to remove.</param>
     /// <returns>The replacement node, or <see langword="null"/> when the source no longer matches.</returns>
-    private static SyntaxNode? CreateReplacement(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode, out SyntaxNode? removeNode)
+    private static SyntaxNode? CreateReplacement(
+        SyntaxNode root,
+        AnalyzerConfigOptions options,
+        Diagnostic diagnostic,
+        out SyntaxNode? oldNode,
+        out SyntaxNode? removeNode)
     {
         oldNode = null;
         removeNode = null;
@@ -111,8 +126,8 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
             "SST1194" => CreateCollectionInitializerFix(root, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
             "SST1195" => CreateNullCoalescingFix(root, diagnostic.Location.SourceSpan, out oldNode),
             "SST1196" => CreateNullPropagationFix(root, diagnostic.Location.SourceSpan, out oldNode),
-            "SST1197" => CreateConditionalReturnFix(root, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
-            "SST1198" => CreateConditionalAssignmentFix(root, diagnostic.Location.SourceSpan, out oldNode),
+            "SST1197" => CreateConditionalReturnFix(root, options, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
+            "SST1198" => CreateConditionalAssignmentFix(root, options, diagnostic.Location.SourceSpan, out oldNode),
             "SST1199" => CreateNameofTypeFix(root, diagnostic.Location.SourceSpan, out oldNode),
             _ => null
         };
@@ -218,11 +233,17 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
 
     /// <summary>Creates a conditional-return replacement.</summary>
     /// <param name="root">The syntax root.</param>
+    /// <param name="options">The tree's configuration.</param>
     /// <param name="span">The diagnostic source span.</param>
     /// <param name="oldNode">The if statement to replace.</param>
     /// <param name="removeNode">The following return statement to remove.</param>
     /// <returns>The replacement return statement, or <see langword="null"/>.</returns>
-    private static ReturnStatementSyntax? CreateConditionalReturnFix(SyntaxNode root, TextSpan span, out SyntaxNode? oldNode, out SyntaxNode? removeNode)
+    private static ReturnStatementSyntax? CreateConditionalReturnFix(
+        SyntaxNode root,
+        AnalyzerConfigOptions options,
+        TextSpan span,
+        out SyntaxNode? oldNode,
+        out SyntaxNode? removeNode)
     {
         oldNode = FindAncestor<IfStatementSyntax>(root, span);
         removeNode = null;
@@ -237,12 +258,67 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         }
 
         removeNode = followingReturn;
-        var conditional = SyntaxFactory.ConditionalExpression(
-            ifStatement.Condition.WithoutTrivia(),
-            whenTrue.WithoutTrivia(),
-            whenFalse.WithoutTrivia());
-        return SyntaxFactory.ReturnStatement(conditional).WithTriviaFrom(ifStatement);
+        var conditional = LayOutConditional(ifStatement, options, ifStatement.Condition, whenTrue, whenFalse, ReturnWidth);
+        return SyntaxFactory.ReturnStatement(
+                SyntaxFactory.Token(default, SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+                conditional,
+                SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, default))
+            .WithTriviaFrom(ifStatement);
     }
+
+    /// <summary>Builds a conditional expression, wrapping its branches when one line would run past the maximum.</summary>
+    /// <param name="anchor">The statement the replacement takes the place of.</param>
+    /// <param name="options">The tree's configuration.</param>
+    /// <param name="condition">The condition expression.</param>
+    /// <param name="whenTrue">The expression used for the true branch.</param>
+    /// <param name="whenFalse">The expression used for the false branch.</param>
+    /// <param name="surroundingWidth">The characters the enclosing statement adds around the expression.</param>
+    /// <returns>The conditional expression laid out to fit the line budget.</returns>
+    /// <remarks>
+    /// Each branch operator leads its continuation line one indent step in from the statement, which is the
+    /// layout SST1140 and SST1145 ask for, so a wrap does not simply trade SST1521 for a layout diagnostic.
+    /// </remarks>
+    private static ConditionalExpressionSyntax LayOutConditional(
+        StatementSyntax anchor,
+        AnalyzerConfigOptions options,
+        ExpressionSyntax condition,
+        ExpressionSyntax whenTrue,
+        ExpressionSyntax whenFalse,
+        int surroundingWidth)
+    {
+        var text = anchor.SyntaxTree.GetText();
+        var indent = LayoutFixHelpers.IndentOfLine(text, anchor.SpanStart);
+        var joined = Conditional(condition, whenTrue, whenFalse, SyntaxFactory.TriviaList(SyntaxFactory.Space));
+        if (indent.Length + surroundingWidth + joined.Span.Length <= SizeLimitOptions.ReadMaxLineLength(options))
+        {
+            return joined;
+        }
+
+        var newLine = LayoutFixHelpers.DetectNewLine(text);
+        return Conditional(
+            condition,
+            whenTrue,
+            whenFalse,
+            SyntaxFactory.TriviaList(SyntaxFactory.EndOfLine(newLine), SyntaxFactory.Whitespace(indent + LayoutFixHelpers.IndentStep)));
+    }
+
+    /// <summary>Builds a conditional expression whose branch operators carry the given leading trivia.</summary>
+    /// <param name="condition">The condition expression.</param>
+    /// <param name="whenTrue">The expression used for the true branch.</param>
+    /// <param name="whenFalse">The expression used for the false branch.</param>
+    /// <param name="operatorLeading">The trivia that precedes <c>?</c> and <c>:</c>.</param>
+    /// <returns>The conditional expression.</returns>
+    private static ConditionalExpressionSyntax Conditional(
+        ExpressionSyntax condition,
+        ExpressionSyntax whenTrue,
+        ExpressionSyntax whenFalse,
+        SyntaxTriviaList operatorLeading)
+        => SyntaxFactory.ConditionalExpression(
+            condition.WithoutTrivia(),
+            SyntaxFactory.Token(operatorLeading, SyntaxKind.QuestionToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            whenTrue.WithoutTrivia(),
+            SyntaxFactory.Token(operatorLeading, SyntaxKind.ColonToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            whenFalse.WithoutTrivia());
 
     /// <summary>Returns whether a conditional rewrite would create nested conditional expressions.</summary>
     /// <param name="condition">The condition expression.</param>
@@ -277,10 +353,15 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
 
     /// <summary>Creates a conditional-assignment replacement.</summary>
     /// <param name="root">The syntax root.</param>
+    /// <param name="options">The tree's configuration.</param>
     /// <param name="span">The diagnostic source span.</param>
     /// <param name="oldNode">The if statement to replace.</param>
     /// <returns>The replacement assignment statement, or <see langword="null"/>.</returns>
-    private static ExpressionStatementSyntax? CreateConditionalAssignmentFix(SyntaxNode root, TextSpan span, out SyntaxNode? oldNode)
+    private static ExpressionStatementSyntax? CreateConditionalAssignmentFix(
+        SyntaxNode root,
+        AnalyzerConfigOptions options,
+        TextSpan span,
+        out SyntaxNode? oldNode)
     {
         oldNode = FindAncestor<IfStatementSyntax>(root, span);
         if (oldNode is not IfStatementSyntax ifStatement
@@ -292,14 +373,21 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
             return null;
         }
 
-        var conditional = SyntaxFactory.ConditionalExpression(
-            ifStatement.Condition.WithoutTrivia(),
-            whenTrue.WithoutTrivia(),
-            whenFalse.WithoutTrivia());
-        return SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
-                SyntaxKind.SimpleAssignmentExpression,
-                target.WithoutTrivia(),
-                conditional))
+        var assigned = target.WithoutTrivia();
+        var conditional = LayOutConditional(
+            ifStatement,
+            options,
+            ifStatement.Condition,
+            whenTrue,
+            whenFalse,
+            AssignmentWidth + assigned.Span.Length);
+        return SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    assigned,
+                    SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+                    conditional),
+                SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, default))
             .WithTriviaFrom(ifStatement);
     }
 

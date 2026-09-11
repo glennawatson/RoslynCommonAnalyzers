@@ -11,6 +11,41 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst2466EmptyFinallyClauseAnalyzer"/> and its code fix (SST2466).</summary>
 public class EmptyFinallyClauseAnalyzerUnitTest
 {
+    /// <summary>Verifies a try carrying a region is reported but keeps its empty clause.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Removing the clause takes the braces that hold it, and lifting the body takes the try block's
+    /// braces — the <c>#endregion</c> is the leading trivia of one of them.
+    /// </remarks>
+    [Test]
+    public async Task TryCarryingADirectiveKeepsItsClauseAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      try
+                                      {
+                              #region Work
+                                          Console.WriteLine("a");
+                              #endregion
+                                      }
+                                      catch (Exception)
+                                      {
+                                          Console.WriteLine("b");
+                                      }
+                                      {|SST2466:finally|}
+                                      {
+                                      }
+                                  }
+                              }
+                              """;
+        await VerifyEmptyFinally.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies an empty finally beside a catch is reported and the clause removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

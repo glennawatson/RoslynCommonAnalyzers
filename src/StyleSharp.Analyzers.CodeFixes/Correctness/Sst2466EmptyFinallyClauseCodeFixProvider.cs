@@ -34,8 +34,11 @@ public sealed class Sst2466EmptyFinallyClauseCodeFixProvider : CodeFixProvider
 
         foreach (var diagnostic in context.Diagnostics)
         {
+            // A directive inside the `try` declines the fix: removing the clause takes the braces that hold
+            // it, and lifting the body takes the try block's braces, where a closing directive would sit.
             if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<TryStatementSyntax>() is not
-                { Finally: not null } tryStatement)
+                    { Finally: not null } tryStatement
+                || DirectiveBoundaries.Cross(tryStatement, tryStatement.Span))
             {
                 continue;
             }

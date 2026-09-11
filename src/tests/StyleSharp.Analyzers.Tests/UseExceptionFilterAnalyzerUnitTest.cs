@@ -11,6 +11,42 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2009 (hand-rolled exception filter) and its fix.</summary>
 public class UseExceptionFilterAnalyzerUnitTest
 {
+    /// <summary>Verifies a catch carrying a region is reported but not rewritten.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The branch statements are lifted out of the <c>if</c>, dropping its braces, and the
+    /// <c>#endregion</c> is the leading trivia of one of them.
+    /// </remarks>
+    [Test]
+    public async Task CatchCarryingADirectiveIsNotRewrittenAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public void M(bool flag)
+                                  {
+                                      try
+                                      {
+                                          Console.WriteLine("a");
+                                      }
+                                      catch (Exception)
+                                      {
+                                          {|SST2009:if|} (flag)
+                                          {
+                                              throw;
+                                          }
+                              #region Handle
+                                          Console.WriteLine("b");
+                              #endregion
+                                      }
+                                  }
+                              }
+                              """;
+        await VerifyExceptionFilter.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies an else-branch rethrow moves the condition into the filter as-is.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

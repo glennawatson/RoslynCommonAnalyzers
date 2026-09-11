@@ -11,6 +11,38 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1470 (trailing rethrow-only catch clause) and its fix.</summary>
 public class RemoveRethrowOnlyCatchAnalyzerUnitTest
 {
+    /// <summary>Verifies a try carrying a region is reported but not rewritten.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Dropping the clause takes the braces that hold it, and unwrapping the statement takes the try
+    /// block's braces — the <c>#endregion</c> is the leading trivia of one of them.
+    /// </remarks>
+    [Test]
+    public async Task TryCarryingADirectiveIsNotRewrittenAsync()
+    {
+        const string Source = """
+                              using System;
+
+                              public sealed class C
+                              {
+                                  public void M()
+                                  {
+                                      try
+                                      {
+                              #region Work
+                                          Console.WriteLine("a");
+                              #endregion
+                                      }
+                                      {|SST1470:catch|}
+                                      {
+                                          throw;
+                                      }
+                                  }
+                              }
+                              """;
+        await VerifyRethrowOnlyCatch.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies a trailing rethrow-only clause after a real handler is reported and removed, keeping the handler.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

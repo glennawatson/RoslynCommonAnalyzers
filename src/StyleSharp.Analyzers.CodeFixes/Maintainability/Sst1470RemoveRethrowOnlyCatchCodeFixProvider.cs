@@ -71,7 +71,8 @@ public sealed class Sst1470RemoveRethrowOnlyCatchCodeFixProvider : CodeFixProvid
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, CatchClauseSyntax catchClause)
     {
-        if (catchClause.Parent is not TryStatementSyntax tryStatement)
+        if (catchClause.Parent is not TryStatementSyntax tryStatement
+            || DirectiveBoundaries.Cross(tryStatement, tryStatement.Span))
         {
             return document;
         }
@@ -90,11 +91,17 @@ public sealed class Sst1470RemoveRethrowOnlyCatchCodeFixProvider : CodeFixProvid
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <param name="catchClause">The reported catch clause when found.</param>
     /// <returns><see langword="true"/> when the reported shape still matches.</returns>
+    /// <remarks>
+    /// A directive inside the <c>try</c> declines the fix. Dropping the clause takes the braces that hold
+    /// it, and unwrapping the whole statement takes the try block's braces as well — either way the
+    /// <c>#endif</c> or <c>#endregion</c> closing a region inside is the leading trivia of a brace that goes.
+    /// </remarks>
     private static bool TryGetCatchClause(SyntaxNode root, Diagnostic diagnostic, out CatchClauseSyntax? catchClause)
     {
         catchClause = root.FindNode(diagnostic.Location.SourceSpan) as CatchClauseSyntax;
         return catchClause?.Parent is TryStatementSyntax tryStatement
             && tryStatement.Catches[tryStatement.Catches.Count - 1] == catchClause
+            && !DirectiveBoundaries.Cross(tryStatement, tryStatement.Span)
             && Sst1470RemoveRethrowOnlyCatchAnalyzer.IsRethrowOnly(catchClause);
     }
 

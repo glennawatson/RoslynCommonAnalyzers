@@ -61,12 +61,17 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
     /// <summary>Builds the filtered catch clause, or <see langword="null"/> when the shape no longer matches.</summary>
     /// <param name="catchClause">The catch clause to rewrite.</param>
     /// <returns>The replacement catch clause.</returns>
+    /// <remarks>
+    /// A directive inside the clause declines the rewrite: the branch statements are lifted out of the
+    /// <c>if</c>, dropping its braces, and a closing directive inside is the leading trivia of one of them.
+    /// </remarks>
     private static CatchClauseSyntax? BuildReplacement(CatchClauseSyntax catchClause)
     {
         var statements = catchClause.Block.Statements;
         if (catchClause.Filter is not null
             || statements.Count == 0
             || statements[0] is not IfStatementSyntax ifStatement
+            || DirectiveBoundaries.Cross(catchClause, catchClause.Span)
             || !Sst2009UseExceptionFilterAnalyzer.MatchesFilterShape(ifStatement, statements.Count))
         {
             return null;

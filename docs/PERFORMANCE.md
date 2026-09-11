@@ -123,20 +123,10 @@ Recommended loop:
 4. Make the smallest change that removes work from the clean path.
 5. Re-run the same benchmark/filter to confirm the improvement.
 
-When you want a quick terminal summary instead of opening Speedscope manually,
-use the local trace filter:
-
-```bash
-# Newest matching EventPipe export under BenchmarkDotNet.Artifacts/
-dotnet run --project tools/TraceFocus -- --pattern "ExtensionBlockProfiledCpuBenchmarks.ExtensionBlock_Violating(Nodes_ 1000)"
-
-# Explicit file, plus a narrower analyzer-specific include
-dotnet run --project tools/TraceFocus -- --file "BenchmarkDotNet.Artifacts/StyleSharp.Analyzers.Benchmarks.ParameterListLayoutProfiledCpuBenchmarks.ParameterListLayout_Violating(Nodes_ 1000)-20260606-212946.speedscope.json" --include "ParameterListLayoutAnalyzer"
-```
-
-`TraceFocus` reads BenchmarkDotNet's `*.speedscope.json` output directly,
-filters out the default BenchmarkDotNet / threading / analyzer-driver noise,
-and prints the remaining hot frames plus the hottest analyzer-visible stacks.
+A trace summarizer that reads BenchmarkDotNet's `*.speedscope.json` output
+directly, filters out the BenchmarkDotNet / threading / analyzer-driver noise,
+and prints the remaining hot frames plus the hottest analyzer-visible stacks is
+a quicker read than opening Speedscope by hand.
 
 Code-fix suites do not have dedicated profiled benchmark classes, so collect
 EventPipe traces by wrapping the benchmark runner directly. Useful command lines

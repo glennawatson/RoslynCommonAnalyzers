@@ -60,7 +60,7 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
 
 - **Repo layout:** repo metadata stays at the repository root, but build entry
   points live under `src/`. Run `dotnet` commands from `src/`; projects are
-  grouped under `src/`, `tests/`, `benchmarks/`, and `tools/` inside that folder.
+  grouped under `src/`, `tests/`, and `benchmarks/` inside that folder.
 
 - **Performance / allocations first.** Analyzer callbacks run on every keystroke.
   Keep the no-diagnostic path allocation-free; compute suggested names only after

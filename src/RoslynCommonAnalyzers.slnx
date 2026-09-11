@@ -63,7 +63,4 @@
     <Project Path="benchmarks/PerformanceSharp.Analyzers.Benchmarks/PerformanceSharp.Analyzers.Benchmarks.csproj" />
     <Project Path="benchmarks/SecuritySharp.Analyzers.Benchmarks/SecuritySharp.Analyzers.Benchmarks.csproj" />
   </Folder>
-  <Folder Name="/tools/">
-    <Project Path="tools/TraceFocus/TraceFocus.csproj" />
-  </Folder>
 </Solution>

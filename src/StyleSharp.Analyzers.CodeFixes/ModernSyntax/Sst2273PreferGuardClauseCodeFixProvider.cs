@@ -11,6 +11,11 @@ namespace StyleSharp.Analyzers;
 /// a <c>if (!cond) { return; }</c> (or <c>continue;</c> inside a loop), and the previously wrapped work is
 /// lifted to the outer block. The rewritten block is formatter-annotated so the lifted work is re-indented.
 /// </summary>
+/// <remarks>
+/// A directive anywhere in the wrapped body declines the fix. Lifting the work drops the body's braces, and
+/// the <c>#endif</c> that closes a region inside it is the leading trivia of the brace that goes — so the
+/// close disappears while the open rides out on a lifted statement.
+/// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2273PreferGuardClauseCodeFixProvider))]
 [Shared]
 public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
@@ -42,7 +47,8 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
     {
         if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>() is not { } ifStatement
             || ifStatement.Parent is not BlockSyntax block
-            || !Sst2273PreferGuardClauseAnalyzer.TryGetGuard(ifStatement, out var jumpKind))
+            || !Sst2273PreferGuardClauseAnalyzer.TryGetGuard(ifStatement, out var jumpKind)
+            || DirectiveBoundaries.Cross(ifStatement, ifStatement.Statement.FullSpan))
         {
             return null;
         }

@@ -52,6 +52,33 @@ public class PreferGuardClauseAnalyzerUnitTest
         await RunAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a wrapped body carrying a directive is reported but not lifted.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Lifting the work drops the body's braces, and the <c>#endif</c> that closes the region is the leading
+    /// trivia of the brace that goes — so the close disappears while the open rides out on a lifted statement.
+    /// </remarks>
+    [Test]
+    public async Task WrappedBodyCarryingADirectiveIsNotLiftedAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public void M(bool ready)
+                                  {
+                                      {|SST2273:if|} (ready)
+                                      {
+                              #region Work
+                                          System.Console.WriteLine("a");
+                                          System.Console.WriteLine("b");
+                              #endregion
+                                      }
+                                  }
+                              }
+                              """;
+        await RunAsync(Source, Source);
+    }
+
     /// <summary>Verifies a trailing wrapping <c>if</c> in a loop body becomes a <c>continue</c> guard.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -15,30 +15,75 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class ExpressionBodyAnalyzerUnitTest
 {
-    /// <summary>Verifies a body stays a block when folding it up would overrun the line (SST2275).</summary>
+    /// <summary>Verifies the body still becomes an expression body, wrapped, when one line would overrun.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    /// <remarks>The signature is already long; joining the two lines only moves the problem to SST1521.</remarks>
+    /// <remarks>The break goes after the arrow, which is where the default arrow placement puts it.</remarks>
     [Test]
-    public async Task BodyThatWouldOverrunTheLineIsCleanAsync()
+    public async Task BodyThatWouldOverrunTheLineWrapsAsync()
     {
+        const string Config = """
+            root = true
+            [*.cs]
+            stylesharp.max_line_length = 60
+
+            """;
         var test = new Verify.Test
         {
             TestCode = """
                        internal class C
                        {
-                           private static int LongEnoughToPushTheJoinedLinePastTheMaximum(int first, int second)
+                           private static int {|SST2275:Wide|}(int first, int second)
                            {
                                return first + second;
                            }
                        }
                        """,
+            FixedCode = """
+                        internal class C
+                        {
+                            private static int Wide(int first, int second) =>
+                                first + second;
+                        }
+                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the wrap follows the configured arrow placement.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task WrappedBodyFollowsTheArrowStyleAsync()
+    {
+        const string Config = """
             root = true
             [*.cs]
             stylesharp.max_line_length = 60
+            stylesharp.arrow_token_new_line = before
 
-            """));
+            """;
+        var test = new Verify.Test
+        {
+            TestCode = """
+                       internal class C
+                       {
+                           private static int {|SST2275:Wide|}(int first, int second)
+                           {
+                               return first + second;
+                           }
+                       }
+                       """,
+            FixedCode = """
+                        internal class C
+                        {
+                            private static int Wide(int first, int second)
+                                => first + second;
+                        }
+                        """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
         await test.RunAsync(CancellationToken.None);
     }
 

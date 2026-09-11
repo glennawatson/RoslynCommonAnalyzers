@@ -14,6 +14,12 @@ namespace StyleSharp.Analyzers;
 [Shared]
 public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
+    /// <summary>The characters the arrow adds between the signature and the expression.</summary>
+    private const int ArrowWidth = 4;
+
+    /// <summary>The spaces one indentation level adds to a wrapped continuation line.</summary>
+    private const int IndentWidth = 4;
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         ModernSyntaxRules.UseExpressionBodyForMethod.Id,
@@ -36,9 +42,10 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
             return;
         }
 
+        var options = context.Document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(root.SyntaxTree);
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (TryRewrite(root, diagnostic) is not { } edit)
+            if (TryRewrite(root, options, diagnostic) is not { } edit)
             {
                 continue;
             }
@@ -54,52 +61,93 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    {
+        var options = editor.OriginalDocument.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(editor.OriginalRoot.SyntaxTree);
+        if (TryRewrite(editor.OriginalRoot, options, diagnostic) is not { } edit)
+        {
+            return;
+        }
+
+        editor.ReplaceNode(edit.Original, edit.Replacement);
+    }
 
     /// <summary>Resolves the reported member and rewrites its block body as an expression body.</summary>
     /// <param name="root">The syntax root.</param>
+    /// <param name="options">The tree's configuration.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+    private static NodeReplacement? TryRewrite(SyntaxNode root, AnalyzerConfigOptions options, Diagnostic diagnostic)
         => root.FindToken(diagnostic.Location.SourceSpan.Start).Parent switch
         {
             MethodDeclarationSyntax method when ExpressionBodyAnalyzer.TryGetMethodExpression(method, out var expression)
                 => new NodeReplacement(
                     method,
-                    Collapse(method.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(method.Body!.CloseBraceToken)))),
+                    Layout(method, options, method.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(method.Body!.CloseBraceToken)))),
 
             ConstructorDeclarationSyntax constructor when ExpressionBodyAnalyzer.TryGetConstructorExpression(constructor, out var expression)
                 => new NodeReplacement(
                     constructor,
-                    Collapse(constructor.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(constructor.Body!.CloseBraceToken)))),
+                    Layout(constructor, options, constructor.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(constructor.Body!.CloseBraceToken)))),
 
-            OperatorDeclarationSyntax operatorDeclaration when ExpressionBodyAnalyzer.TryGetOperatorExpression(operatorDeclaration, out var expression)
+            OperatorDeclarationSyntax declared when ExpressionBodyAnalyzer.TryGetOperatorExpression(declared, out var expression)
                 => new NodeReplacement(
-                    operatorDeclaration,
-                    Collapse(operatorDeclaration.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(operatorDeclaration.Body!.CloseBraceToken)))),
+                    declared,
+                    Layout(declared, options, declared.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(declared.Body!.CloseBraceToken)))),
 
             ConversionOperatorDeclarationSyntax conversion when ExpressionBodyAnalyzer.TryGetConversionOperatorExpression(conversion, out var expression)
                 => new NodeReplacement(
                     conversion,
-                    Collapse(conversion.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(conversion.Body!.CloseBraceToken)))),
+                    Layout(conversion, options, conversion.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(conversion.Body!.CloseBraceToken)))),
 
             PropertyDeclarationSyntax property when ExpressionBodyAnalyzer.TryGetPropertyExpression(property, out var expression)
                 => new NodeReplacement(
                     property,
-                    Collapse(property.WithAccessorList(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(property.AccessorList!.CloseBraceToken)))),
+                    Layout(property, options, property.WithAccessorList(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(property.AccessorList!.CloseBraceToken)))),
 
             IndexerDeclarationSyntax indexer when ExpressionBodyAnalyzer.TryGetIndexerExpression(indexer, out var expression)
                 => new NodeReplacement(
                     indexer,
-                    Collapse(indexer.WithAccessorList(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(indexer.AccessorList!.CloseBraceToken)))),
+                    Layout(indexer, options, indexer.WithAccessorList(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(indexer.AccessorList!.CloseBraceToken)))),
 
             LocalFunctionStatementSyntax localFunction when ExpressionBodyAnalyzer.TryGetLocalFunctionExpression(localFunction, out var expression)
                 => new NodeReplacement(
                     localFunction,
-                    Collapse(localFunction.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(localFunction.Body!.CloseBraceToken)))),
+                    Layout(localFunction, options, localFunction.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(localFunction.Body!.CloseBraceToken)))),
 
             _ => null,
         };
+
+    /// <summary>Gets the block body or accessor list a member was written with.</summary>
+    /// <param name="original">The member as it was written.</param>
+    /// <returns>The body, or <see langword="null"/> when the member has neither.</returns>
+    private static SyntaxNode? OriginalBody(SyntaxNode original)
+    {
+        foreach (var child in original.ChildNodes())
+        {
+            if (child is BlockSyntax or AccessorListSyntax)
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Gets a member's expression body clause.</summary>
+    /// <param name="member">The member to inspect.</param>
+    /// <returns>The arrow clause, or <see langword="null"/> when the member has none.</returns>
+    private static ArrowExpressionClauseSyntax? ArrowOf(SyntaxNode member)
+    {
+        foreach (var child in member.ChildNodes())
+        {
+            if (child is ArrowExpressionClauseSyntax arrow)
+            {
+                return arrow;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>Builds the arrow clause for the collapsed body.</summary>
     /// <param name="expression">The surviving expression.</param>
@@ -114,6 +162,121 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
     /// <returns>A semicolon token that keeps the member's trailing trivia.</returns>
     private static SyntaxToken Semicolon(SyntaxToken closeBrace)
         => SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(closeBrace.TrailingTrivia);
+
+    /// <summary>Lays the new expression body out, wrapping it when one line would run past the maximum.</summary>
+    /// <param name="original">The member as it was written.</param>
+    /// <param name="options">The tree's configuration.</param>
+    /// <param name="rewritten">The member already carrying its expression body.</param>
+    /// <returns>The member laid out to fit the line budget.</returns>
+    /// <remarks>
+    /// A body under a long signature still reads better as an expression body; it just cannot share the
+    /// signature's line. The break goes where <c>stylesharp.arrow_token_new_line</c> says, so the wrap does
+    /// not simply trade this rule's diagnostic for SST1527's.
+    /// </remarks>
+    private static SyntaxNode Layout(SyntaxNode original, AnalyzerConfigOptions options, SyntaxNode rewritten)
+    {
+        var collapsed = Collapse(rewritten);
+        if (JoinedLineFits(original, rewritten, options))
+        {
+            return collapsed;
+        }
+
+        var indent = ContinuationIndent(original);
+        var newLine = LayoutFixHelpers.DetectNewLine(original.SyntaxTree.GetText());
+        var breakBefore = LayoutStyleOptions.ReadBreakBefore(
+            options,
+            Sst1527ArrowTokenNewLineAnalyzer.SpecificKey,
+            Sst1527ArrowTokenNewLineAnalyzer.GeneralKey,
+            defaultBreakBefore: false);
+
+        return breakBefore
+            ? BreakBeforeArrow(collapsed, newLine, indent)
+            : BreakAfterArrow(collapsed, newLine, indent);
+    }
+
+    /// <summary>Returns whether the signature and the expression fit on one line together.</summary>
+    /// <param name="original">The member as it was written.</param>
+    /// <param name="rewritten">The member already carrying its expression body.</param>
+    /// <param name="options">The tree's configuration.</param>
+    /// <returns><see langword="true"/> when the joined line stays within the maximum.</returns>
+    private static bool JoinedLineFits(SyntaxNode original, SyntaxNode rewritten, AnalyzerConfigOptions options)
+    {
+        if (OriginalBody(original) is not { } body || ArrowOf(rewritten) is not { } arrow)
+        {
+            return true;
+        }
+
+        var expression = arrow.Expression;
+        var text = original.SyntaxTree.GetText();
+        var signatureEnd = body.GetFirstToken().GetPreviousToken().Span.End;
+        var line = text.Lines.GetLineFromPosition(signatureEnd);
+        var signature = text.ToString(TextSpan.FromBounds(line.Start, signatureEnd)).TrimEnd();
+
+        var expressionText = expression.ToString();
+        var firstBreak = expressionText.IndexOf('\n');
+        var head = firstBreak < 0 ? expressionText : expressionText.Substring(0, firstBreak).TrimEnd();
+        var terminator = firstBreak < 0 ? 1 : 0;
+
+        return signature.Length + ArrowWidth + head.Length + terminator <= SizeLimitOptions.ReadMaxLineLength(options);
+    }
+
+    /// <summary>Gets the indentation a wrapped continuation line uses.</summary>
+    /// <param name="original">The member as it was written.</param>
+    /// <returns>The member's own indentation plus one level.</returns>
+    private static string ContinuationIndent(SyntaxNode original)
+    {
+        var text = original.SyntaxTree.GetText();
+        var line = text.Lines.GetLineFromPosition(original.SpanStart);
+        var indent = original.SpanStart - line.Start;
+        return new string(' ', indent + IndentWidth);
+    }
+
+    /// <summary>Puts the arrow at the head of the continuation line.</summary>
+    /// <param name="member">The collapsed member.</param>
+    /// <param name="newLine">The tree's line ending.</param>
+    /// <param name="indent">The continuation indentation.</param>
+    /// <returns>The member wrapped before its arrow.</returns>
+    private static SyntaxNode BreakBeforeArrow(SyntaxNode member, string newLine, string indent)
+        => ReplaceArrow(
+            member,
+            (previous, arrow) => (
+                previous.WithTrailingTrivia(SyntaxFactory.EndOfLine(newLine), SyntaxFactory.Whitespace(indent)),
+                arrow.WithTrailingTrivia(SyntaxFactory.Space)));
+
+    /// <summary>Leaves the arrow on the signature's line and wraps the expression under it.</summary>
+    /// <param name="member">The collapsed member.</param>
+    /// <param name="newLine">The tree's line ending.</param>
+    /// <param name="indent">The continuation indentation.</param>
+    /// <returns>The member wrapped after its arrow.</returns>
+    private static SyntaxNode BreakAfterArrow(SyntaxNode member, string newLine, string indent)
+        => ReplaceArrow(
+            member,
+            (previous, arrow) => (
+                previous.WithTrailingTrivia(SyntaxFactory.Space),
+                arrow.WithTrailingTrivia(SyntaxFactory.EndOfLine(newLine), SyntaxFactory.Whitespace(indent))));
+
+    /// <summary>Rewrites the trivia around a member's arrow in one pass.</summary>
+    /// <param name="member">The member carrying an expression body.</param>
+    /// <param name="layout">Builds the replacement tokens from the token before the arrow and the arrow.</param>
+    /// <returns>The member with the arrow laid out, or unchanged when it has no expression body.</returns>
+    private static SyntaxNode ReplaceArrow(SyntaxNode member, Func<SyntaxToken, SyntaxToken, (SyntaxToken Previous, SyntaxToken Arrow)> layout)
+    {
+        foreach (var child in member.ChildNodes())
+        {
+            if (child is not ArrowExpressionClauseSyntax arrow)
+            {
+                continue;
+            }
+
+            var previous = arrow.ArrowToken.GetPreviousToken();
+            var (replacedPrevious, replacedArrow) = layout(previous, arrow.ArrowToken);
+            return member.ReplaceTokens(
+                [previous, arrow.ArrowToken],
+                (original, _) => original == previous ? replacedPrevious : replacedArrow);
+        }
+
+        return member;
+    }
 
     /// <summary>Pulls the arrow up beside the signature by collapsing the whitespace that preceded the old brace.</summary>
     /// <param name="member">The member already rewritten to an expression body.</param>

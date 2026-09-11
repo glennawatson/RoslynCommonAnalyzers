@@ -20,6 +20,9 @@ namespace StyleSharp.Analyzers;
 [Shared]
 public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
+    /// <summary>The characters an arm adds around its pattern: <c> =&gt; </c> and the trailing comma.</summary>
+    private const int ArmWidth = 5;
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.DuplicateBranchImplementation.Id);
 
@@ -27,27 +30,40 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    {
+        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root is null)
+        {
+            return;
+        }
+
+        var options = context.Document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(root.SyntaxTree);
+        await ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Merge the duplicated sections",
             nameof(Sst2414DuplicateBranchImplementationCodeFixProvider),
-            TryRewrite);
+            (current, reported) => TryRewrite(current, options, reported)).ConfigureAwait(false);
+    }
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    {
+        var options = editor.OriginalDocument.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(editor.OriginalRoot.SyntaxTree);
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, (current, reported) => TryRewrite(current, options, reported));
+    }
 
     /// <summary>Resolves the reported section and merges it into the earlier matching one.</summary>
     /// <param name="root">The syntax root.</param>
+    /// <param name="options">The tree's configuration.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the reported shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+    private static NodeReplacement? TryRewrite(SyntaxNode root, AnalyzerConfigOptions options, Diagnostic diagnostic)
     {
         var reported = root.FindNode(diagnostic.Location.SourceSpan);
         if (reported?.FirstAncestorOrSelf<SwitchExpressionArmSyntax>() is { Parent: SwitchExpressionSyntax switchExpression } arm)
         {
-            return TryMergeArms(switchExpression, arm);
+            return TryMergeArms(switchExpression, options, arm);
         }
 
         if (reported?.FirstAncestorOrSelf<SwitchSectionSyntax>() is not { Parent: SwitchStatementSyntax switchStatement } duplicate)
@@ -68,6 +84,7 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
 
     /// <summary>Joins a duplicated switch-expression arm into the earlier arm that produces the same value.</summary>
     /// <param name="switchExpression">The switch expression.</param>
+    /// <param name="options">The tree's configuration.</param>
     /// <param name="duplicate">The reported arm.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the arms cannot be joined.</returns>
     /// <remarks>
@@ -75,7 +92,7 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
     /// <c>when</c> clause does run code, and two arms guarded by different clauses do not describe one case,
     /// so neither arm may carry one.
     /// </remarks>
-    private static NodeReplacement? TryMergeArms(SwitchExpressionSyntax switchExpression, SwitchExpressionArmSyntax duplicate)
+    private static NodeReplacement? TryMergeArms(SwitchExpressionSyntax switchExpression, AnalyzerConfigOptions options, SwitchExpressionArmSyntax duplicate)
     {
         var arms = switchExpression.Arms;
         var duplicateIndex = arms.IndexOf(duplicate);
@@ -92,18 +109,56 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
                 continue;
             }
 
-            var joined = SyntaxFactory.BinaryPattern(
-                SyntaxKind.OrPattern,
-                partner.Pattern.WithoutTrivia(),
-                duplicate.Pattern.WithoutTrivia());
-            var merged = partner
-                .WithPattern(joined.WithTriviaFrom(partner.Pattern))
-                .WithAdditionalAnnotations(Formatter.Annotation);
+            var joined = LayOutPattern(partner, options, duplicate.Pattern);
+            var merged = partner.WithPattern(joined.WithTriviaFrom(partner.Pattern));
             return new NodeReplacement(switchExpression, switchExpression.WithArms(arms.Replace(partner, merged).RemoveAt(duplicateIndex)));
         }
 
         return null;
     }
+
+    /// <summary>Builds the joined pattern, wrapping its alternatives when one line would run past the maximum.</summary>
+    /// <param name="partner">The arm the duplicate joins.</param>
+    /// <param name="options">The tree's configuration.</param>
+    /// <param name="addition">The duplicate arm's pattern.</param>
+    /// <returns>The joined pattern laid out to fit the line budget.</returns>
+    /// <remarks>
+    /// Every <c>or</c> leads a continuation line one indent step in from the arm, so a merge that outgrows
+    /// the line reads as a list of alternatives instead of trading the duplication for an over-long line.
+    /// </remarks>
+    private static PatternSyntax LayOutPattern(SwitchExpressionArmSyntax partner, AnalyzerConfigOptions options, PatternSyntax addition)
+    {
+        var text = partner.SyntaxTree.GetText();
+        var indent = LayoutFixHelpers.IndentOfLine(text, partner.SpanStart);
+        var joined = SyntaxFactory.BinaryPattern(SyntaxKind.OrPattern, partner.Pattern, OrKeyword(SyntaxFactory.TriviaList(SyntaxFactory.Space)), addition);
+        var flat = Respace(joined, SyntaxFactory.TriviaList(SyntaxFactory.Space));
+        if (indent.Length + flat.Span.Length + ArmWidth + partner.Expression.Span.Length <= SizeLimitOptions.ReadMaxLineLength(options))
+        {
+            return flat;
+        }
+
+        var newLine = LayoutFixHelpers.DetectNewLine(text);
+        return Respace(joined, SyntaxFactory.TriviaList(SyntaxFactory.EndOfLine(newLine), SyntaxFactory.Whitespace(indent + LayoutFixHelpers.IndentStep)));
+    }
+
+    /// <summary>Rewrites the trivia around every <c>or</c> in a chain of alternatives.</summary>
+    /// <param name="pattern">The pattern to lay out.</param>
+    /// <param name="operatorLeading">The trivia each <c>or</c> keyword leads with.</param>
+    /// <returns>The pattern with its alternatives spaced alike.</returns>
+    private static PatternSyntax Respace(PatternSyntax pattern, SyntaxTriviaList operatorLeading)
+        => pattern is BinaryPatternSyntax { RawKind: (int)SyntaxKind.OrPattern } alternatives
+            ? SyntaxFactory.BinaryPattern(
+                SyntaxKind.OrPattern,
+                Respace(alternatives.Left, operatorLeading),
+                OrKeyword(operatorLeading),
+                alternatives.Right.WithoutTrivia())
+            : pattern.WithoutTrivia();
+
+    /// <summary>Builds an <c>or</c> keyword that keeps a single trailing space.</summary>
+    /// <param name="leading">The trivia the keyword leads with.</param>
+    /// <returns>The keyword token.</returns>
+    private static SyntaxToken OrKeyword(SyntaxTriviaList leading)
+        => SyntaxFactory.Token(leading, SyntaxKind.OrKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
 
     /// <summary>Finds the earlier section whose body matches the duplicate's.</summary>
     /// <param name="sections">The switch's sections.</param>

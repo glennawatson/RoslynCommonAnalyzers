@@ -183,6 +183,47 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
         await VerifyFix.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a joined arm too wide for one line puts each alternative on its own.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task JoinedArmTooWideForOneLineIsWrappedAsync()
+    {
+        const string Config = """
+            root = true
+            [*.cs]
+            stylesharp.max_line_length = 60
+
+            """;
+        var test = new VerifyFix.Test
+        {
+            TestCode = """
+                       public sealed class C
+                       {
+                           public string M(string text) => text switch
+                           {
+                               "the first alternative" => "matched",
+                               {|SST2414:"the second alternative"|} => "matched",
+                               _ => "z",
+                           };
+                       }
+                       """,
+            FixedCode = """
+                        public sealed class C
+                        {
+                            public string M(string text) => text switch
+                            {
+                                "the first alternative"
+                                    or "the second alternative" => "matched",
+                                _ => "z",
+                            };
+                        }
+                        """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies two if-chain branches with the same multi-statement body are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

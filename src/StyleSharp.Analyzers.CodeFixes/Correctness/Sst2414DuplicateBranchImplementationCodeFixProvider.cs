@@ -104,7 +104,9 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
         for (var i = 0; i < duplicateIndex; i++)
         {
             var partner = arms[i];
-            if (partner.WhenClause is not null || !SyntaxFactory.AreEquivalent(partner.Expression, duplicate.Expression, topLevel: false))
+            if (partner.WhenClause is not null
+                || !SyntaxFactory.AreEquivalent(partner.Expression, duplicate.Expression, topLevel: false)
+                || DirectiveBoundaries.Separate(partner, duplicate))
             {
                 continue;
             }
@@ -174,7 +176,9 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
         var duplicate = sections[duplicateIndex].Statements;
         for (var i = 0; i < duplicateIndex; i++)
         {
-            if (sections[i].Statements.Count > 0 && AreEquivalentStatements(sections[i].Statements, duplicate))
+            if (sections[i].Statements.Count > 0
+                && AreEquivalentStatements(sections[i].Statements, duplicate)
+                && !DirectiveBoundaries.Separate(sections[i], sections[duplicateIndex]))
             {
                 return i;
             }

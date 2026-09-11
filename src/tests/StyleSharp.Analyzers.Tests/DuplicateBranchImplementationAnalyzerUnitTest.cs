@@ -224,6 +224,33 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies duplicate arms separated by a directive are reported but not joined.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The duplicate carries the <c>#endif</c> as its leading trivia, so joining it into the partner takes
+    /// the close and leaves the <c>#if</c> open — and the pattern it contributes is one the condition no
+    /// longer covers.
+    /// </remarks>
+    [Test]
+    public async Task DuplicateArmAcrossADirectiveIsNotJoinedAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public string M(int x) => x switch
+                                  {
+                                      1 => "a",
+                              #if LEGACY
+                                      9 => "legacy",
+                              #endif
+                                      {|SST2414:3|} => "a",
+                                      _ => "z",
+                                  };
+                              }
+                              """;
+        await VerifyFix.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies two if-chain branches with the same multi-statement body are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

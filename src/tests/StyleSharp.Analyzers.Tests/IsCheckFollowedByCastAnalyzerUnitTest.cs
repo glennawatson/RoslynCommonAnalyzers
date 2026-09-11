@@ -13,6 +13,35 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2007 (is check followed by a cast local).</summary>
 public class IsCheckFollowedByCastAnalyzerUnitTest
 {
+    /// <summary>Verifies an <c>if</c> carrying a region is reported but not rewritten.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The cast local is deleted from the body, and the <c>#region</c> is its leading trivia, so the close
+    /// would be left with nothing to close.
+    /// </remarks>
+    [Test]
+    public async Task IfCarryingADirectiveIsNotRewrittenAsync()
+    {
+        const string Source = """
+            public sealed class C
+            {
+                public int M(object o)
+                {
+                    if ({|SST2007:o is string|})
+                    {
+            #region Read
+                        var text = (string)o;
+                        return text.Length;
+            #endregion
+                    }
+
+                    return 0;
+                }
+            }
+            """;
+        await VerifyPatternMatching.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies an <c>is</c> check followed by a matching local cast is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

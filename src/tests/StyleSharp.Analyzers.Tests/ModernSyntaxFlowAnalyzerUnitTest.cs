@@ -14,6 +14,35 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for flow-shaped modern syntax rules (SST2207/SST2208).</summary>
 public class ModernSyntaxFlowAnalyzerUnitTest
 {
+    /// <summary>Verifies a guard separated from its return by a region is reported but not folded.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// Folding swallows the following return, and the <c>#region</c> is its leading trivia, so the close
+    /// would be left with nothing to close.
+    /// </remarks>
+    [Test]
+    public async Task GuardAcrossADirectiveIsNotFoldedAsync()
+    {
+        const string Source = """
+            using System;
+
+            public sealed class C
+            {
+                public string M(string value)
+                {
+                    {|SST2207:if|} (value is null)
+                    {
+                        throw new ArgumentNullException(nameof(value));
+                    }
+            #region Result
+                    return value;
+            #endregion
+                }
+            }
+            """;
+        await VerifyModernSyntaxFlow.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies a null guard plus return can use a throw expression.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

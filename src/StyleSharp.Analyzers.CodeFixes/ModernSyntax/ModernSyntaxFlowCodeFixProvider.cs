@@ -35,7 +35,9 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
                 _ => null
             };
 
-            if (title is null)
+            // Both fixes fold a statement into its neighbour, so a directive between the two rules the fix
+            // out. Checking here keeps the action off the lightbulb rather than offering one that no-ops.
+            if (title is null || FoldsAcrossADirective(root, diagnostic))
             {
                 continue;
             }
@@ -75,6 +77,18 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
         };
     }
 
+    /// <summary>Returns whether a directive stands between the reported statement and its neighbour.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns><see langword="true"/> when the fold would carry half a directive pair.</returns>
+    private static bool FoldsAcrossADirective(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var reported = FindAncestor<StatementSyntax>(root, diagnostic.Location.SourceSpan);
+        return reported is not null
+            && ModernSyntaxFlowAnalyzer.TryGetNextStatement(reported, out var next)
+            && DirectiveBoundaries.Separate(reported, next);
+    }
+
     /// <summary>Replaces a null guard plus return with a return containing a throw expression.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
@@ -93,7 +107,8 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
         if (ifStatement?.Parent is not BlockSyntax block
             || !ModernSyntaxFlowAnalyzer.TryGetThrowExpressionCandidate(ifStatement, model, cancellationToken, out var throwValue)
             || !ModernSyntaxFlowAnalyzer.TryGetNextStatement(ifStatement, out var nextStatement)
-            || nextStatement is not ReturnStatementSyntax { Expression: { } returnedValue })
+            || nextStatement is not ReturnStatementSyntax { Expression: { } returnedValue }
+            || DirectiveBoundaries.Separate(ifStatement, nextStatement))
         {
             return document;
         }
@@ -127,7 +142,8 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
         if (declaration?.Parent is not BlockSyntax block
             || !ModernSyntaxFlowAnalyzer.TryGetNextStatement(declaration, out var nextStatement)
             || !ModernSyntaxFlowAnalyzer.TryGetInlineOutArgument(declaration, nextStatement, model, cancellationToken, out var argument)
-            || argument.Expression is not IdentifierNameSyntax identifier)
+            || argument.Expression is not IdentifierNameSyntax identifier
+            || DirectiveBoundaries.Separate(declaration, nextStatement))
         {
             return document;
         }

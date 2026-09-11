@@ -26,7 +26,7 @@ public sealed class DeclarationPatternCodeFixProvider : CodeFixProvider, IBatchF
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (FindIf(root, diagnostic.Location.SourceSpan) is null)
+            if (!CreateReplacement(root, diagnostic, out _, out _))
             {
                 continue;
             }
@@ -97,7 +97,8 @@ public sealed class DeclarationPatternCodeFixProvider : CodeFixProvider, IBatchF
             || ifStatement.Statement is not BlockSyntax { Statements.Count: > 0 } block
             || block.Statements[0] is not LocalDeclarationStatementSyntax local
             || local.Declaration.Variables.Count != 1
-            || local.Declaration.Variables[0] is not { Initializer.Value: CastExpressionSyntax, Identifier: { } identifier })
+            || local.Declaration.Variables[0] is not { Initializer.Value: CastExpressionSyntax, Identifier: { } identifier }
+            || DirectiveBoundaries.Cross(ifStatement, ifStatement.Span))
         {
             return false;
         }

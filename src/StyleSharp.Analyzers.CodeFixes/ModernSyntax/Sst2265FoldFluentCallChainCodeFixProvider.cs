@@ -98,6 +98,14 @@ public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider,
             return null;
         }
 
+        // The run collapses into its first statement and the rest are deleted, so a directive anywhere
+        // across it would lose whichever half sits on a statement that goes.
+        var last = block.Statements[index + count - 1];
+        if (DirectiveBoundaries.Separate(first, last))
+        {
+            return null;
+        }
+
         var rest = new StatementSyntax[count - 1];
         for (var i = 1; i < count; i++)
         {

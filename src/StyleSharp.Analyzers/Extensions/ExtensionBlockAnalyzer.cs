@@ -155,12 +155,37 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
+    /// <summary>Returns whether a class declares at least one extension block among its direct members.</summary>
+    /// <param name="members">The class's members.</param>
+    /// <returns><see langword="true"/> when a block is present.</returns>
+    private static bool DeclaresExtensionBlock(in SyntaxList<MemberDeclarationSyntax> members)
+    {
+        for (var index = 0; index < members.Count; index++)
+        {
+            if (members[index] is TypeDeclarationSyntax block && ExtensionBlockHelper.IsExtensionBlock(block))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Reports extension-block issues among a class's direct members.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var declaration = (ClassDeclarationSyntax)context.Node;
         var members = declaration.Members;
+
+        // Every rule below describes a class that has adopted extension blocks, so a class with none is
+        // done after this scan. Mixing (SST1705) in particular only exists relative to a block: a class
+        // whose extensions are all classic methods is consistent, and moving it to the new syntax is the
+        // separate opt-in call SST1703 makes.
+        if (!DeclaresExtensionBlock(members))
+        {
+            return;
+        }
 
         // 'sawExtension' records that a block has been seen; 'groupEnded' that a non-extension member
         // has since interrupted the run — a later extension block is then no longer contiguous.

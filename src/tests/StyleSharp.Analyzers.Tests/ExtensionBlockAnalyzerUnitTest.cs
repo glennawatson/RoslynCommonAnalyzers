@@ -263,16 +263,33 @@ public class ExtensionBlockAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a class whose extensions are all classic methods draws no mixing report (SST1705).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// There is nothing to mix. Such a class is consistent as written, and moving it to the C# 14 syntax is
+    /// the opt-in call SST1703 makes.
+    /// </remarks>
+    [Test]
+    public async Task ClassicMethodsWithoutABlockAreCleanAsync()
+        => await RunAnalyzerAsync(
+            """
+            public static class TextExtensions
+            {
+                public static bool IsBlank(this string text) => text.Length == 0;
+
+                public static int Size(this string text) => text.Length;
+            }
+            """);
+
     /// <summary>Verifies a classic extension method on <c>object</c> is reported (SST1706).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    /// <remarks>A classic method also draws SST1705, which is unrelated to the broad-receiver check under test.</remarks>
     [Test]
     public async Task ClassicObjectReceiverReportedAsync()
         => await RunAnalyzerAsync(
             """
             public static class BroadExtensions
             {
-                public static string {|SST1705:Describe|}(this {|SST1706:object|} value) => value.ToString();
+                public static string Describe(this {|SST1706:object|} value) => value.ToString();
             }
             """);
 
@@ -284,7 +301,7 @@ public class ExtensionBlockAnalyzerUnitTest
             """
             public static class IdentityExtensions
             {
-                public static T {|SST1705:Identity|}<T>(this {|SST1706:T|} value) => value;
+                public static T Identity<T>(this {|SST1706:T|} value) => value;
             }
             """);
 
@@ -298,7 +315,7 @@ public class ExtensionBlockAnalyzerUnitTest
 
             public static class ComparableExtensions
             {
-                public static int {|SST1705:RankOf|}<T>(this T value)
+                public static int RankOf<T>(this T value)
                     where T : IComparable<T> => value.CompareTo(value);
             }
             """);
@@ -311,7 +328,7 @@ public class ExtensionBlockAnalyzerUnitTest
             """
             public static class TextExtensions
             {
-                public static bool {|SST1705:IsBlank|}(this string text) => text.Length == 0;
+                public static bool IsBlank(this string text) => text.Length == 0;
             }
             """);
 

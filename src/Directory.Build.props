@@ -160,13 +160,19 @@
 
   <ItemGroup>
     <PackageReference Include="MinVer" PrivateAssets="all" />
-    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
-    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
-    <PackageReference Include="SonarAnalyzer.CSharp" PrivateAssets="all" />
+    <PackageReference Include="PublicApiSharp.Analyzers" PrivateAssets="all" />
   </ItemGroup>
 
+  <!-- The published packages analyse this repo's own source. A reference back to the id a project
+       itself produces is a restore cycle, so that one project skips its own package. -->
+  <PropertyGroup>
+    <OwnPackageId Condition="$(MSBuildProjectName.EndsWith('.Analyzers')) Or $(MSBuildProjectName.EndsWith('.Analyzers.Packages'))">$(MSBuildProjectName.Replace('.Packages', ''))</OwnPackageId>
+  </PropertyGroup>
+
   <ItemGroup>
-    <AdditionalFiles Include="$(MSBuildThisFileDirectory)..\stylecop.json" Link="stylecop.json" />
+    <PackageReference Include="StyleSharp.Analyzers" PrivateAssets="all" Condition="'$(OwnPackageId)' != 'StyleSharp.Analyzers'" />
+    <PackageReference Include="PerformanceSharp.Analyzers" PrivateAssets="all" Condition="'$(OwnPackageId)' != 'PerformanceSharp.Analyzers'" />
+    <PackageReference Include="SecuritySharp.Analyzers" PrivateAssets="all" Condition="'$(OwnPackageId)' != 'SecuritySharp.Analyzers'" />
   </ItemGroup>
 
   <!--

@@ -22,9 +22,10 @@
   </ItemGroup>
 
   <ItemGroup Label="Analyzers">
-    <PackageVersion Include="Roslynator.Analyzers" Version="5.0.0" />
-    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.34.0.3385" />
-    <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+    <PackageVersion Include="PerformanceSharp.Analyzers" Version="4.0.12" />
+    <PackageVersion Include="PublicApiSharp.Analyzers" Version="1.0.7" />
+    <PackageVersion Include="SecuritySharp.Analyzers" Version="4.0.12" />
+    <PackageVersion Include="StyleSharp.Analyzers" Version="4.0.12" />
   </ItemGroup>
 
   <ItemGroup Label="Benchmarks">

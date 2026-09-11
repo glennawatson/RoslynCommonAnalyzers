@@ -128,6 +128,23 @@ public class Sst2234NullableShorthandAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a spelling inside a documentation reference is left alone.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>A <c>cref</c> has no <c>?</c> shorthand, so the long spelling is the only one that binds.</remarks>
+    [Test]
+    public async Task CrefSpellingIsCleanAsync()
+        => await Verify.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public class C
+            {
+                /// <summary>Reads a <see cref="Nullable{Int32}"/> value.</summary>
+                /// <returns>The value.</returns>
+                public int? M() => null;
+            }
+            """);
+
     /// <summary>Verifies the fix rewrites a plain spelling.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

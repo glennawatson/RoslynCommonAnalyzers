@@ -9,7 +9,7 @@ namespace StyleSharp.Analyzers;
 /// (SST2234). The two forms are the same type; the shorthand is shorter and matches how nullable
 /// annotations read everywhere else. Spellings that cannot be rewritten are skipped: unbound
 /// generics (<c>typeof(Nullable&lt;&gt;)</c>), <c>nameof</c> operands, member-access qualifiers,
-/// and using-directive targets. The check is syntax-gated on the identifier spelling
+/// using-directive targets, and documentation references. The check is syntax-gated on the identifier spelling
 /// <c>Nullable</c> with exactly one type argument before a single semantic bind confirms
 /// <c>System.Nullable&lt;T&gt;</c>.
 /// </summary>
@@ -81,6 +81,11 @@ public sealed class Sst2234NullableShorthandAnalyzer : DiagnosticAnalyzer
             spelling = spelling.Parent;
         }
 
+        if (IsInsideCref(spelling))
+        {
+            return false;
+        }
+
         return spelling.Parent switch
         {
             // int?.Member is not valid syntax, so a qualifier position cannot be rewritten.
@@ -93,5 +98,28 @@ public sealed class Sst2234NullableShorthandAnalyzer : DiagnosticAnalyzer
             UsingDirectiveSyntax => false,
             _ => true,
         };
+    }
+
+    /// <summary>Returns whether a spelling sits inside a documentation reference.</summary>
+    /// <param name="spelling">The resolved name.</param>
+    /// <returns><see langword="true"/> when a <c>cref</c> encloses the name.</returns>
+    /// <remarks>
+    /// A <c>cref</c> names a type in documentation syntax, which has no <c>?</c> shorthand:
+    /// <c>cref="int?"</c> does not bind, so the long spelling is the only one that resolves there.
+    /// </remarks>
+    private static bool IsInsideCref(SyntaxNode spelling)
+    {
+        for (var current = spelling.Parent; current is not null; current = current.Parent)
+        {
+            switch (current)
+            {
+                case CrefSyntax:
+                    return true;
+                case MemberDeclarationSyntax or StatementSyntax:
+                    return false;
+            }
+        }
+
+        return false;
     }
 }

@@ -57,12 +57,50 @@ public sealed class Sst2101ExplicitCollectionExpressionAnalyzer : DiagnosticAnal
             || !TryGetInitializer(expression, out var initializer)
             || initializer!.Expressions.Count == 0
             || HasComplexElement(initializer)
-            || !CollectionExpressionHelper.HasAcceptedTarget(context, expression, targets))
+            || !CollectionExpressionHelper.HasAcceptedTarget(context, expression, targets)
+            || ChangesOverloadResolution(context, expression, initializer!))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(CollectionExpressionRules.UseExplicitCollectionExpression, expression.GetLocation()));
+    }
+
+    /// <summary>Returns whether writing the creation as a collection expression would call something else.</summary>
+    /// <param name="context">The syntax context.</param>
+    /// <param name="expression">The collection creation.</param>
+    /// <param name="initializer">The creation's initializer.</param>
+    /// <returns><see langword="true"/> when the call would bind to a different member, or stop binding.</returns>
+    /// <remarks>
+    /// An argument's written type is what picks the overload. A collection expression has no type of its
+    /// own and takes one from the parameter, so dropping the type can select a different member — one that
+    /// still compiles and quietly does something else. The rewritten call is bound before the suggestion
+    /// is offered, and anything that does not land back on the same member is left alone.
+    /// </remarks>
+    private static bool ChangesOverloadResolution(SyntaxNodeAnalysisContext context, ExpressionSyntax expression, InitializerExpressionSyntax initializer)
+    {
+        if (expression.Parent is not ArgumentSyntax argument
+            || argument.Parent is not BaseArgumentListSyntax list
+            || list.Parent is not ExpressionSyntax call)
+        {
+            return false;
+        }
+
+        var original = context.SemanticModel.GetSymbolInfo(call, context.CancellationToken).Symbol;
+        if (original is null)
+        {
+            return true;
+        }
+
+        var elements = new List<CollectionElementSyntax>(initializer.Expressions.Count);
+        for (var i = 0; i < initializer.Expressions.Count; i++)
+        {
+            elements.Add(SyntaxFactory.ExpressionElement(initializer.Expressions[i].WithoutTrivia()));
+        }
+
+        var rewritten = call.ReplaceNode(expression, SyntaxFactory.CollectionExpression(SyntaxFactory.SeparatedList(elements)));
+        var speculative = context.SemanticModel.GetSpeculativeSymbolInfo(call.SpanStart, rewritten, SpeculativeBindingOption.BindAsExpression).Symbol;
+        return !SymbolEqualityComparer.Default.Equals(original, speculative);
     }
 
     /// <summary>Returns whether an initializer contains a multi-argument element.</summary>

@@ -40,6 +40,75 @@ public class ExplicitCollectionExpressionAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies an argument whose written type picks the overload is left alone.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// A collection expression has no type of its own and takes one from the parameter, so dropping the
+    /// written type here selects the other overload — code that still compiles and quietly does something
+    /// else.
+    /// </remarks>
+    [Test]
+    public async Task ArgumentThatPicksAnOverloadIsCleanAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public void Take(object[] values)
+                                  {
+                                  }
+
+                                  public void Take(string[] values)
+                                  {
+                                  }
+
+                                  public void Call() => Take(new object[] { "a", "b" });
+                              }
+                              """;
+        var test = new VerifyExplicitCollection.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies an argument with only one candidate is still reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ArgumentWithOneCandidateIsFixedAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public void Take(int[] values)
+                                  {
+                                  }
+
+                                  public void Call() => Take({|SST2101:new[] { 1, 2 }|});
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public void Take(int[] values)
+                                       {
+                                       }
+
+                                       public void Call() => Take([ 1, 2 ]);
+                                   }
+                                   """;
+        var test = new VerifyExplicitCollection.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = Source,
+            FixedCode = FixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies an initializer that opens on its own line keeps its braces out of the brackets.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The indentation ahead of the brace is trivia the initializer carries, not part of the elements.</remarks>

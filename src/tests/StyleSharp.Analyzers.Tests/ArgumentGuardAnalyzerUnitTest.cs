@@ -5,6 +5,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 using VerifyGuard = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ArgumentGuardAnalyzer,
     StyleSharp.Analyzers.ArgumentGuardCodeFixProvider>;
@@ -368,14 +369,5 @@ public class ArgumentGuardAnalyzerUnitTest
     /// <summary>Creates a minimal compilation against the current runtime reference set.</summary>
     /// <returns>The compilation.</returns>
     private static CSharpCompilation CreateCompilation()
-    {
-        var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator);
-        var references = new MetadataReference[trustedAssemblies.Length];
-        for (var i = 0; i < trustedAssemblies.Length; i++)
-        {
-            references[i] = MetadataReference.CreateFromFile(trustedAssemblies[i]);
-        }
-
-        return CSharpCompilation.Create("Bench", references: references);
-    }
+        => CSharpCompilation.Create("Bench", references: RuntimeMetadataReferences.Platform);
 }

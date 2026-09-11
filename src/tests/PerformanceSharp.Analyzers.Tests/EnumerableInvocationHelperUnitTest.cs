@@ -2,13 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Generic;
-using System.IO;
 using System.Threading;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+using RoslynCommon.Analyzers.Tests;
 
 namespace PerformanceSharp.Analyzers.Tests;
 
@@ -104,21 +104,9 @@ public class EnumerableInvocationHelperUnitTest
     /// <param name="source">The compilation unit source.</param>
     /// <returns>The compilation.</returns>
     private static CSharpCompilation Compile(string source)
-    {
-        var trusted = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty;
-        var references = new List<MetadataReference>();
-        foreach (var path in trusted.Split(Path.PathSeparator))
-        {
-            if (path.Length > 0)
-            {
-                references.Add(MetadataReference.CreateFromFile(path));
-            }
-        }
-
-        return CSharpCompilation.Create(
+        => CSharpCompilation.Create(
             "EnumerableInvocationHelperTests",
             [CSharpSyntaxTree.ParseText(source)],
-            references,
+            RuntimeMetadataReferences.Platform,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-    }
 }

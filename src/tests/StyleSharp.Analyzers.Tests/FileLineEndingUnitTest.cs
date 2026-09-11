@@ -9,6 +9,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
 
+using RoslynCommon.Analyzers.Tests;
+
 namespace StyleSharp.Analyzers.Tests;
 
 /// <summary>
@@ -60,7 +62,7 @@ public class FileLineEndingUnitTest
         var config = "root = true\n[*.cs]\n" + configBody + "\n";
         var project = workspace.CurrentSolution
             .AddProject("Test", "Test", LanguageNames.CSharp)
-            .AddMetadataReference(MetadataReference.CreateFromFile(typeof(object).Assembly.Location))
+            .AddMetadataReference(RuntimeMetadataReferences.CoreLibrary)
             .AddAnalyzerConfigDocument("/.editorconfig", SourceText.From(config), filePath: "/.editorconfig").Project;
         var document = project.AddDocument("Test0.cs", SourceText.From(source), filePath: "/Test0.cs");
         project = document.Project;

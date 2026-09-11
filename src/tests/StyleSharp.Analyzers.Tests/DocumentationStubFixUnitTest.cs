@@ -5,6 +5,8 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+using RoslynCommon.Analyzers.Tests;
+
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MemberDocumentationAnalyzer,
     StyleSharp.Analyzers.DocumentationStubCodeFixProvider>;
@@ -142,7 +144,7 @@ public class DocumentationStubFixUnitTest
         using var workspace = new AdhocWorkspace();
         var project = workspace
             .AddProject("Stub", LanguageNames.CSharp)
-            .AddMetadataReference(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+            .AddMetadataReference(RuntimeMetadataReferences.CoreLibrary);
         var document = project.AddDocument("C.cs", Source);
         var root = await document.GetSyntaxRootAsync(CancellationToken.None);
         var member = root!.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();

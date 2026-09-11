@@ -6,6 +6,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+using RoslynCommon.Analyzers.Tests;
+
 namespace StyleSharp.Analyzers.Tests;
 
 /// <summary>Tests shared field-reference helper fast paths used by lock-target analysis.</summary>
@@ -87,7 +89,7 @@ public class FieldReferenceAnalysisUnitTest
         var compilation = CSharpCompilation.Create(
             assemblyName: "FieldReferenceAnalysisUnitTest",
             syntaxTrees: [tree],
-            references: CreateReferences());
+            references: RuntimeMetadataReferences.Platform);
         var model = compilation.GetSemanticModel(tree);
         var type = (TypeDeclarationSyntax)root.Members[0];
         var property = type.Members.OfType<PropertyDeclarationSyntax>().Single();
@@ -105,19 +107,5 @@ public class FieldReferenceAnalysisUnitTest
             .Single(field => field.Declaration.Variables.Any(variable => variable.Identifier.ValueText == fieldName));
         var declarator = declaration.Declaration.Variables.Single(variable => variable.Identifier.ValueText == fieldName);
         return (IFieldSymbol)model.GetDeclaredSymbol(declarator)!;
-    }
-
-    /// <summary>Creates metadata references for the current runtime.</summary>
-    /// <returns>The metadata references.</returns>
-    private static MetadataReference[] CreateReferences()
-    {
-        var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator);
-        var references = new MetadataReference[trustedAssemblies.Length];
-        for (var i = 0; i < trustedAssemblies.Length; i++)
-        {
-            references[i] = MetadataReference.CreateFromFile(trustedAssemblies[i]);
-        }
-
-        return references;
     }
 }

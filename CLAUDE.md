@@ -144,6 +144,19 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   (`#if !NET`), so value types are `readonly record struct` instead of
   hand-written `IEquatable<T>`.
 
+- **Never build metadata references inside a test.** `MetadataReference.CreateFromFile`
+  memory-maps the assembly and holds the mapping for as long as the reference lives,
+  and it caches nothing. A helper that walks `TRUSTED_PLATFORM_ASSEMBLIES` per call
+  therefore maps the whole platform again for every test that touches it and keeps
+  each copy alive — roughly 40 ms and 200-odd mappings a time. A metadata reference
+  is immutable and Roslyn shares one across compilations, so take the cached sets from
+  `RuntimeMetadataReferences` (`Platform`, or `CoreLibrary` when binding the primitives
+  is enough) in `src/Shared/Tests/`, which every test project links. The same applies to
+  `ReferenceAssemblies`: use the shared statics in `AnalyzerFrameworks`, and never call
+  `AddPackages`/`AddAssemblies` in a test body — each call returns a **new**
+  `ReferenceAssemblies` whose NuGet resolution is then redone per test. Where a test
+  genuinely needs an extra package, cache the composed instance in a static.
+
 ## Multi-Roslyn targeting
 
 The analyzer + code-fix assemblies build once per Roslyn **slot** and pack under

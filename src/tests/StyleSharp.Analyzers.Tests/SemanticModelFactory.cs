@@ -6,6 +6,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+using RoslynCommon.Analyzers.Tests;
+
 namespace StyleSharp.Analyzers.Tests;
 
 /// <summary>Builds a compiled syntax tree and its semantic model for helper-level tests.</summary>
@@ -20,21 +22,7 @@ internal static class SemanticModelFactory
         var compilation = CSharpCompilation.Create(
             assemblyName: "SemanticModelFactory",
             syntaxTrees: [tree],
-            references: CreateReferences());
+            references: RuntimeMetadataReferences.Platform);
         return (tree.GetCompilationUnitRoot(), compilation.GetSemanticModel(tree));
-    }
-
-    /// <summary>Creates metadata references for the current runtime.</summary>
-    /// <returns>The metadata references.</returns>
-    private static MetadataReference[] CreateReferences()
-    {
-        var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator);
-        var references = new MetadataReference[trustedAssemblies.Length];
-        for (var i = 0; i < trustedAssemblies.Length; i++)
-        {
-            references[i] = MetadataReference.CreateFromFile(trustedAssemblies[i]);
-        }
-
-        return references;
     }
 }

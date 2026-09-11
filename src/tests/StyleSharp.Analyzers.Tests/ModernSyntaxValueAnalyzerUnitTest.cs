@@ -13,6 +13,8 @@ using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.CodeAnalysis.Text;
 
+using RoslynCommon.Analyzers.Tests;
+
 using VerifyModernSyntaxValue = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ModernSyntaxValueAnalyzer,
     StyleSharp.Analyzers.ModernSyntaxValueCodeFixProvider>;
@@ -275,7 +277,7 @@ public class ModernSyntaxValueAnalyzerUnitTest
         using var workspace = new AdhocWorkspace();
         var project = workspace.CurrentSolution
             .AddProject("TestProject", "TestProject", LanguageNames.CSharp)
-            .WithMetadataReferences([MetadataReference.CreateFromFile(typeof(object).Assembly.Location)]);
+            .WithMetadataReferences([RuntimeMetadataReferences.CoreLibrary]);
         var document = project.AddDocument("Test0.cs", SourceText.From(Source));
         var root = await document.GetSyntaxRootAsync(CancellationToken.None);
         var model = await document.GetSemanticModelAsync(CancellationToken.None);

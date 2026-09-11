@@ -270,6 +270,97 @@ public class MemberOrderingAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies the move fix is not offered when a region encloses part of the type.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The <c>#endregion</c> is the moved member's leading trivia and travels with it, landing above the
+    /// <c>#region</c> it closes — CS1028. The region belongs to a position in the file, not to the member
+    /// that happens to sit under it.
+    /// </remarks>
+    [Test]
+    public async Task RegionDirectivesSuppressFixAsync()
+    {
+        const string Source = """
+            public class C
+            {
+            #region Api
+                public void Method() { }
+            #endregion
+                private int {|SST1201:_field|};
+            }
+            """;
+
+        var test = new Verify.Test
+        {
+            TestCode = Source,
+            FixedCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the move fix is not offered when a warning suppression encloses part of the type.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Moving a member out from between the disable and the restore silently starts warning on it again,
+    /// and moving one in silently stops.
+    /// </remarks>
+    [Test]
+    public async Task PragmaDirectivesSuppressFixAsync()
+    {
+        const string Source = """
+            public class C
+            {
+            #pragma warning disable CS0169
+                public void Method() { }
+            #pragma warning restore CS0169
+                private int {|SST1201:_field|};
+            }
+            """;
+
+        var test = new Verify.Test
+        {
+            TestCode = Source,
+            FixedCode = Source
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a directive outside the type does not stop the move.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>A file-scoped directive spans no member boundary, so nothing crosses it.</remarks>
+    [Test]
+    public async Task FileScopedDirectiveStillAllowsTheMoveAsync()
+    {
+        const string Source = """
+            #nullable enable
+
+            public class C
+            {
+                public void Method() { }
+                private int {|SST1201:_field|};
+            }
+            """;
+        const string FixedSource = """
+            #nullable enable
+
+            public class C
+            {
+                private int _field;
+                public void Method() { }
+            }
+            """;
+
+        var test = new Verify.Test
+        {
+            TestCode = Source,
+            FixedCode = FixedSource
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies member-ordering can detect when union-marker resolution may be needed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

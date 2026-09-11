@@ -7,10 +7,17 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Moves an out-of-order member to its correct ordered position (SST1201–SST1215).
 /// The member is relocated just after the last sibling of an equal-or-earlier rank,
-/// carrying its own trivia. The fix is only offered when the file has no conditional
-/// (<c>#if</c>/<c>#elif</c>/<c>#else</c>/<c>#endif</c>) directives, which could move
-/// a member across a compilation boundary.
+/// carrying its own trivia.
 /// </summary>
+/// <remarks>
+/// A directive belongs to a position in the file, not to the member it sits above, so a move
+/// carries whichever half of a pair the member's trivia happens to hold and leaves the other
+/// behind. An <c>#endregion</c> in the moved member's leading trivia lands above its own
+/// <c>#region</c>, which is CS1028; a member leaving an <c>#if</c> stops compiling on the
+/// configurations that defined it; a member leaving a <c>#pragma warning disable</c> pair
+/// silently starts warning again. None of that is visible in the member being moved, so the fix
+/// is offered only for a type free of directives, in a file free of conditional ones.
+/// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(MemberOrderingCodeFixProvider))]
 [Shared]
 public sealed class MemberOrderingCodeFixProvider : CodeFixProvider
@@ -31,7 +38,7 @@ public sealed class MemberOrderingCodeFixProvider : CodeFixProvider
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || HasConditionalDirectives(root))
+        if (root is null || DirectiveBoundaries.AnyConditional(root))
         {
             return;
         }
@@ -39,7 +46,7 @@ public sealed class MemberOrderingCodeFixProvider : CodeFixProvider
         foreach (var diagnostic in context.Diagnostics)
         {
             var member = root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MemberDeclarationSyntax>();
-            if (member?.Parent is not TypeDeclarationSyntax)
+            if (member?.Parent is not TypeDeclarationSyntax type || DirectiveBoundaries.SeparateMembers(type))
             {
                 continue;
             }
@@ -61,6 +68,11 @@ public sealed class MemberOrderingCodeFixProvider : CodeFixProvider
     internal static async Task<Document> MoveAsync(Document document, MemberDeclarationSyntax member, CancellationToken cancellationToken)
     {
         var type = (TypeDeclarationSyntax)member.Parent!;
+        if (DirectiveBoundaries.SeparateMembers(type))
+        {
+            return document;
+        }
+
         var members = type.Members;
         var flaggedIndex = members.IndexOf(member);
 
@@ -161,29 +173,5 @@ public sealed class MemberOrderingCodeFixProvider : CodeFixProvider
         var isUnion = model is not null && marker is not null
             && MemberOrder.IsUnion(member, model, marker, cancellationToken);
         return MemberOrder.Classify(member, isUnion);
-    }
-
-    /// <summary>Returns whether the syntax tree contains conditional compilation directives.</summary>
-    /// <param name="root">The compilation unit root.</param>
-    /// <returns><see langword="true"/> when an <c>#if</c>/<c>#elif</c>/<c>#else</c>/<c>#endif</c> directive is present.</returns>
-    private static bool HasConditionalDirectives(SyntaxNode root)
-    {
-        if (!root.ContainsDirectives)
-        {
-            return false;
-        }
-
-        for (var directive = root.GetFirstDirective(); directive is not null; directive = directive.GetNextDirective())
-        {
-            if (directive.Kind() is SyntaxKind.IfDirectiveTrivia
-                or SyntaxKind.ElifDirectiveTrivia
-                or SyntaxKind.ElseDirectiveTrivia
-                or SyntaxKind.EndIfDirectiveTrivia)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

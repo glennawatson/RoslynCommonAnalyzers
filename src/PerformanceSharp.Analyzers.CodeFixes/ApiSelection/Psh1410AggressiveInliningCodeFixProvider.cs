@@ -45,7 +45,7 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is not CompilationUnitSyntax unit || HasConditionalDirective(unit))
+        if (root is not CompilationUnitSyntax unit || DirectiveBoundaries.AnyConditional(unit))
         {
             return;
         }
@@ -129,30 +129,6 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
         => leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
             ? leading[leading.Count - 1]
             : SyntaxFactory.Whitespace(string.Empty);
-
-    /// <summary>Returns whether a conditional directive anywhere in the file makes its imports ambiguous.</summary>
-    /// <param name="unit">The compilation unit to inspect.</param>
-    /// <returns><see langword="true"/> when the file carries an <c>#if</c> family directive.</returns>
-    private static bool HasConditionalDirective(CompilationUnitSyntax unit)
-    {
-        if (!unit.ContainsDirectives)
-        {
-            return false;
-        }
-
-        for (var directive = unit.GetFirstDirective(); directive is not null; directive = directive.GetNextDirective())
-        {
-            if (directive.IsKind(SyntaxKind.IfDirectiveTrivia)
-                || directive.IsKind(SyntaxKind.ElifDirectiveTrivia)
-                || directive.IsKind(SyntaxKind.ElseDirectiveTrivia)
-                || directive.IsKind(SyntaxKind.EndIfDirectiveTrivia))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Adds the attribute's namespace to the file's imports when it is not there.</summary>
     /// <param name="unit">The compilation unit to import into.</param>
@@ -273,7 +249,7 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
         protected override async Task<Document?> FixAllAsync(FixAllContext fixAllContext, Document document, ImmutableArray<Diagnostic> diagnostics)
         {
             var root = await document.GetSyntaxRootAsync(fixAllContext.CancellationToken).ConfigureAwait(false);
-            return root is not CompilationUnitSyntax unit || HasConditionalDirective(unit)
+            return root is not CompilationUnitSyntax unit || DirectiveBoundaries.AnyConditional(unit)
                 ? document
                 : Apply(document, unit, diagnostics);
         }

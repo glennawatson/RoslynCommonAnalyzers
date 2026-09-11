@@ -62,7 +62,7 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
         }
 
         var location = summary.GetLocation();
-        CheckCapital(context, text, location);
+        CheckCapital(context, summary, text, location);
         CheckWhitespace(context, text, location);
         CheckPercentage(context, text, location);
         CheckLength(context, text, location);
@@ -116,16 +116,46 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a summary that does not begin with a capital letter.</summary>
     /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="summary">The summary element.</param>
     /// <param name="text">The normalized summary text.</param>
     /// <param name="location">The summary location.</param>
-    private static void CheckCapital(SyntaxNodeAnalysisContext context, string text, Location location)
+    private static void CheckCapital(SyntaxNodeAnalysisContext context, XmlNodeSyntax summary, string text, Location location)
     {
-        if (!char.IsLetter(text[0]) || !char.IsLower(text[0]))
+        if (!char.IsLetter(text[0]) || !char.IsLower(text[0]) || BeginsWithElement(summary))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TextBeginsWithCapital, location));
+    }
+
+    /// <summary>Returns whether a summary opens with an element rather than prose.</summary>
+    /// <param name="summary">The summary element.</param>
+    /// <returns><see langword="true"/> when the first thing in the summary is another element.</returns>
+    /// <remarks>
+    /// A summary that opens with <c>&lt;c&gt;</c>, <c>&lt;see&gt;</c> or a <c>&lt;paramref&gt;</c> starts with
+    /// a code fragment or a name, whose casing the language decides and the author may not change. There is no
+    /// sentence-initial letter to capitalise, and capitalising the one inside the element would break it.
+    /// </remarks>
+    private static bool BeginsWithElement(XmlNodeSyntax summary)
+    {
+        if (summary is not XmlElementSyntax element)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < element.Content.Count; i++)
+        {
+            switch (element.Content[i])
+            {
+                case XmlElementSyntax or XmlEmptyElementSyntax:
+                    return true;
+                case XmlTextSyntax text when XmlDocumentationHelper.NormalizedText(text).Length > 0:
+                    return false;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reports a summary that is a single word (contains no whitespace).</summary>

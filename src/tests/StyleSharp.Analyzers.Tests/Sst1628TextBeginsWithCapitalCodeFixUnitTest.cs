@@ -66,4 +66,39 @@ public class Sst1628TextBeginsWithCapitalCodeFixUnitTest
                                    """;
         await VerifyCapitalFix.VerifyCodeFixAsync(Source, FixedSource);
     }
+
+    /// <summary>Verifies a summary that opens with a code element is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The first word is a code fragment whose casing the language decides, so there is no
+    /// sentence-initial letter to capitalise and changing the one inside would break the fragment.
+    /// </remarks>
+    [Test]
+    public async Task SummaryOpeningWithACodeElementIsCleanAsync()
+        => await VerifyCapitalFix.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                /// <summary><c>while (true)</c> loops forever.</summary>
+                public void M()
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies a summary that opens with a parameter reference is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SummaryOpeningWithAParameterReferenceIsCleanAsync()
+        => await VerifyCapitalFix.VerifyAnalyzerAsync(
+            """
+            internal class C
+            {
+                /// <summary><paramref name="value"/> decides the result.</summary>
+                /// <param name="value">The deciding value.</param>
+                public void M(int value)
+                {
+                }
+            }
+            """);
 }

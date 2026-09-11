@@ -66,4 +66,19 @@ public class BuiltInTypeAliasAnalyzerUnitTest
                 private int value;
             }
             """);
+
+    /// <summary>Verifies a framework name a <c>nameof</c> takes the name of is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks><c>nameof</c> takes a name and a keyword is not one, so <c>nameof(object)</c> does not compile.</remarks>
+    [Test]
+    public async Task NameofOperandIsCleanAsync()
+        => await VerifyBuiltInAlias.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            internal class C
+            {
+                private string Name() => nameof(Object);
+            }
+            """);
 }

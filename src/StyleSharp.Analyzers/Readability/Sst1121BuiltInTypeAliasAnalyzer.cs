@@ -76,7 +76,8 @@ public sealed class Sst1121BuiltInTypeAliasAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The candidate type node.</param>
     private static void Report(SyntaxNodeAnalysisContext context, SyntaxNode node)
     {
-        if (context.SemanticModel.GetSymbolInfo(node, context.CancellationToken).Symbol is not INamedTypeSymbol type
+        if (IsNameofOperand(node)
+            || context.SemanticModel.GetSymbolInfo(node, context.CancellationToken).Symbol is not INamedTypeSymbol type
             || BuiltInTypeAliases.Keyword(type.SpecialType) is not { } keyword)
         {
             return;
@@ -84,4 +85,17 @@ public sealed class Sst1121BuiltInTypeAliasAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.UseBuiltInTypeAlias, node.GetLocation(), keyword, node.ToString()));
     }
+
+    /// <summary>Returns whether a type name is what a <c>nameof</c> is taking the name of.</summary>
+    /// <param name="node">The candidate type node.</param>
+    /// <returns><see langword="true"/> when the name is a <c>nameof</c> operand.</returns>
+    /// <remarks>
+    /// <c>nameof</c> takes a name, and a keyword is not one: <c>nameof(object)</c> does not compile, so the
+    /// framework spelling is the only one that works there.
+    /// </remarks>
+    private static bool IsNameofOperand(SyntaxNode node)
+        => node.Parent is ArgumentSyntax
+        {
+            Parent.Parent: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } },
+        };
 }

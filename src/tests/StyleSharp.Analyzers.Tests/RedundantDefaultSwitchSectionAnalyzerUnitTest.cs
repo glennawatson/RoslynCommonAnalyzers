@@ -103,6 +103,37 @@ public class RedundantDefaultSwitchSectionAnalyzerUnitTest
         await VerifyDefaultSection.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a breaking default section over an enum is left in place.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The section is what marks the mapping deliberately partial, so removing it turns the switch into
+    /// an incomplete enum mapping (SST2242).
+    /// </remarks>
+    [Test]
+    public async Task BreakingDefaultOverAnEnumIsCleanAsync()
+        => await VerifyDefaultSection.VerifyAnalyzerAsync(
+            """
+            public enum Level
+            {
+                Low,
+                High
+            }
+
+            public class C
+            {
+                public void M(Level level)
+                {
+                    switch (level)
+                    {
+                        case Level.Low:
+                            return;
+                        default:
+                            break;
+                    }
+                }
+            }
+            """);
+
     /// <summary>Verifies a default section that does real work is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

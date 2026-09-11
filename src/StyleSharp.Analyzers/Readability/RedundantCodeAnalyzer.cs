@@ -221,6 +221,14 @@ public sealed class RedundantCodeAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // Over an enum the section is not redundant: it is how a switch declares itself a deliberately
+        // partial mapping, and dropping it turns the switch into an incomplete one (SST2242).
+        if (section.Parent is SwitchStatementSyntax switchStatement
+            && context.SemanticModel.GetTypeInfo(switchStatement.Expression, context.CancellationToken).Type is { TypeKind: TypeKind.Enum })
+        {
+            return;
+        }
+
         var defaultLabel = (DefaultSwitchLabelSyntax)section.Labels[0];
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantDefaultSwitchSection, defaultLabel.Keyword.GetLocation()));
     }

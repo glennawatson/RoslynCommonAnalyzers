@@ -74,4 +74,58 @@ public class Sst2329FlagsEnumMissingZeroValueCodeFixUnitTest
     [Test]
     public async Task AddsNoneBeforeOtherMembersAsync()
         => await VerifyZero.VerifyCodeFixAsync(ThreeMemberSource, ThreeMemberFixed);
+
+    /// <summary>Verifies an enum whose body carries a directive is reported but not edited.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// Members inside an inactive <c>#if</c> are disabled text, not members, so the fix would read this
+    /// enum as empty and rewrite its close brace — and the region, with everything in it, is the trivia
+    /// that brace carries.
+    /// </remarks>
+    [Test]
+    public async Task EnumWithADirectiveInItsBodyIsNotEditedAsync()
+    {
+        const string Source = """
+            using System;
+
+            [Flags]
+            public enum {|SST2329:Access|}
+            {
+            #if FULL
+                Read = 1,
+                Write = 2,
+            #endif
+            }
+            """;
+        await VerifyZero.VerifyCodeFixAsync(Source, Source);
+    }
+
+    /// <summary>Verifies the first member's documentation is not copied onto the new one.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task DocumentationOfTheFirstMemberIsNotCopiedAsync()
+    {
+        const string Source = """
+            using System;
+
+            [Flags]
+            public enum {|SST2329:Access|}
+            {
+                /// <summary>Permission to read.</summary>
+                Read = 1,
+            }
+            """;
+        const string FixedSource = """
+            using System;
+
+            [Flags]
+            public enum Access
+            {
+                None = 0,
+                /// <summary>Permission to read.</summary>
+                Read = 1,
+            }
+            """;
+        await VerifyZero.VerifyCodeFixAsync(Source, FixedSource);
+    }
 }

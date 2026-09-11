@@ -62,8 +62,16 @@ public sealed class Sst2329FlagsEnumMissingZeroValueCodeFixProvider : CodeFixPro
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The enum declaration, or <see langword="null"/> when the shape no longer matches.</returns>
+    /// <remarks>
+    /// A directive in the body takes the enum out of reach. Members inside an inactive <c>#if</c> are
+    /// disabled text rather than members, so the fix would read the enum as empty and rewrite the close
+    /// brace — taking the region and everything in it with the trivia that brace carries.
+    /// </remarks>
     private static EnumDeclarationSyntax? FindDeclaration(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<EnumDeclarationSyntax>();
+        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<EnumDeclarationSyntax>() is { } declaration
+            && !DirectiveBoundaries.SeparateMembers(declaration)
+                ? declaration
+                : null;
 
     /// <summary>Inserts a <c>None = 0</c> member as the first member of the enum, matching its layout.</summary>
     /// <param name="declaration">The enum declaration.</param>
@@ -77,7 +85,7 @@ public sealed class Sst2329FlagsEnumMissingZeroValueCodeFixProvider : CodeFixPro
         var members = declaration.Members;
         if (members.Count > 0)
         {
-            return declaration.WithMembers(members.Insert(0, member.WithLeadingTrivia(members[0].GetLeadingTrivia())));
+            return declaration.WithMembers(members.Insert(0, member.WithLeadingTrivia(IndentOf(members[0]))));
         }
 
         // An empty enum body: place the member on its own indented line and push the close brace down after it.
@@ -89,6 +97,38 @@ public sealed class Sst2329FlagsEnumMissingZeroValueCodeFixProvider : CodeFixPro
             .WithMembers(SyntaxFactory.SingletonSeparatedList(placed))
             .WithCloseBraceToken(closeBrace);
     }
+
+    /// <summary>Gets the whitespace that positions a member, without what the author wrote above it.</summary>
+    /// <param name="member">The member whose line the new one joins.</param>
+    /// <returns>The run of layout trivia immediately before the member.</returns>
+    /// <remarks>
+    /// Only the indentation is shared. Copying the whole leading trivia would put a second copy of the
+    /// member's documentation on the generated one, and a second <c>#region</c> or <c>#if</c> in the file
+    /// with only one close to match it.
+    /// </remarks>
+    private static SyntaxTriviaList IndentOf(EnumMemberDeclarationSyntax member)
+    {
+        var leading = member.GetLeadingTrivia();
+        var start = leading.Count;
+        while (start > 0 && IsLayout(leading[start - 1]))
+        {
+            start--;
+        }
+
+        var layout = new List<SyntaxTrivia>(leading.Count - start);
+        for (var i = start; i < leading.Count; i++)
+        {
+            layout.Add(leading[i]);
+        }
+
+        return SyntaxFactory.TriviaList(layout);
+    }
+
+    /// <summary>Returns whether a trivia only positions the node.</summary>
+    /// <param name="trivia">The trivia to classify.</param>
+    /// <returns><see langword="true"/> for whitespace and line breaks.</returns>
+    private static bool IsLayout(SyntaxTrivia trivia)
+        => trivia.IsKind(SyntaxKind.WhitespaceTrivia) || trivia.IsKind(SyntaxKind.EndOfLineTrivia);
 
     /// <summary>Gets the enum declaration's own indentation from its leading trivia.</summary>
     /// <param name="declaration">The enum declaration.</param>

@@ -138,10 +138,17 @@ internal static class HardcodedSecretClassifier
 
     /// <summary>Returns the credential kind a string literal's content matches, or <see langword="null"/> when it is not a recognised secret.</summary>
     /// <param name="value">The decoded literal content.</param>
+    /// <param name="settings">The project's secret-scanning settings; the default reports every recognised shape.</param>
     /// <returns>A kind label from this class, or <see langword="null"/> when the content is not a recognised secret.</returns>
-    internal static string? Classify(string value)
+    internal static string? Classify(string value, SecretScanningSettings settings = default)
     {
         if (value.Length < MinCandidateLength || IsAngleBracketTemplate(value))
+        {
+            return null;
+        }
+
+        if (settings.IsAllowedExample(value)
+            || (settings.AllowDocumentationExamples && IsDocumentationExample(value, 0, value.Length)))
         {
             return null;
         }
@@ -406,7 +413,6 @@ internal static class HardcodedSecretClassifier
     /// <returns><see langword="true"/> when the body reads as a high-entropy secret rather than a placeholder.</returns>
     private static bool IsHighEntropyBody(string value, int start, int end)
         => !HasLongIdenticalRun(value, start, end)
-            && !IsDocumentationExample(value, start, end)
             && CountDistinctAsciiCharacters(value, start, end) >= MinDistinctBodyCharacters;
 
     /// <summary>Returns whether a keyed body carries the marker vendors reserve for their published samples.</summary>

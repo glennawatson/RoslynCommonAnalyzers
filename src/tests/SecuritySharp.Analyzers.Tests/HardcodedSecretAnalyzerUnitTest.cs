@@ -37,19 +37,44 @@ public class HardcodedSecretAnalyzerUnitTest
     public async Task ClassifiesRecognisedSecretAsync(string value, string expectedKind)
         => await Assert.That(HardcodedSecretClassifier.Classify(value)).IsEqualTo(expectedKind);
 
-    /// <summary>Verifies a key carrying the vendors' sample marker is not classified as a secret.</summary>
+    /// <summary>Verifies a key carrying a vendor's sample marker is still classified by default.</summary>
     /// <param name="value">The decoded literal content.</param>
+    /// <param name="expectedKind">The kind label the classifier is expected to return.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
-    /// A vendor reserves the marker for the key printed in its own documentation, so that a scanner can
-    /// tell a sample from a credential. Reporting it flags every tutorial and sample that quotes them.
+    /// The marker is a convention rather than a guarantee, so a live credential is free to contain the
+    /// same letters. Accepting it is a project's call, not one the rule makes on its behalf.
     /// </remarks>
+    [Test]
+    [Arguments("AKIAIOSFODNN7EXAMPLE", HardcodedSecretClassifier.AwsAccessKeyId)]
+    [Arguments("AKIAI44QH8DHBEXAMPLE", HardcodedSecretClassifier.AwsAccessKeyId)]
+    [Arguments("ghp_0123456789abcdefghijEXAMPLEklmnopqrs", HardcodedSecretClassifier.GitHubToken)]
+    public async Task DocumentationExampleIsClassifiedByDefaultAsync(string value, string expectedKind)
+        => await Assert.That(HardcodedSecretClassifier.Classify(value)).IsEqualTo(expectedKind);
+
+    /// <summary>Verifies a project can opt into accepting a vendor's published sample key.</summary>
+    /// <param name="value">The decoded literal content.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     [Arguments("AKIAIOSFODNN7EXAMPLE")]
     [Arguments("AKIAI44QH8DHBEXAMPLE")]
-    [Arguments("ghp_0123456789abcdefghijEXAMPLEklmnopqr")]
-    public async Task DocumentationExampleIsNotASecretAsync(string value)
-        => await Assert.That(HardcodedSecretClassifier.Classify(value)).IsNull();
+    [Arguments("ghp_0123456789abcdefghijEXAMPLEklmnopqrs")]
+    public async Task DocumentationExampleIsAcceptedWhenAllowedAsync(string value)
+        => await Assert.That(HardcodedSecretClassifier.Classify(value, new SecretScanningSettings(AllowDocumentationExamples: true, AllowedExamples: null))).IsNull();
+
+    /// <summary>Verifies a project can name the exact sample values it accepts.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NamedExampleIsAcceptedAsync()
+    {
+        var settings = new SecretScanningSettings(AllowDocumentationExamples: false, AllowedExamples: ["AKIAIOSFODNN7EXAMPLE"]);
+
+        await Assert.That(HardcodedSecretClassifier.Classify("AKIAIOSFODNN7EXAMPLE", settings)).IsNull();
+
+        // A key the project did not name keeps reporting, marker or not.
+        await Assert.That(HardcodedSecretClassifier.Classify("AKIAI44QH8DHBEXAMPLE", settings))
+            .IsEqualTo(HardcodedSecretClassifier.AwsAccessKeyId);
+    }
 
     /// <summary>Verifies Slack token shapes are classified, with prefix and body supplied separately so no contiguous token literal appears in the source.</summary>
     /// <param name="prefix">The Slack token type prefix.</param>

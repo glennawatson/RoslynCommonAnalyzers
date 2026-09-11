@@ -128,6 +128,8 @@ Some rules expose options. Current options:
 | `stylesharp.max_initializer_length` | [SST2266](rules/SST2266.md) | positive integer (widest initializer, in characters, still worth inlining) | `40` |
 | `stylesharp.min_wrapped_statements` | [SST2273](rules/SST2273.md) | positive integer (minimum wrapped statements before a trailing-guard `if` is reported) | `2` |
 | `securitysharp.SES1003.iterations` | [SES1003](rules/SES1003.md) | positive integer (minimum accepted PBKDF2 iteration count) | `100000` |
+| `securitysharp.allowed_example_secrets` | [SES1201](rules/SES1201.md) | comma-separated literal values accepted as published samples | (none) |
+| `securitysharp.allow_documentation_examples` | [SES1201](rules/SES1201.md) | `true`, `false` | `false` |
 | `securitysharp.SES1403.maxdepth` | [SES1403](rules/SES1403.md) | positive integer (highest accepted `System.Text.Json` `MaxDepth`) | `64` |
 | `securitysharp.SES1701.sanitizers` | [SES1701](rules/SES1701.md) | comma-separated method names that sanitize HTML (a value wrapped in one is not reported) | (none) |
 | `securitysharp.SES1703.exempt_types` | [SES1703](rules/SES1703.md) | comma-separated component type names exempt from the non-routable-authorization check | (none) |

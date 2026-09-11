@@ -36,8 +36,9 @@ public sealed class Ses1201HardcodedSecretAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeStringLiteral(SyntaxNodeAnalysisContext context)
     {
         var literal = (LiteralExpressionSyntax)context.Node;
+        var settings = SecretScanningOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(literal.SyntaxTree));
 
-        if (HardcodedSecretClassifier.Classify(literal.Token.ValueText) is not { } kind)
+        if (HardcodedSecretClassifier.Classify(literal.Token.ValueText, settings) is not { } kind)
         {
             return;
         }

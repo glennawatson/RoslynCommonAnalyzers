@@ -80,8 +80,10 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
     {
         var literal = (LiteralExpressionSyntax)context.Node;
 
+        var settings = SecretScanningOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(literal.SyntaxTree));
+
         // Cheap, allocation-free screen first: only a recognised secret shape is worth the reachability check.
-        if (HardcodedSecretClassifier.Classify(literal.Token.ValueText) is not { } kind)
+        if (HardcodedSecretClassifier.Classify(literal.Token.ValueText, settings) is not { } kind)
         {
             return;
         }

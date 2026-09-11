@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -373,6 +374,28 @@ public class SealNonDerivedTypeAnalyzerUnitTest
             }
             """,
             IncludePublicSetting);
+
+    /// <summary>Verifies the class the compiler writes for a file of top-level statements is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// That symbol is not marked implicit and does carry a declaring reference, so it reaches the rule
+    /// like any other internal class — but the reference is the compilation unit, leaving the modifier
+    /// nowhere to go.
+    /// </remarks>
+    [Test]
+    public async Task TopLevelStatementProgramIsCleanAsync()
+    {
+        var test = new Verify.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
+            TestCode = """
+                       System.Console.WriteLine("run");
+                       """,
+        };
+        test.TestState.OutputKind = OutputKind.ConsoleApplication;
+
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>

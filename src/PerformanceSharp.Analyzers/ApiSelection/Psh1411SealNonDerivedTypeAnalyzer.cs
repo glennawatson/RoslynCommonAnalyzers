@@ -124,6 +124,7 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
         // containers, and only a class that survives both pays for the member scan — and only one that
         // survives all three ever forces the whole-compilation index to be built.
         if (!IsSealableShape(symbol)
+            || !IsWrittenAsTypeDeclaration(symbol, context.CancellationToken)
             || !IsReportableAccessibility(symbol, context, index)
             || DeclaresMemberSealingWouldReject(symbol)
             || index.IsBlocked(symbol, context.CancellationToken))
@@ -155,6 +156,30 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
             IsImplicitlyDeclared: false,
             DeclaringSyntaxReferences.Length: > 0,
         };
+
+    /// <summary>Returns whether a class is written as a declaration the modifier could go on.</summary>
+    /// <param name="symbol">The declared type.</param>
+    /// <param name="cancellationToken">A token that cancels the lookup.</param>
+    /// <returns><see langword="true"/> when source declares the type in the usual way.</returns>
+    /// <remarks>
+    /// A file of top-level statements gets a <c>Program</c> class the compiler writes for it. That symbol
+    /// is not marked implicit and does carry a declaring reference, so the shape checks let it through,
+    /// but the reference is the compilation unit rather than a type declaration — there is nowhere to put
+    /// <c>sealed</c>, and a fix has nothing to rewrite.
+    /// </remarks>
+    private static bool IsWrittenAsTypeDeclaration(INamedTypeSymbol symbol, CancellationToken cancellationToken)
+    {
+        var references = symbol.DeclaringSyntaxReferences;
+        for (var i = 0; i < references.Length; i++)
+        {
+            if (references[i].GetSyntax(cancellationToken) is TypeDeclarationSyntax)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Returns whether a class declares a member a sealed class may not have.</summary>
     /// <param name="symbol">The declared type.</param>

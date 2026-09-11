@@ -47,25 +47,25 @@ public class AggressiveInliningAnalyzerUnitTest
 
                                        public C(int value) => _value = value;
 
-                                       [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
                                        public int GetValue() => _value;
                                    }
                                    """;
         await VerifyOptInAsync(Source, FixedSource);
     }
 
-    /// <summary>Verifies a file with no CompilerServices import gets the same fully qualified attribute on any framework.</summary>
+    /// <summary>Verifies a file with no CompilerServices import gains one, identically on any framework.</summary>
     /// <param name="framework">The target framework whose reference assemblies the source is compiled against.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
-    /// The spelling is unconditional. A multi-targeted project compiles one linked file once per framework and
-    /// Roslyn reconciles the results into one document; where they differ it writes conflict markers into the
-    /// source. Running the same source against two frameworks pins that the emitted attribute does not move.
+    /// A multi-targeted project compiles one linked file once per framework and Roslyn reconciles the results
+    /// into one document; where they differ it writes conflict markers into the source. Running the same
+    /// source against two frameworks pins that neither the import nor the attribute moves.
     /// </remarks>
     [Test]
     [Arguments("net8.0")]
     [Arguments("netstandard2.0")]
-    public async Task UnimportedNamespaceGetsTheSameQualifiedAttributeOnEveryFrameworkAsync(string framework)
+    public async Task UnimportedNamespaceGainsTheImportOnEveryFrameworkAsync(string framework)
     {
         const string Source = """
                               public class C
@@ -78,13 +78,15 @@ public class AggressiveInliningAnalyzerUnitTest
                               }
                               """;
         const string FixedSource = """
+                                   using System.Runtime.CompilerServices;
+
                                    public class C
                                    {
                                        private readonly int _value;
 
                                        public C(int value) => _value = value;
 
-                                       [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
                                        public int GetValue() => _value;
                                    }
                                    """;
@@ -100,15 +102,74 @@ public class AggressiveInliningAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
-    /// <summary>Verifies a conditional import does not change the attribute the fix emits.</summary>
+    /// <summary>Verifies the import is sorted into the existing block rather than appended.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ImportIsSortedIntoTheExistingBlockAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+                              using Widgets;
+
+                              public class C
+                              {
+                                  private readonly int _value;
+
+                                  public C(int value) => _value = value;
+
+                                  public int {|PSH1410:GetValue|}() => _value;
+
+                                  public List<int> Items => new();
+
+                                  public Widget Widget => new();
+                              }
+
+                              namespace Widgets
+                              {
+                                  public class Widget
+                                  {
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+                                   using System.Runtime.CompilerServices;
+                                   using Widgets;
+
+                                   public class C
+                                   {
+                                       private readonly int _value;
+
+                                       public C(int value) => _value = value;
+
+                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                                       public int GetValue() => _value;
+
+                                       public List<int> Items => new();
+
+                                       public Widget Widget => new();
+                                   }
+
+                                   namespace Widgets
+                                   {
+                                       public class Widget
+                                       {
+                                       }
+                                   }
+                                   """;
+        await VerifyOptInAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a file carrying a conditional directive is reported but left unedited.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// A <c>using</c> inside an <c>#if</c> is a syntax node in the framework that defines the symbol and
-    /// inactive text in the one that does not, so reading the import to pick the spelling diverges across a
-    /// multi-targeted project exactly as asking the semantic model does. Neither decides it.
+    /// inactive text in the one that does not, so whether the import is already present cannot be answered
+    /// the same way in both. A linked file that gained the import in one compilation and not another comes
+    /// back from Roslyn with conflict markers, so no edit is offered at all.
     /// </remarks>
     [Test]
-    public async Task ConditionalImportStillGetsTheQualifiedAttributeAsync()
+    public async Task FileWithAConditionalDirectiveIsNotEditedAsync()
     {
         const string Source = """
                               #if !NETSTANDARD
@@ -124,22 +185,7 @@ public class AggressiveInliningAnalyzerUnitTest
                                   public int {|PSH1410:GetValue|}() => _value;
                               }
                               """;
-        const string FixedSource = """
-                                   #if !NETSTANDARD
-                                   using System.Runtime.CompilerServices;
-                                   #endif
-
-                                   public class C
-                                   {
-                                       private readonly int _value;
-
-                                       public C(int value) => _value = value;
-
-                                       [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                                       public int GetValue() => _value;
-                                   }
-                                   """;
-        await VerifyOptInAsync(Source, FixedSource);
+        await VerifyOptInAsync(Source, Source);
     }
 
     /// <summary>Verifies a member that already carries an attribute keeps one copy of its doc comment.</summary>
@@ -177,7 +223,7 @@ public class AggressiveInliningAnalyzerUnitTest
                                        public C(int value) => _value = value;
 
                                        /// <summary>Reads the value.</summary>
-                                       [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
                                        [SuppressMessage("Design", "CA1000", Justification = "test")]
                                        public int GetValue() => _value;
                                    }
@@ -214,11 +260,11 @@ public class AggressiveInliningAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies the attribute this fix writes is recognised on a second pass.</summary>
+    /// <summary>Verifies a fully qualified MethodImpl attribute is recognised.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
-    /// The fix emits the fully qualified spelling. If the eligibility check only recognises the short one
-    /// the member is reported again and a second application yields CS0579, a duplicate attribute.
+    /// If the eligibility check only recognises the short spelling the member is reported again and a
+    /// second application yields CS0579, a duplicate attribute.
     /// </remarks>
     [Test]
     public async Task QualifiedMethodImplAttributeIsCleanAsync()

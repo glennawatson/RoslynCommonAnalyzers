@@ -365,6 +365,41 @@ public class NameSimplificationAnalyzerUnitTest
         await VerifyNameSimplification.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a qualified parameter type inside a documentation reference is shortened.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// A documentation comment is trivia, so the reported name only comes back from a search that descends
+    /// into it. Searching the surrounding tokens alone lands on the member declaration, which nothing knows
+    /// how to shorten, and the reported name is left as written.
+    /// </remarks>
+    [Test]
+    public async Task QualifiedNameInsideDocumentationReferenceParameterIsFixedAsync()
+    {
+        const string Source = """
+                              using System.Threading;
+
+                              public sealed class C
+                              {
+                                  /// <summary>Reads a value.</summary>
+                                  /// <param name="cancellationToken">A token that cancels the read.</param>
+                                  /// <remarks>Mirrors <see cref="C.Read({|SST1116:System.Threading.CancellationToken|})"/>.</remarks>
+                                  public void Read(CancellationToken cancellationToken) => cancellationToken.ThrowIfCancellationRequested();
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Threading;
+
+                                   public sealed class C
+                                   {
+                                       /// <summary>Reads a value.</summary>
+                                       /// <param name="cancellationToken">A token that cancels the read.</param>
+                                       /// <remarks>Mirrors <see cref="C.Read(CancellationToken)"/>.</remarks>
+                                       public void Read(CancellationToken cancellationToken) => cancellationToken.ThrowIfCancellationRequested();
+                                   }
+                                   """;
+        await VerifyNameSimplification.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies generated files are not analyzed even when diagnostic reporting is optimized.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

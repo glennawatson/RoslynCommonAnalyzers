@@ -76,10 +76,14 @@ public sealed class NameSimplificationCodeFixProvider : CodeFixProvider, IBatchF
     /// <param name="oldNode">The node being replaced.</param>
     /// <param name="diagnosticId">The diagnostic id.</param>
     /// <returns>The replacement node, or <see langword="null"/>.</returns>
+    /// <remarks>
+    /// A name written in a documentation reference lives in trivia, so the search has to descend into it.
+    /// Without that the search stops at the member the comment is attached to, which nothing here shortens.
+    /// </remarks>
     private static ExpressionSyntax? CreateReplacement(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode, out string diagnosticId)
     {
         diagnosticId = diagnostic.Id;
-        oldNode = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
+        oldNode = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
         return diagnostic.Id switch
         {
             "SST1116" => CreateNameReplacement(oldNode),

@@ -65,6 +65,7 @@ public sealed class Psh1316ConsumeValueTaskOnceCodeFixProvider : CodeFixProvider
             || statement.Declaration.Variables.Count != 1
             || !statement.UsingKeyword.IsKind(SyntaxKind.None)
             || NearestLoopBody(identifier) is not { } loopBody
+            || DirectiveBoundaries.Separate(statement, loopBody)
             || UsedOutside(loopBody, local, model, identifier))
         {
             return false;

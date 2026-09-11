@@ -38,7 +38,10 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         var tree = await context.Document.GetSyntaxTreeAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is not CompilationUnitSyntax || tree is null)
+
+        // A type inside a conditional region belongs to the configurations that region selects, and a file
+        // of its own has no way to say so. Which configurations the new file is for is the author's call.
+        if (root is not CompilationUnitSyntax || tree is null || DirectiveBoundaries.AnyConditional(root))
         {
             return;
         }

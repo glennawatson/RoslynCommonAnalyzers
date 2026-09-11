@@ -13,6 +13,40 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2404 (an iterator whose argument guards do not run until it is enumerated) and its fix.</summary>
 public class IteratorValidatesTooLateAnalyzerUnitTest
 {
+    /// <summary>Verifies a method body carrying a region is reported but not split.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The statements after the guards move into a new local function body. The directive marks a position
+    /// in the method, so half of the pair would travel with them.
+    /// </remarks>
+    [Test]
+    public async Task MethodCarryingADirectiveIsNotSplitAsync()
+    {
+        const string Source = """
+                              using System;
+                              using System.Collections.Generic;
+
+                              public sealed class C
+                              {
+                                  public IEnumerable<int> {|SST2404:M|}(int[] values)
+                                  {
+                                      if (values is null)
+                                      {
+                                          throw new ArgumentNullException(nameof(values));
+                                      }
+
+                              #region Walk
+                                      foreach (var value in values)
+                                      {
+                                          yield return value;
+                                      }
+                              #endregion
+                                  }
+                              }
+                              """;
+        await VerifyIteratorGuard.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies a guarded iterator is reported and split into a validating wrapper and an iterator.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

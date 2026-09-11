@@ -69,8 +69,11 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape carries no safe fix.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
+        // The statements after the guards move into a new local function body. A directive among them marks
+        // a position in the method, so half of a pair would travel with the moved statements.
         if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { Body: { } body } method
-            || ModifierListHelper.Contains(method.Modifiers, SyntaxKind.AsyncKeyword))
+            || ModifierListHelper.Contains(method.Modifiers, SyntaxKind.AsyncKeyword)
+            || DirectiveBoundaries.Cross(method, body.FullSpan))
         {
             return null;
         }

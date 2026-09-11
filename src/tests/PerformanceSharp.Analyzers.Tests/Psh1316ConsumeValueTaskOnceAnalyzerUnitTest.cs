@@ -49,6 +49,37 @@ public class Psh1316ConsumeValueTaskOnceAnalyzerUnitTest
         }
         """;
 
+    /// <summary>Verifies a declaration separated from its loop by a region is reported but not moved.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The declaration sinks into the loop body and its own statement is deleted, so the directive standing
+    /// between the two ends up marking a position the declaration has left.
+    /// </remarks>
+    [Test]
+    public async Task DeclarationAcrossADirectiveIsNotMovedAsync()
+    {
+        const string Source = """
+            using System.Threading.Tasks;
+
+            public class C
+            {
+                private static ValueTask P() => default;
+
+                public async Task M()
+                {
+                    ValueTask vt = P();
+            #region Consume
+                    for (int i = 0; i < 3; i++)
+                    {
+                        await {|PSH1316:vt|};
+                    }
+            #endregion
+                }
+            }
+            """;
+        await VerifyConsumeOnce.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies a ValueTask declared outside a loop and awaited inside it is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -93,6 +93,44 @@ public class InitializerOnSingleLineUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies an initializer assigning a raw string literal is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The literal carries its own line breaks, so there is no single-line form to collapse to. Reporting
+    /// it puts the rule at odds with the brace-placement rules, which push the initializer straight back
+    /// out again.
+    /// </remarks>
+    [Test]
+    public async Task InitializerHoldingAMultiLineLiteralIsCleanAsync()
+    {
+        var test = new VerifyInitializer.Test
+        {
+            TestCode = """"
+                       internal class Case
+                       {
+                           public string Source { get; set; } = "";
+                       }
+
+                       internal class C
+                       {
+                           private static Case Make() => new Case
+                           {
+                               Source = """
+                                        public class Outer;
+                                        """,
+                           };
+                       }
+                       """",
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1531.severity = warning
+
+            """));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies an initializer that would exceed the line limit collapsed is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -88,6 +88,13 @@ public sealed class Sst1531InitializerOnSingleLineAnalyzer : DiagnosticAnalyzer
                 return false;
             }
 
+            // A token carrying its own line break — a raw string literal, a verbatim string — cannot be
+            // joined onto one line, so the initializer holding it has no single-line form to collapse to.
+            if (LayoutHelpers.LineOf(text, next.SpanStart) != LayoutHelpers.LineOf(text, next.Span.End))
+            {
+                return false;
+            }
+
             int separator;
             if (hasLineBreak)
             {

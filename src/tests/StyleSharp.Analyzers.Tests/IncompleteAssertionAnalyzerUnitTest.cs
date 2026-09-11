@@ -46,6 +46,12 @@ public class IncompleteAssertionAnalyzerUnitTest
         }
         """;
 
+    /// <summary>The using directive that brings the FluentAssertions <c>Should()</c> extensions into scope.</summary>
+    private const string FluentAssertionsUsing = """
+        using FluentAssertions;
+
+        """;
+
     /// <summary>Minimal AwesomeAssertions stubs mirroring the FluentAssertions shape under its own namespace.</summary>
     private const string AwesomeAssertionsStubs = """
         namespace AwesomeAssertions
@@ -68,10 +74,7 @@ public class IncompleteAssertionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task FluentBareShouldOnNestedSubjectIsReportedAsync()
-        => await VerifyAsync("""
-            using FluentAssertions;
-
-            """ + FluentAssertionsStubs + """
+        => await VerifyAsync(FluentAssertionsUsing + FluentAssertionsStubs + """
 
             public class Tests
             {
@@ -86,10 +89,7 @@ public class IncompleteAssertionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task FluentBareShouldOnRootNamespaceSubjectIsReportedAsync()
-        => await VerifyAsync("""
-            using FluentAssertions;
-
-            """ + FluentAssertionsStubs + """
+        => await VerifyAsync(FluentAssertionsUsing + FluentAssertionsStubs + """
 
             public class Tests
             {
@@ -104,10 +104,7 @@ public class IncompleteAssertionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task CompletedFluentAssertionIsCleanAsync()
-        => await VerifyAsync("""
-            using FluentAssertions;
-
-            """ + FluentAssertionsStubs + """
+        => await VerifyAsync(FluentAssertionsUsing + FluentAssertionsStubs + """
 
             public class Tests
             {

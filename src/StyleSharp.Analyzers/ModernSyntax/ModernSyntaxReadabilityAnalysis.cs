@@ -22,6 +22,9 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <summary>The maximum input count supported by <c>System.HashCode.Combine</c>.</summary>
     public const int HashCodeCombineMaxInputs = 8;
 
+    /// <summary>The name of the root <c>System</c> namespace, matched while walking a symbol's containing namespaces.</summary>
+    private const string SystemNamespaceName = "System";
+
     /// <summary>The multiplier commonly used by generated hash-code implementations.</summary>
     private const int HashMultiplier397 = 397;
 
@@ -225,7 +228,7 @@ internal static class ModernSyntaxReadabilityAnalysis
         => symbol is IPropertySymbol
         {
             Name: "UTF8",
-            ContainingType: { Name: "Encoding", ContainingNamespace: { Name: "Text", ContainingNamespace.Name: "System" } }
+            ContainingType: { Name: "Encoding", ContainingNamespace: { Name: "Text", ContainingNamespace.Name: SystemNamespaceName } }
         };
 
     /// <summary>Returns whether a symbol is <c>Encoding.GetBytes(string)</c>.</summary>
@@ -238,7 +241,7 @@ internal static class ModernSyntaxReadabilityAnalysis
             Parameters.Length: 1,
             Parameters: [{ Type.SpecialType: SpecialType.System_String }],
             ReturnType: IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Byte },
-            ContainingType: { Name: "Encoding", ContainingNamespace: { Name: "Text", ContainingNamespace.Name: "System" } }
+            ContainingType: { Name: "Encoding", ContainingNamespace: { Name: "Text", ContainingNamespace.Name: SystemNamespaceName } }
         };
 
     /// <summary>Returns whether a type is <c>System.ReadOnlySpan&lt;byte&gt;</c>.</summary>
@@ -249,7 +252,7 @@ internal static class ModernSyntaxReadabilityAnalysis
         {
             Name: "ReadOnlySpan",
             TypeArguments: [{ SpecialType: SpecialType.System_Byte }],
-            ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+            ContainingNamespace: { Name: SystemNamespaceName, ContainingNamespace.IsGlobalNamespace: true }
         };
 
     /// <summary>Reads the tuple temporary shape at the start of a deconstruction candidate.</summary>

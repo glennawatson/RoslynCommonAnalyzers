@@ -9,6 +9,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2313 (enums should use an allowed storage type).</summary>
 public class EnumStorageAnalyzerUnitTest
 {
+    /// <summary>The path the verifier's analyzer-config document is added at.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies every storage type outside the default allowed list is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -120,7 +123,7 @@ public class EnumStorageAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST2313.allowed_enum_storage = int, byte
@@ -146,7 +149,7 @@ public class EnumStorageAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.allowed_enum_storage = int, byte
@@ -172,7 +175,7 @@ public class EnumStorageAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.allowed_enum_storage = int, byte
@@ -199,7 +202,7 @@ public class EnumStorageAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST2313.allowed_enum_storage = Int32, Int64
@@ -230,7 +233,7 @@ public class EnumStorageAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST2313.allowed_enum_storage =

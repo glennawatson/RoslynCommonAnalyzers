@@ -9,6 +9,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1484 (declarations should not shadow an outer field or property).</summary>
 public class ShadowedDeclarationAnalyzerUnitTest
 {
+    /// <summary>The path the verifier gives the analyzer config the base-type-check option is read from.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>The <c>init</c>-accessor polyfill positional records require on the test reference assemblies.</summary>
     private const string IsExternalInit = """
 
@@ -647,7 +650,7 @@ public class ShadowedDeclarationAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1484.check_base_types = true
@@ -680,7 +683,7 @@ public class ShadowedDeclarationAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.check_base_types = true
@@ -713,7 +716,7 @@ public class ShadowedDeclarationAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1484.check_base_types = yes please

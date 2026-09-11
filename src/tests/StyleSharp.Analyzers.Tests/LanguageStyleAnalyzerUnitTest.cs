@@ -11,6 +11,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the grouped language-style readability analyzer (SST1193-SST1199).</summary>
 public class LanguageStyleAnalyzerUnitTest
 {
+    /// <summary>The path the verifier gives the analyzer config the line-length option is read from.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies object initializer opportunities are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -311,8 +314,8 @@ public class LanguageStyleAnalyzerUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -565,8 +568,8 @@ public class LanguageStyleAnalyzerUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
         await test.RunAsync(CancellationToken.None);
     }
 

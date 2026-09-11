@@ -20,6 +20,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class FileLineEndingUnitTest
 {
+    /// <summary>The sample file written with line-feed endings throughout.</summary>
+    private const string LineFeedSource = "internal class C\n{\n}\n";
+
     /// <summary>Verifies carriage-return/line-feed endings are reported and normalised to line feed by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -28,14 +31,14 @@ public class FileLineEndingUnitTest
             "internal class C\r\n{\r\n}\r\n",
             "dotnet_diagnostic.SST1532.severity = warning",
             expectedDiagnostics: 1,
-            "internal class C\n{\n}\n");
+            LineFeedSource);
 
     /// <summary>Verifies line-feed endings are reported and normalised to CRLF when 'crlf' is configured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task LineFeedNormalisedToCarriageReturnLineFeedWhenConfiguredAsync()
         => await AssertAsync(
-            "internal class C\n{\n}\n",
+            LineFeedSource,
             "dotnet_diagnostic.SST1532.severity = warning\nstylesharp.line_ending = crlf",
             expectedDiagnostics: 1,
             "internal class C\r\n{\r\n}\r\n");
@@ -45,10 +48,10 @@ public class FileLineEndingUnitTest
     [Test]
     public async Task ConsistentLineFeedFileIsCleanAsync()
         => await AssertAsync(
-            "internal class C\n{\n}\n",
+            LineFeedSource,
             "dotnet_diagnostic.SST1532.severity = warning",
             expectedDiagnostics: 0,
-            "internal class C\n{\n}\n");
+            LineFeedSource);
 
     /// <summary>Runs the analyzer and, when a diagnostic is expected, applies the code fix and checks the result.</summary>
     /// <param name="source">The source whose exact line endings are preserved.</param>

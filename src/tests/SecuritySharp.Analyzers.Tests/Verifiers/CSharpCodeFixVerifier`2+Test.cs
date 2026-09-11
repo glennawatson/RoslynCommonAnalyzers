@@ -55,15 +55,16 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
             // A real CRLF repo pins end_of_line, which is where fix cleanup takes its newline
             // from; the nested config leaves each test's own "/.editorconfig" untouched.
             const string CrlfConfig = "[*]\nend_of_line = crlf\n";
-            TestState.AnalyzerConfigFiles.Add(("/0/.editorconfig", CrlfConfig));
+            const string CrlfConfigPath = "/0/.editorconfig";
+            TestState.AnalyzerConfigFiles.Add((CrlfConfigPath, CrlfConfig));
             if (FixedState.AnalyzerConfigFiles.Count > 0)
             {
-                FixedState.AnalyzerConfigFiles.Add(("/0/.editorconfig", CrlfConfig));
+                FixedState.AnalyzerConfigFiles.Add((CrlfConfigPath, CrlfConfig));
             }
 
             if (BatchFixedState.AnalyzerConfigFiles.Count > 0)
             {
-                BatchFixedState.AnalyzerConfigFiles.Add(("/0/.editorconfig", CrlfConfig));
+                BatchFixedState.AnalyzerConfigFiles.Add((CrlfConfigPath, CrlfConfig));
             }
 
             await base.RunAsync(cancellationToken).ConfigureAwait(false);

@@ -9,6 +9,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1478 (shift counts should be within the operand's width).</summary>
 public class SuspiciousShiftCountAnalyzerUnitTest
 {
+    /// <summary>The path the verifier mounts a test's analyzer config file at.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a count at or beyond a 32-bit operand's width is reported and one inside it is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -235,7 +238,7 @@ public class SuspiciousShiftCountAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1478.allow_zero_shift = true
@@ -261,7 +264,7 @@ public class SuspiciousShiftCountAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.allow_zero_shift = true
@@ -288,7 +291,7 @@ public class SuspiciousShiftCountAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.allow_zero_shift = true
@@ -314,7 +317,7 @@ public class SuspiciousShiftCountAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1478.allow_zero_shift = sometimes

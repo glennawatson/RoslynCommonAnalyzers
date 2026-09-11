@@ -11,6 +11,20 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1432 (class with only static members) and its fix.</summary>
 public class MakeClassStaticAnalyzerUnitTest
 {
+    /// <summary>The file holding the sibling partial part that declares nothing but static members.</summary>
+    private const string StaticPartFileName = "Thing.Helpers.cs";
+
+    /// <summary>The file holding the partial part whose members decide whether the whole type can be static.</summary>
+    private const string PrimaryPartFileName = "Thing.cs";
+
+    /// <summary>The sibling partial part that declares nothing but static members.</summary>
+    private const string StaticPartSource = """
+                                            internal partial class Thing
+                                            {
+                                                internal static int Zero() => 0;
+                                            }
+                                            """;
+
     /// <summary>Verifies an all-static class is reported and marked static.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -72,18 +86,13 @@ public class MakeClassStaticAnalyzerUnitTest
             {
                 Sources =
                 {
-                    ("Thing.Helpers.cs", """
-                                         internal partial class Thing
-                                         {
-                                             internal static int Zero() => 0;
-                                         }
-                                         """),
-                    ("Thing.cs", """
-                                 internal partial class Thing
-                                 {
-                                     internal int Value { get; set; }
-                                 }
-                                 """),
+                    (StaticPartFileName, StaticPartSource),
+                    (PrimaryPartFileName, """
+                                          internal partial class Thing
+                                          {
+                                              internal int Value { get; set; }
+                                          }
+                                          """),
                 },
             },
         };
@@ -101,18 +110,13 @@ public class MakeClassStaticAnalyzerUnitTest
             {
                 Sources =
                 {
-                    ("Thing.Helpers.cs", """
-                                         internal partial class Thing
-                                         {
-                                             internal static int Zero() => 0;
-                                         }
-                                         """),
-                    ("Thing.cs", """
-                                 internal partial class Thing : System.IDisposable
-                                 {
-                                     public void Dispose() { }
-                                 }
-                                 """),
+                    (StaticPartFileName, StaticPartSource),
+                    (PrimaryPartFileName, """
+                                          internal partial class Thing : System.IDisposable
+                                          {
+                                              public void Dispose() { }
+                                          }
+                                          """),
                 },
             },
         };
@@ -130,36 +134,26 @@ public class MakeClassStaticAnalyzerUnitTest
             {
                 Sources =
                 {
-                    ("Thing.cs", """
-                                 internal partial class {|SST1432:Thing|}
-                                 {
-                                     internal static int Value => 0;
-                                 }
-                                 """),
-                    ("Thing.Helpers.cs", """
-                                         internal partial class Thing
-                                         {
-                                             internal static int Zero() => 0;
-                                         }
-                                         """),
+                    (PrimaryPartFileName, """
+                                          internal partial class {|SST1432:Thing|}
+                                          {
+                                              internal static int Value => 0;
+                                          }
+                                          """),
+                    (StaticPartFileName, StaticPartSource),
                 },
             },
             FixedState =
             {
                 Sources =
                 {
-                    ("Thing.cs", """
-                                 internal static partial class Thing
-                                 {
-                                     internal static int Value => 0;
-                                 }
-                                 """),
-                    ("Thing.Helpers.cs", """
-                                         internal partial class Thing
-                                         {
-                                             internal static int Zero() => 0;
-                                         }
-                                         """),
+                    (PrimaryPartFileName, """
+                                          internal static partial class Thing
+                                          {
+                                              internal static int Value => 0;
+                                          }
+                                          """),
+                    (StaticPartFileName, StaticPartSource),
                 },
             },
         };

@@ -13,6 +13,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1499 (do not expose a mutable static field) and its fix.</summary>
 public class MutableStaticFieldAnalyzerUnitTest
 {
+    /// <summary>The path the verifier gives the analyzer config the internal-visibility options are read from.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a visible static field that nothing reassigns is reported and simply gains <c>readonly</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -232,7 +235,7 @@ public class MutableStaticFieldAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1499.include_internal = false
@@ -260,7 +263,7 @@ public class MutableStaticFieldAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.include_internal = false
@@ -286,7 +289,7 @@ public class MutableStaticFieldAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1499.include_internal = sometimes

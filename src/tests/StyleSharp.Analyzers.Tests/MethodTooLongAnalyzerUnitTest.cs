@@ -9,6 +9,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1523 (members should not be too long).</summary>
 public class MethodTooLongAnalyzerUnitTest
 {
+    /// <summary>The path the verifier gives the analyzer config the member-length options are read from.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a method over the default maximum of 60 code lines is reported and a shorter one is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -77,7 +80,7 @@ public class MethodTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1523.max_member_lines = 7")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1523.max_member_lines = 7")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -146,7 +149,7 @@ public class MethodTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1523.max_member_lines = 4")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1523.max_member_lines = 4")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -172,7 +175,7 @@ public class MethodTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1523.max_member_lines = 1")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1523.max_member_lines = 1")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -199,7 +202,7 @@ public class MethodTooLongAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", BuildConfig("stylesharp.max_member_lines = 90", "stylesharp.SST1523.max_member_lines = 4")));
+            (EditorConfigPath, BuildConfig("stylesharp.max_member_lines = 90", "stylesharp.SST1523.max_member_lines = 4")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -223,7 +226,7 @@ public class MethodTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.max_member_lines = 4")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.max_member_lines = 4")));
         await test.RunAsync(CancellationToken.None);
     }
 

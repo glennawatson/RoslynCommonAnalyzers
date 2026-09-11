@@ -15,6 +15,56 @@ internal sealed class ClassGeneratorBuilder
     /// <summary>The number of lines a jagged parameter or argument list is split across.</summary>
     private const int JaggedLineCount = 2;
 
+    /// <summary>Opens a generated method declaration, up to the parameter list that follows it.</summary>
+    private const string MethodDeclarationOpening = """
+
+                public void MyMethod(
+        """;
+
+    /// <summary>Opens a generated constructor declaration, up to the parameter list that follows it.</summary>
+    private const string ConstructorDeclarationOpening = """
+
+                public MyTestClass(
+        """;
+
+    /// <summary>Opens a generated delegate declaration, up to the parameter list that follows it.</summary>
+    private const string DelegateDeclarationOpening = """
+
+                public delegate void DelegateDefinition(
+        """;
+
+    /// <summary>Opens the nested type whose constructor is the object-creation target, up to its parameter list.</summary>
+    private const string NestedTypeWithConstructorOpening = """
+
+                public class MyInnerTest
+                {
+                    public MyInnerTest(
+        """;
+
+    /// <summary>Opens the nested attribute type whose constructor the attribute usage targets, up to its parameter list.</summary>
+    private const string AttributeTypeWithConstructorOpening = """
+
+                public class MyInnerTestAttribute : System.Attribute
+                {
+                    public MyInnerTestAttribute(
+        """;
+
+    /// <summary>Closes a parameter list and gives the member an empty body.</summary>
+    private const string ParameterListCloseWithEmptyBody = """
+        )
+                {
+                }
+        """;
+
+    /// <summary>Closes an argument list, ends the call statement, and closes the method holding it.</summary>
+    private const string ArgumentListCloseAndMethodEnd = """
+        );
+                }
+        """;
+
+    /// <summary>Closes the body of the generated inner method on a line of its own.</summary>
+    private const string MethodBodyClose = "        }";
+
     /// <summary>The accumulating buffer holding the generated source code.</summary>
     private readonly StringBuilder _builder = new();
 
@@ -37,28 +87,18 @@ internal sealed class ClassGeneratorBuilder
     /// <summary>Appends a method declaration whose parameters are all on one line.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
     public void MethodDeclaration(int parameterCount) =>
-        _builder.Append("""
-
-                                public void MyMethod(
-                        """).Append(GenerateOneLineParameters(parameterCount)).AppendLine("""
-            )
-                    {
-                    }
-            """);
+        _builder.Append(MethodDeclarationOpening)
+            .Append(GenerateOneLineParameters(parameterCount))
+            .AppendLine(ParameterListCloseWithEmptyBody);
 
     /// <summary>Appends a method declaration whose parameters are split unevenly across lines.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
     /// <returns>The expected diagnostic span as (StartLine, StartColumn, EndLine, EndColumn).</returns>
     public (int StartLine, int StartColumn, int EndLine, int EndColumn) MethodDeclarationJagged(int parameterCount)
     {
-        _builder.Append("""
-
-                                public void MyMethod(
-                        """).Append(GenerateJaggedLineParameters(parameterCount)).AppendLine("""
-            )
-                    {
-                    }
-            """);
+        _builder.Append(MethodDeclarationOpening)
+            .Append(GenerateJaggedLineParameters(parameterCount))
+            .AppendLine(ParameterListCloseWithEmptyBody);
 
         const int StartLine = 13;
         const int EndLine = StartLine + 3;
@@ -71,40 +111,25 @@ internal sealed class ClassGeneratorBuilder
     /// <summary>Appends a method declaration with each parameter on its own line.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
     public void MethodDeclarationStaggered(int parameterCount) =>
-        _builder.AppendLine("""
-
-                                    public void MyMethod(
-                            """).Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine("""
-            )
-                    {
-                    }
-            """);
+        _builder.AppendLine(MethodDeclarationOpening)
+            .Append(GenerateStaggeredLineParameters(parameterCount))
+            .AppendLine(ParameterListCloseWithEmptyBody);
 
     /// <summary>Appends a constructor declaration whose parameters are all on one line.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
     public void ConstructorDeclaration(int parameterCount) =>
-        _builder.Append("""
-
-                                public MyTestClass(
-                        """).Append(GenerateOneLineParameters(parameterCount)).AppendLine("""
-            )
-                    {
-                    }
-            """);
+        _builder.Append(ConstructorDeclarationOpening)
+            .Append(GenerateOneLineParameters(parameterCount))
+            .AppendLine(ParameterListCloseWithEmptyBody);
 
     /// <summary>Appends a constructor declaration whose parameters are split unevenly across lines.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
     /// <returns>The expected diagnostic span as (StartLine, StartColumn, EndLine, EndColumn).</returns>
     public (int StartLine, int StartColumn, int EndLine, int EndColumn) ConstructorDeclarationJagged(int parameterCount)
     {
-        _builder.Append("""
-
-                                public MyTestClass(
-                        """).Append(GenerateJaggedLineParameters(parameterCount)).AppendLine("""
-            )
-                    {
-                    }
-            """);
+        _builder.Append(ConstructorDeclarationOpening)
+            .Append(GenerateJaggedLineParameters(parameterCount))
+            .AppendLine(ParameterListCloseWithEmptyBody);
 
         const int StartLine = 13;
         const int EndLine = StartLine + 3;
@@ -117,22 +142,14 @@ internal sealed class ClassGeneratorBuilder
     /// <summary>Appends a constructor declaration with each parameter on its own line.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
     public void ConstructorDeclarationStaggered(int parameterCount) =>
-        _builder.AppendLine("""
-
-                                    public MyTestClass(
-                            """).Append(GenerateStaggeredLineParameters(parameterCount)).AppendLine("""
-            )
-                    {
-                    }
-            """);
+        _builder.AppendLine(ConstructorDeclarationOpening)
+            .Append(GenerateStaggeredLineParameters(parameterCount))
+            .AppendLine(ParameterListCloseWithEmptyBody);
 
     /// <summary>Appends a delegate declaration whose parameters are all on one line.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
     public void DelegateDeclaration(int parameterCount) =>
-        _builder.Append("""
-
-                                public delegate void DelegateDefinition(
-                        """).Append(GenerateOneLineParameters(parameterCount)).AppendLine(");");
+        _builder.Append(DelegateDeclarationOpening).Append(GenerateOneLineParameters(parameterCount)).AppendLine(");");
 
     /// <summary>Appends a delegate declaration whose parameters are split unevenly across lines.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
@@ -161,10 +178,7 @@ internal sealed class ClassGeneratorBuilder
     /// <summary>Appends a delegate plus an anonymous method whose parameters are all on one line.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
     public void AnonymousMethodExpression(int parameterCount) =>
-        _builder.Append("""
-
-                                public delegate void DelegateDefinition(
-                        """).Append(GenerateOneLineParameters(parameterCount)).Append("""
+        _builder.Append(DelegateDeclarationOpening).Append(GenerateOneLineParameters(parameterCount)).Append("""
             );
                     public void MyInnerMethod()
                     {
@@ -187,10 +201,7 @@ internal sealed class ClassGeneratorBuilder
                                   };
                       """;
 
-        _builder.Append("""
-
-                                public delegate void DelegateDefinition(
-                        """).Append(GenerateOneLineParameters(parameterCount)).Append("""
+        _builder.Append(DelegateDeclarationOpening).Append(GenerateOneLineParameters(parameterCount)).Append("""
             );
                     public void MyInnerMethod()
                     {
@@ -213,10 +224,7 @@ internal sealed class ClassGeneratorBuilder
     /// <summary>Appends a delegate plus an anonymous method with each parameter on its own line.</summary>
     /// <param name="parameterCount">The number of parameters to emit.</param>
     public void AnonymousMethodExpressionStaggered(int parameterCount) =>
-        _builder.Append("""
-
-                                public delegate void DelegateDefinition(
-                        """).Append(GenerateOneLineParameters(parameterCount)).AppendLine("""
+        _builder.Append(DelegateDeclarationOpening).Append(GenerateOneLineParameters(parameterCount)).AppendLine("""
             );
                     public void MyInnerMethod()
                     {
@@ -338,10 +346,7 @@ internal sealed class ClassGeneratorBuilder
                                 public void MyInnerMethod()
                                 {
                                     MyMethod(
-                        """).Append(GenerateOneLineArguments(parameterCount)).AppendLine("""
-            );
-                    }
-            """);
+                        """).Append(GenerateOneLineArguments(parameterCount)).AppendLine(ArgumentListCloseAndMethodEnd);
     }
 
     /// <summary>Appends a method plus an invocation whose arguments are split unevenly across lines.</summary>
@@ -358,7 +363,7 @@ internal sealed class ClassGeneratorBuilder
                                   MyMethod({{jaggedParameters}});
                       """;
         _builder.AppendLine(input)
-            .AppendLine("        }");
+            .AppendLine(MethodBodyClose);
 
         var splitLines = input.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
 
@@ -380,21 +385,13 @@ internal sealed class ClassGeneratorBuilder
                                     public void MyInnerMethod()
                                     {
                                         MyMethod(
-                            """).Append(GenerateStaggeredLineArguments(parameterCount, NestedBodyIndentSpaces)).AppendLine("""
-            );
-                    }
-            """);
+                            """).Append(GenerateStaggeredLineArguments(parameterCount, NestedBodyIndentSpaces)).AppendLine(ArgumentListCloseAndMethodEnd);
     }
 
     /// <summary>Appends a nested type plus an object-creation expression whose arguments are all on one line.</summary>
     /// <param name="parameterCount">The number of parameters and arguments to emit.</param>
     public void ObjectCreationExpression(int parameterCount) =>
-        _builder.Append("""
-
-                                public class MyInnerTest
-                                {
-                                    public MyInnerTest(
-                        """).Append(GenerateOneLineParameters(parameterCount)).Append("""
+        _builder.Append(NestedTypeWithConstructorOpening).Append(GenerateOneLineParameters(parameterCount)).Append("""
             )
                         {
                         }
@@ -403,22 +400,14 @@ internal sealed class ClassGeneratorBuilder
                     public void MyInnerMethod()
                     {
                         var myInnerTest = new MyInnerTest(
-            """).Append(GenerateOneLineArguments(parameterCount)).AppendLine("""
-                                                                             );
-                                                                                     }
-                                                                             """);
+            """).Append(GenerateOneLineArguments(parameterCount)).AppendLine(ArgumentListCloseAndMethodEnd);
 
     /// <summary>Appends a nested type plus an object-creation expression whose arguments are split unevenly across lines.</summary>
     /// <param name="parameterCount">The number of parameters and arguments to emit.</param>
     /// <returns>The expected diagnostic span as (StartLine, StartColumn, EndLine, EndColumn).</returns>
     public (int StartLine, int StartColumn, int EndLine, int EndColumn) ObjectCreationExpressionJagged(int parameterCount)
     {
-        _builder.Append("""
-
-                                public class MyInnerTest
-                                {
-                                    public MyInnerTest(
-                        """).Append(GenerateOneLineParameters(parameterCount)).AppendLine("""
+        _builder.Append(NestedTypeWithConstructorOpening).Append(GenerateOneLineParameters(parameterCount)).AppendLine("""
             )
                         {
                         }
@@ -432,7 +421,7 @@ internal sealed class ClassGeneratorBuilder
                                   var myInnerTest = new MyInnerTest({{jaggedParameters}});
                       """;
         _builder.AppendLine(input)
-            .AppendLine("        }");
+            .AppendLine(MethodBodyClose);
 
         var splitLines = input.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
 
@@ -447,12 +436,7 @@ internal sealed class ClassGeneratorBuilder
     /// <summary>Appends a nested type plus an object-creation expression with each argument on its own line.</summary>
     /// <param name="parameterCount">The number of parameters and arguments to emit.</param>
     public void ObjectCreationExpressionStaggered(int parameterCount) =>
-        _builder.Append("""
-
-                                public class MyInnerTest
-                                {
-                                    public MyInnerTest(
-                        """).Append(GenerateOneLineParameters(parameterCount)).AppendLine("""
+        _builder.Append(NestedTypeWithConstructorOpening).Append(GenerateOneLineParameters(parameterCount)).AppendLine("""
             )
                         {
                         }
@@ -461,20 +445,12 @@ internal sealed class ClassGeneratorBuilder
                     public void MyInnerMethod()
                     {
                         var myInnerTest = new MyInnerTest(
-            """).Append(GenerateStaggeredLineArguments(parameterCount, NestedBodyIndentSpaces)).AppendLine("""
-            );
-                    }
-            """);
+            """).Append(GenerateStaggeredLineArguments(parameterCount, NestedBodyIndentSpaces)).AppendLine(ArgumentListCloseAndMethodEnd);
 
     /// <summary>Appends an attribute type plus its usage whose arguments are all on one line.</summary>
     /// <param name="parameterCount">The number of parameters and arguments to emit.</param>
     public void Attribute(int parameterCount) =>
-        _builder.Append("""
-
-                                public class MyInnerTestAttribute : System.Attribute
-                                {
-                                    public MyInnerTestAttribute(
-                        """).Append(GenerateOneLineParameters(parameterCount)).Append("""
+        _builder.Append(AttributeTypeWithConstructorOpening).Append(GenerateOneLineParameters(parameterCount)).Append("""
             )
                         {
                         }
@@ -495,12 +471,7 @@ internal sealed class ClassGeneratorBuilder
     {
         var input = $"        [MyInnerTest({GenerateJaggedLineArguments(parameterCount)})]";
 
-        _builder.Append("""
-
-                                public class MyInnerTestAttribute : System.Attribute
-                                {
-                                    public MyInnerTestAttribute(
-                        """).Append(GenerateOneLineParameters(parameterCount)).Append("""
+        _builder.Append(AttributeTypeWithConstructorOpening).Append(GenerateOneLineParameters(parameterCount)).Append("""
             )
                         {
                         }
@@ -527,12 +498,7 @@ internal sealed class ClassGeneratorBuilder
     /// <summary>Appends an attribute type plus its usage with each argument on its own line.</summary>
     /// <param name="parameterCount">The number of parameters and arguments to emit.</param>
     public void AttributeStaggered(int parameterCount) =>
-        _builder.Append("""
-
-                                public class MyInnerTestAttribute : System.Attribute
-                                {
-                                    public MyInnerTestAttribute(
-                        """).Append(GenerateOneLineParameters(parameterCount)).AppendLine("""
+        _builder.Append(AttributeTypeWithConstructorOpening).Append(GenerateOneLineParameters(parameterCount)).AppendLine("""
             )
                         {
                         }
@@ -577,7 +543,7 @@ internal sealed class ClassGeneratorBuilder
                                   myArray[{{jaggedParameters}}] = 1;
                       """;
         _builder.AppendLine(input)
-            .AppendLine("        }");
+            .AppendLine(MethodBodyClose);
 
         var splitLines = input.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
 

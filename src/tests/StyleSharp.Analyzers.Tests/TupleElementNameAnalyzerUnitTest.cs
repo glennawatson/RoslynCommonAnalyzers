@@ -123,10 +123,11 @@ public class TupleElementNameAnalyzerUnitTest
                                   public int M() => TupleLib.Get().Item1;
                               }
                               """;
+        const string NamedTupleProjectName = "TupleLib";
         var test = new VerifyTupleName.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
-        test.TestState.AdditionalProjects["TupleLib"].ReferenceAssemblies = ReferenceAssemblies.Net.Net80;
-        test.TestState.AdditionalProjects["TupleLib"].Sources.Add(LibrarySource);
-        test.TestState.AdditionalProjectReferences.Add("TupleLib");
+        test.TestState.AdditionalProjects[NamedTupleProjectName].ReferenceAssemblies = ReferenceAssemblies.Net.Net80;
+        test.TestState.AdditionalProjects[NamedTupleProjectName].Sources.Add(LibrarySource);
+        test.TestState.AdditionalProjectReferences.Add(NamedTupleProjectName);
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;

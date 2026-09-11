@@ -11,6 +11,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the collapse-short-initializer rule (SST1531).</summary>
 public class InitializerOnSingleLineUnitTest
 {
+    /// <summary>The path the verifier gives the analyzer config the collapse options are read from.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a short multi-line object initializer is reported and collapsed onto one line.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -53,8 +56,8 @@ public class InitializerOnSingleLineUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -84,7 +87,7 @@ public class InitializerOnSingleLineUnitTest
                        }
                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
             root = true
             [*.cs]
             dotnet_diagnostic.SST1531.severity = warning
@@ -122,7 +125,7 @@ public class InitializerOnSingleLineUnitTest
                        }
                        """",
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
             root = true
             [*.cs]
             dotnet_diagnostic.SST1531.severity = warning
@@ -155,7 +158,7 @@ public class InitializerOnSingleLineUnitTest
                        }
                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
             root = true
             [*.cs]
             dotnet_diagnostic.SST1531.severity = warning

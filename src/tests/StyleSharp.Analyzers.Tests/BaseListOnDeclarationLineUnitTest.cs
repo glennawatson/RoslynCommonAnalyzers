@@ -11,6 +11,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the base-list-on-its-own-line rule (SST1530).</summary>
 public class BaseListOnDeclarationLineUnitTest
 {
+    /// <summary>The in-memory path each test adds its rule-enabling <c>.editorconfig</c> at.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a base list on its own line is reported and joined to the declaration.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -44,8 +47,8 @@ public class BaseListOnDeclarationLineUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -66,7 +69,7 @@ public class BaseListOnDeclarationLineUnitTest
                        }
                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
             root = true
             [*.cs]
             dotnet_diagnostic.SST1530.severity = warning
@@ -93,7 +96,7 @@ public class BaseListOnDeclarationLineUnitTest
                        }
                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
             root = true
             [*.cs]
             dotnet_diagnostic.SST1530.severity = warning

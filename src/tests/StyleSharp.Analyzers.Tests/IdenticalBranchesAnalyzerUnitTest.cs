@@ -9,6 +9,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1476 (conditional branches should not have identical bodies).</summary>
 public class IdenticalBranchesAnalyzerUnitTest
 {
+    /// <summary>The path the verifier gives the analyzer config the minimum-statements option is read from.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies an if/else whose two bodies are the same is reported on the if keyword.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -332,7 +335,7 @@ public class IdenticalBranchesAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1476.minimum_statements = 1
@@ -388,7 +391,7 @@ public class IdenticalBranchesAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1476.minimum_statements = 2
@@ -430,7 +433,7 @@ public class IdenticalBranchesAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.minimum_statements = 2
@@ -466,7 +469,7 @@ public class IdenticalBranchesAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1476.minimum_statements = several

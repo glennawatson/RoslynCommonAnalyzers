@@ -7,6 +7,9 @@ namespace StyleSharp.Analyzers;
 /// <summary>Shared syntax helpers for the collection-expression conversion rules.</summary>
 internal static class CollectionExpressionAdvancedAnalysis
 {
+    /// <summary>The name of the <c>ToArray</c> materialization method, whose call a collection expression replaces.</summary>
+    private const string ToArrayMethodName = "ToArray";
+
     /// <summary>Returns whether the referenced framework exposes collection-expression runtime support.</summary>
     /// <param name="compilation">The compilation.</param>
     /// <returns><see langword="true"/> when <c>CollectionBuilderAttribute</c> is available.</returns>
@@ -75,7 +78,7 @@ internal static class CollectionExpressionAdvancedAnalysis
             return false;
         }
 
-        if ((name == "ToArray" || name == "ToList")
+        if ((name == ToArrayMethodName || name == "ToList")
             && invocation.ArgumentList.Arguments.Count == 0
             && TryGetInlineInitializer(access.Expression, out var initializer))
         {
@@ -176,7 +179,7 @@ internal static class CollectionExpressionAdvancedAnalysis
     public static bool IsLinqMaterialization(IMethodSymbol method)
     {
         var original = method.ReducedFrom ?? method;
-        if (!original.IsExtensionMethod || original.Name is not ("ToArray" or "ToList"))
+        if (!original.IsExtensionMethod || original.Name is not (ToArrayMethodName or "ToList"))
         {
             return false;
         }
@@ -386,7 +389,7 @@ internal static class CollectionExpressionAdvancedAnalysis
         if (expression is not InvocationExpressionSyntax invocation
             || invocation.ArgumentList.Arguments.Count != 0
             || invocation.Expression is not MemberAccessExpressionSyntax access
-            || access.Name.Identifier.ValueText is not ("ToImmutable" or "ToImmutableAndClear" or "ToImmutableAndFree" or "ToArray" or "ToArrayAndFree")
+            || access.Name.Identifier.ValueText is not ("ToImmutable" or "ToImmutableAndClear" or "ToImmutableAndFree" or ToArrayMethodName or "ToArrayAndFree")
             || access.Expression is not IdentifierNameSyntax receiverName)
         {
             return false;

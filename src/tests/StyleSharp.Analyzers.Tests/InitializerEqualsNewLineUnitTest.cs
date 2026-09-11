@@ -11,6 +11,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the wrapped initializer equals-sign placement rule (SST1528).</summary>
 public class InitializerEqualsNewLineUnitTest
 {
+    /// <summary>The path the verifier gives the analyzer config the equals-placement options are read from.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a leading equals sign is reported and moved to trail the name by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -39,8 +42,8 @@ public class InitializerEqualsNewLineUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -81,8 +84,8 @@ public class InitializerEqualsNewLineUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -103,7 +106,7 @@ public class InitializerEqualsNewLineUnitTest
                        }
                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
             root = true
             [*.cs]
             dotnet_diagnostic.SST1528.severity = warning

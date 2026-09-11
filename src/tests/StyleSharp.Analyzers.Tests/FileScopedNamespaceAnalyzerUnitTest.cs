@@ -37,19 +37,21 @@ public class FileScopedNamespaceAnalyzerUnitTest
 
                                                    """;
 
+    /// <summary>The block-scoped namespace the rule reports, marked up on its name.</summary>
+    private const string ReportedBlockScopedNamespace = """
+                                                        namespace {|SST2237:Bench|}
+                                                        {
+                                                            public sealed class C
+                                                            {
+                                                            }
+                                                        }
+                                                        """;
+
     /// <summary>Verifies a single block-scoped namespace is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
     public async Task SingleBlockScopedNamespaceIsReportedAsync()
-        => await RunAsync(
-            """
-            namespace {|SST2237:Bench|}
-            {
-                public sealed class C
-                {
-                }
-            }
-            """);
+        => await RunAsync(ReportedBlockScopedNamespace);
 
     /// <summary>Verifies files with multiple namespace members are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
@@ -118,31 +120,13 @@ public class FileScopedNamespaceAnalyzerUnitTest
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
     public async Task RuleSpecificKeyOverridesTheProjectWideKeyAsync()
-        => await RunAsync(
-            """
-            namespace {|SST2237:Bench|}
-            {
-                public sealed class C
-                {
-                }
-            }
-            """,
-            RuleSpecificOverrideConfig);
+        => await RunAsync(ReportedBlockScopedNamespace, RuleSpecificOverrideConfig);
 
     /// <summary>Verifies an unrecognized value falls back to the documented default.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
     public async Task UnrecognizedStyleFallsBackToFileScopedAsync()
-        => await RunAsync(
-            """
-            namespace {|SST2237:Bench|}
-            {
-                public sealed class C
-                {
-                }
-            }
-            """,
-            UnrecognizedStyleConfig);
+        => await RunAsync(ReportedBlockScopedNamespace, UnrecognizedStyleConfig);
 
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>

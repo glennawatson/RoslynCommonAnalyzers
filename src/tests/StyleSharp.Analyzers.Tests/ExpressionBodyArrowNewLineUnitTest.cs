@@ -11,6 +11,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the wrapped expression-body arrow placement rule (SST1527).</summary>
 public class ExpressionBodyArrowNewLineUnitTest
 {
+    /// <summary>The path the verifier's analyzer-config document is added at.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a leading arrow is reported and moved to trail the signature by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -39,8 +42,8 @@ public class ExpressionBodyArrowNewLineUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -73,8 +76,8 @@ public class ExpressionBodyArrowNewLineUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -92,7 +95,7 @@ public class ExpressionBodyArrowNewLineUnitTest
                        }
                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
             root = true
             [*.cs]
             dotnet_diagnostic.SST1527.severity = warning
@@ -134,8 +137,8 @@ public class ExpressionBodyArrowNewLineUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -161,7 +164,7 @@ public class ExpressionBodyArrowNewLineUnitTest
                        }
                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
             root = true
             [*.cs]
             dotnet_diagnostic.SST1527.severity = warning

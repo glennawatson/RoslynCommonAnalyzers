@@ -11,6 +11,9 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// <summary>Creates benchmark syntax trees and compilations against the host runtime reference set.</summary>
 internal static class BenchmarkCompilationFactory
 {
+    /// <summary>The syntax tree path a benchmark source gets when the caller does not name one.</summary>
+    private const string DefaultBenchmarkFilePath = "Bench.cs";
+
     /// <summary>The metadata references loaded from the current host runtime.</summary>
     private static readonly MetadataReference[] References = LoadReferences();
 
@@ -24,13 +27,13 @@ internal static class BenchmarkCompilationFactory
     /// <param name="source">The source text to parse.</param>
     /// <param name="filePath">The file path to use for the syntax tree.</param>
     /// <returns>The parsed syntax tree.</returns>
-    public static SyntaxTree Parse(string source, string filePath = "Bench.cs") => CSharpSyntaxTree.ParseText(source, ParseOptions, filePath);
+    public static SyntaxTree Parse(string source, string filePath = DefaultBenchmarkFilePath) => CSharpSyntaxTree.ParseText(source, ParseOptions, filePath);
 
     /// <summary>Builds a library compilation from one syntax tree.</summary>
     /// <param name="source">The source text to compile.</param>
     /// <param name="filePath">The file path to use for the syntax tree.</param>
     /// <returns>The compiled syntax tree and compilation.</returns>
-    public static (SyntaxTree Tree, CSharpCompilation Compilation) CreateCompilation(string source, string filePath = "Bench.cs")
+    public static (SyntaxTree Tree, CSharpCompilation Compilation) CreateCompilation(string source, string filePath = DefaultBenchmarkFilePath)
         => CreateCompilation(source, [], filePath);
 
     /// <summary>Builds a library compilation from one syntax tree, enabling the supplied rule ids.</summary>
@@ -41,7 +44,7 @@ internal static class BenchmarkCompilationFactory
     public static (SyntaxTree Tree, CSharpCompilation Compilation) CreateCompilation(
         string source,
         IReadOnlyList<string> enabledRuleIds,
-        string filePath = "Bench.cs")
+        string filePath = DefaultBenchmarkFilePath)
     {
         var tree = Parse(source, filePath);
         var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, concurrentBuild: false);

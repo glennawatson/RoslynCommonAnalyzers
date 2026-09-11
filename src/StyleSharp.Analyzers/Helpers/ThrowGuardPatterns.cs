@@ -18,6 +18,9 @@ internal static class ThrowGuardPatterns
     /// <summary>The <c>string.IsNullOrWhiteSpace</c> guard method name.</summary>
     public const string IsNullOrWhiteSpace = "IsNullOrWhiteSpace";
 
+    /// <summary>The identifier text of the <c>nameof</c> operator, which parses as an ordinary invocation.</summary>
+    private const string NameOfOperator = "nameof";
+
     /// <summary>Matches a standard instance disposed guard.</summary>
     /// <param name="ifStatement">The candidate if statement.</param>
     /// <param name="condition">The disposed condition.</param>
@@ -228,7 +231,7 @@ internal static class ThrowGuardPatterns
 
         if (only.Expression is InvocationExpressionSyntax
             {
-                Expression: IdentifierNameSyntax { Identifier.Text: "nameof" },
+                Expression: IdentifierNameSyntax { Identifier.Text: NameOfOperator },
                 ArgumentList.Arguments: [var named]
             })
         {
@@ -280,7 +283,7 @@ internal static class ThrowGuardPatterns
             || (arguments.Arguments.Count == 1
                 && arguments.Arguments[0].Expression is InvocationExpressionSyntax
                 {
-                    Expression: IdentifierNameSyntax { Identifier.Text: "nameof" }
+                    Expression: IdentifierNameSyntax { Identifier.Text: NameOfOperator }
                 });
 
     /// <summary>Reads the identifier named by the exception's first <c>nameof</c> argument.</summary>
@@ -293,7 +296,7 @@ internal static class ThrowGuardPatterns
         if (arguments?.Arguments.Count != 1
             || arguments.Arguments[0].Expression is not InvocationExpressionSyntax
             {
-                Expression: IdentifierNameSyntax { Identifier.Text: "nameof" },
+                Expression: IdentifierNameSyntax { Identifier.Text: NameOfOperator },
                 ArgumentList.Arguments: [{ Expression: IdentifierNameSyntax identifier }]
             })
         {

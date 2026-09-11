@@ -37,6 +37,9 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
         }
         """;
 
+    /// <summary>The in-memory path the sanitizer-option tests add their <c>.editorconfig</c> at.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies <c>new MarkupString(x)</c> over a non-constant value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -182,7 +185,7 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
             """);
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             securitysharp.SES1701.sanitizers = Sanitize, Clean
@@ -215,7 +218,7 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
             """);
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             securitysharp.sanitizers = Clean
@@ -260,7 +263,7 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
             """);
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             securitysharp.SES1701.sanitizers = Sanitize

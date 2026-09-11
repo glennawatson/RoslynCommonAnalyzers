@@ -56,6 +56,9 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>The suffix every attribute class carries but that is optional at the use site.</summary>
     private const string AttributeSuffix = "Attribute";
 
+    /// <summary>The name of the root <c>System</c> namespace, matched while walking a type's containing namespaces.</summary>
+    private const string SystemNamespaceName = "System";
+
     /// <summary>The metadata names of the supported frameworks' test-method marker attributes.</summary>
     private static readonly string[] TestMarkerMetadataNames =
     [
@@ -362,13 +365,13 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
     /// <param name="ns">The namespace to test.</param>
     /// <returns><see langword="true"/> for the <c>System.Diagnostics</c> namespace.</returns>
     private static bool IsSystemDiagnostics(INamespaceSymbol ns)
-        => ns is { Name: "Diagnostics", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } };
+        => ns is { Name: "Diagnostics", ContainingNamespace: { Name: SystemNamespaceName, ContainingNamespace.IsGlobalNamespace: true } };
 
     /// <summary>Returns whether a namespace is <c>System.Diagnostics.Contracts</c>.</summary>
     /// <param name="ns">The namespace to test.</param>
     /// <returns><see langword="true"/> for the <c>System.Diagnostics.Contracts</c> namespace.</returns>
     private static bool IsSystemDiagnosticsContracts(INamespaceSymbol ns)
-        => ns is { Name: "Contracts", ContainingNamespace: { Name: "Diagnostics", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } } };
+        => ns is { Name: "Contracts", ContainingNamespace: { Name: "Diagnostics", ContainingNamespace: { Name: SystemNamespaceName, ContainingNamespace.IsGlobalNamespace: true } } };
 
     /// <summary>The resolved facts one compilation needs to find a test that verifies nothing.</summary>
     /// <param name="Markers">The referenced frameworks' test-method marker attributes.</param>

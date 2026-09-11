@@ -11,6 +11,17 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the wrapped binary operator placement rule (SST1526).</summary>
 public class BinaryOperatorNewLineUnitTest
 {
+    /// <summary>An <c>.editorconfig</c> that turns the rule on and leaves the operator placement at its default.</summary>
+    private const string DefaultPlacementConfig = """
+        root = true
+        [*.cs]
+        dotnet_diagnostic.SST1526.severity = warning
+
+        """;
+
+    /// <summary>The in-memory path each test adds its <c>.editorconfig</c> at.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a trailing operator is reported and moved to lead the continuation line by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -39,18 +50,8 @@ public class BinaryOperatorNewLineUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
-            root = true
-            [*.cs]
-            dotnet_diagnostic.SST1526.severity = warning
-
-            """));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", """
-            root = true
-            [*.cs]
-            dotnet_diagnostic.SST1526.severity = warning
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, DefaultPlacementConfig));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, DefaultPlacementConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -82,14 +83,14 @@ public class BinaryOperatorNewLineUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
             root = true
             [*.cs]
             dotnet_diagnostic.SST1526.severity = warning
             stylesharp.binary_operator_new_line = after
 
             """));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, """
             root = true
             [*.cs]
             dotnet_diagnostic.SST1526.severity = warning
@@ -118,12 +119,7 @@ public class BinaryOperatorNewLineUnitTest
                        }
                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
-            root = true
-            [*.cs]
-            dotnet_diagnostic.SST1526.severity = warning
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, DefaultPlacementConfig));
         await test.RunAsync(CancellationToken.None);
     }
 }

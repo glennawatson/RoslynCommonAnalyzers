@@ -8,6 +8,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The implicit parameter a set or init accessor assigns from.</summary>
+    private const string SetterValueParameterName = "value";
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.PreferAutoProperty);
 
@@ -232,7 +235,7 @@ public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
 
         fieldName = null;
         return assignment is { Right: IdentifierNameSyntax right }
-            && right.Identifier.Text == "value"
+            && right.Identifier.Text == SetterValueParameterName
             && TryGetFieldName(assignment.Left, out fieldName);
     }
 
@@ -328,7 +331,7 @@ public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
             expression = statement.Expression;
         }
 
-        return expression is AssignmentExpressionSyntax { Left: var left, Right: IdentifierNameSyntax { Identifier.Text: "value" } }
+        return expression is AssignmentExpressionSyntax { Left: var left, Right: IdentifierNameSyntax { Identifier.Text: SetterValueParameterName } }
             && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(left, cancellationToken).Symbol, field);
     }
 
@@ -352,7 +355,7 @@ public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
             expression = statement.Expression;
         }
 
-        return expression is AssignmentExpressionSyntax { Left: var left, Right: IdentifierNameSyntax { Identifier.Text: "value" } }
+        return expression is AssignmentExpressionSyntax { Left: var left, Right: IdentifierNameSyntax { Identifier.Text: SetterValueParameterName } }
             && TryGetFieldName(left, out var name)
             && string.Equals(name, fieldName, StringComparison.Ordinal)
             && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(left, cancellationToken).Symbol, field);

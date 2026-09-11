@@ -11,6 +11,9 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 internal static class XmlDocumentationHelper
 {
+    /// <summary>The local name of the element that takes a member's documentation from somewhere else.</summary>
+    private const string InheritDocElementName = "inheritdoc";
+
     /// <summary>Returns the documentation comment attached to <paramref name="member"/>, or <see langword="null"/>.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns>The documentation comment trivia, or <see langword="null"/>.</returns>
@@ -57,7 +60,7 @@ internal static class XmlDocumentationHelper
     /// <param name="documentation">The documentation comment.</param>
     /// <returns><see langword="true"/> when an inheritdoc element is present.</returns>
     public static bool IsInheritDoc(DocumentationCommentTriviaSyntax documentation)
-        => HasElement(documentation, "inheritdoc");
+        => HasElement(documentation, InheritDocElementName);
 
     /// <summary>Returns whether a declaration documents a further part of a partial declaration.</summary>
     /// <param name="member">The declaration carrying the documentation.</param>
@@ -84,7 +87,7 @@ internal static class XmlDocumentationHelper
     /// about what a bare inheritdoc would inherit from have nothing to say about that form.
     /// </remarks>
     public static bool HasInheritDocCref(DocumentationCommentTriviaSyntax documentation)
-        => FindElement(documentation, "inheritdoc") is { } element && HasCref(element);
+        => FindElement(documentation, InheritDocElementName) is { } element && HasCref(element);
 
     /// <summary>Returns whether an element contains a nested <c>&lt;inheritdoc&gt;</c> (so its content is inherited).</summary>
     /// <param name="element">The element to scan.</param>
@@ -688,7 +691,7 @@ internal static class XmlDocumentationHelper
     /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> to stop.</returns>
     private static bool VisitInheritDocNode(XmlNodeSyntax node, ref bool found)
     {
-        if (GetElementName(node) != "inheritdoc")
+        if (GetElementName(node) != InheritDocElementName)
         {
             return true;
         }

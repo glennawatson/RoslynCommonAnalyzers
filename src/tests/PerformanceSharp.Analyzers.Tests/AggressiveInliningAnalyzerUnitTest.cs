@@ -13,6 +13,9 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1410AggressiveInliningAnalyzer"/> (PSH1410 aggressive inlining, opt-in).</summary>
 public class AggressiveInliningAnalyzerUnitTest
 {
+    /// <summary>The path the opt-in editorconfig takes in the test's virtual file system.</summary>
+    private const string OptInConfigPath = "/.editorconfig";
+
     /// <summary>The editorconfig that opts into the disabled-by-default rule.</summary>
     private const string OptInConfig = """
         root = true
@@ -97,8 +100,8 @@ public class AggressiveInliningAnalyzerUnitTest
             ReferenceAssemblies = framework == "net8.0" ? ReferenceAssemblies.Net.Net80 : ReferenceAssemblies.NetStandard.NetStandard20
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
+        test.TestState.AnalyzerConfigFiles.Add((OptInConfigPath, OptInConfig));
+        test.FixedState.AnalyzerConfigFiles.Add((OptInConfigPath, OptInConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -457,11 +460,11 @@ public class AggressiveInliningAnalyzerUnitTest
             ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
             TestCode = source,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
+        test.TestState.AnalyzerConfigFiles.Add((OptInConfigPath, OptInConfig));
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;
-            test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
+            test.FixedState.AnalyzerConfigFiles.Add((OptInConfigPath, OptInConfig));
         }
 
         await test.RunAsync(CancellationToken.None);

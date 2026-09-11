@@ -19,6 +19,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The name prefix every <c>ArgumentOutOfRangeException</c> guard helper shares.</summary>
+    private const string RangeHelperNamePrefix = "ThrowIf";
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         ModernizationRules.UseThrowIfNull,
@@ -258,7 +261,7 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         var count = 0;
         for (var i = 0; i < members.Length; i++)
         {
-            if (members[i] is IMethodSymbol { IsStatic: true, Name: var name } && name.StartsWith("ThrowIf", StringComparison.Ordinal))
+            if (members[i] is IMethodSymbol { IsStatic: true, Name: var name } && name.StartsWith(RangeHelperNamePrefix, StringComparison.Ordinal))
             {
                 count++;
             }
@@ -274,7 +277,7 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < members.Length; i++)
         {
             if (members[i] is not IMethodSymbol { IsStatic: true, Name: var name } ||
-                !name.StartsWith("ThrowIf", StringComparison.Ordinal))
+                !name.StartsWith(RangeHelperNamePrefix, StringComparison.Ordinal))
             {
                 continue;
             }

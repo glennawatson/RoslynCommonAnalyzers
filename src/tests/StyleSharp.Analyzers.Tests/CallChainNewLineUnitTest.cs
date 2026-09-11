@@ -11,6 +11,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the wrapped call-chain operator placement rule (SST1529).</summary>
 public class CallChainNewLineUnitTest
 {
+    /// <summary>The in-memory path each test adds its rule-enabling <c>.editorconfig</c> at.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a trailing '.' link is reported and moved to lead the continuation line by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -45,8 +48,8 @@ public class CallChainNewLineUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -84,8 +87,8 @@ public class CallChainNewLineUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -109,7 +112,7 @@ public class CallChainNewLineUnitTest
                        }
                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
             root = true
             [*.cs]
             dotnet_diagnostic.SST1529.severity = warning

@@ -989,6 +989,9 @@ internal static class ModernSyntaxRules
         + "invocation still require the context, and a block containing any of them is left alone. A block with no pointer operations at all is not "
         + "reported here either — an unsafe modifier guarding nothing is a separate shape with its own rule.";
 
+    /// <summary>The diagnostic category every SST22xx descriptor is filed under.</summary>
+    private const string Category = "ModernSyntax";
+
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>
@@ -996,7 +999,7 @@ internal static class ModernSyntaxRules
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
-        DescriptorFactory.Create(id, title, messageFormat, "ModernSyntax", description);
+        DescriptorFactory.Create(id, title, messageFormat, Category, description);
 
     /// <summary>
     /// Creates an enabled-by-default Info-severity ModernSyntax descriptor — a modernization nudge where the code
@@ -1012,7 +1015,7 @@ internal static class ModernSyntaxRules
             id,
             title,
             messageFormat,
-            "ModernSyntax",
+            Category,
             DiagnosticSeverity.Info,
             isEnabledByDefault: true,
             description: description,
@@ -1025,5 +1028,5 @@ internal static class ModernSyntaxRules
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
-        DescriptorFactory.CreateOptIn(id, title, messageFormat, "ModernSyntax", description);
+        DescriptorFactory.CreateOptIn(id, title, messageFormat, Category, description);
 }

@@ -442,6 +442,9 @@ internal static class DocumentationRules
         + "coverage, so the gap never resurfaces. Name the condition: what the caller passed, or the state the member was in. "
         + "An element whose content is inherited, or that wraps a nested element rather than prose, is left alone.";
 
+    /// <summary>The diagnostic category every SST16xx descriptor is filed under.</summary>
+    private const string Category = "Documentation";
+
     /// <summary>Creates an enabled-by-default Info-severity Documentation descriptor — a documentation nudge that is
     /// weaker than a build-breaking Warning because the code still compiles and its meaning is clear.</summary>
     /// <param name="id">The diagnostic id.</param>
@@ -454,7 +457,7 @@ internal static class DocumentationRules
             id,
             title,
             messageFormat,
-            "Documentation",
+            Category,
             DiagnosticSeverity.Info,
             isEnabledByDefault: true,
             description: description,
@@ -467,7 +470,7 @@ internal static class DocumentationRules
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
-        DescriptorFactory.Create(id, title, messageFormat, "Documentation", description);
+        DescriptorFactory.Create(id, title, messageFormat, Category, description);
 
     /// <summary>Creates a Documentation descriptor that is disabled by default (opt-in via .editorconfig).</summary>
     /// <param name="id">The diagnostic id.</param>
@@ -476,5 +479,5 @@ internal static class DocumentationRules
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
-        DescriptorFactory.CreateOptIn(id, title, messageFormat, "Documentation", description);
+        DescriptorFactory.CreateOptIn(id, title, messageFormat, Category, description);
 }

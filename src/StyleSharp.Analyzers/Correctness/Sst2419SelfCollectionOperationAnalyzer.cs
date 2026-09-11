@@ -19,6 +19,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The name of the list append-range operation, whose collection argument is first.</summary>
+    private const string AddRange = "AddRange";
+
     /// <summary>The name of the list insert-range operation, whose collection argument is second.</summary>
     private const string InsertRange = "InsertRange";
 
@@ -96,12 +99,12 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for a known set or list operation.</returns>
     private static bool IsSelfCollectionMethod(string name)
         => name is "UnionWith" or "IntersectWith" or "ExceptWith" or "SymmetricExceptWith"
-            or "SetEquals" or "IsSubsetOf" or "IsSupersetOf" or "AddRange" or InsertRange;
+            or "SetEquals" or "IsSubsetOf" or "IsSupersetOf" or AddRange or InsertRange;
 
     /// <summary>Returns whether a method name is a list operation.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> for <c>AddRange</c> or <c>InsertRange</c>.</returns>
-    private static bool IsListMethod(string name) => name is "AddRange" or InsertRange;
+    private static bool IsListMethod(string name) => name is AddRange or InsertRange;
 
     /// <summary>Gets the argument position that should hold the self-collection.</summary>
     /// <param name="name">The method name.</param>
@@ -123,7 +126,7 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
             return "this is always true";
         }
 
-        if (name is "AddRange" or InsertRange)
+        if (name is AddRange or InsertRange)
         {
             return "this doubles the collection";
         }

@@ -18,13 +18,26 @@ public class MoveTypeToFileCodeFixUnitTest
 
         """;
 
+    /// <summary>The file named for the first type, which the extra types are moved out of.</summary>
+    private const string FirstTypeFileName = "First.cs";
+
+    /// <summary>The file the moved <c>Second</c> type is expected to land in.</summary>
+    private const string SecondTypeFileName = "Second.cs";
+
+    /// <summary>What the first type's file holds once every extra type has been moved out.</summary>
+    private const string FirstTypeOnlySource = """
+        public class First
+        {
+        }
+        """;
+
     /// <summary>Verifies a second top-level type is moved to its own file.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task SecondTypeMovedToOwnFileAsync()
     {
         var test = new VerifyMove.Test();
-        test.TestState.Sources.Add(("First.cs", """
+        test.TestState.Sources.Add((FirstTypeFileName, """
             public class First
             {
             }
@@ -33,12 +46,8 @@ public class MoveTypeToFileCodeFixUnitTest
             {
             }
             """));
-        test.FixedState.Sources.Add(("First.cs", """
-            public class First
-            {
-            }
-            """));
-        test.FixedState.Sources.Add(("Second.cs", """
+        test.FixedState.Sources.Add((FirstTypeFileName, FirstTypeOnlySource));
+        test.FixedState.Sources.Add((SecondTypeFileName, """
             public class Second
             {
             }
@@ -52,7 +61,7 @@ public class MoveTypeToFileCodeFixUnitTest
     public async Task TypeInNamespaceKeepsNamespaceAsync()
     {
         var test = new VerifyMove.Test();
-        test.TestState.Sources.Add(("First.cs", """
+        test.TestState.Sources.Add((FirstTypeFileName, """
             namespace N
             {
                 public class First
@@ -64,7 +73,7 @@ public class MoveTypeToFileCodeFixUnitTest
                 }
             }
             """));
-        test.FixedState.Sources.Add(("First.cs", """
+        test.FixedState.Sources.Add((FirstTypeFileName, """
             namespace N
             {
                 public class First
@@ -72,7 +81,7 @@ public class MoveTypeToFileCodeFixUnitTest
                 }
             }
             """));
-        test.FixedState.Sources.Add(("Second.cs", """
+        test.FixedState.Sources.Add((SecondTypeFileName, """
             namespace N
             {
                 public class Second
@@ -89,7 +98,7 @@ public class MoveTypeToFileCodeFixUnitTest
     public async Task GenericTypeUsesBraceConventionAsync()
     {
         var test = new VerifyMove.Test();
-        test.TestState.Sources.Add(("First.cs", """
+        test.TestState.Sources.Add((FirstTypeFileName, """
             public class First
             {
             }
@@ -98,11 +107,7 @@ public class MoveTypeToFileCodeFixUnitTest
             {
             }
             """));
-        test.FixedState.Sources.Add(("First.cs", """
-            public class First
-            {
-            }
-            """));
+        test.FixedState.Sources.Add((FirstTypeFileName, FirstTypeOnlySource));
         test.FixedState.Sources.Add(("Widget{T}.cs", """
             public class Widget<T>
             {
@@ -117,7 +122,7 @@ public class MoveTypeToFileCodeFixUnitTest
     public async Task GenericTypeUsesMetadataConventionAsync()
     {
         var test = new VerifyMove.Test();
-        test.TestState.Sources.Add(("First.cs", """
+        test.TestState.Sources.Add((FirstTypeFileName, """
             public class First
             {
             }
@@ -126,11 +131,7 @@ public class MoveTypeToFileCodeFixUnitTest
             {
             }
             """));
-        test.FixedState.Sources.Add(("First.cs", """
-            public class First
-            {
-            }
-            """));
+        test.FixedState.Sources.Add((FirstTypeFileName, FirstTypeOnlySource));
         test.FixedState.Sources.Add(("Widget`2.cs", """
             public class Widget<TKey, TValue>
             {
@@ -147,7 +148,7 @@ public class MoveTypeToFileCodeFixUnitTest
     public async Task FixAllMovesEveryExtraTypeAsync()
     {
         var test = new VerifyMove.Test();
-        test.TestState.Sources.Add(("First.cs", """
+        test.TestState.Sources.Add((FirstTypeFileName, """
             public class First
             {
             }
@@ -160,12 +161,8 @@ public class MoveTypeToFileCodeFixUnitTest
             {
             }
             """));
-        test.FixedState.Sources.Add(("First.cs", """
-            public class First
-            {
-            }
-            """));
-        test.FixedState.Sources.Add(("Second.cs", """
+        test.FixedState.Sources.Add((FirstTypeFileName, FirstTypeOnlySource));
+        test.FixedState.Sources.Add((SecondTypeFileName, """
             public class Second
             {
             }

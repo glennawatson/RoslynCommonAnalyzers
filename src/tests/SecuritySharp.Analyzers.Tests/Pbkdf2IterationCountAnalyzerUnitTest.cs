@@ -12,6 +12,9 @@ namespace SecuritySharp.Analyzers.Tests;
 /// <summary>Unit tests for SES1003 (a PBKDF2 one-shot must use a sufficient iteration count).</summary>
 public class Pbkdf2IterationCountAnalyzerUnitTest
 {
+    /// <summary>The in-memory path the floor-option tests add their <c>.editorconfig</c> at.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a low literal iteration count on a positional Pbkdf2 call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -176,7 +179,7 @@ public class Pbkdf2IterationCountAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             securitysharp.SES1003.iterations = 600000
@@ -206,7 +209,7 @@ public class Pbkdf2IterationCountAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             securitysharp.iterations = 10000
@@ -236,7 +239,7 @@ public class Pbkdf2IterationCountAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             securitysharp.SES1003.iterations = not-a-number

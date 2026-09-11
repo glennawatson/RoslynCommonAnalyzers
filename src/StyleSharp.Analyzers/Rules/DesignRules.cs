@@ -11,6 +11,9 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 internal static partial class DesignRules
 {
+    /// <summary>The diagnostic category every SST23xx descriptor is filed under.</summary>
+    private const string Category = "Design";
+
     /// <summary>Creates a Warning-severity Design descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>
@@ -18,7 +21,7 @@ internal static partial class DesignRules
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
-        DescriptorFactory.Create(id, title, messageFormat, "Design", description);
+        DescriptorFactory.Create(id, title, messageFormat, Category, description);
 
     /// <summary>
     /// Creates an enabled-by-default Info-severity Design descriptor — a design nudge where the code still compiles
@@ -34,7 +37,7 @@ internal static partial class DesignRules
             id,
             title,
             messageFormat,
-            "Design",
+            Category,
             DiagnosticSeverity.Info,
             isEnabledByDefault: true,
             description: description,
@@ -55,7 +58,7 @@ internal static partial class DesignRules
             id,
             title,
             messageFormat,
-            "Design",
+            Category,
             DiagnosticSeverity.Warning,
             isEnabledByDefault: false,
             description: description,

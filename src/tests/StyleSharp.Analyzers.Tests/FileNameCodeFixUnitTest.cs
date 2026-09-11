@@ -11,6 +11,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the SST1649 rename-file code fix.</summary>
 public class FileNameCodeFixUnitTest
 {
+    /// <summary>The name of the source file that does not match the type it declares.</summary>
+    private const string MismatchedFileName = "Other.cs";
+
     /// <summary>The global analyzer config selecting the backtick-arity (metadata) generic convention.</summary>
     private const string MetadataConfig = """
         is_global = true
@@ -24,7 +27,7 @@ public class FileNameCodeFixUnitTest
     public async Task FileRenamedToMatchTypeAsync()
     {
         var test = new VerifyRename.Test();
-        test.TestState.Sources.Add(("Other.cs", "public class {|SST1649:Widget|} { }"));
+        test.TestState.Sources.Add((MismatchedFileName, "public class {|SST1649:Widget|} { }"));
         test.FixedState.Sources.Add(("Widget.cs", "public class Widget { }"));
         await test.RunAsync(CancellationToken.None);
     }
@@ -35,7 +38,7 @@ public class FileNameCodeFixUnitTest
     public async Task GenericFileRenamedWithBraceConventionAsync()
     {
         var test = new VerifyRename.Test();
-        test.TestState.Sources.Add(("Other.cs", "public class {|SST1649:Widget|}<T> { }"));
+        test.TestState.Sources.Add((MismatchedFileName, "public class {|SST1649:Widget|}<T> { }"));
         test.FixedState.Sources.Add(("Widget{T}.cs", "public class Widget<T> { }"));
         await test.RunAsync(CancellationToken.None);
     }
@@ -46,7 +49,7 @@ public class FileNameCodeFixUnitTest
     public async Task GenericFileRenamedWithMetadataConventionAsync()
     {
         var test = new VerifyRename.Test();
-        test.TestState.Sources.Add(("Other.cs", "public class {|SST1649:Widget|}<TKey, TValue> { }"));
+        test.TestState.Sources.Add((MismatchedFileName, "public class {|SST1649:Widget|}<TKey, TValue> { }"));
         test.FixedState.Sources.Add(("Widget`2.cs", "public class Widget<TKey, TValue> { }"));
         test.TestState.AnalyzerConfigFiles.Add(("/.globalconfig", MetadataConfig));
         test.FixedState.AnalyzerConfigFiles.Add(("/.globalconfig", MetadataConfig));

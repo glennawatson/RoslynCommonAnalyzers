@@ -12,6 +12,9 @@ namespace SecuritySharp.Analyzers.Tests;
 /// <summary>Unit tests for SES1403 (a JSON deserialization depth limit must stay within a safe ceiling).</summary>
 public class JsonMaxDepthAnalyzerUnitTest
 {
+    /// <summary>The in-memory path the ceiling-option tests add their <c>.editorconfig</c> at.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies an object-initializer <c>MaxDepth</c> above the ceiling on JsonSerializerOptions is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -219,7 +222,7 @@ public class JsonMaxDepthAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             securitysharp.SES1403.maxdepth = 16
@@ -249,7 +252,7 @@ public class JsonMaxDepthAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             securitysharp.maxdepth = 256
@@ -279,7 +282,7 @@ public class JsonMaxDepthAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             securitysharp.SES1403.maxdepth = not-a-number
@@ -309,7 +312,7 @@ public class JsonMaxDepthAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             securitysharp.SES1403.maxdepth = 0

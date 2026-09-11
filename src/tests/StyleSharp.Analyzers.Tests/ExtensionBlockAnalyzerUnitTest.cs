@@ -15,6 +15,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the C# 14 extension-block rules (SST1700/SST1701).</summary>
 public class ExtensionBlockAnalyzerUnitTest
 {
+    /// <summary>The receiver shape the analyzer classifies a <see langword="string"/> receiver as.</summary>
+    private const string StringReceiverShape = "string";
+
     /// <summary>Verifies an empty extension block is reported (SST1700).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -360,7 +363,7 @@ public class ExtensionBlockAnalyzerUnitTest
         var receiverType = SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword));
 
         await Assert.That(ExtensionBlockHelper.TryClassifyReceiverShape(receiverType, out var shape)).IsTrue();
-        await Assert.That(shape).IsEqualTo("string");
+        await Assert.That(shape).IsEqualTo(StringReceiverShape);
     }
 
     /// <summary>Verifies unsupported receiver shapes fall back to the slower receiver-text path.</summary>
@@ -396,7 +399,7 @@ public class ExtensionBlockAnalyzerUnitTest
         var receiverType = SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword));
 
         await Assert.That(ExtensionBlockHelper.TryClassifyReceiver(receiverType, out var shape, out var isBroadReceiver)).IsTrue();
-        await Assert.That(shape).IsEqualTo("string");
+        await Assert.That(shape).IsEqualTo(StringReceiverShape);
         await Assert.That(isBroadReceiver).IsFalse();
     }
 
@@ -405,9 +408,9 @@ public class ExtensionBlockAnalyzerUnitTest
     [Test]
     public async Task ReceiverOrderHelperClassifiesDescendingOnlyAsync()
     {
-        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver("string", null)).IsFalse();
-        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver("string", "int")).IsFalse();
-        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver("int", "string")).IsTrue();
+        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver(StringReceiverShape, null)).IsFalse();
+        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver(StringReceiverShape, "int")).IsFalse();
+        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver("int", StringReceiverShape)).IsTrue();
     }
 
     /// <summary>Verifies duplicate detection only reports equal immediate receivers.</summary>
@@ -415,8 +418,8 @@ public class ExtensionBlockAnalyzerUnitTest
     [Test]
     public async Task DuplicateReceiverHelperMatchesOrdinalEqualityAsync()
     {
-        await Assert.That(ExtensionBlockAnalyzer.IsDuplicateImmediateReceiver("string", "string")).IsTrue();
-        await Assert.That(ExtensionBlockAnalyzer.IsDuplicateImmediateReceiver("string", "int")).IsFalse();
+        await Assert.That(ExtensionBlockAnalyzer.IsDuplicateImmediateReceiver(StringReceiverShape, StringReceiverShape)).IsTrue();
+        await Assert.That(ExtensionBlockAnalyzer.IsDuplicateImmediateReceiver(StringReceiverShape, "int")).IsFalse();
     }
 
     /// <summary>Runs the analyzer verifier with the language version set to one that supports extension blocks.</summary>

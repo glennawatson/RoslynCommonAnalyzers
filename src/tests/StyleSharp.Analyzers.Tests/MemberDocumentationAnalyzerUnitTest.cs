@@ -11,6 +11,17 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the member documentation rules (SST1600/1602/1604/1606/1611/1615/1617/1618/1629).</summary>
 public class MemberDocumentationAnalyzerUnitTest
 {
+    /// <summary>The path the verifier gives the analyzer config the documentation options are read from.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
+    /// <summary>The analyzer config that requires private fields to be documented.</summary>
+    private const string RequirePrivateFieldDocumentationConfig = """
+            root = true
+            [*.cs]
+            stylesharp.document_private_fields = true
+
+            """;
+
     /// <summary>Verifies a fully documented type produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -40,7 +51,7 @@ public class MemberDocumentationAnalyzerUnitTest
     {
         var test = new Verify.Test { TestCode = "internal class Outer { }" };
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.document_internal_elements = false
@@ -63,7 +74,7 @@ public class MemberDocumentationAnalyzerUnitTest
                        """
         };
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.document_private_elements = true
@@ -80,7 +91,7 @@ public class MemberDocumentationAnalyzerUnitTest
     {
         var test = new Verify.Test { TestCode = "public interface IThing { void Do(); }" };
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.document_interfaces = none
@@ -246,7 +257,7 @@ public class MemberDocumentationAnalyzerUnitTest
                        """
         };
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.document_private_fields = false
@@ -268,13 +279,7 @@ public class MemberDocumentationAnalyzerUnitTest
                        public class Outer { private int {|SST1600:_value|}; }
                        """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            stylesharp.document_private_fields = true
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -295,13 +300,7 @@ public class MemberDocumentationAnalyzerUnitTest
                        }
                        """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            stylesharp.document_private_fields = true
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -318,13 +317,7 @@ public class MemberDocumentationAnalyzerUnitTest
                        public class Outer { private const int {|SST1600:Value|} = 1; }
                        """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            stylesharp.document_private_fields = true
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -341,13 +334,7 @@ public class MemberDocumentationAnalyzerUnitTest
                        public class Outer { private protected int {|SST1600:_value|}; }
                        """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            stylesharp.document_private_fields = true
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -385,7 +372,7 @@ public class MemberDocumentationAnalyzerUnitTest
                        """
         };
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.document_internal_elements = false
@@ -423,13 +410,7 @@ public class MemberDocumentationAnalyzerUnitTest
                        }
                        """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            stylesharp.document_private_fields = true
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -452,13 +433,7 @@ public class MemberDocumentationAnalyzerUnitTest
                        }
                        """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            stylesharp.document_private_fields = true
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -475,13 +450,7 @@ public class MemberDocumentationAnalyzerUnitTest
                        public class Outer { private int {|SST1600:_a|}, {|SST1600:_b|}; }
                        """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            stylesharp.document_private_fields = true
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
 
         await test.RunAsync(CancellationToken.None);
     }

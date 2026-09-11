@@ -13,18 +13,21 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public sealed class UniqueLineRuleUnitTest
 {
+    /// <summary>The family's constructor-declaration id, used to prove a descriptor carries the id it was built with.</summary>
+    private const string ConstructorParametersRuleId = "SST1150";
+
     /// <summary>Verifies the parameter descriptor carries the requested id and the family's fixed metadata.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task ForParametersCarriesRequestedIdAndFamilyMetadataAsync()
     {
-        var rule = UniqueLineRule.ForParameters("SST1150");
+        var rule = UniqueLineRule.ForParameters(ConstructorParametersRuleId);
 
-        await Assert.That(rule.Id).IsEqualTo("SST1150");
+        await Assert.That(rule.Id).IsEqualTo(ConstructorParametersRuleId);
         await Assert.That(rule.Category).IsEqualTo("Readability");
         await Assert.That(rule.DefaultSeverity).IsEqualTo(DiagnosticSeverity.Warning);
         await Assert.That(rule.IsEnabledByDefault).IsTrue();
-        await Assert.That(rule.HelpLinkUri).Contains("SST1150");
+        await Assert.That(rule.HelpLinkUri).Contains(ConstructorParametersRuleId);
     }
 
     /// <summary>Verifies the argument descriptor carries its id and is worded differently from the parameter descriptor.</summary>
@@ -32,7 +35,7 @@ public sealed class UniqueLineRuleUnitTest
     [Test]
     public async Task ForArgumentsWordsItsTitleDifferentlyFromForParametersAsync()
     {
-        var parameters = UniqueLineRule.ForParameters("SST1150");
+        var parameters = UniqueLineRule.ForParameters(ConstructorParametersRuleId);
         var arguments = UniqueLineRule.ForArguments("SST1154");
 
         await Assert.That(arguments.Id).IsEqualTo("SST1154");

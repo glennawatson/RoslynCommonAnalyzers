@@ -9,6 +9,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2601 (logger field/property naming convention).</summary>
 public class LoggerMemberNamingAnalyzerUnitTest
 {
+    /// <summary>The path the verifier gives the analyzer config the accepted field names are read from.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a private instance logger field with a non-conventional name is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -275,7 +278,7 @@ public class LoggerMemberNamingAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST2601.fieldname = logger
@@ -303,7 +306,7 @@ public class LoggerMemberNamingAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST2601.fieldname =
@@ -330,7 +333,7 @@ public class LoggerMemberNamingAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST2601.fieldname = ,

@@ -47,6 +47,9 @@ internal static class RecordRules
         "Replace the empty '{ }' body of this positional record with a semicolon",
         "A positional record with an empty body adds nothing over a semicolon-terminated declaration; 'record Point(int X, int Y);' is the idiomatic form.");
 
+    /// <summary>The diagnostic category every SST18xx descriptor is filed under.</summary>
+    private const string Category = "Records";
+
     /// <summary>Creates a Warning-severity Records descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <param name="title">The rule title.</param>
@@ -54,7 +57,7 @@ internal static class RecordRules
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
-        DescriptorFactory.Create(id, title, messageFormat, "Records", description);
+        DescriptorFactory.Create(id, title, messageFormat, Category, description);
 
     /// <summary>Creates an enabled-by-default Info-severity Records descriptor — an idiomatic nudge that never breaks a build.</summary>
     /// <param name="id">The diagnostic id.</param>
@@ -67,7 +70,7 @@ internal static class RecordRules
             id,
             title,
             messageFormat,
-            "Records",
+            Category,
             DiagnosticSeverity.Info,
             isEnabledByDefault: true,
             description: description,
@@ -80,5 +83,5 @@ internal static class RecordRules
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
     private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
-        DescriptorFactory.CreateOptIn(id, title, messageFormat, "Records", description);
+        DescriptorFactory.CreateOptIn(id, title, messageFormat, Category, description);
 }

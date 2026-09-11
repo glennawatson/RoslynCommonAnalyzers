@@ -12,6 +12,26 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the trivia spacing rules (SST1005/SST1025/SST1027/SST1028).</summary>
 public class SpacingAnalyzerUnitTest
 {
+    /// <summary>The path the verifier mounts a test's analyzer config file at.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
+    /// <summary>Turns the opening-bracket rule on and leaves collection-expression spacing at its tight default.</summary>
+    private const string BracketSpacingEnabledConfig = """
+        root = true
+        [*.cs]
+        dotnet_diagnostic.SST1010.severity = warning
+
+        """;
+
+    /// <summary>Turns the opening-bracket rule on and asks for collection expressions to be padded inside their brackets.</summary>
+    private const string PaddedCollectionExpressionConfig = """
+        root = true
+        [*.cs]
+        dotnet_diagnostic.SST1010.severity = warning
+        stylesharp.collection_expression_spacing = space
+
+        """;
+
     /// <summary>Verifies a single-line comment without a leading space is reported (SST1005) and fixed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -775,13 +795,7 @@ public class SpacingAnalyzerUnitTest
                        }
                        """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            dotnet_diagnostic.SST1010.severity = warning
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BracketSpacingEnabledConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -802,13 +816,7 @@ public class SpacingAnalyzerUnitTest
                        }
                        """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            dotnet_diagnostic.SST1010.severity = warning
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BracketSpacingEnabledConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -827,13 +835,7 @@ public class SpacingAnalyzerUnitTest
                        }
                        """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            dotnet_diagnostic.SST1010.severity = warning
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BracketSpacingEnabledConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -858,13 +860,7 @@ public class SpacingAnalyzerUnitTest
                         }
                         """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            dotnet_diagnostic.SST1010.severity = warning
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BracketSpacingEnabledConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -883,14 +879,7 @@ public class SpacingAnalyzerUnitTest
                        }
                        """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            dotnet_diagnostic.SST1010.severity = warning
-            stylesharp.collection_expression_spacing = space
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, PaddedCollectionExpressionConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -915,14 +904,7 @@ public class SpacingAnalyzerUnitTest
                         }
                         """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            dotnet_diagnostic.SST1010.severity = warning
-            stylesharp.collection_expression_spacing = space
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, PaddedCollectionExpressionConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -941,14 +923,7 @@ public class SpacingAnalyzerUnitTest
                        }
                        """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            dotnet_diagnostic.SST1010.severity = warning
-            stylesharp.collection_expression_spacing = space
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, PaddedCollectionExpressionConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -973,14 +948,7 @@ public class SpacingAnalyzerUnitTest
                         }
                         """
         };
-        test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
-            root = true
-            [*.cs]
-            dotnet_diagnostic.SST1010.severity = warning
-            stylesharp.collection_expression_spacing = space
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, PaddedCollectionExpressionConfig));
 
         await test.RunAsync(CancellationToken.None);
     }

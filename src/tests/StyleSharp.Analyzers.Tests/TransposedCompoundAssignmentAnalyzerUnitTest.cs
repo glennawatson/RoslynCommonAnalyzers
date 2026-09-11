@@ -19,20 +19,22 @@ public class TransposedCompoundAssignmentAnalyzerUnitTest
     /// <summary>The unary-value fix's equivalence key.</summary>
     private const string UnaryKey = "Sst2417TransposedCompoundAssignmentCodeFixProvider.Unary";
 
+    /// <summary>The reported <c>=+</c> assignment, the one shape both fix readings are offered on.</summary>
+    private const string TransposedPlusSource = """
+        public sealed class C
+        {
+            public void M(int x)
+            {
+                x {|SST2417:=+|} 1;
+            }
+        }
+        """;
+
     /// <summary>Verifies a transposed <c>+</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task TransposedPlusIsReportedAsync()
-        => await VerifyTransposed.VerifyAnalyzerAsync(
-            """
-            public sealed class C
-            {
-                public void M(int x)
-                {
-                    x {|SST2417:=+|} 1;
-                }
-            }
-            """);
+        => await VerifyTransposed.VerifyAnalyzerAsync(TransposedPlusSource);
 
     /// <summary>Verifies a transposed <c>-</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -133,15 +135,7 @@ public class TransposedCompoundAssignmentAnalyzerUnitTest
         var test = new VerifyFix.Test
         {
             CodeActionEquivalenceKey = CompoundKey,
-            TestCode = """
-                public sealed class C
-                {
-                    public void M(int x)
-                    {
-                        x {|SST2417:=+|} 1;
-                    }
-                }
-                """,
+            TestCode = TransposedPlusSource,
             FixedCode = """
                 public sealed class C
                 {
@@ -164,15 +158,7 @@ public class TransposedCompoundAssignmentAnalyzerUnitTest
         var test = new VerifyFix.Test
         {
             CodeActionEquivalenceKey = UnaryKey,
-            TestCode = """
-                public sealed class C
-                {
-                    public void M(int x)
-                    {
-                        x {|SST2417:=+|} 1;
-                    }
-                }
-                """,
+            TestCode = TransposedPlusSource,
             FixedCode = """
                 public sealed class C
                 {

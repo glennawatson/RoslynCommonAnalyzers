@@ -18,7 +18,7 @@ public class HardcodedSecretAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     [Arguments("sk-1A2b3C4d5E6f7G8h9I0j", HardcodedSecretClassifier.OpenAiApiKey)]
-    [Arguments("AKIAIOSFODNN7EXAMPLE", HardcodedSecretClassifier.AwsAccessKeyId)]
+    [Arguments("AKIA2E4RJKL7MNPQ6XYZ", HardcodedSecretClassifier.AwsAccessKeyId)]
     [Arguments("ghp_0123456789abcdefghijABCDEFGHIJklmnop", HardcodedSecretClassifier.GitHubToken)]
     [Arguments("gho_0123456789abcdefghijABCDEFGHIJklmnop", HardcodedSecretClassifier.GitHubToken)]
     [Arguments("AIza0123456789abcdefghijklmnopqrstABCDE", HardcodedSecretClassifier.GoogleApiKey)]
@@ -36,6 +36,20 @@ public class HardcodedSecretAnalyzerUnitTest
     [Arguments("Initial Catalog=Store;Password=Cat4logPass99", HardcodedSecretClassifier.ConnectionStringPassword)]
     public async Task ClassifiesRecognisedSecretAsync(string value, string expectedKind)
         => await Assert.That(HardcodedSecretClassifier.Classify(value)).IsEqualTo(expectedKind);
+
+    /// <summary>Verifies a key carrying the vendors' sample marker is not classified as a secret.</summary>
+    /// <param name="value">The decoded literal content.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A vendor reserves the marker for the key printed in its own documentation, so that a scanner can
+    /// tell a sample from a credential. Reporting it flags every tutorial and sample that quotes them.
+    /// </remarks>
+    [Test]
+    [Arguments("AKIAIOSFODNN7EXAMPLE")]
+    [Arguments("AKIAI44QH8DHBEXAMPLE")]
+    [Arguments("ghp_0123456789abcdefghijEXAMPLEklmnopqr")]
+    public async Task DocumentationExampleIsNotASecretAsync(string value)
+        => await Assert.That(HardcodedSecretClassifier.Classify(value)).IsNull();
 
     /// <summary>Verifies Slack token shapes are classified, with prefix and body supplied separately so no contiguous token literal appears in the source.</summary>
     /// <param name="prefix">The Slack token type prefix.</param>

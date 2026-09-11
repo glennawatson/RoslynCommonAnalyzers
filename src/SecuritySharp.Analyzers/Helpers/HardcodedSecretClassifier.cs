@@ -405,7 +405,45 @@ internal static class HardcodedSecretClassifier
     /// <param name="end">The exclusive end of the body span.</param>
     /// <returns><see langword="true"/> when the body reads as a high-entropy secret rather than a placeholder.</returns>
     private static bool IsHighEntropyBody(string value, int start, int end)
-        => !HasLongIdenticalRun(value, start, end) && CountDistinctAsciiCharacters(value, start, end) >= MinDistinctBodyCharacters;
+        => !HasLongIdenticalRun(value, start, end)
+            && !IsDocumentationExample(value, start, end)
+            && CountDistinctAsciiCharacters(value, start, end) >= MinDistinctBodyCharacters;
+
+    /// <summary>Returns whether a keyed body carries the marker vendors reserve for their published samples.</summary>
+    /// <param name="value">The decoded literal content.</param>
+    /// <param name="start">The inclusive start of the body span.</param>
+    /// <param name="end">The exclusive end of the body span.</param>
+    /// <returns><see langword="true"/> when the body names itself an example.</returns>
+    /// <remarks>
+    /// A key spelled with <c>EXAMPLE</c> in it is the one printed in the vendor's own documentation —
+    /// <c>AKIAIOSFODNN7EXAMPLE</c> is the access key id AWS publishes — and it is reserved so that a
+    /// scanner can tell a sample from a credential. Reporting it means flagging every tutorial, sample
+    /// and test that quotes the documentation.
+    /// </remarks>
+    private static bool IsDocumentationExample(string value, int start, int end)
+    {
+        const string Marker = "EXAMPLE";
+        for (var i = start; i + Marker.Length <= end; i++)
+        {
+            var matched = true;
+            for (var j = 0; j < Marker.Length && matched; j++)
+            {
+                matched = ToUpperAscii(value[i + j]) == Marker[j];
+            }
+
+            if (matched)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Upper-cases an ASCII letter, leaving every other character alone.</summary>
+    /// <param name="c">The character to fold.</param>
+    /// <returns>The upper-case form of an ASCII letter.</returns>
+    private static char ToUpperAscii(char c) => c is >= 'a' and <= 'z' ? (char)(c - ('a' - 'A')) : c;
 
     /// <summary>Returns whether a span contains a run of one repeated character longer than the allowed maximum.</summary>
     /// <param name="value">The decoded literal content.</param>

@@ -13,7 +13,8 @@ namespace SecuritySharp.Analyzers.Tests;
 public class WebAssemblySecretDisclosureAnalyzerUnitTest
 {
     /// <summary>A recognised AWS access-key-id secret shape reused across the reachability tests.</summary>
-    private const string Secret = "AKIAIOSFODNN7EXAMPLE";
+    /// <remarks>Synthetic rather than the vendor's published sample, which the classifier treats as a placeholder.</remarks>
+    private const string Secret = "AKIA2E4RJKL7MNPQ6XYZ";
 
     /// <summary>Inline stubs of the render-mode surface: the marker gate plus WebAssembly, Auto, and Server modes.</summary>
     private const string RenderModeStub = """

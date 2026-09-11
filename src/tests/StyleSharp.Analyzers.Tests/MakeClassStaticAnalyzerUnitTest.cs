@@ -12,6 +12,20 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1432 (class with only static members) and its fix.</summary>
 public class MakeClassStaticAnalyzerUnitTest
 {
+    /// <summary>The file holding the partial part that declares nothing but static members.</summary>
+    private const string HelpersPartFileName = "Thing.Helpers.cs";
+
+    /// <summary>The file holding the partial type's primary part.</summary>
+    private const string PrimaryPartFileName = "Thing.cs";
+
+    /// <summary>The static-only partial part the sibling-part tests pair with a primary part.</summary>
+    private const string StaticOnlyHelpersPart = """
+        internal partial class Thing
+        {
+            internal static int Zero() => 0;
+        }
+        """;
+
     /// <summary>Verifies an all-static class is reported and marked static.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -73,13 +87,8 @@ public class MakeClassStaticAnalyzerUnitTest
             {
                 Sources =
                 {
-                    ("Thing.Helpers.cs", """
-                                         internal partial class Thing
-                                         {
-                                             internal static int Zero() => 0;
-                                         }
-                                         """),
-                    ("Thing.cs", """
+                    (HelpersPartFileName, StaticOnlyHelpersPart),
+                    (PrimaryPartFileName, """
                                  internal partial class Thing
                                  {
                                      internal int Value { get; set; }
@@ -102,13 +111,8 @@ public class MakeClassStaticAnalyzerUnitTest
             {
                 Sources =
                 {
-                    ("Thing.Helpers.cs", """
-                                         internal partial class Thing
-                                         {
-                                             internal static int Zero() => 0;
-                                         }
-                                         """),
-                    ("Thing.cs", """
+                    (HelpersPartFileName, StaticOnlyHelpersPart),
+                    (PrimaryPartFileName, """
                                  internal partial class Thing : System.IDisposable
                                  {
                                      public void Dispose() { }
@@ -131,36 +135,26 @@ public class MakeClassStaticAnalyzerUnitTest
             {
                 Sources =
                 {
-                    ("Thing.cs", """
+                    (PrimaryPartFileName, """
                                  internal partial class {|SST1432:Thing|}
                                  {
                                      internal static int Value => 0;
                                  }
                                  """),
-                    ("Thing.Helpers.cs", """
-                                         internal partial class Thing
-                                         {
-                                             internal static int Zero() => 0;
-                                         }
-                                         """),
+                    (HelpersPartFileName, StaticOnlyHelpersPart),
                 },
             },
             FixedState =
             {
                 Sources =
                 {
-                    ("Thing.cs", """
+                    (PrimaryPartFileName, """
                                  internal static partial class Thing
                                  {
                                      internal static int Value => 0;
                                  }
                                  """),
-                    ("Thing.Helpers.cs", """
-                                         internal partial class Thing
-                                         {
-                                             internal static int Zero() => 0;
-                                         }
-                                         """),
+                    (HelpersPartFileName, StaticOnlyHelpersPart),
                 },
             },
         };

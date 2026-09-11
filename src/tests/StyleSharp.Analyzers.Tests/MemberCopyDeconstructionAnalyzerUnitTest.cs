@@ -15,6 +15,69 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst2247MemberCopyDeconstructionAnalyzer"/> and its code fix (SST2247).</summary>
 public class MemberCopyDeconstructionAnalyzerUnitTest
 {
+    /// <summary>Source copying both members off a value that exposes a matching Deconstruct.</summary>
+    private const string DeconstructablePointSource = """
+        public readonly struct Point
+        {
+            public Point(int x, int y)
+            {
+                X = x;
+                Y = y;
+            }
+
+            public int X { get; }
+
+            public int Y { get; }
+
+            public void Deconstruct(out int x, out int y)
+            {
+                x = X;
+                y = Y;
+            }
+        }
+
+        public sealed class C
+        {
+            public int M(Point point)
+            {
+                {|SST2247:var x = point.X;|}
+                var y = point.Y;
+                return x + y;
+            }
+        }
+        """;
+
+    /// <summary>The same source once the two member copies have folded into a deconstruction.</summary>
+    private const string DeconstructablePointFixedSource = """
+        public readonly struct Point
+        {
+            public Point(int x, int y)
+            {
+                X = x;
+                Y = y;
+            }
+
+            public int X { get; }
+
+            public int Y { get; }
+
+            public void Deconstruct(out int x, out int y)
+            {
+                x = X;
+                y = Y;
+            }
+        }
+
+        public sealed class C
+        {
+            public int M(Point point)
+            {
+                var (x, y) = point;
+                return x + y;
+            }
+        }
+        """;
+
     /// <summary>Verifies tuple member copies off a parameter fold into a deconstruction.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -105,70 +168,10 @@ public class MemberCopyDeconstructionAnalyzerUnitTest
 
     /// <summary>Verifies member copies off a value exposing a matching Deconstruct fold into a deconstruction.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeconstructableMemberCopiesAreFoldedAsync()
-    {
-        const string Source = """
-                              public readonly struct Point
-                              {
-                                  public Point(int x, int y)
-                                  {
-                                      X = x;
-                                      Y = y;
-                                  }
-
-                                  public int X { get; }
-
-                                  public int Y { get; }
-
-                                  public void Deconstruct(out int x, out int y)
-                                  {
-                                      x = X;
-                                      y = Y;
-                                  }
-                              }
-
-                              public sealed class C
-                              {
-                                  public int M(Point point)
-                                  {
-                                      {|SST2247:var x = point.X;|}
-                                      var y = point.Y;
-                                      return x + y;
-                                  }
-                              }
-                              """;
-        const string FixedSource = """
-                                   public readonly struct Point
-                                   {
-                                       public Point(int x, int y)
-                                       {
-                                           X = x;
-                                           Y = y;
-                                       }
-
-                                       public int X { get; }
-
-                                       public int Y { get; }
-
-                                       public void Deconstruct(out int x, out int y)
-                                       {
-                                           x = X;
-                                           y = Y;
-                                       }
-                                   }
-
-                                   public sealed class C
-                                   {
-                                       public int M(Point point)
-                                       {
-                                           var (x, y) = point;
-                                           return x + y;
-                                       }
-                                   }
-                                   """;
-        await RunAsync(Source, FixedSource);
-    }
+    public Task DeconstructableMemberCopiesAreFoldedAsync() =>
+        RunAsync(DeconstructablePointSource, DeconstructablePointFixedSource);
 
     /// <summary>Verifies a single member read is left alone; there is nothing to deconstruct.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

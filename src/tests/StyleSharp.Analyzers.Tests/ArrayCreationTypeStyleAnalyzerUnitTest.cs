@@ -14,6 +14,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class ArrayCreationTypeStyleAnalyzerUnitTest
 {
+    /// <summary>The <c>array_creation_type_style</c> value that asks for an inferred element type.</summary>
+    private const string ImplicitStyle = "implicit";
+
     /// <summary>Verifies an implicit array gains its element type when the style is <c>explicit</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -51,7 +54,7 @@ public class ArrayCreationTypeStyleAnalyzerUnitTest
                                        public int[] Make() => new[] { 1, 2 };
                                    }
                                    """;
-        await RunAsync(Source, FixedSource, style: "implicit");
+        await RunAsync(Source, FixedSource, style: ImplicitStyle);
     }
 
     /// <summary>Verifies an obvious explicit array drops its element type under the default style.</summary>
@@ -101,7 +104,7 @@ public class ArrayCreationTypeStyleAnalyzerUnitTest
                                   public int[] Make() => new[] { 1, 2 };
                               }
                               """;
-        await VerifyCleanAsync(Source, style: "implicit");
+        await VerifyCleanAsync(Source, style: ImplicitStyle);
     }
 
     /// <summary>Verifies an array with an explicit size is never converted.</summary>
@@ -115,7 +118,7 @@ public class ArrayCreationTypeStyleAnalyzerUnitTest
                                   public int[] Make() => new int[2] { 1, 2 };
                               }
                               """;
-        await VerifyCleanAsync(Source, style: "implicit");
+        await VerifyCleanAsync(Source, style: ImplicitStyle);
     }
 
     /// <summary>Verifies an explicit array with no single best element type is never converted.</summary>
@@ -129,7 +132,7 @@ public class ArrayCreationTypeStyleAnalyzerUnitTest
                                   public object[] Make() => new object[] { 1, "text" };
                               }
                               """;
-        await VerifyCleanAsync(Source, style: "implicit");
+        await VerifyCleanAsync(Source, style: ImplicitStyle);
     }
 
     /// <summary>Runs a code-fix verification with the disabled rule enabled and the given style option.</summary>

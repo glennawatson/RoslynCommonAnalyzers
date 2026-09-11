@@ -173,8 +173,28 @@ internal static class FieldReferenceAnalysis
             AssignmentExpressionSyntax assignment when assignment.Left == expression => true,
             PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression)
                                                   || prefix.IsKind(SyntaxKind.PreDecrementExpression),
+            ArgumentSyntax { Parent: TupleExpressionSyntax } => IsDeconstructionTarget(expression),
             _ => expression.Parent is PostfixUnaryExpressionSyntax or ArgumentSyntax { RefOrOutKeyword.RawKind: not 0 }
         };
+    }
+
+    /// <summary>Returns whether a reference is one of the targets a deconstruction assigns to.</summary>
+    /// <param name="expression">The field reference, or the member access that promoted it.</param>
+    /// <returns><see langword="true"/> when the reference sits in the tuple on the left of an assignment.</returns>
+    /// <remarks>
+    /// A deconstruction writes through a tuple, so the assignment's left side is the tuple rather than
+    /// the field, and a tuple element carries no <c>ref</c> or <c>out</c> to fall back on. Nested tuples
+    /// are walked out to the outermost before the assignment is checked.
+    /// </remarks>
+    internal static bool IsDeconstructionTarget(SyntaxNode expression)
+    {
+        var current = expression;
+        while (current.Parent is ArgumentSyntax { Parent: TupleExpressionSyntax tuple })
+        {
+            current = tuple;
+        }
+
+        return current.Parent is AssignmentExpressionSyntax assignment && assignment.Left == current;
     }
 
     /// <summary>Returns whether every bound reference to a field lies inside one allowed node, skipping one declaration.</summary>

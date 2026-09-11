@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -16,6 +17,71 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the overwritten-value rule (SST2222): local writes that can never be read.</summary>
 public class RemoveOverwrittenValueUnitTest
 {
+    /// <summary>Source whose null initializer is read by the closure the following assignment schedules.</summary>
+    private const string CapturedByFollowingAssignmentSource = """
+        #nullable enable
+
+        using System;
+
+        public sealed class C
+        {
+            private readonly object _gate = new();
+            private readonly IScheduler _scheduler;
+
+            public C(IScheduler scheduler)
+            {
+                _scheduler = scheduler;
+            }
+
+            private void Reschedule()
+            {
+                var isAdded = false;
+                var isDone = false;
+                IDisposable? disposable = null;
+                disposable = _scheduler.Schedule(() =>
+                {
+                    lock (_gate)
+                    {
+                        if (isAdded)
+                        {
+                            _ = Remove(disposable!);
+                        }
+                        else
+                        {
+                            isDone = true;
+                        }
+                    }
+
+                    RunRecursiveAction();
+                });
+
+                lock (_gate)
+                {
+                    if (!isDone)
+                    {
+                        Add(disposable);
+                        isAdded = true;
+                    }
+                }
+            }
+
+            private void Add(IDisposable? disposable)
+            {
+            }
+
+            private bool Remove(IDisposable disposable) => true;
+
+            private void RunRecursiveAction()
+            {
+            }
+        }
+
+        public interface IScheduler
+        {
+            IDisposable Schedule(Action action);
+        }
+        """;
+
     /// <summary>Verifies adjacent overwritten local values are removed without touching the later write.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -68,75 +134,10 @@ public class RemoveOverwrittenValueUnitTest
 
     /// <summary>Verifies an initializer is preserved when the following assignment captures the local.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverwrittenLocalValueCapturedByFollowingAssignmentIsCleanAsync()
-    {
-        const string Source = """
-                              #nullable enable
-
-                              using System;
-
-                              public sealed class C
-                              {
-                                  private readonly object _gate = new();
-                                  private readonly IScheduler _scheduler;
-
-                                  public C(IScheduler scheduler)
-                                  {
-                                      _scheduler = scheduler;
-                                  }
-
-                                  private void Reschedule()
-                                  {
-                                      var isAdded = false;
-                                      var isDone = false;
-                                      IDisposable? disposable = null;
-                                      disposable = _scheduler.Schedule(() =>
-                                      {
-                                          lock (_gate)
-                                          {
-                                              if (isAdded)
-                                              {
-                                                  _ = Remove(disposable!);
-                                              }
-                                              else
-                                              {
-                                                  isDone = true;
-                                              }
-                                          }
-
-                                          RunRecursiveAction();
-                                      });
-
-                                      lock (_gate)
-                                      {
-                                          if (!isDone)
-                                          {
-                                              Add(disposable);
-                                              isAdded = true;
-                                          }
-                                      }
-                                  }
-
-                                  private void Add(IDisposable? disposable)
-                                  {
-                                  }
-
-                                  private bool Remove(IDisposable disposable) => true;
-
-                                  private void RunRecursiveAction()
-                                  {
-                                  }
-                              }
-
-                              public interface IScheduler
-                              {
-                                  IDisposable Schedule(Action action);
-                              }
-                              """;
-
-        await VerifyModernSyntaxValue.VerifyAnalyzerAsync(Source);
-    }
+    public Task OverwrittenLocalValueCapturedByFollowingAssignmentIsCleanAsync() =>
+        VerifyModernSyntaxValue.VerifyAnalyzerAsync(CapturedByFollowingAssignmentSource);
 
     /// <summary>Verifies a postfix step whose local dies at the enclosing return is removed.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>

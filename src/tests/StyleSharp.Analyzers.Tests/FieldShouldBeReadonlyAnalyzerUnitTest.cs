@@ -36,6 +36,52 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
         await VerifyReadonlyField.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a field a deconstruction assigns to is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// The assignment's left side is the tuple rather than the field, so missing that write would ask
+    /// for a <c>readonly</c> the deconstruction cannot compile against.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task DeconstructionTargetIsCleanAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _first;
+
+                private int _second;
+
+                public void Load()
+                {
+                    (_first, _second) = Read();
+                }
+
+                private static (int First, int Second) Read() => (1, 2);
+            }
+            """);
+
+    /// <summary>Verifies a field a nested deconstruction assigns to is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NestedDeconstructionTargetIsCleanAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _value;
+
+                public void Load()
+                {
+                    (_, (_value, _)) = Read();
+                }
+
+                private static (int Flag, (int Value, int Extra) Inner) Read() => (0, (1, 2));
+            }
+            """);
+
     /// <summary>Verifies a method assignment prevents the diagnostic.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

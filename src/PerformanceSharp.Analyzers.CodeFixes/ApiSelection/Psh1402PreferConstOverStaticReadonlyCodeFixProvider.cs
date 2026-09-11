@@ -83,14 +83,16 @@ public sealed class Psh1402PreferConstOverStaticReadonlyCodeFixProvider : CodeFi
             {
                 if (!constInserted)
                 {
-                    rewritten[write++] = SyntaxFactory.Token(SyntaxKind.ConstKeyword).WithTriviaFrom(token);
+                    rewritten[write] = SyntaxFactory.Token(SyntaxKind.ConstKeyword).WithTriviaFrom(token);
+                    write++;
                     constInserted = true;
                 }
 
                 continue;
             }
 
-            rewritten[write++] = token;
+            rewritten[write] = token;
+            write++;
         }
 
         return field.WithModifiers(SyntaxFactory.TokenList(rewritten));

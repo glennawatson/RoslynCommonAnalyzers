@@ -158,14 +158,14 @@ public sealed class UniqueLineCodeFixerHelperUnitTest
     /// <returns><see langword="true"/> when every entry begins on its own line.</returns>
     private static bool EndsEveryEntryLine(SyntaxToken opener, IEnumerable<SyntaxToken> separators)
     {
-        if (!opener.TrailingTrivia.Any(t => t.IsKind(SyntaxKind.EndOfLineTrivia)))
+        if (!opener.TrailingTrivia.Any(static t => t.IsKind(SyntaxKind.EndOfLineTrivia)))
         {
             return false;
         }
 
         foreach (var separator in separators)
         {
-            if (!separator.TrailingTrivia.Any(t => t.IsKind(SyntaxKind.EndOfLineTrivia)))
+            if (!separator.TrailingTrivia.Any(static t => t.IsKind(SyntaxKind.EndOfLineTrivia)))
             {
                 return false;
             }

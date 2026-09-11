@@ -56,7 +56,7 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
     /// <returns>A <see cref="Task"/> representing the asynchronous verification operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Task VerifyCodeFixAsync(string source, string fixedSource) =>
-        VerifyCodeFixAsync(source, DiagnosticResult.EmptyDiagnosticResults, fixedSource);
+        CSharpCodeFixVerifier<TAnalyzer, TCodeFix>.VerifyCodeFixAsync(source, DiagnosticResult.EmptyDiagnosticResults, fixedSource);
 
     /// <inheritdoc cref="CodeFixVerifier{TAnalyzer, TCodeFix, TTest, TVerifier}.VerifyCodeFixAsync(string, DiagnosticResult, string)"/>
     /// <param name="source">The source code to analyze and fix.</param>
@@ -65,7 +65,7 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
     /// <returns>A <see cref="Task"/> representing the asynchronous verification operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Task VerifyCodeFixAsync(string source, DiagnosticResult expected, string fixedSource) =>
-        VerifyCodeFixAsync(source, [expected], fixedSource);
+        CSharpCodeFixVerifier<TAnalyzer, TCodeFix>.VerifyCodeFixAsync(source, [expected], fixedSource);
 
     /// <inheritdoc cref="CodeFixVerifier{TAnalyzer, TCodeFix, TTest, TVerifier}.VerifyCodeFixAsync(string, DiagnosticResult[], string)"/>
     /// <param name="source">The source code to analyze and fix.</param>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
@@ -94,6 +95,10 @@ public class LineScanBenchmarks
     /// <param name="listNode">The list container node.</param>
     /// <param name="list">The separated list to inspect.</param>
     /// <returns>Whether the list would be reported as jagged.</returns>
+    [SuppressMessage(
+        "Collections",
+        "PSH1100:Avoid LINQ calls on hot paths",
+        Justification = "This method is the baseline the optimized scan is measured against; its LINQ is the subject of the comparison, so removing it would leave nothing to compare.")]
     private static bool BaselineReports<T>(SyntaxNode listNode, SeparatedSyntaxList<T> list)
         where T : SyntaxNode
     {

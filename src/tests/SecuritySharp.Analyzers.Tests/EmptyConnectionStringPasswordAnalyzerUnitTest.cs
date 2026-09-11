@@ -12,7 +12,10 @@ using AnalyzeEmptyPassword = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifie
 namespace SecuritySharp.Analyzers.Tests;
 
 /// <summary>Unit tests for SES1203 (a connection string must not name a user with an empty or missing password).</summary>
-[SuppressMessage("Security", "SES1201:Do not hard-code a secret in a string literal", Justification = "The connection strings are the fixture this rule is measured against; reporting them would mean the rule cannot be tested.")]
+[SuppressMessage(
+    "Security",
+    "SES1201:Do not hard-code a secret in a string literal",
+    Justification = "The connection strings are the fixture this rule is measured against; reporting them would mean the rule cannot be tested.")]
 public class EmptyConnectionStringPasswordAnalyzerUnitTest
 {
     /// <summary>Verifies a connection string that names a user with a blank or missing password is recognised.</summary>

@@ -12,6 +12,78 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2009 (hand-rolled exception filter) and its fix.</summary>
 public class UseExceptionFilterAnalyzerUnitTest
 {
+    /// <summary>Source with two catches that hand-roll a filter, one rethrowing in the else and one in a leading guard.</summary>
+    private const string TwoHandRolledFiltersSource = """
+        public class C
+        {
+            public void A(bool flag)
+            {
+                try
+                {
+                    A(flag);
+                }
+                catch (System.Exception ex)
+                {
+                    {|SST2009:if|} (flag)
+                    {
+                        System.Console.WriteLine(ex.Message);
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+            }
+
+            public void B(bool flag)
+            {
+                try
+                {
+                    B(flag);
+                }
+                catch (System.Exception ex)
+                {
+                    {|SST2009:if|} (flag)
+                    {
+                        throw;
+                    }
+
+                    System.Console.WriteLine(ex.Message);
+                }
+            }
+        }
+        """;
+
+    /// <summary>The same two catches once both hand-rolled filters have moved into a when clause.</summary>
+    private const string TwoHandRolledFiltersFixedSource = """
+        public class C
+        {
+            public void A(bool flag)
+            {
+                try
+                {
+                    A(flag);
+                }
+                catch (System.Exception ex) when (flag)
+                {
+                    System.Console.WriteLine(ex.Message);
+                }
+            }
+
+            public void B(bool flag)
+            {
+                try
+                {
+                    B(flag);
+                }
+                catch (System.Exception ex) when (!(flag))
+                {
+                    System.Console.WriteLine(ex.Message);
+                }
+            }
+        }
+        """;
+
     /// <summary>Verifies a catch carrying a region is reported but not rewritten.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
@@ -277,79 +349,10 @@ public class UseExceptionFilterAnalyzerUnitTest
 
     /// <summary>Verifies Fix All rewrites every hand-rolled filter in a single document in one pass.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixAllRewritesEveryOccurrenceAsync()
-    {
-        const string Source = """
-                              public class C
-                              {
-                                  public void A(bool flag)
-                                  {
-                                      try
-                                      {
-                                          A(flag);
-                                      }
-                                      catch (System.Exception ex)
-                                      {
-                                          {|SST2009:if|} (flag)
-                                          {
-                                              System.Console.WriteLine(ex.Message);
-                                          }
-                                          else
-                                          {
-                                              throw;
-                                          }
-                                      }
-                                  }
-
-                                  public void B(bool flag)
-                                  {
-                                      try
-                                      {
-                                          B(flag);
-                                      }
-                                      catch (System.Exception ex)
-                                      {
-                                          {|SST2009:if|} (flag)
-                                          {
-                                              throw;
-                                          }
-
-                                          System.Console.WriteLine(ex.Message);
-                                      }
-                                  }
-                              }
-                              """;
-        const string FixedSource = """
-                                   public class C
-                                   {
-                                       public void A(bool flag)
-                                       {
-                                           try
-                                           {
-                                               A(flag);
-                                           }
-                                           catch (System.Exception ex) when (flag)
-                                           {
-                                               System.Console.WriteLine(ex.Message);
-                                           }
-                                       }
-
-                                       public void B(bool flag)
-                                       {
-                                           try
-                                           {
-                                               B(flag);
-                                           }
-                                           catch (System.Exception ex) when (!(flag))
-                                           {
-                                               System.Console.WriteLine(ex.Message);
-                                           }
-                                       }
-                                   }
-                                   """;
-        await VerifyExceptionFilter.VerifyCodeFixAsync(Source, FixedSource);
-    }
+    public Task FixAllRewritesEveryOccurrenceAsync() =>
+        VerifyExceptionFilter.VerifyCodeFixAsync(TwoHandRolledFiltersSource, TwoHandRolledFiltersFixedSource);
 
     /// <summary>Verifies a condition that invokes a method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<?xml version="1.0" encoding="utf-8"?><Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <!-- The same tests against this slot's analyzers. One TFM: the compiler varies here, not the runtime. -->
@@ -11,9 +11,6 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeRefactoring.Testing" />
-    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Analyzer.Testing" />
-    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.CodeFix.Testing" />
-    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.CodeRefactoring.Testing" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,9 +25,7 @@
 
   <!-- No test source of its own: it recompiles the baseline project's files against the other slot. -->
   <ItemGroup>
-    <Compile Include="..\PerformanceSharp.Analyzers.Tests\**\*.cs"
-             Exclude="..\PerformanceSharp.Analyzers.Tests\bin\**\*.cs;..\PerformanceSharp.Analyzers.Tests\obj\**\*.cs"
-             LinkBase="PerformanceSharp.Analyzers.Tests" />
+    <Compile Include="..\PerformanceSharp.Analyzers.Tests\**\*.cs" Exclude="..\PerformanceSharp.Analyzers.Tests\bin\**\*.cs;..\PerformanceSharp.Analyzers.Tests\obj\**\*.cs" LinkBase="PerformanceSharp.Analyzers.Tests" />
     <Compile Include="..\..\Shared\Tests\*.cs" Link="Verifiers\Shared\%(Filename).cs" />
   </ItemGroup>
 

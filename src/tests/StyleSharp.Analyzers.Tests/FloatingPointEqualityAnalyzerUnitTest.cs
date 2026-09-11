@@ -12,6 +12,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1473 (exact floating-point comparison) and its NaN code fix.</summary>
 public class FloatingPointEqualityAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies an exact equality on <c>double</c> and on <c>float</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -140,7 +143,7 @@ public class FloatingPointEqualityAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1473.allow_zero_comparison = false
@@ -166,7 +169,7 @@ public class FloatingPointEqualityAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.allow_zero_comparison = false
@@ -192,7 +195,7 @@ public class FloatingPointEqualityAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.allow_zero_comparison = false
@@ -221,7 +224,7 @@ public class FloatingPointEqualityAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1473.allow_zero_comparison = sometimes

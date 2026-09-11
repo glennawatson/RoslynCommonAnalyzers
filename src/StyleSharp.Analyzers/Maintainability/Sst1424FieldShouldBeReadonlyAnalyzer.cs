@@ -160,6 +160,7 @@ public sealed class Sst1424FieldShouldBeReadonlyAnalyzer : DiagnosticAnalyzer
         {
             AssignmentExpressionSyntax assignment when assignment.Left == expression => true,
             PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression) || prefix.IsKind(SyntaxKind.PreDecrementExpression),
+            ArgumentSyntax { Parent: TupleExpressionSyntax } => FieldReferenceAnalysis.IsDeconstructionTarget(expression),
             _ => expression.Parent is PostfixUnaryExpressionSyntax or ArgumentSyntax { RefOrOutKeyword.RawKind: not 0 }
         };
 }

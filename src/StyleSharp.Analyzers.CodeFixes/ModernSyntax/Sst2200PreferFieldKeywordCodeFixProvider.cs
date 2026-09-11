@@ -177,8 +177,8 @@ public sealed class Sst2200PreferFieldKeywordCodeFixProvider : CodeFixProvider
     /// <summary>Creates the backing-field expression supported by the current Roslyn slot.</summary>
     /// <returns>An expression that writes as the contextual <c>field</c> keyword.</returns>
 #if ROSLYN_5_OR_GREATER
-    private static FieldExpressionSyntax CreateFieldExpression()
-        => SyntaxFactory.FieldExpression(SyntaxFactory.Token(SyntaxKind.FieldKeyword));
+    private static FieldExpressionSyntax CreateFieldExpression() =>
+        SyntaxFactory.FieldExpression(SyntaxFactory.Token(SyntaxKind.FieldKeyword));
 #else
     private static IdentifierNameSyntax CreateFieldExpression() =>
         SyntaxFactory.IdentifierName("field");

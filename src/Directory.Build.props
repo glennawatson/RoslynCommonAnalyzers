@@ -21,14 +21,7 @@
     <RepositoryType>git</RepositoryType>
 
     <Nullable>enable</Nullable>
-    <!-- Pinned, not 'latest'. These assemblies are netstandard2.0 and have to compile
-         identically on every SDK from .NET 8 up (that range is the whole point of the
-         Roslyn slots below), so the language surface must not float with whichever SDK
-         happens to be installed. Under 'latest' the .NET 11 SDK resolves C# 15, which
-         legalizes collection expression arguments — IDE0028 then demands
-         `[with(comparer), ..]` at every `new HashSet<string>(comparer) { .. }`, and that
-         rewrite fails to compile on .NET 8/9/10. Raise this deliberately, once the floor
-         SDK can parse the syntax being adopted. -->
+    <!-- Pinned, not 'latest': the language surface must not float with the installed SDK. -->
     <LangVersion>14.0</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <NeutralLanguage>en-US</NeutralLanguage>
@@ -48,29 +41,17 @@
     <MinVerDefaultPreReleaseIdentifiers>alpha.0</MinVerDefaultPreReleaseIdentifiers>
     <MinVerMinimumMajorMinor>1.0</MinVerMinimumMajorMinor>
 
-    <!-- Nothing packs by default. Only the .Package project opts back in with
-         <IsPackable>true</IsPackable>; the analyzer/code-fix/test projects all
-         stay non-packable so a `dotnet pack` of the solution produces exactly
-         one .nupkg (StyleSharp.Analyzers). -->
+    <!-- Only the .Package projects opt back in. -->
     <IsPackable>false</IsPackable>
     <IsPublishable>false</IsPublishable>
 
-    <!-- Contains rather than EndsWith: a slot's test sibling carries the slot suffix
-         after the word, as in StyleSharp.Analyzers.Tests.Roslyn59. -->
+    <!-- Contains, not EndsWith: a slot sibling is named ...Tests.Roslyn59. -->
     <IsTestProject>$(MSBuildProjectName.Contains('Tests'))</IsTestProject>
 
     <AnalyzerTestTargets>net11.0</AnalyzerTestTargets>
   </PropertyGroup>
 
-  <!--
-    Multi-Roslyn targeting. Each slot is its own project packing to
-    analyzers/dotnet/<slot>/cs; the SDK loads the highest slot <= the host's
-    CompilerApiVersion. The floor project owns the source and every higher slot is a
-    sibling that link-includes it, so a solution build produces and tests them all.
-    Slot to measured `csc -version`: 4.8 = .NET 8 SDK (4.11); 4.14 = .NET 9 (4.14);
-    5.3 = .NET 10 to 10.0.3xx (5.6); 5.9 = .NET 10.0.4xx (5.9) and .NET 11 (5.11).
-    Keep these assemblies netstandard2.0 (RS1041).
-  -->
+  <!-- Multi-Roslyn slots; see docs/ARCHITECTURE.md. Keep these netstandard2.0 (RS1041). -->
   <PropertyGroup>
     <IsRoslynComponentProject Condition="$(MSBuildProjectName.Contains('.Analyzers'))
                                          And !$(MSBuildProjectName.Contains('.Tests'))
@@ -107,8 +88,7 @@
     <DefineConstants>$(DefineConstants);ROSLYN_4_8_OR_GREATER;ROSLYN_4_14_OR_GREATER;ROSLYN_5_OR_GREATER;ROSLYN_5_9_OR_GREATER</DefineConstants>
   </PropertyGroup>
 
-  <!-- Tests, benchmarks and the package projects only consume the compiler API, so
-       they take the highest Roslyn rather than the floor. -->
+  <!-- Consumers of the compiler API take the highest Roslyn, not the floor. -->
   <PropertyGroup>
     <MicrosoftCodeAnalysisVersion Condition="'$(MicrosoftCodeAnalysisVersion)' == ''">5.9.0</MicrosoftCodeAnalysisVersion>
   </PropertyGroup>
@@ -143,9 +123,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsTestProject)' == 'true'">
-    <!-- Shared Microsoft.Testing.Platform code-coverage settings (exclusions for
-         generated code etc); copied next to each test assembly as
-         AssemblyName.testconfig.json so the test runner's coverage step uses it. -->
+    <!-- Copied as AssemblyName.testconfig.json, where the coverage step looks for it. -->
     <None Include="$(MSBuildThisFileDirectory)testconfig.json" Condition="Exists('$(MSBuildThisFileDirectory)testconfig.json')">
       <Link>$(AssemblyName).testconfig.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -163,33 +141,20 @@
     <PackageReference Include="PublicApiSharp.Analyzers" PrivateAssets="all" />
   </ItemGroup>
 
-  <!-- The published packages analyse this repo's own source. A reference back to the id a project
-       itself produces is a restore cycle, so that one project skips its own package. -->
+  <!-- A project referencing the package it produces is a restore cycle, so it skips its own. -->
   <PropertyGroup>
+    <SelfAnalyze Condition="'$(SelfAnalyze)' == ''">true</SelfAnalyze>
     <OwnPackageId Condition="$(MSBuildProjectName.EndsWith('.Analyzers')) Or $(MSBuildProjectName.EndsWith('.Analyzers.Packages'))">$(MSBuildProjectName.Replace('.Packages', ''))</OwnPackageId>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(SelfAnalyze)' == 'true'">
     <PackageReference Include="StyleSharp.Analyzers" PrivateAssets="all" Condition="'$(OwnPackageId)' != 'StyleSharp.Analyzers'" />
     <PackageReference Include="PerformanceSharp.Analyzers" PrivateAssets="all" Condition="'$(OwnPackageId)' != 'PerformanceSharp.Analyzers'" />
     <PackageReference Include="SecuritySharp.Analyzers" PrivateAssets="all" Condition="'$(OwnPackageId)' != 'SecuritySharp.Analyzers'" />
   </ItemGroup>
 
-  <!--
-    The .NET SDK + transitive packages auto-load several source generators that
-    have nothing to do in this codebase. Each one still scans the full compilation
-    looking for its trigger attribute, so removing them from @(Analyzer) before
-    CoreCompile shaves real csc time. Audited usage (re-check before re-enabling):
-      ComInterfaceGenerator       — no [GeneratedComInterface]
-      ComClassGenerator           — no [GeneratedComClass]
-      VtableIndexStubGenerator    — COM vtable, unused
-      JSImportGenerator           — no Blazor WASM JS interop
-      LibraryImportGenerator      — no [LibraryImport]/[DllImport]
-      System.Text.Json.SourceGeneration
-                                  — no JsonSerializable contexts
-    Re-enable any of these the moment the corresponding attribute is introduced;
-    csc will silently produce wrong output otherwise.
-  -->
+  <!-- Drop SDK generators whose trigger attribute this codebase never uses; re-enable one the
+       moment its attribute appears, or csc silently emits nothing for it. -->
   <Target Name="RemoveUnusedSdkGenerators" BeforeTargets="CoreCompile">
     <ItemGroup>
       <Analyzer Remove="@(Analyzer)"
@@ -202,20 +167,9 @@
     </ItemGroup>
   </Target>
 
-  <!--
-    The RS* rules check code that *declares* analyzers: that every analyzer carries
-    DiagnosticAnalyzerAttribute, that every descriptor is release-tracked, and so on. They ride in on
-    the compiler API packages, so every project that consumes Roslyn inherits them — including the
-    tests and benchmarks, which only ever run analyzers rather than ship them. There, a benchmark
-    fixture that implements DiagnosticAnalyzer is held to rules written for a shipped package.
-
-    Excluding the package assets does not remove them. Central transitive pinning re-promotes the
-    package, and NuGet keeps a package's assets unless every edge into it excludes them, so the
-    assemblies still reach csc. Dropping them from the compiler invocation does work, and matches how
-    the unused SDK generators above are handled.
-
-    Projects that do ship analyzers set EnforceExtendedAnalyzerRules and keep the whole ruleset.
-  -->
+  <!-- The analyzer-authoring rules only apply to projects that ship analyzers. Excluding the
+       package assets does not work here: transitive pinning re-promotes them, so drop them from
+       the compiler invocation instead. -->
   <Target Name="RemoveAnalyzerAuthoringRules"
           BeforeTargets="CoreCompile"
           Condition="'$(EnforceExtendedAnalyzerRules)' != 'true'">

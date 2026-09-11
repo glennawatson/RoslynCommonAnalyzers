@@ -10,6 +10,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1472 (signatures should not declare too many parameters).</summary>
 public class TooManyParametersAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>The <c>init</c>-accessor polyfill positional records require on the test reference assemblies.</summary>
     private const string IsExternalInit = """
 
@@ -102,7 +105,7 @@ public class TooManyParametersAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1472.check_positional_records = true
@@ -338,7 +341,7 @@ public class TooManyParametersAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1472.count_optional_parameters = false
@@ -370,7 +373,7 @@ public class TooManyParametersAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.max_parameters = 20
@@ -403,7 +406,7 @@ public class TooManyParametersAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.max_parameters = 2
@@ -435,7 +438,7 @@ public class TooManyParametersAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1472.max_parameters = lots

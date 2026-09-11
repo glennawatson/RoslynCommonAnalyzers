@@ -9,6 +9,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1522 (files should not be too long).</summary>
 public class FileTooLongAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a file over the default maximum of 500 code lines is reported at its first token.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -61,7 +64,7 @@ public class FileTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1522.max_file_lines = 10")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1522.max_file_lines = 10")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -83,7 +86,7 @@ public class FileTooLongAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", BuildConfig("stylesharp.max_file_lines = 400", "stylesharp.SST1522.max_file_lines = 3")));
+            (EditorConfigPath, BuildConfig("stylesharp.max_file_lines = 400", "stylesharp.SST1522.max_file_lines = 3")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -102,7 +105,7 @@ public class FileTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.max_file_lines = 3")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.max_file_lines = 3")));
         await test.RunAsync(CancellationToken.None);
     }
 

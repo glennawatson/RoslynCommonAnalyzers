@@ -12,7 +12,10 @@ using AnalyzeDisclosure = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
 namespace SecuritySharp.Analyzers.Tests;
 
 /// <summary>Unit tests for SES1707 (do not hard-code secrets in code that runs in the browser as WebAssembly).</summary>
-[SuppressMessage("Security", "SES1201:Do not hard-code a secret in a string literal", Justification = "The credential shapes are the fixture this rule is measured against; reporting them would mean the rule cannot be tested.")]
+[SuppressMessage(
+    "Security",
+    "SES1201:Do not hard-code a secret in a string literal",
+    Justification = "The credential shapes are the fixture this rule is measured against; reporting them would mean the rule cannot be tested.")]
 public class WebAssemblySecretDisclosureAnalyzerUnitTest
 {
     /// <summary>A recognised AWS access-key-id secret shape reused across the reachability tests.</summary>

@@ -33,76 +33,100 @@ internal static class ExceptionFilterBenchmarkSource
     private static string GenerateMember(int index, bool violating) =>
         (index % CatchShapeCount, violating) switch
         {
-            (0, true) => $$"""
-                           public int Filter{{index}}(bool flag)
-                           {
-                               try
-                               {
-                                   return {{index}};
-                               }
-                               catch (System.Exception ex)
-                               {
-                                   if (flag)
-                                   {
-                                       return ex.Message.Length;
-                                   }
-                                   else
-                                   {
-                                       throw;
-                                   }
-                               }
-                           }
-                           """,
-            (1, true) => $$"""
-                           public int Guard{{index}}(bool flag)
-                           {
-                               try
-                               {
-                                   return {{index}};
-                               }
-                               catch (System.Exception ex)
-                               {
-                                   if (!flag)
-                                   {
-                                       throw;
-                                   }
-
-                                   return ex.Message.Length;
-                               }
-                           }
-                           """,
-            (0, false) => $$"""
-                            public int Filter{{index}}(bool flag)
-                            {
-                                try
-                                {
-                                    return {{index}};
-                                }
-                                catch (System.Exception ex)
-                                {
-                                    if (ShouldKeep())
-                                    {
-                                        return ex.Message.Length;
-                                    }
-                                    else
-                                    {
-                                        throw;
-                                    }
-                                }
-                            }
-                            """,
-            _ => $$"""
-                   public int Guard{{index}}(bool flag)
-                   {
-                       try
-                       {
-                           return {{index}};
-                       }
-                       catch (System.Exception ex) when (flag)
-                       {
-                           return ex.Message.Length;
-                       }
-                   }
-                   """
+            (0, true) => GenerateRethrowInElse(index),
+            (1, true) => GenerateRethrowInGuard(index),
+            (0, false) => GenerateMethodCallGuardedCatch(index),
+            _ => GenerateWhenFilteredCatch(index)
         };
+
+    /// <summary>Builds a catch whose if-else rethrows in the else, which a when filter replaces.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateRethrowInElse(int index) =>
+        $$"""
+        public int Filter{{index}}(bool flag)
+        {
+            try
+            {
+                return {{index}};
+            }
+            catch (System.Exception ex)
+            {
+                if (flag)
+                {
+                    return ex.Message.Length;
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
+        """;
+
+    /// <summary>Builds a catch whose leading guard rethrows, which a when filter replaces.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateRethrowInGuard(int index) =>
+        $$"""
+        public int Guard{{index}}(bool flag)
+        {
+            try
+            {
+                return {{index}};
+            }
+            catch (System.Exception ex)
+            {
+                if (!flag)
+                {
+                    throw;
+                }
+
+                return ex.Message.Length;
+            }
+        }
+        """;
+
+    /// <summary>Builds a catch whose guard calls a method, so it is exempt from the rewrite.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateMethodCallGuardedCatch(int index) =>
+        $$"""
+        public int Filter{{index}}(bool flag)
+        {
+            try
+            {
+                return {{index}};
+            }
+            catch (System.Exception ex)
+            {
+                if (ShouldKeep())
+                {
+                    return ex.Message.Length;
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
+        """;
+
+    /// <summary>Builds a catch that already carries a when filter, which is clean.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateWhenFilteredCatch(int index) =>
+        $$"""
+        public int Guard{{index}}(bool flag)
+        {
+            try
+            {
+                return {{index}};
+            }
+            catch (System.Exception ex) when (flag)
+            {
+                return ex.Message.Length;
+            }
+        }
+        """;
 }

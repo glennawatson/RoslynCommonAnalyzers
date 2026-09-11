@@ -48,11 +48,16 @@ public class AnalyzerThroughputBenchmarks
             new(OutputKind.DynamicallyLinkedLibrary, concurrentBuild: false));
 
         var assembly = typeof(Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesAnalyzer).Assembly;
-        _analyzers = [
-            ..assembly.GetTypes()
-                .Where(static t => !t.IsAbstract && typeof(DiagnosticAnalyzer).IsAssignableFrom(t))
-                .Select(static t => (DiagnosticAnalyzer)Activator.CreateInstance(t)!)
-        ];
+        var analyzers = new List<DiagnosticAnalyzer>();
+        foreach (var candidate in assembly.GetTypes())
+        {
+            if (!candidate.IsAbstract && typeof(DiagnosticAnalyzer).IsAssignableFrom(candidate))
+            {
+                analyzers.Add((DiagnosticAnalyzer)Activator.CreateInstance(candidate)!);
+            }
+        }
+
+        _analyzers = [.. analyzers];
 
         _singleAnalyzer =
         [
@@ -77,14 +82,16 @@ public class AnalyzerThroughputBenchmarks
     private static MetadataReference[] LoadReferences()
     {
         var trustedAssemblies = (string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!;
-        return
-        [
-            ..
-            trustedAssemblies
-                .Split(Path.PathSeparator)
-                .Where(static path => path.Length > 0)
-                .Select(static MetadataReference (path) => MetadataReference.CreateFromFile(path))
-        ];
+        var references = new List<MetadataReference>();
+        foreach (var path in trustedAssemblies.Split(Path.PathSeparator))
+        {
+            if (path.Length > 0)
+            {
+                references.Add(MetadataReference.CreateFromFile(path));
+            }
+        }
+
+        return [.. references];
     }
 
     /// <summary>Runs the configured analyzer set and returns the diagnostic count.</summary>

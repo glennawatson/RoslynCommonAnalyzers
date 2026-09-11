@@ -7,6 +7,73 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// <summary>Builds synthetic source for duplicate-condition analyzer benchmarks.</summary>
 internal static class DuplicateConditionBenchmarkSource
 {
+    /// <summary>
+    /// The members of the clean type, indented one level so they drop straight into a class body. Covers every
+    /// rejection route the no-diagnostic path takes: a long chain of distinct conditions, a chain whose repeated
+    /// condition calls a method and is therefore exempt, a switch statement whose labels differ, and a switch
+    /// expression whose arms differ.
+    /// </summary>
+    private const string CleanTypeMembersSource =
+        """
+            public bool Check(int value) => value > 0;
+
+            public int Classify(int value)
+            {
+                if (value < 0)
+                {
+                    return -1;
+                }
+                else if (value == 0)
+                {
+                    return 0;
+                }
+                else if (value > 10)
+                {
+                    return 2;
+                }
+                else
+                {
+                    return 1;
+                }
+            }
+
+            public int Guarded(int value)
+            {
+                if (Check(value))
+                {
+                    return 1;
+                }
+                else if (Check(value))
+                {
+                    return 2;
+                }
+
+                return 0;
+            }
+
+            public int Route(int value, bool flag)
+            {
+                switch (value)
+                {
+                    case 1:
+                        return 10;
+                    case 2 when flag:
+                        return 20;
+                    case 3:
+                        return 30;
+                    default:
+                        return 0;
+                }
+            }
+
+            public string Name(int value) => value switch
+            {
+                1 => "one",
+                2 => "two",
+                _ => "other",
+            };
+        """;
+
     /// <summary>Builds a compilation unit that exercises clean or violating duplicate-condition patterns.</summary>
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit duplicate-condition rule violations.</param>
@@ -28,74 +95,14 @@ internal static class DuplicateConditionBenchmarkSource
     /// <summary>Builds one type whose conditions never repeat, producing no diagnostics.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    /// <remarks>
-    /// Covers every rejection route the no-diagnostic path takes: a long chain of distinct conditions, a chain
-    /// whose repeated condition calls a method and is therefore exempt, a switch statement whose labels differ,
-    /// and a switch expression whose arms differ. Exactly zero diagnostics.
-    /// </remarks>
+    /// <remarks>Exactly zero diagnostics; see <see cref="CleanTypeMembersSource"/> for the routes it covers.</remarks>
     private static string GenerateCleanType(int index) =>
         $$"""
-           public sealed class C{{index}}
-           {
-               public bool Check(int value) => value > 0;
-
-               public int Classify(int value)
-               {
-                   if (value < 0)
-                   {
-                       return -1;
-                   }
-                   else if (value == 0)
-                   {
-                       return 0;
-                   }
-                   else if (value > 10)
-                   {
-                       return 2;
-                   }
-                   else
-                   {
-                       return 1;
-                   }
-               }
-
-               public int Guarded(int value)
-               {
-                   if (Check(value))
-                   {
-                       return 1;
-                   }
-                   else if (Check(value))
-                   {
-                       return 2;
-                   }
-
-                   return 0;
-               }
-
-               public int Route(int value, bool flag)
-               {
-                   switch (value)
-                   {
-                       case 1:
-                           return 10;
-                       case 2 when flag:
-                           return 20;
-                       case 3:
-                           return 30;
-                       default:
-                           return 0;
-                   }
-               }
-
-               public string Name(int value) => value switch
-               {
-                   1 => "one",
-                   2 => "two",
-                   _ => "other",
-               };
-           }
-           """;
+        public sealed class C{{index}}
+        {
+        {{CleanTypeMembersSource}}
+        }
+        """;
 
     /// <summary>Builds one type whose repeated conditions are all reported.</summary>
     /// <param name="index">The synthetic type index.</param>

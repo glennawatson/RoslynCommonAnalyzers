@@ -15,6 +15,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the blank-line layout rules (SST1507/SST1516).</summary>
 public class LayoutBlankLineUnitTest
 {
+    /// <summary>The diagnostic id of the multiple-blank-lines rule.</summary>
+    private const string MultipleBlankLinesDiagnosticId = "SST1507";
+
     /// <summary>Verifies two consecutive blank lines are reported (SST1507) and collapsed to one.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -41,7 +44,7 @@ public class LayoutBlankLineUnitTest
         const int LineAfterExtraBlank = 6;
         await VerifyBlanks.VerifyCodeFixAsync(
             Source,
-            VerifyBlanks.Diagnostic("SST1507").WithSpan(ExtraBlankLine, 1, LineAfterExtraBlank, 1),
+            VerifyBlanks.Diagnostic(MultipleBlankLinesDiagnosticId).WithSpan(ExtraBlankLine, 1, LineAfterExtraBlank, 1),
             FixedSource);
     }
 
@@ -79,8 +82,8 @@ public class LayoutBlankLineUnitTest
         await VerifyBlanks.VerifyCodeFixAsync(
             Source,
             [
-                VerifyBlanks.Diagnostic("SST1507").WithSpan(FirstExtraBlankLine, 1, LineAfterFirstExtraBlank, 1),
-                VerifyBlanks.Diagnostic("SST1507").WithSpan(SecondExtraBlankLine, 1, LineAfterSecondExtraBlank, 1),
+                VerifyBlanks.Diagnostic(MultipleBlankLinesDiagnosticId).WithSpan(FirstExtraBlankLine, 1, LineAfterFirstExtraBlank, 1),
+                VerifyBlanks.Diagnostic(MultipleBlankLinesDiagnosticId).WithSpan(SecondExtraBlankLine, 1, LineAfterSecondExtraBlank, 1),
             ],
             FixedSource);
     }

@@ -50,7 +50,11 @@ public class SharedHelpersUnitTest
         _ = DescendantTraversalHelper.VisitDescendantTokens(
             root,
             ref count,
-            static (in SyntaxToken _, ref int state) => ++state < TokensVisitedBeforeStop);
+            static (in SyntaxToken _, ref int state) =>
+            {
+                state++;
+                return state < TokensVisitedBeforeStop;
+            });
 
         await Assert.That(count).IsEqualTo(TokensVisitedBeforeStop);
     }

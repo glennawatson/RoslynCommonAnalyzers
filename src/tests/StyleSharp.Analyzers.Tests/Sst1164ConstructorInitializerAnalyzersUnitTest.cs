@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verifysst0015 = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesAnalyzer,
     StyleSharp.Analyzers.Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesCodeFixProvider>;
@@ -11,6 +12,71 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the SST1164 analyzer that requires constructor initializer arguments to be on unique lines.</summary>
 public class Sst1164ConstructorInitializerAnalyzersUnitTest
 {
+    /// <summary>Source with three constructor initializers that each split their arguments unevenly across lines.</summary>
+    private const string ThreeSplitInitializersSource = """
+        public class Bar
+        {
+            public Bar(int a, int b)
+            {
+            }
+        }
+
+        public class Foo : Bar
+        {
+            public Foo()
+                {|SST1164:: base(
+                    1, 2)|}
+            {
+            }
+
+            public Foo(int x)
+                {|SST1164:: base(
+                    3, 4)|}
+            {
+            }
+
+            public Foo(int x, int y)
+                {|SST1164:: base(
+                    5, 6)|}
+            {
+            }
+        }
+        """;
+
+    /// <summary>The same three initializers once every argument sits on its own line.</summary>
+    private const string ThreeSplitInitializersFixedSource = """
+        public class Bar
+        {
+            public Bar(int a, int b)
+            {
+            }
+        }
+
+        public class Foo : Bar
+        {
+            public Foo()
+                : base(
+                    1,
+                    2)
+            {
+            }
+
+            public Foo(int x)
+                : base(
+                    3,
+                    4)
+            {
+            }
+
+            public Foo(int x, int y)
+                : base(
+                    5,
+                    6)
+            {
+            }
+        }
+        """;
+
     /// <summary>Verifies a constructor initializer with all arguments on a single line produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -109,72 +175,8 @@ public class Sst1164ConstructorInitializerAnalyzersUnitTest
 
     /// <summary>Verifies Fix All rewrites every constructor initializer with split arguments in a single document.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixAllRewritesEveryOccurrenceAsync()
-    {
-        const string Test = """
-            public class Bar
-            {
-                public Bar(int a, int b)
-                {
-                }
-            }
-
-            public class Foo : Bar
-            {
-                public Foo()
-                    {|SST1164:: base(
-                        1, 2)|}
-                {
-                }
-
-                public Foo(int x)
-                    {|SST1164:: base(
-                        3, 4)|}
-                {
-                }
-
-                public Foo(int x, int y)
-                    {|SST1164:: base(
-                        5, 6)|}
-                {
-                }
-            }
-            """;
-
-        const string FixedSource = """
-            public class Bar
-            {
-                public Bar(int a, int b)
-                {
-                }
-            }
-
-            public class Foo : Bar
-            {
-                public Foo()
-                    : base(
-                        1,
-                        2)
-                {
-                }
-
-                public Foo(int x)
-                    : base(
-                        3,
-                        4)
-                {
-                }
-
-                public Foo(int x, int y)
-                    : base(
-                        5,
-                        6)
-                {
-                }
-            }
-            """;
-
-        await Verifysst0015.VerifyCodeFixAsync(Test, FixedSource);
-    }
+    public Task FixAllRewritesEveryOccurrenceAsync() =>
+        Verifysst0015.VerifyCodeFixAsync(ThreeSplitInitializersSource, ThreeSplitInitializersFixedSource);
 }

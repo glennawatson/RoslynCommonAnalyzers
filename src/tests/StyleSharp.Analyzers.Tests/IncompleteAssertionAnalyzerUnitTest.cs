@@ -12,6 +12,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2508 (a fluent assertion that is started but never completed).</summary>
 public class IncompleteAssertionAnalyzerUnitTest
 {
+    /// <summary>The using directive that brings the FluentAssertions <c>Should()</c> extensions into scope.</summary>
+    private const string FluentAssertionsUsingDirective = """
+        using FluentAssertions;
+
+        """;
+
     /// <summary>
     /// Minimal FluentAssertions stubs: the <c>AssertionExtensions</c> host of the <c>Should()</c> extensions
     /// and subject types both directly under <c>FluentAssertions</c> and under a nested namespace.
@@ -70,10 +76,7 @@ public class IncompleteAssertionAnalyzerUnitTest
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task FluentBareShouldOnNestedSubjectIsReportedAsync() =>
-        VerifyAsync("""
-            using FluentAssertions;
-
-            """ + FluentAssertionsStubs + """
+        VerifyAsync(FluentAssertionsUsingDirective + FluentAssertionsStubs + """
 
             public class Tests
             {
@@ -89,10 +92,7 @@ public class IncompleteAssertionAnalyzerUnitTest
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task FluentBareShouldOnRootNamespaceSubjectIsReportedAsync() =>
-        VerifyAsync("""
-            using FluentAssertions;
-
-            """ + FluentAssertionsStubs + """
+        VerifyAsync(FluentAssertionsUsingDirective + FluentAssertionsStubs + """
 
             public class Tests
             {
@@ -108,10 +108,7 @@ public class IncompleteAssertionAnalyzerUnitTest
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task CompletedFluentAssertionIsCleanAsync() =>
-        VerifyAsync("""
-            using FluentAssertions;
-
-            """ + FluentAssertionsStubs + """
+        VerifyAsync(FluentAssertionsUsingDirective + FluentAssertionsStubs + """
 
             public class Tests
             {

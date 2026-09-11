@@ -15,6 +15,9 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1114FreezeStaticLookupsAnalyzer"/> (PSH1114 frozen lookups, opt-in).</summary>
 public class FreezeStaticLookupsAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>The editorconfig that opts into the disabled-by-default rule.</summary>
     private const string OptInConfig = """
         root = true
@@ -47,7 +50,7 @@ public class FreezeStaticLookupsAnalyzerUnitTest
                          """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, OptInConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -272,11 +275,11 @@ public class FreezeStaticLookupsAnalyzerUnitTest
     private static async Task VerifyOptInAsync(string source, string? fixedSource = null)
     {
         var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, OptInConfig));
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;
-            test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
+            test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, OptInConfig));
         }
 
         await test.RunAsync(CancellationToken.None);

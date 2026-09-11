@@ -18,6 +18,66 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the single-line layout rules (SST1501/SST1502/SST1504).</summary>
 public class LayoutSingleLineUnitTest
 {
+    /// <summary>Source with two properties whose accessor lists each mix a single-line and a block accessor.</summary>
+    private const string MultipleInconsistentAccessorsSource = """
+        internal class C
+        {
+            private int x;
+            private int y;
+
+            public int X
+            {|SST1504:{|}
+                get { return x; }
+                set
+                {
+                    x = value;
+                }
+            }
+
+            public int Y
+            {|SST1504:{|}
+                get { return y; }
+                set
+                {
+                    y = value;
+                }
+            }
+        }
+        """;
+
+    /// <summary>The same two properties once every accessor has been expanded to a block.</summary>
+    private const string MultipleInconsistentAccessorsFixedSource = """
+        internal class C
+        {
+            private int x;
+            private int y;
+
+            public int X
+            {
+                get
+                {
+                    return x;
+                }
+                set
+                {
+                    x = value;
+                }
+            }
+
+            public int Y
+            {
+                get
+                {
+                    return y;
+                }
+                set
+                {
+                    y = value;
+                }
+            }
+        }
+        """;
+
     /// <summary>Verifies a single-line embedded block is reported (SST1501) and expanded.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -188,67 +248,10 @@ public class LayoutSingleLineUnitTest
 
     /// <summary>Verifies Fix All makes every inconsistent accessor list in the document consistent in a single pass.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixAllRewritesEveryAccessorOccurrenceAsync()
-    {
-        const string Source = """
-            internal class C
-            {
-                private int x;
-                private int y;
-
-                public int X
-                {|SST1504:{|}
-                    get { return x; }
-                    set
-                    {
-                        x = value;
-                    }
-                }
-
-                public int Y
-                {|SST1504:{|}
-                    get { return y; }
-                    set
-                    {
-                        y = value;
-                    }
-                }
-            }
-            """;
-        const string FixedSource = """
-            internal class C
-            {
-                private int x;
-                private int y;
-
-                public int X
-                {
-                    get
-                    {
-                        return x;
-                    }
-                    set
-                    {
-                        x = value;
-                    }
-                }
-
-                public int Y
-                {
-                    get
-                    {
-                        return y;
-                    }
-                    set
-                    {
-                        y = value;
-                    }
-                }
-            }
-            """;
-        await VerifyAccessor.VerifyCodeFixAsync(Source, FixedSource);
-    }
+    public Task FixAllRewritesEveryAccessorOccurrenceAsync() =>
+        VerifyAccessor.VerifyCodeFixAsync(MultipleInconsistentAccessorsSource, MultipleInconsistentAccessorsFixedSource);
 
     /// <summary>Verifies consistently single-line accessors are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

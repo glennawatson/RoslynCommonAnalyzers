@@ -35,7 +35,16 @@ public class XmlDocumentationHelperMicroBenchmarks
     public void Setup()
     {
         var root = BenchmarkCompilationFactory.Parse(MemberDocumentationBenchmarkSource.Generate(Nodes, violating: false)).GetRoot();
-        _comments = [.. root.DescendantNodes(descendIntoTrivia: true).OfType<DocumentationCommentTriviaSyntax>()];
+        var comments = new List<DocumentationCommentTriviaSyntax>();
+        foreach (var descendant in root.DescendantNodes(descendIntoTrivia: true))
+        {
+            if (descendant is DocumentationCommentTriviaSyntax comment)
+            {
+                comments.Add(comment);
+            }
+        }
+
+        _comments = [.. comments];
     }
 
     /// <summary>Drives the per-element documentation walks over every pre-parsed comment.</summary>

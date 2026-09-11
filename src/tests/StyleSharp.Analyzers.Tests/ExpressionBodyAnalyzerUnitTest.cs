@@ -16,6 +16,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class ExpressionBodyAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer configuration file is added under in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies the body still becomes an expression body, wrapped, when one line would overrun.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The break goes after the arrow, which is where the default arrow placement puts it.</remarks>
@@ -47,8 +50,8 @@ public class ExpressionBodyAnalyzerUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -83,8 +86,8 @@ public class ExpressionBodyAnalyzerUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -163,7 +166,7 @@ public class ExpressionBodyAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             dotnet_diagnostic.SST2276.severity = warning
@@ -704,8 +707,8 @@ public class ExpressionBodyAnalyzerUnitTest
 
         var config = builder.ToString();
         var test = new Verify.Test { TestCode = source };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
         return test;
     }
 }

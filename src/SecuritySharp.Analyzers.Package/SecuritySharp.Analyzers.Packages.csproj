@@ -2,8 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <!-- One of the packable projects in the repo (see Directory.Build.props); everything else is
-         non-packable so a `dotnet pack` of the solution produces exactly one .nupkg per package. -->
     <IsPackable>true</IsPackable>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
@@ -31,8 +29,7 @@
     <ProjectReference Include="..\SecuritySharp.Analyzers.CodeFixes.Roslyn59\SecuritySharp.Analyzers.CodeFixes.Roslyn59.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
-  <!-- Plain files, not TargetsForTfmSpecificContentInPackage: that hook runs per target framework
-       and would offer this framework-agnostic path repeatedly. -->
+  <!-- Plain files: the per-TFM hook would offer this framework-agnostic path repeatedly. -->
 
   <ItemGroup>
     <None Include="..\SecuritySharp.Analyzers\bin\$(Configuration)\netstandard2.0\SecuritySharp.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/roslyn4.8/cs" Visible="false" />

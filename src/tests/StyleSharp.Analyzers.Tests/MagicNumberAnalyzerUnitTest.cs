@@ -10,6 +10,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1471 (magic numbers should be named constants).</summary>
 public class MagicNumberAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a bare literal in an expression is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -62,7 +65,7 @@ public class MagicNumberAnalyzerUnitTest
                        }
                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1471.allow_capacity_arguments = true
@@ -372,7 +375,7 @@ public class MagicNumberAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1471.magic_number_allowed_values = -1, 0, 1, 2
@@ -400,7 +403,7 @@ public class MagicNumberAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1471.magic_number_allowed_values = nonsense

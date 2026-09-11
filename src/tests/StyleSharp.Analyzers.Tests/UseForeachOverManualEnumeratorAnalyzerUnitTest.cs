@@ -12,6 +12,69 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1467 (enumerate with foreach instead of driving the enumerator by hand) and its fix.</summary>
 public class UseForeachOverManualEnumeratorAnalyzerUnitTest
 {
+    /// <summary>Source with two loops driving an enumerator by hand, one naming the current element and one reading it inline.</summary>
+    private const string TwoManualEnumeratorLoopsSource = """
+        using System.Collections.Generic;
+
+        public class C
+        {
+            public int Sum(List<int> values)
+            {
+                var total = 0;
+                var e = values.GetEnumerator();
+                {|SST1467:while|} (e.MoveNext())
+                {
+                    var value = e.Current;
+                    total += value;
+                }
+
+                return total;
+            }
+
+            public int TotalLength(List<string> values)
+            {
+                var total = 0;
+                var e = values.GetEnumerator();
+                {|SST1467:while|} (e.MoveNext())
+                {
+                    total += e.Current.Length;
+                }
+
+                return total;
+            }
+        }
+        """;
+
+    /// <summary>The same two loops once both drive the enumeration with foreach.</summary>
+    private const string TwoManualEnumeratorLoopsFixedSource = """
+        using System.Collections.Generic;
+
+        public class C
+        {
+            public int Sum(List<int> values)
+            {
+                var total = 0;
+                foreach (var value in values)
+                {
+                    total += value;
+                }
+
+                return total;
+            }
+
+            public int TotalLength(List<string> values)
+            {
+                var total = 0;
+                foreach (var item in values)
+                {
+                    total += item.Length;
+                }
+
+                return total;
+            }
+        }
+        """;
+
     /// <summary>Verifies a declaration separated from its loop by a region is not rewritten.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
@@ -265,68 +328,8 @@ public class UseForeachOverManualEnumeratorAnalyzerUnitTest
 
     /// <summary>Verifies Fix All rewrites every manual-enumerator loop in one pass.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixAllRewritesEveryLoopAsync()
-    {
-        const string Source = """
-                              using System.Collections.Generic;
-
-                              public class C
-                              {
-                                  public int Sum(List<int> values)
-                                  {
-                                      var total = 0;
-                                      var e = values.GetEnumerator();
-                                      {|SST1467:while|} (e.MoveNext())
-                                      {
-                                          var value = e.Current;
-                                          total += value;
-                                      }
-
-                                      return total;
-                                  }
-
-                                  public int TotalLength(List<string> values)
-                                  {
-                                      var total = 0;
-                                      var e = values.GetEnumerator();
-                                      {|SST1467:while|} (e.MoveNext())
-                                      {
-                                          total += e.Current.Length;
-                                      }
-
-                                      return total;
-                                  }
-                              }
-                              """;
-        const string FixedSource = """
-                                   using System.Collections.Generic;
-
-                                   public class C
-                                   {
-                                       public int Sum(List<int> values)
-                                       {
-                                           var total = 0;
-                                           foreach (var value in values)
-                                           {
-                                               total += value;
-                                           }
-
-                                           return total;
-                                       }
-
-                                       public int TotalLength(List<string> values)
-                                       {
-                                           var total = 0;
-                                           foreach (var item in values)
-                                           {
-                                               total += item.Length;
-                                           }
-
-                                           return total;
-                                       }
-                                   }
-                                   """;
-        await VerifyForeach.VerifyCodeFixAsync(Source, FixedSource);
-    }
+    public Task FixAllRewritesEveryLoopAsync() =>
+        VerifyForeach.VerifyCodeFixAsync(TwoManualEnumeratorLoopsSource, TwoManualEnumeratorLoopsFixedSource);
 }

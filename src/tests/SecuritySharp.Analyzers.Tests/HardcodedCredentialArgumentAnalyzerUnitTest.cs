@@ -12,7 +12,10 @@ using AnalyzeCredential = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
 namespace SecuritySharp.Analyzers.Tests;
 
 /// <summary>Unit tests for SES1202 (a non-empty string literal bound to a credential parameter or credential-type constructor).</summary>
-[SuppressMessage("Security", "SES1201:Do not hard-code a secret in a string literal", Justification = "The credential shapes are the fixture this rule is measured against; reporting them would mean the rule cannot be tested.")]
+[SuppressMessage(
+    "Security",
+    "SES1201:Do not hard-code a secret in a string literal",
+    Justification = "The credential shapes are the fixture this rule is measured against; reporting them would mean the rule cannot be tested.")]
 public class HardcodedCredentialArgumentAnalyzerUnitTest
 {
     /// <summary>Verifies a string literal passed to an <c>apiKey</c> parameter is reported.</summary>

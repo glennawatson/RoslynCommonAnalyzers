@@ -14,18 +14,19 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2416 (a remainder parity test on a signed operand).</summary>
 public class SignedRemainderTestAnalyzerUnitTest
 {
+    /// <summary>The source whose odd-parity remainder test on a signed operand is reported.</summary>
+    private const string OddParityTestSource = """
+                                               public sealed class C
+                                               {
+                                                   public bool M(int n) => {|SST2416:n % 2 == 1|};
+                                               }
+                                               """;
+
     /// <summary>Verifies the odd test on a signed int is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public Task OddTestOnSignedIntIsReportedAsync() =>
-        VerifyRemainder.VerifyAnalyzerAsync(
-            """
-            public sealed class C
-            {
-                public bool M(int n) => {|SST2416:n % 2 == 1|};
-            }
-            """);
+    public Task OddTestOnSignedIntIsReportedAsync() => VerifyRemainder.VerifyAnalyzerAsync(OddParityTestSource);
 
     /// <summary>Verifies the not-equal parity test is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -104,12 +105,7 @@ public class SignedRemainderTestAnalyzerUnitTest
         var test = new VerifyFix.Test
         {
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = """
-                public sealed class C
-                {
-                    public bool M(int n) => {|SST2416:n % 2 == 1|};
-                }
-                """,
+            TestCode = OddParityTestSource,
             FixedCode = """
                 public sealed class C
                 {
@@ -154,12 +150,7 @@ public class SignedRemainderTestAnalyzerUnitTest
         var test = new VerifyFix.Test
         {
             ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = """
-                public sealed class C
-                {
-                    public bool M(int n) => {|SST2416:n % 2 == 1|};
-                }
-                """,
+            TestCode = OddParityTestSource,
             FixedCode = """
                 public sealed class C
                 {

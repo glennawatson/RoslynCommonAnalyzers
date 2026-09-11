@@ -12,7 +12,10 @@ using AnalyzeSecret = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
 namespace SecuritySharp.Analyzers.Tests;
 
 /// <summary>Unit tests for SES1201 (a string literal must not hard-code a recognisable secret).</summary>
-[SuppressMessage("Security", "SES1201:Do not hard-code a secret in a string literal", Justification = "The credential shapes are the fixture this rule is measured against; reporting them would mean the rule cannot be tested.")]
+[SuppressMessage(
+    "Security",
+    "SES1201:Do not hard-code a secret in a string literal",
+    Justification = "The credential shapes are the fixture this rule is measured against; reporting them would mean the rule cannot be tested.")]
 public class HardcodedSecretAnalyzerUnitTest
 {
     /// <summary>Verifies each recognised credential shape is classified with the expected kind label.</summary>
@@ -48,12 +51,13 @@ public class HardcodedSecretAnalyzerUnitTest
     /// The marker is a convention rather than a guarantee, so a live credential is free to contain the
     /// same letters. Accepting it is a project's call, not one the rule makes on its behalf.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     [Arguments("AKIAIOSFODNN7EXAMPLE", HardcodedSecretClassifier.AwsAccessKeyId)]
     [Arguments("AKIAI44QH8DHBEXAMPLE", HardcodedSecretClassifier.AwsAccessKeyId)]
     [Arguments("ghp_0123456789abcdefghijEXAMPLEklmnopqrs", HardcodedSecretClassifier.GitHubToken)]
-    public async Task DocumentationExampleIsClassifiedByDefaultAsync(string value, string expectedKind) =>
-        await Assert.That(HardcodedSecretClassifier.Classify(value)).IsEqualTo(expectedKind);
+    public Task DocumentationExampleIsClassifiedByDefaultAsync(string value, string expectedKind) =>
+        ClassifiesRecognisedSecretAsync(value, expectedKind);
 
     /// <summary>Verifies a project can opt into accepting a vendor's published sample key.</summary>
     /// <param name="value">The decoded literal content.</param>

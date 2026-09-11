@@ -14,6 +14,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for shortest-equivalent-name analysis (SST1116/SST1117).</summary>
 public class NameSimplificationAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>The editorconfig body that requires explicit <c>this.</c> on instance members.</summary>
     private const string RequireThisEditorConfig = """
                                                    root = true
@@ -204,7 +207,7 @@ public class NameSimplificationAnalyzerUnitTest
                               }
                               """;
         var test = new VerifyNameSimplification.Test { TestCode = Source };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequireThisEditorConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -256,7 +259,7 @@ public class NameSimplificationAnalyzerUnitTest
                               }
                               """;
         var test = new VerifyNameSimplification.Test { TestCode = Source };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequireThisEditorConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -417,8 +420,8 @@ public class NameSimplificationAnalyzerUnitTest
     private static VerifyNameSimplification.Test CreateRequireThisTest(string source, string fixedSource)
     {
         var test = new VerifyNameSimplification.Test { TestCode = source, FixedCode = fixedSource };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequireThisEditorConfig));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, RequireThisEditorConfig));
         return test;
     }
 

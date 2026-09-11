@@ -31,77 +31,101 @@ internal static class CollapseElseIntoElseIfBenchmarkSource
     private static string GenerateMember(int index, bool violating) =>
         (index % ElseShapeCount, violating) switch
         {
-            (0, true) => $$"""
-                           public int Wrapped{{index}}(int value)
-                           {
-                               if (value > 0)
-                               {
-                                   return 1;
-                               }
-                               else
-                               {
-                                   if (value < 0)
-                                   {
-                                       return -1;
-                                   }
-                               }
-
-                               return 0;
-                           }
-                           """,
-            (1, true) => $$"""
-                           public int Chained{{index}}(int value)
-                           {
-                               if (value > 0)
-                               {
-                                   return 1;
-                               }
-                               else
-                               {
-                                   if (value < 0)
-                                   {
-                                       return -1;
-                                   }
-                                   else
-                                   {
-                                       return 0;
-                                   }
-                               }
-                           }
-                           """,
-            (0, false) => $$"""
-                            public int Wrapped{{index}}(int value)
-                            {
-                                if (value > 0)
-                                {
-                                    return 1;
-                                }
-                                else if (value < 0)
-                                {
-                                    return -1;
-                                }
-
-                                return 0;
-                            }
-                            """,
-            _ => $$"""
-                   public int Chained{{index}}(int value)
-                   {
-                       if (value > 0)
-                       {
-                           return 1;
-                       }
-                       else
-                       {
-                           var next = value - 1;
-                           if (next < 0)
-                           {
-                               return next;
-                           }
-                       }
-
-                       return 0;
-                   }
-                   """
+            (0, true) => GenerateWrappedElseBlock(index),
+            (1, true) => GenerateChainedElseBlock(index),
+            (0, false) => GenerateCollapsedElseIf(index),
+            _ => GenerateElseWithExtraStatement(index)
         };
+
+    /// <summary>Builds an else block whose only statement is an if, which collapses to an else-if.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateWrappedElseBlock(int index) =>
+        $$"""
+        public int Wrapped{{index}}(int value)
+        {
+            if (value > 0)
+            {
+                return 1;
+            }
+            else
+            {
+                if (value < 0)
+                {
+                    return -1;
+                }
+            }
+
+            return 0;
+        }
+        """;
+
+    /// <summary>Builds an else block whose only statement is an if-else, which collapses to an else-if.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateChainedElseBlock(int index) =>
+        $$"""
+        public int Chained{{index}}(int value)
+        {
+            if (value > 0)
+            {
+                return 1;
+            }
+            else
+            {
+                if (value < 0)
+                {
+                    return -1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+        }
+        """;
+
+    /// <summary>Builds an already-collapsed else-if chain, which is clean.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateCollapsedElseIf(int index) =>
+        $$"""
+        public int Wrapped{{index}}(int value)
+        {
+            if (value > 0)
+            {
+                return 1;
+            }
+            else if (value < 0)
+            {
+                return -1;
+            }
+
+            return 0;
+        }
+        """;
+
+    /// <summary>Builds an else block that holds a statement before its if, so it cannot collapse.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateElseWithExtraStatement(int index) =>
+        $$"""
+        public int Chained{{index}}(int value)
+        {
+            if (value > 0)
+            {
+                return 1;
+            }
+            else
+            {
+                var next = value - 1;
+                if (next < 0)
+                {
+                    return next;
+                }
+            }
+
+            return 0;
+        }
+        """;
 }

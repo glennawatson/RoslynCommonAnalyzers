@@ -14,18 +14,20 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2420 (an index-of test that skips the first position).</summary>
 public class IndexOfSkipsFirstAnalyzerUnitTest
 {
+    /// <summary>A string index-of tested with greater-than-zero, the shape the rule reports.</summary>
+    private const string IndexOfGreaterThanZeroSource = """
+        public sealed class C
+        {
+            public bool M(string s) => {|SST2420:s.IndexOf('a') > 0|};
+        }
+        """;
+
     /// <summary>Verifies a string index-of tested with greater-than-zero is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task StringIndexOfGreaterThanZeroIsReportedAsync() =>
-        VerifyIndexOf.VerifyAnalyzerAsync(
-            """
-            public sealed class C
-            {
-                public bool M(string s) => {|SST2420:s.IndexOf('a') > 0|};
-            }
-            """);
+        VerifyIndexOf.VerifyAnalyzerAsync(IndexOfGreaterThanZeroSource);
 
     /// <summary>Verifies the reversed <c>0 &lt; IndexOf</c> form is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -102,12 +104,7 @@ public class IndexOfSkipsFirstAnalyzerUnitTest
         var test = new VerifyFix.Test
         {
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = """
-                public sealed class C
-                {
-                    public bool M(string s) => {|SST2420:s.IndexOf('a') > 0|};
-                }
-                """,
+            TestCode = IndexOfGreaterThanZeroSource,
             FixedCode = """
                 public sealed class C
                 {
@@ -127,12 +124,7 @@ public class IndexOfSkipsFirstAnalyzerUnitTest
         var test = new VerifyFix.Test
         {
             ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = """
-                public sealed class C
-                {
-                    public bool M(string s) => {|SST2420:s.IndexOf('a') > 0|};
-                }
-                """,
+            TestCode = IndexOfGreaterThanZeroSource,
             FixedCode = """
                 public sealed class C
                 {

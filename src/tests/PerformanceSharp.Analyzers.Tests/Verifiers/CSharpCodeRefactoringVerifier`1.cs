@@ -18,7 +18,8 @@ public static partial class CSharpCodeRefactoringVerifier<TCodeRefactoring>
     /// <param name="fixedSource">The expected source code after the refactoring is applied.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous verification operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Task VerifyRefactoringAsync(string source, string fixedSource) => VerifyRefactoringAsync(source, DiagnosticResult.EmptyDiagnosticResults, fixedSource);
+    public static Task VerifyRefactoringAsync(string source, string fixedSource) =>
+        CSharpCodeRefactoringVerifier<TCodeRefactoring>.VerifyRefactoringAsync(source, DiagnosticResult.EmptyDiagnosticResults, fixedSource);
 
     /// <inheritdoc cref="CodeRefactoringVerifier{TCodeRefactoring, TTest, TVerifier}.VerifyRefactoringAsync(string, DiagnosticResult, string)"/>
     /// <param name="source">The source code to refactor.</param>
@@ -26,7 +27,8 @@ public static partial class CSharpCodeRefactoringVerifier<TCodeRefactoring>
     /// <param name="fixedSource">The expected source code after the refactoring is applied.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous verification operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Task VerifyRefactoringAsync(string source, DiagnosticResult expected, string fixedSource) => VerifyRefactoringAsync(source, [expected], fixedSource);
+    public static Task VerifyRefactoringAsync(string source, DiagnosticResult expected, string fixedSource) =>
+        CSharpCodeRefactoringVerifier<TCodeRefactoring>.VerifyRefactoringAsync(source, [expected], fixedSource);
 
     /// <inheritdoc cref="CodeRefactoringVerifier{TCodeRefactoring, TTest, TVerifier}.VerifyRefactoringAsync(string, DiagnosticResult[], string)"/>
     /// <param name="source">The source code to refactor.</param>

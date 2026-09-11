@@ -9,6 +9,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1521 (lines should not be too long).</summary>
 public class LineTooLongAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>The number of <c>Name</c> terms concatenated into one expression to push its line past the default maximum.</summary>
     private const int OverlongLineTermCount = 25;
 
@@ -55,7 +58,7 @@ public class LineTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1521.max_line_length = 40")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1521.max_line_length = 40")));
         test.ExpectedDiagnostics.Add(
             VerifyLineLength.Diagnostic()
                 .WithSpan(ReportedLineNumber, 1, ReportedLineNumber, ReportedLineEndColumn)
@@ -157,7 +160,7 @@ public class LineTooLongAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", BuildConfig("stylesharp.max_line_length = 200", "stylesharp.SST1521.max_line_length = 40")));
+            (EditorConfigPath, BuildConfig("stylesharp.max_line_length = 200", "stylesharp.SST1521.max_line_length = 40")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -176,7 +179,7 @@ public class LineTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.max_line_length = 40")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.max_line_length = 40")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -198,7 +201,7 @@ public class LineTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1521.max_line_length = wide")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1521.max_line_length = wide")));
         await test.RunAsync(CancellationToken.None);
     }
 

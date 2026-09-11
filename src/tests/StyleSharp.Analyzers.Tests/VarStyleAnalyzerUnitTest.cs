@@ -16,6 +16,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class VarStyleAnalyzerUnitTest
 {
+    /// <summary>The <c>use_var</c> option value that asks for <c>var</c> on every local.</summary>
+    private const string AlwaysUseVarStyle = "always";
+
     /// <summary>Verifies an explicit local becomes <c>var</c> when the style is <c>always</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -41,7 +44,7 @@ public class VarStyleAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        await RunAsync(Source, FixedSource, style: "always");
+        await RunAsync(Source, FixedSource, style: AlwaysUseVarStyle);
     }
 
     /// <summary>Verifies a <c>var</c> local names its type when the style is <c>never</c>.</summary>
@@ -157,7 +160,7 @@ public class VarStyleAnalyzerUnitTest
                                   }
                               }
                               """;
-        await VerifyCleanAsync(Source, style: "always");
+        await VerifyCleanAsync(Source, style: AlwaysUseVarStyle);
     }
 
     /// <summary>Verifies a target-typed <c>new()</c> local is never converted to <c>var</c>.</summary>
@@ -177,7 +180,7 @@ public class VarStyleAnalyzerUnitTest
                                   }
                               }
                               """;
-        await VerifyCleanAsync(Source, style: "always");
+        await VerifyCleanAsync(Source, style: AlwaysUseVarStyle);
     }
 
     /// <summary>Verifies a <c>stackalloc</c> local is never converted to <c>var</c>, which would make it a pointer.</summary>
@@ -197,7 +200,7 @@ public class VarStyleAnalyzerUnitTest
                                   }
                               }
                               """;
-        await VerifyCleanAsync(Source, style: "always", ReferenceAssemblies.Net.Net80);
+        await VerifyCleanAsync(Source, style: AlwaysUseVarStyle, ReferenceAssemblies.Net.Net80);
     }
 
     /// <summary>Verifies an implicitly typed <c>stackalloc</c> local is never converted to <c>var</c>.</summary>
@@ -217,7 +220,7 @@ public class VarStyleAnalyzerUnitTest
                                   }
                               }
                               """;
-        await VerifyCleanAsync(Source, style: "always", ReferenceAssemblies.Net.Net80);
+        await VerifyCleanAsync(Source, style: AlwaysUseVarStyle, ReferenceAssemblies.Net.Net80);
     }
 
     /// <summary>Verifies a conditional whose branches are <c>stackalloc</c> is never converted to <c>var</c>.</summary>
@@ -237,7 +240,7 @@ public class VarStyleAnalyzerUnitTest
                                   }
                               }
                               """;
-        await VerifyCleanAsync(Source, style: "always", ReferenceAssemblies.Net.Net80);
+        await VerifyCleanAsync(Source, style: AlwaysUseVarStyle, ReferenceAssemblies.Net.Net80);
     }
 
     /// <summary>Verifies a parenthesized <c>stackalloc</c> is never converted to <c>var</c>.</summary>
@@ -257,7 +260,7 @@ public class VarStyleAnalyzerUnitTest
                                   }
                               }
                               """;
-        await VerifyCleanAsync(Source, style: "always", ReferenceAssemblies.Net.Net80);
+        await VerifyCleanAsync(Source, style: AlwaysUseVarStyle, ReferenceAssemblies.Net.Net80);
     }
 
     /// <summary>Verifies a <c>switch</c> expression over <c>stackalloc</c> arms is never converted to <c>var</c>.</summary>
@@ -277,7 +280,7 @@ public class VarStyleAnalyzerUnitTest
                                   }
                               }
                               """;
-        await VerifyCleanAsync(Source, style: "always", ReferenceAssemblies.Net.Net80);
+        await VerifyCleanAsync(Source, style: AlwaysUseVarStyle, ReferenceAssemblies.Net.Net80);
     }
 
     /// <summary>Verifies a <c>default(T)</c> initializer, whose type does not depend on the target, still converts.</summary>
@@ -305,7 +308,7 @@ public class VarStyleAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        await RunAsync(Source, FixedSource, style: "always");
+        await RunAsync(Source, FixedSource, style: AlwaysUseVarStyle);
     }
 
     /// <summary>Verifies an explicit foreach variable becomes <c>var</c> when the style is <c>always</c>.</summary>
@@ -337,7 +340,7 @@ public class VarStyleAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        await RunAsync(Source, FixedSource, style: "always");
+        await RunAsync(Source, FixedSource, style: AlwaysUseVarStyle);
     }
 
     /// <summary>Verifies a <c>var</c> foreach variable names its type when the style is <c>never</c>.</summary>

@@ -74,25 +74,7 @@ public class OpeningParenOnDeclarationLineBenchmarks
 
             default:
                 {
-                    var method = ParseSingleMethod(
-                        """
-                        using System;
-
-                        class C
-                        {
-                            void M()
-                            {
-                                Run(value => { },
-                                    () =>
-                                    {
-                                    });
-                            }
-
-                            void Run(Action<int> onNext, Action onCompleted)
-                            {
-                            }
-                        }
-                        """);
+                    var method = ParseParenthesizedLambdaMethod();
                     var invocation = (InvocationExpressionSyntax)((ExpressionStatementSyntax)method.Body!.Statements[0]).Expression;
                     _openingToken = ((ParenthesizedLambdaExpressionSyntax)invocation.ArgumentList.Arguments[1].Expression).ParameterList.OpenParenToken;
                     break;
@@ -117,4 +99,28 @@ public class OpeningParenOnDeclarationLineBenchmarks
     /// <returns>The parsed method declaration.</returns>
     private static MethodDeclarationSyntax ParseSingleMethod(string source) =>
         (MethodDeclarationSyntax)((ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[^1]).Members[0];
+
+    /// <summary>Parses a method whose call passes a parenthesized lambda wrapped onto its own argument line.</summary>
+    /// <returns>The parsed method declaration.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MethodDeclarationSyntax ParseParenthesizedLambdaMethod() =>
+        ParseSingleMethod(
+            """
+            using System;
+
+            class C
+            {
+                void M()
+                {
+                    Run(value => { },
+                        () =>
+                        {
+                        });
+                }
+
+                void Run(Action<int> onNext, Action onCompleted)
+                {
+                }
+            }
+            """);
 }

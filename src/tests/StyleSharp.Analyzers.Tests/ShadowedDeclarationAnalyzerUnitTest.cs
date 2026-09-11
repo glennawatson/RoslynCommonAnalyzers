@@ -10,10 +10,154 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1484 (declarations should not shadow an outer field or property).</summary>
 public class ShadowedDeclarationAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>The <c>init</c>-accessor polyfill positional records require on the test reference assemblies.</summary>
     private const string IsExternalInit = """
 
         namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+        """;
+
+    /// <summary>Every shape of the idiom where a constructor parameter is assigned to the field it shadows.</summary>
+    private const string ConstructorAssignmentIdiomSource = """
+        public class Classic
+        {
+            private readonly string name;
+
+            public Classic(string name)
+            {
+                this.name = name;
+            }
+
+            public string Describe() => name;
+        }
+
+        public class Bare
+        {
+            private readonly string name;
+
+            public Bare(string name)
+            {
+                name = name;
+            }
+
+            public string Describe() => name;
+        }
+
+        public class ExpressionBodied
+        {
+            private readonly string name;
+
+            public ExpressionBodied(string name) => this.name = name;
+
+            public string Describe() => name;
+        }
+
+        public class Tuples
+        {
+            private readonly string name;
+            private readonly int age;
+
+            public Tuples(string name, int age) => (this.name, this.age) = (name, age);
+
+            public string Describe() => name + age;
+        }
+
+        public class Chained
+        {
+            private readonly string name;
+
+            public Chained(string name)
+                : this(name, 0)
+            {
+            }
+
+            public Chained(string name, int age)
+            {
+                this.name = name;
+                Age = age;
+            }
+
+            public int Age { get; }
+
+            public string Describe() => name;
+        }
+
+        public class Guarded
+        {
+            private readonly string name;
+
+            public Guarded(string name)
+            {
+                this.name = name ?? "unknown";
+            }
+
+            public string Describe() => name;
+        }
+        """;
+
+    /// <summary>Source shadowing a field from an out variable, a pattern variable, a loop variable and a catch variable.</summary>
+    private const string EveryLocalDeclarationFormSource = """
+        public class C
+        {
+            private int count;
+            private string text;
+            private object error;
+
+            public string Read() => text + count + error;
+
+            public bool Parse(string input)
+            {
+                if (int.TryParse(input, out var {|SST1484:count|}))
+                {
+                    return count > 0;
+                }
+
+                return false;
+            }
+
+            public bool Match(object value)
+            {
+                if (value is string {|SST1484:text|})
+                {
+                    return text.Length > 0;
+                }
+
+                return false;
+            }
+
+            public int Longest(string[] values)
+            {
+                var longest = 0;
+                foreach (var {|SST1484:text|} in values)
+                {
+                    longest += text.Length;
+                }
+
+                return longest;
+            }
+
+            public void Handle()
+            {
+                try
+                {
+                    Work();
+                }
+                catch (System.InvalidOperationException {|SST1484:error|})
+                {
+                    Log(error.Message);
+                }
+            }
+
+            private static void Work()
+            {
+            }
+
+            private static void Log(string message)
+            {
+            }
+        }
         """;
 
     /// <summary>Verifies a local that reuses a field's name is reported.</summary>
@@ -83,83 +227,7 @@ public class ShadowedDeclarationAnalyzerUnitTest
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task ConstructorAssignmentIdiomIsCleanAsync() =>
-        VerifyShadowed.VerifyAnalyzerAsync(
-            """
-            public class Classic
-            {
-                private readonly string name;
-
-                public Classic(string name)
-                {
-                    this.name = name;
-                }
-
-                public string Describe() => name;
-            }
-
-            public class Bare
-            {
-                private readonly string name;
-
-                public Bare(string name)
-                {
-                    name = name;
-                }
-
-                public string Describe() => name;
-            }
-
-            public class ExpressionBodied
-            {
-                private readonly string name;
-
-                public ExpressionBodied(string name) => this.name = name;
-
-                public string Describe() => name;
-            }
-
-            public class Tuples
-            {
-                private readonly string name;
-                private readonly int age;
-
-                public Tuples(string name, int age) => (this.name, this.age) = (name, age);
-
-                public string Describe() => name + age;
-            }
-
-            public class Chained
-            {
-                private readonly string name;
-
-                public Chained(string name)
-                    : this(name, 0)
-                {
-                }
-
-                public Chained(string name, int age)
-                {
-                    this.name = name;
-                    Age = age;
-                }
-
-                public int Age { get; }
-
-                public string Describe() => name;
-            }
-
-            public class Guarded
-            {
-                private readonly string name;
-
-                public Guarded(string name)
-                {
-                    this.name = name ?? "unknown";
-                }
-
-                public string Describe() => name;
-            }
-            """);
+        VerifyShadowed.VerifyAnalyzerAsync(ConstructorAssignmentIdiomSource);
 
     /// <summary>Verifies a primary constructor's parameters and a positional record's are never reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
@@ -261,68 +329,7 @@ public class ShadowedDeclarationAnalyzerUnitTest
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task EveryLocalDeclarationFormIsMeasuredAsync() =>
-        VerifyShadowed.VerifyAnalyzerAsync(
-            """
-            public class C
-            {
-                private int count;
-                private string text;
-                private object error;
-
-                public string Read() => text + count + error;
-
-                public bool Parse(string input)
-                {
-                    if (int.TryParse(input, out var {|SST1484:count|}))
-                    {
-                        return count > 0;
-                    }
-
-                    return false;
-                }
-
-                public bool Match(object value)
-                {
-                    if (value is string {|SST1484:text|})
-                    {
-                        return text.Length > 0;
-                    }
-
-                    return false;
-                }
-
-                public int Longest(string[] values)
-                {
-                    var longest = 0;
-                    foreach (var {|SST1484:text|} in values)
-                    {
-                        longest += text.Length;
-                    }
-
-                    return longest;
-                }
-
-                public void Handle()
-                {
-                    try
-                    {
-                        Work();
-                    }
-                    catch (System.InvalidOperationException {|SST1484:error|})
-                    {
-                        Log(error.Message);
-                    }
-                }
-
-                private static void Work()
-                {
-                }
-
-                private static void Log(string message)
-                {
-                }
-            }
-            """);
+        VerifyShadowed.VerifyAnalyzerAsync(EveryLocalDeclarationFormSource);
 
     /// <summary>Verifies a local that shadows a visible base-type field is reported, and a private one is not.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
@@ -667,7 +674,7 @@ public class ShadowedDeclarationAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1484.check_base_types = true
@@ -700,7 +707,7 @@ public class ShadowedDeclarationAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.check_base_types = true
@@ -733,7 +740,7 @@ public class ShadowedDeclarationAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1484.check_base_types = yes please

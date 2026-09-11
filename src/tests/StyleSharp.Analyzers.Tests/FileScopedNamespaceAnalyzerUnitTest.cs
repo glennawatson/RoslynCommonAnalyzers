@@ -38,20 +38,22 @@ public class FileScopedNamespaceAnalyzerUnitTest
 
                                                    """;
 
+    /// <summary>The block-scoped namespace source whose declaration the rule reports.</summary>
+    private const string ReportedBlockScopedNamespaceSource = """
+        namespace {|SST2237:Bench|}
+        {
+            public sealed class C
+            {
+            }
+        }
+        """;
+
     /// <summary>Verifies a single block-scoped namespace is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task SingleBlockScopedNamespaceIsReportedAsync() =>
-        RunAsync(
-            """
-            namespace {|SST2237:Bench|}
-            {
-                public sealed class C
-                {
-                }
-            }
-            """);
+        RunAsync(ReportedBlockScopedNamespaceSource);
 
     /// <summary>Verifies files with multiple namespace members are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
@@ -126,14 +128,7 @@ public class FileScopedNamespaceAnalyzerUnitTest
     [Test]
     public Task RuleSpecificKeyOverridesTheProjectWideKeyAsync() =>
         RunAsync(
-            """
-            namespace {|SST2237:Bench|}
-            {
-                public sealed class C
-                {
-                }
-            }
-            """,
+            ReportedBlockScopedNamespaceSource,
             RuleSpecificOverrideConfig);
 
     /// <summary>Verifies an unrecognized value falls back to the documented default.</summary>
@@ -142,14 +137,7 @@ public class FileScopedNamespaceAnalyzerUnitTest
     [Test]
     public Task UnrecognizedStyleFallsBackToFileScopedAsync() =>
         RunAsync(
-            """
-            namespace {|SST2237:Bench|}
-            {
-                public sealed class C
-                {
-                }
-            }
-            """,
+            ReportedBlockScopedNamespaceSource,
             UnrecognizedStyleConfig);
 
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>

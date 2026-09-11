@@ -12,6 +12,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1653 (short summaries should be on a single line).</summary>
 public class SingleLineSummaryAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a single-line summary produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -154,14 +157,14 @@ public class SingleLineSummaryAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.max_line_length = 200
 
             """));
         test.FixedState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.max_line_length = 200
@@ -187,7 +190,7 @@ public class SingleLineSummaryAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.summary_single_line_max_length = 5

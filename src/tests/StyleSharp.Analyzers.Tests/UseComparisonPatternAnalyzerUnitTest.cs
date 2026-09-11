@@ -14,14 +14,20 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst2248UseComparisonPatternAnalyzer"/> and its code fix (SST2248).</summary>
 public class UseComparisonPatternAnalyzerUnitTest
 {
+    /// <summary>The parameter list declaring the single int the comparison subject is read from.</summary>
+    private const string IntSubjectParameter = "int x";
+
+    /// <summary>The parameter list declaring the int the outside-range tests compare.</summary>
+    private const string OutsideRangeSubjectParameter = "int n";
+
     /// <summary>Verifies a bounded range folds into an <c>and</c> pattern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task RangeIsFlaggedAndFixedAsync() =>
         VerifyComparisonPattern.VerifyCodeFixAsync(
-            Wrap("int x", "{|SST2248:x >= 0 && x <= 9|}"),
-            Wrap("int x", "x is >= 0 and <= 9"));
+            Wrap(IntSubjectParameter, "{|SST2248:x >= 0 && x <= 9|}"),
+            Wrap(IntSubjectParameter, "x is >= 0 and <= 9"));
 
     /// <summary>Verifies a range written upper bound first still folds, keeping operand order.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -29,8 +35,8 @@ public class UseComparisonPatternAnalyzerUnitTest
     [Test]
     public Task UpperThenLowerRangeIsFlaggedAndFixedAsync() =>
         VerifyComparisonPattern.VerifyCodeFixAsync(
-            Wrap("int x", "{|SST2248:x <= 9 && x >= 0|}"),
-            Wrap("int x", "x is <= 9 and >= 0"));
+            Wrap(IntSubjectParameter, "{|SST2248:x <= 9 && x >= 0|}"),
+            Wrap(IntSubjectParameter, "x is <= 9 and >= 0"));
 
     /// <summary>Verifies strict bounds with the constant on the left flip to a subject-on-left pattern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -38,8 +44,8 @@ public class UseComparisonPatternAnalyzerUnitTest
     [Test]
     public Task StrictRangeConstantOnLeftIsFlaggedAndFixedAsync() =>
         VerifyComparisonPattern.VerifyCodeFixAsync(
-            Wrap("int x", "{|SST2248:0 < x && x < 9|}"),
-            Wrap("int x", "x is > 0 and < 9"));
+            Wrap(IntSubjectParameter, "{|SST2248:0 < x && x < 9|}"),
+            Wrap(IntSubjectParameter, "x is > 0 and < 9"));
 
     /// <summary>Verifies an equality set over an enum folds into an <c>or</c> pattern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -56,8 +62,8 @@ public class UseComparisonPatternAnalyzerUnitTest
     [Test]
     public Task OutsideRangeIsFlaggedAndFixedAsync() =>
         VerifyComparisonPattern.VerifyCodeFixAsync(
-            Wrap("int n", "{|SST2248:n < 0 || n > 100|}"),
-            Wrap("int n", "n is < 0 or > 100"));
+            Wrap(OutsideRangeSubjectParameter, "{|SST2248:n < 0 || n > 100|}"),
+            Wrap(OutsideRangeSubjectParameter, "n is < 0 or > 100"));
 
     /// <summary>Verifies the outside-range shape folds when the high side is written first.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -65,8 +71,8 @@ public class UseComparisonPatternAnalyzerUnitTest
     [Test]
     public Task OutsideRangeReversedIsFlaggedAndFixedAsync() =>
         VerifyComparisonPattern.VerifyCodeFixAsync(
-            Wrap("int n", "{|SST2248:n > 100 || n < 0|}"),
-            Wrap("int n", "n is > 100 or < 0"));
+            Wrap(OutsideRangeSubjectParameter, "{|SST2248:n > 100 || n < 0|}"),
+            Wrap(OutsideRangeSubjectParameter, "n is > 100 or < 0"));
 
     /// <summary>Verifies a pair of inequalities folds into a negated <c>and</c> pattern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -74,8 +80,8 @@ public class UseComparisonPatternAnalyzerUnitTest
     [Test]
     public Task InequalityPairIsFlaggedAndFixedAsync() =>
         VerifyComparisonPattern.VerifyCodeFixAsync(
-            Wrap("int x", "{|SST2248:x != 3 && x != 5|}"),
-            Wrap("int x", "x is not 3 and not 5"));
+            Wrap(IntSubjectParameter, "{|SST2248:x != 3 && x != 5|}"),
+            Wrap(IntSubjectParameter, "x is not 3 and not 5"));
 
     /// <summary>Verifies a range with the lower constant on the left flips its operator.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -83,8 +89,8 @@ public class UseComparisonPatternAnalyzerUnitTest
     [Test]
     public Task InclusiveLowerConstantOnLeftIsFlaggedAndFixedAsync() =>
         VerifyComparisonPattern.VerifyCodeFixAsync(
-            Wrap("int x", "{|SST2248:0 <= x && x <= 9|}"),
-            Wrap("int x", "x is >= 0 and <= 9"));
+            Wrap(IntSubjectParameter, "{|SST2248:0 <= x && x <= 9|}"),
+            Wrap(IntSubjectParameter, "x is >= 0 and <= 9"));
 
     /// <summary>Verifies a range with the upper constant on the left flips its operator.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -92,8 +98,8 @@ public class UseComparisonPatternAnalyzerUnitTest
     [Test]
     public Task InclusiveUpperConstantOnLeftIsFlaggedAndFixedAsync() =>
         VerifyComparisonPattern.VerifyCodeFixAsync(
-            Wrap("int x", "{|SST2248:9 >= x && x >= 0|}"),
-            Wrap("int x", "x is <= 9 and >= 0"));
+            Wrap(IntSubjectParameter, "{|SST2248:9 >= x && x >= 0|}"),
+            Wrap(IntSubjectParameter, "x is <= 9 and >= 0"));
 
     /// <summary>Verifies a strict upper constant on the left flips its operator.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -101,8 +107,8 @@ public class UseComparisonPatternAnalyzerUnitTest
     [Test]
     public Task StrictUpperConstantOnLeftIsFlaggedAndFixedAsync() =>
         VerifyComparisonPattern.VerifyCodeFixAsync(
-            Wrap("int x", "{|SST2248:100 > x && x > 5|}"),
-            Wrap("int x", "x is < 100 and > 5"));
+            Wrap(IntSubjectParameter, "{|SST2248:100 > x && x > 5|}"),
+            Wrap(IntSubjectParameter, "x is < 100 and > 5"));
 
     /// <summary>Verifies an equality with the constant on the left keeps its operator when folding.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -110,8 +116,8 @@ public class UseComparisonPatternAnalyzerUnitTest
     [Test]
     public Task EqualityConstantOnLeftIsFlaggedAndFixedAsync() =>
         VerifyComparisonPattern.VerifyCodeFixAsync(
-            Wrap("int x", "{|SST2248:5 == x || x == 7|}"),
-            Wrap("int x", "x is 5 or 7"));
+            Wrap(IntSubjectParameter, "{|SST2248:5 == x || x == 7|}"),
+            Wrap(IntSubjectParameter, "x is 5 or 7"));
 
     /// <summary>Verifies a char range folds, carrying the char literals through.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -272,49 +278,49 @@ public class UseComparisonPatternAnalyzerUnitTest
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task LongBoundOnIntSubjectIsCleanAsync() =>
-        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap("int x", "x >= 0L && x <= 9L"));
+        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap(IntSubjectParameter, "x >= 0L && x <= 9L"));
 
     /// <summary>Verifies an empty range is left alone so the fix cannot produce a never-matching pattern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task EmptyRangeIsCleanAsync() =>
-        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap("int x", "x >= 9 && x <= 0"));
+        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap(IntSubjectParameter, "x >= 9 && x <= 0"));
 
     /// <summary>Verifies an always-true disjunction is left alone so the fix cannot produce a warning.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task TautologicalDisjunctionIsCleanAsync() =>
-        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap("int x", "x >= 0 || x <= 9"));
+        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap(IntSubjectParameter, "x >= 0 || x <= 9"));
 
     /// <summary>Verifies a contradictory equality conjunction is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task ContradictoryConjunctionIsCleanAsync() =>
-        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap("int x", "x == 1 && x == 2"));
+        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap(IntSubjectParameter, "x == 1 && x == 2"));
 
     /// <summary>Verifies two bounds in the same direction are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task SameDirectionBoundsAreCleanAsync() =>
-        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap("int x", "x >= 0 && x >= 5"));
+        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap(IntSubjectParameter, "x >= 0 && x >= 5"));
 
     /// <summary>Verifies an always-true inequality disjunction is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task InequalityDisjunctionIsCleanAsync() =>
-        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap("int x", "x != 3 || x != 5"));
+        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap(IntSubjectParameter, "x != 3 || x != 5"));
 
     /// <summary>Verifies a mixed equality-and-relational disjunction is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task MixedDisjunctionIsCleanAsync() =>
-        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap("int x", "x == 3 || x > 100"));
+        VerifyComparisonPattern.VerifyAnalyzerAsync(Wrap(IntSubjectParameter, "x == 3 || x > 100"));
 
     /// <summary>Verifies a comparison joined with a non-comparison operand is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -328,7 +334,7 @@ public class UseComparisonPatternAnalyzerUnitTest
     [Test]
     public async Task SilentBelowCSharp9Async()
     {
-        var test = new VerifyComparisonPattern.Test { TestCode = Wrap("int x", "x >= 0 && x <= 9") };
+        var test = new VerifyComparisonPattern.Test { TestCode = Wrap(IntSubjectParameter, "x >= 0 && x <= 9") };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;

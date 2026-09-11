@@ -12,6 +12,12 @@ internal static class UniqueLinesCodeFixBenchmarkSource
     /// <summary>The number of members emitted into each synthetic container for distributed unique-lines benchmarks.</summary>
     private const int DistributedMembersPerContainer = 25;
 
+    /// <summary>The brace that opens a member body in the generated source, at member indentation.</summary>
+    private const string MemberBodyOpenBrace = "    {";
+
+    /// <summary>The brace that closes a member body in the generated source, at member indentation.</summary>
+    private const string MemberBodyCloseBrace = "    }";
+
     /// <summary>Builds violating constructor declaration source.</summary>
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <returns>The generated source text.</returns>
@@ -553,11 +559,11 @@ internal static class UniqueLinesCodeFixBenchmarkSource
     /// <summary>Appends the nested helper type used by implicit object-creation benchmarks.</summary>
     /// <param name="builder">The destination source builder.</param>
     private static void AppendImplicitObjectCreationPreamble(System.Text.StringBuilder builder) => _ = builder.AppendLine("    private sealed class Item")
-            .AppendLine("    {")
+            .AppendLine(MemberBodyOpenBrace)
             .AppendLine("        public Item(int x, int y, int z)")
             .AppendLine("        {")
             .AppendLine("        }")
-            .Append("    }");
+            .Append(MemberBodyCloseBrace);
 
     /// <summary>Appends one implicit-object-creation unique-lines benchmark member.</summary>
     /// <param name="builder">The destination source builder.</param>
@@ -579,14 +585,14 @@ internal static class UniqueLinesCodeFixBenchmarkSource
     private static void AppendAnonymousMethodExpressionMember(System.Text.StringBuilder builder, int index) => _ = builder.Append("    internal static System.Action<int, int, int> M")
             .Append(index)
             .AppendLine("()")
-            .AppendLine("    {")
+            .AppendLine(MemberBodyOpenBrace)
             .AppendLine("        return delegate(int x,")
             .AppendLine("            int y,")
             .AppendLine("            int z)")
             .AppendLine("        {")
             .AppendLine("            _ = x + y + z;")
             .AppendLine("        };")
-            .Append("    }");
+            .Append(MemberBodyCloseBrace);
 
     /// <summary>Appends one parenthesized-lambda unique-lines benchmark member.</summary>
     /// <param name="builder">The destination source builder.</param>
@@ -594,9 +600,9 @@ internal static class UniqueLinesCodeFixBenchmarkSource
     private static void AppendParenthesizedLambdaExpressionMember(System.Text.StringBuilder builder, int index) => _ = builder.Append("    internal static System.Func<int, int, int, int> M")
             .Append(index)
             .AppendLine("()")
-            .AppendLine("    {")
+            .AppendLine(MemberBodyOpenBrace)
             .AppendLine("        return (int x,")
             .AppendLine("            int y,")
             .AppendLine("            int z) => x + y + z;")
-            .Append("    }");
+            .Append(MemberBodyCloseBrace);
 }

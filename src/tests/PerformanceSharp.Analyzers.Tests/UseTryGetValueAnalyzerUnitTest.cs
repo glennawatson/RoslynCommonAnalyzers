@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -14,6 +15,122 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Unit tests for PSH1104 (use TryGetValue instead of ContainsKey plus an indexer read) and its code fix.</summary>
 public class UseTryGetValueAnalyzerUnitTest
 {
+    /// <summary>A ContainsKey guard plus an indexer read on a user-defined type that implements <c>IDictionary&lt;string, int&gt;</c>.</summary>
+    private const string CustomDictionaryTypeSource = """
+        using System.Collections;
+        using System.Collections.Generic;
+
+        public class CustomMap : IDictionary<string, int>
+        {
+            private readonly Dictionary<string, int> _inner = new();
+
+            public ICollection<string> Keys => _inner.Keys;
+
+            public ICollection<int> Values => _inner.Values;
+
+            public int Count => _inner.Count;
+
+            public bool IsReadOnly => false;
+
+            public int this[string key] { get => _inner[key]; set => _inner[key] = value; }
+
+            public void Add(string key, int value) => _inner.Add(key, value);
+
+            public void Add(KeyValuePair<string, int> item) => _inner.Add(item.Key, item.Value);
+
+            public void Clear() => _inner.Clear();
+
+            public bool Contains(KeyValuePair<string, int> item) => _inner.ContainsKey(item.Key);
+
+            public bool ContainsKey(string key) => _inner.ContainsKey(key);
+
+            public void CopyTo(KeyValuePair<string, int>[] array, int arrayIndex)
+            {
+            }
+
+            public IEnumerator<KeyValuePair<string, int>> GetEnumerator() => _inner.GetEnumerator();
+
+            public bool Remove(string key) => _inner.Remove(key);
+
+            public bool Remove(KeyValuePair<string, int> item) => _inner.Remove(item.Key);
+
+            public bool TryGetValue(string key, out int value) => _inner.TryGetValue(key, out value);
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        public class C
+        {
+            public int M(CustomMap map, string key)
+            {
+                if (map.{|PSH1104:ContainsKey|}(key))
+                {
+                    return map[key];
+                }
+
+                return 0;
+            }
+        }
+        """;
+
+    /// <summary>The same custom-dictionary guard once the fix folds the ContainsKey call and the indexer read into TryGetValue.</summary>
+    private const string CustomDictionaryTypeFixedSource = """
+        using System.Collections;
+        using System.Collections.Generic;
+
+        public class CustomMap : IDictionary<string, int>
+        {
+            private readonly Dictionary<string, int> _inner = new();
+
+            public ICollection<string> Keys => _inner.Keys;
+
+            public ICollection<int> Values => _inner.Values;
+
+            public int Count => _inner.Count;
+
+            public bool IsReadOnly => false;
+
+            public int this[string key] { get => _inner[key]; set => _inner[key] = value; }
+
+            public void Add(string key, int value) => _inner.Add(key, value);
+
+            public void Add(KeyValuePair<string, int> item) => _inner.Add(item.Key, item.Value);
+
+            public void Clear() => _inner.Clear();
+
+            public bool Contains(KeyValuePair<string, int> item) => _inner.ContainsKey(item.Key);
+
+            public bool ContainsKey(string key) => _inner.ContainsKey(key);
+
+            public void CopyTo(KeyValuePair<string, int>[] array, int arrayIndex)
+            {
+            }
+
+            public IEnumerator<KeyValuePair<string, int>> GetEnumerator() => _inner.GetEnumerator();
+
+            public bool Remove(string key) => _inner.Remove(key);
+
+            public bool Remove(KeyValuePair<string, int> item) => _inner.Remove(item.Key);
+
+            public bool TryGetValue(string key, out int value) => _inner.TryGetValue(key, out value);
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        public class C
+        {
+            public int M(CustomMap map, string key)
+            {
+                if (map.TryGetValue(key, out var value))
+                {
+                    return value;
+                }
+
+                return 0;
+            }
+        }
+        """;
+
     /// <summary>Verifies an if guard with a single indexer read is reported (PSH1104) and rewritten to TryGetValue.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -213,123 +330,10 @@ public class UseTryGetValueAnalyzerUnitTest
 
     /// <summary>Verifies a custom dictionary type implementing IDictionary&lt;K, V&gt; is reported and fixed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomDictionaryTypeReportedAsync()
-    {
-        const string Source = """
-                              using System.Collections;
-                              using System.Collections.Generic;
-
-                              public class CustomMap : IDictionary<string, int>
-                              {
-                                  private readonly Dictionary<string, int> _inner = new();
-
-                                  public ICollection<string> Keys => _inner.Keys;
-
-                                  public ICollection<int> Values => _inner.Values;
-
-                                  public int Count => _inner.Count;
-
-                                  public bool IsReadOnly => false;
-
-                                  public int this[string key] { get => _inner[key]; set => _inner[key] = value; }
-
-                                  public void Add(string key, int value) => _inner.Add(key, value);
-
-                                  public void Add(KeyValuePair<string, int> item) => _inner.Add(item.Key, item.Value);
-
-                                  public void Clear() => _inner.Clear();
-
-                                  public bool Contains(KeyValuePair<string, int> item) => _inner.ContainsKey(item.Key);
-
-                                  public bool ContainsKey(string key) => _inner.ContainsKey(key);
-
-                                  public void CopyTo(KeyValuePair<string, int>[] array, int arrayIndex)
-                                  {
-                                  }
-
-                                  public IEnumerator<KeyValuePair<string, int>> GetEnumerator() => _inner.GetEnumerator();
-
-                                  public bool Remove(string key) => _inner.Remove(key);
-
-                                  public bool Remove(KeyValuePair<string, int> item) => _inner.Remove(item.Key);
-
-                                  public bool TryGetValue(string key, out int value) => _inner.TryGetValue(key, out value);
-
-                                  IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-                              }
-
-                              public class C
-                              {
-                                  public int M(CustomMap map, string key)
-                                  {
-                                      if (map.{|PSH1104:ContainsKey|}(key))
-                                      {
-                                          return map[key];
-                                      }
-
-                                      return 0;
-                                  }
-                              }
-                              """;
-        const string FixedSource = """
-                                   using System.Collections;
-                                   using System.Collections.Generic;
-
-                                   public class CustomMap : IDictionary<string, int>
-                                   {
-                                       private readonly Dictionary<string, int> _inner = new();
-
-                                       public ICollection<string> Keys => _inner.Keys;
-
-                                       public ICollection<int> Values => _inner.Values;
-
-                                       public int Count => _inner.Count;
-
-                                       public bool IsReadOnly => false;
-
-                                       public int this[string key] { get => _inner[key]; set => _inner[key] = value; }
-
-                                       public void Add(string key, int value) => _inner.Add(key, value);
-
-                                       public void Add(KeyValuePair<string, int> item) => _inner.Add(item.Key, item.Value);
-
-                                       public void Clear() => _inner.Clear();
-
-                                       public bool Contains(KeyValuePair<string, int> item) => _inner.ContainsKey(item.Key);
-
-                                       public bool ContainsKey(string key) => _inner.ContainsKey(key);
-
-                                       public void CopyTo(KeyValuePair<string, int>[] array, int arrayIndex)
-                                       {
-                                       }
-
-                                       public IEnumerator<KeyValuePair<string, int>> GetEnumerator() => _inner.GetEnumerator();
-
-                                       public bool Remove(string key) => _inner.Remove(key);
-
-                                       public bool Remove(KeyValuePair<string, int> item) => _inner.Remove(item.Key);
-
-                                       public bool TryGetValue(string key, out int value) => _inner.TryGetValue(key, out value);
-
-                                       IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-                                   }
-
-                                   public class C
-                                   {
-                                       public int M(CustomMap map, string key)
-                                       {
-                                           if (map.TryGetValue(key, out var value))
-                                           {
-                                               return value;
-                                           }
-
-                                           return 0;
-                                       }
-                                   }
-                                   """;
-        await VerifyNet90Async(Source, FixedSource);
-    }
+    public Task CustomDictionaryTypeReportedAsync() =>
+        VerifyNet90Async(CustomDictionaryTypeSource, CustomDictionaryTypeFixedSource);
 
     /// <summary>Verifies a receiver whose type exposes no TryGetValue is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

@@ -31,69 +31,93 @@ internal static class RethrowOnlyCatchBenchmarkSource
     private static string GenerateMember(int index, bool violating) =>
         (index % CatchShapeCount, violating) switch
         {
-            (0, true) => $$"""
-                           public int Trailing{{index}}(int value)
-                           {
-                               try
-                               {
-                                   return value + 1;
-                               }
-                               catch (System.InvalidOperationException)
-                               {
-                                   return -1;
-                               }
-                               catch (System.IO.IOException)
-                               {
-                                   throw;
-                               }
-                           }
-                           """,
-            (1, true) => $$"""
-                           public int Sole{{index}}(int value)
-                           {
-                               try
-                               {
-                                   return value + 1;
-                               }
-                               catch
-                               {
-                                   throw;
-                               }
-                           }
-                           """,
-            (0, false) => $$"""
-                            public int Trailing{{index}}(int value)
-                            {
-                                try
-                                {
-                                    return value + 1;
-                                }
-                                catch (System.InvalidOperationException)
-                                {
-                                    return -1;
-                                }
-                                catch (System.IO.IOException)
-                                {
-                                    return -2;
-                                }
-                            }
-                            """,
-            _ => $$"""
-                   public int Sole{{index}}(int value)
-                   {
-                       try
-                       {
-                           return value + 1;
-                       }
-                       catch (System.IO.IOException)
-                       {
-                           throw;
-                       }
-                       catch (System.Exception)
-                       {
-                           return -1;
-                       }
-                   }
-                   """
+            (0, true) => GenerateTrailingRethrowOnlyCatch(index),
+            (1, true) => GenerateSoleRethrowOnlyCatch(index),
+            (0, false) => GenerateTrailingHandlingCatch(index),
+            _ => GenerateRethrowFollowedByHandlingCatch(index)
         };
+
+    /// <summary>Builds a try whose last catch does nothing but rethrow.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateTrailingRethrowOnlyCatch(int index) =>
+        $$"""
+        public int Trailing{{index}}(int value)
+        {
+            try
+            {
+                return value + 1;
+            }
+            catch (System.InvalidOperationException)
+            {
+                return -1;
+            }
+            catch (System.IO.IOException)
+            {
+                throw;
+            }
+        }
+        """;
+
+    /// <summary>Builds a try whose only catch does nothing but rethrow.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateSoleRethrowOnlyCatch(int index) =>
+        $$"""
+        public int Sole{{index}}(int value)
+        {
+            try
+            {
+                return value + 1;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+        """;
+
+    /// <summary>Builds a try whose catches all handle the exception, which is clean.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateTrailingHandlingCatch(int index) =>
+        $$"""
+        public int Trailing{{index}}(int value)
+        {
+            try
+            {
+                return value + 1;
+            }
+            catch (System.InvalidOperationException)
+            {
+                return -1;
+            }
+            catch (System.IO.IOException)
+            {
+                return -2;
+            }
+        }
+        """;
+
+    /// <summary>Builds a rethrow-only catch that a broader handling catch follows, so it is load-bearing.</summary>
+    /// <param name="index">The synthetic member index.</param>
+    /// <returns>The generated member block.</returns>
+    private static string GenerateRethrowFollowedByHandlingCatch(int index) =>
+        $$"""
+        public int Sole{{index}}(int value)
+        {
+            try
+            {
+                return value + 1;
+            }
+            catch (System.IO.IOException)
+            {
+                throw;
+            }
+            catch (System.Exception)
+            {
+                return -1;
+            }
+        }
+        """;
 }

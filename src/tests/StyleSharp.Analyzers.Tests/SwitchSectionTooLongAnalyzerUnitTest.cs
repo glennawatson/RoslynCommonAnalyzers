@@ -10,6 +10,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1524 (switch sections should not be too long).</summary>
 public class SwitchSectionTooLongAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a section over the default maximum of 20 code lines is reported and a short one is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -86,7 +89,7 @@ public class SwitchSectionTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1524.max_switch_section_lines = 4")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1524.max_switch_section_lines = 4")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -119,7 +122,7 @@ public class SwitchSectionTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1524.max_switch_section_lines = 5")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1524.max_switch_section_lines = 5")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -143,7 +146,7 @@ public class SwitchSectionTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1524.max_switch_section_lines = 1")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1524.max_switch_section_lines = 1")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -175,7 +178,7 @@ public class SwitchSectionTooLongAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig",
+            (EditorConfigPath,
             BuildConfig("stylesharp.max_switch_section_lines = 40", "stylesharp.SST1524.max_switch_section_lines = 3")));
         await test.RunAsync(CancellationToken.None);
     }
@@ -207,7 +210,7 @@ public class SwitchSectionTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.max_switch_section_lines = 3")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.max_switch_section_lines = 3")));
         await test.RunAsync(CancellationToken.None);
     }
 

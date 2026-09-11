@@ -12,6 +12,66 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1430 (rethrow that loses the stack trace) and its fix.</summary>
 public class PreserveStackTraceAnalyzerUnitTest
 {
+    /// <summary>Source with two methods that each rethrow the caught variable.</summary>
+    private const string TwoRethrowsSource = """
+        using System;
+
+        public class C
+        {
+            public void M()
+            {
+                try
+                {
+                }
+                catch (Exception ex)
+                {
+                    {|SST1430:throw ex;|}
+                }
+            }
+
+            public void N()
+            {
+                try
+                {
+                }
+                catch (Exception ex)
+                {
+                    {|SST1430:throw ex;|}
+                }
+            }
+        }
+        """;
+
+    /// <summary>The same two methods once both rethrows preserve the stack trace.</summary>
+    private const string TwoRethrowsFixedSource = """
+        using System;
+
+        public class C
+        {
+            public void M()
+            {
+                try
+                {
+                }
+                catch (Exception ex)
+                {
+                    throw;
+                }
+            }
+
+            public void N()
+            {
+                try
+                {
+                }
+                catch (Exception ex)
+                {
+                    throw;
+                }
+            }
+        }
+        """;
+
     /// <summary>Verifies <c>throw ex;</c> on the caught variable is reported and replaced with <c>throw;</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -56,67 +116,10 @@ public class PreserveStackTraceAnalyzerUnitTest
 
     /// <summary>Verifies Fix All replaces every stack-trace-losing rethrow in one pass.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixAllRewritesEveryOccurrenceAsync()
-    {
-        const string Source = """
-                              using System;
-
-                              public class C
-                              {
-                                  public void M()
-                                  {
-                                      try
-                                      {
-                                      }
-                                      catch (Exception ex)
-                                      {
-                                          {|SST1430:throw ex;|}
-                                      }
-                                  }
-
-                                  public void N()
-                                  {
-                                      try
-                                      {
-                                      }
-                                      catch (Exception ex)
-                                      {
-                                          {|SST1430:throw ex;|}
-                                      }
-                                  }
-                              }
-                              """;
-        const string FixedSource = """
-                                   using System;
-
-                                   public class C
-                                   {
-                                       public void M()
-                                       {
-                                           try
-                                           {
-                                           }
-                                           catch (Exception ex)
-                                           {
-                                               throw;
-                                           }
-                                       }
-
-                                       public void N()
-                                       {
-                                           try
-                                           {
-                                           }
-                                           catch (Exception ex)
-                                           {
-                                               throw;
-                                           }
-                                       }
-                                   }
-                                   """;
-        await VerifyRethrow.VerifyCodeFixAsync(Source, FixedSource);
-    }
+    public Task FixAllRewritesEveryOccurrenceAsync() =>
+        VerifyRethrow.VerifyCodeFixAsync(TwoRethrowsSource, TwoRethrowsFixedSource);
 
     /// <summary>Verifies a bare <c>throw;</c> and throwing a different exception are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

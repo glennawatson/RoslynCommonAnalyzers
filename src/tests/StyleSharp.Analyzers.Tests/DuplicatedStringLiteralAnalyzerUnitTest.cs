@@ -10,6 +10,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1486 (repeated string literals should be named constants).</summary>
 public class DuplicatedStringLiteralAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer configuration file is added under in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies three copies of one literal are reported once, on the first copy.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -369,7 +372,7 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1486.duplicate_string_threshold = 2
@@ -405,7 +408,7 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1486.minimum_string_length = 3
@@ -433,7 +436,7 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.duplicate_string_threshold = 2
@@ -466,7 +469,7 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            ("/.editorconfig", """
+            (EditorConfigPath, """
             root = true
             [*.cs]
             stylesharp.SST1486.duplicate_string_threshold = 1

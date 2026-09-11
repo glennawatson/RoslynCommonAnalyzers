@@ -208,20 +208,7 @@ public class LockTargetAnalyzerUnitTest
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     public Task ReadonlyPrivateObjectFieldIsCleanForNonReadonlyRuleAsync() =>
-        VerifyLockTarget.VerifyAnalyzerAsync(
-            """
-            public class C
-            {
-                private readonly object _gate = new();
-
-                public void M()
-                {
-                    lock (_gate)
-                    {
-                    }
-                }
-            }
-            """);
+        PrivateObjectFieldIsCleanAsync();
 
     /// <summary>Verifies locking on a fresh local object that never escapes is reported (SST1903).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

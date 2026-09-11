@@ -58,7 +58,16 @@ public class UniqueLinesHelperMicroBenchmarks
     private static ParameterListSyntax[] ExtractParameterLists(string source)
     {
         var root = BenchmarkCompilationFactory.Parse(source).GetRoot();
-        return [.. root.DescendantNodes().OfType<MethodDeclarationSyntax>().Select(static method => method.ParameterList)];
+        var lists = new List<ParameterListSyntax>();
+        foreach (var descendant in root.DescendantNodes())
+        {
+            if (descendant is MethodDeclarationSyntax method)
+            {
+                lists.Add(method.ParameterList);
+            }
+        }
+
+        return [.. lists];
     }
 
     /// <summary>Calls the shared helper directly over each pre-parsed list and counts the jagged ones.</summary>

@@ -233,8 +233,9 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
     /// <summary>Runs a verification for a source the rule must leave unreported.</summary>
     /// <param name="source">The source; the stubbed <c>SignedXml</c> is appended.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>The run is the one <see cref="VerifyReportedAsync"/> performs; the expectation is carried by the fixture's diagnostic markup, or by its absence.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Task VerifyCleanAsync(string source) => RunAsync(source + SignedXmlStub);
+    private static Task VerifyCleanAsync(string source) => VerifyReportedAsync(source);
 
     /// <summary>Runs the analyzer against the .NET 9 reference assemblies with the supplied source.</summary>
     /// <param name="source">The full source to analyze.</param>

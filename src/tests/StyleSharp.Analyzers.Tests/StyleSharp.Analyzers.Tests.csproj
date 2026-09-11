@@ -1,12 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<?xml version="1.0" encoding="utf-8"?><Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>$(AnalyzerTestTargets)</TargetFrameworks>
     <RootNamespace>StyleSharp.Analyzers.Tests</RootNamespace>
 
-    <!-- Run the analyzer tests against the newest Roslyn we target (5.9) so the test
-         compiler can parse the latest C# syntax, e.g. C# 15 unions. The analyzer
-         source is version-agnostic (netstandard2.0), so this exercises the same logic. -->
+    <!-- Tests run against the newest slot; the analyzer source is version-agnostic. -->
     <MicrosoftCodeAnalysisVersion>5.9.0</MicrosoftCodeAnalysisVersion>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
@@ -15,9 +13,6 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeRefactoring.Testing" />
-    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Analyzer.Testing" />
-    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.CodeFix.Testing" />
-    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.CodeRefactoring.Testing" />
   </ItemGroup>
 
   <ItemGroup>

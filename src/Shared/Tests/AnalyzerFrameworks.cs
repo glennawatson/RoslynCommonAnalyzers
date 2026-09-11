@@ -11,7 +11,7 @@ namespace RoslynCommon.Analyzers.Tests;
 /// the code under analysis, not of the test host: an analyzer is netstandard2.0 and loads into the
 /// compiler, so what varies here is which APIs the analyzed project can actually call.
 /// </summary>
-internal static class AnalyzerFrameworks
+public static class AnalyzerFrameworks
 {
     /// <summary>Gets the .NET Framework 4.6.2 reference assemblies.</summary>
     public static ReferenceAssemblies Net462 { get; } = ReferenceAssemblies.NetFramework.Net462.Default;
@@ -39,7 +39,7 @@ internal static class AnalyzerFrameworks
 
     /// <summary>Every framework, for a rule whose verdict must not depend on the target.</summary>
     /// <returns>The framework name and its reference assemblies.</returns>
-    internal static IEnumerable<(string Name, ReferenceAssemblies Assemblies)> All()
+    public static IEnumerable<(string Name, ReferenceAssemblies Assemblies)> All()
     {
         yield return ("net462", Net462);
         yield return ("net472", Net472);
@@ -53,7 +53,7 @@ internal static class AnalyzerFrameworks
 
     /// <summary>The frameworks that predate .NET Core, where much of the modern BCL is absent.</summary>
     /// <returns>The framework name and its reference assemblies.</returns>
-    internal static IEnumerable<(string Name, ReferenceAssemblies Assemblies)> NetFrameworkOnly()
+    public static IEnumerable<(string Name, ReferenceAssemblies Assemblies)> NetFrameworkOnly()
     {
         yield return ("net462", Net462);
         yield return ("net472", Net472);
@@ -62,7 +62,7 @@ internal static class AnalyzerFrameworks
 
     /// <summary>The modern runtimes, where the newer BCL surface exists.</summary>
     /// <returns>The framework name and its reference assemblies.</returns>
-    internal static IEnumerable<(string Name, ReferenceAssemblies Assemblies)> ModernOnly()
+    public static IEnumerable<(string Name, ReferenceAssemblies Assemblies)> ModernOnly()
     {
         yield return ("net8.0", Net80);
         yield return ("net9.0", Net90);

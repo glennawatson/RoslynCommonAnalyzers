@@ -14,6 +14,100 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for conservative modern syntax style analysis (SST2202-SST2204).</summary>
 public class ModernSyntaxStyleAnalyzerUnitTest
 {
+    /// <summary>Source passing a creation to a conditional-access call, both directly and through a chain, alongside a plain call.</summary>
+    private const string ConditionalAccessSource = """
+        public sealed class E
+        {
+            public E(int value)
+            {
+            }
+        }
+
+        public sealed class Sink
+        {
+            public void Log(E item)
+            {
+            }
+        }
+
+        public sealed class Inner
+        {
+            public void Log(E item)
+            {
+            }
+        }
+
+        public sealed class Box
+        {
+            public Inner Part = new();
+        }
+
+        public sealed class C
+        {
+            public void DirectConditional(Sink sink)
+            {
+                sink?.Log(new E(1));
+            }
+
+            public void ChainedConditional(Box box)
+            {
+                box?.Part.Log(new E(1));
+            }
+
+            public void PlainCall(Sink sink)
+            {
+                sink.Log(new {|SST2202:E|}(1));
+            }
+        }
+        """;
+
+    /// <summary>The same source once only the plain call's creation has been target-typed.</summary>
+    private const string ConditionalAccessFixedSource = """
+        public sealed class E
+        {
+            public E(int value)
+            {
+            }
+        }
+
+        public sealed class Sink
+        {
+            public void Log(E item)
+            {
+            }
+        }
+
+        public sealed class Inner
+        {
+            public void Log(E item)
+            {
+            }
+        }
+
+        public sealed class Box
+        {
+            public Inner Part = new();
+        }
+
+        public sealed class C
+        {
+            public void DirectConditional(Sink sink)
+            {
+                sink?.Log(new E(1));
+            }
+
+            public void ChainedConditional(Box box)
+            {
+                box?.Part.Log(new E(1));
+            }
+
+            public void PlainCall(Sink sink)
+            {
+                sink.Log(new(1));
+            }
+        }
+        """;
+
     /// <summary>Verifies repeated object creation types are removed when the target type is explicit.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -512,97 +606,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
     [Test]
     public async Task ConditionalAccessArgumentStaysExplicitAsync()
     {
-        const string Source = """
-                              public sealed class E
-                              {
-                                  public E(int value)
-                                  {
-                                  }
-                              }
-
-                              public sealed class Sink
-                              {
-                                  public void Log(E item)
-                                  {
-                                  }
-                              }
-
-                              public sealed class Inner
-                              {
-                                  public void Log(E item)
-                                  {
-                                  }
-                              }
-
-                              public sealed class Box
-                              {
-                                  public Inner Part = new();
-                              }
-
-                              public sealed class C
-                              {
-                                  public void DirectConditional(Sink sink)
-                                  {
-                                      sink?.Log(new E(1));
-                                  }
-
-                                  public void ChainedConditional(Box box)
-                                  {
-                                      box?.Part.Log(new E(1));
-                                  }
-
-                                  public void PlainCall(Sink sink)
-                                  {
-                                      sink.Log(new {|SST2202:E|}(1));
-                                  }
-                              }
-                              """;
-        const string FixedSource = """
-                                   public sealed class E
-                                   {
-                                       public E(int value)
-                                       {
-                                       }
-                                   }
-
-                                   public sealed class Sink
-                                   {
-                                       public void Log(E item)
-                                       {
-                                       }
-                                   }
-
-                                   public sealed class Inner
-                                   {
-                                       public void Log(E item)
-                                       {
-                                       }
-                                   }
-
-                                   public sealed class Box
-                                   {
-                                       public Inner Part = new();
-                                   }
-
-                                   public sealed class C
-                                   {
-                                       public void DirectConditional(Sink sink)
-                                       {
-                                           sink?.Log(new E(1));
-                                       }
-
-                                       public void ChainedConditional(Box box)
-                                       {
-                                           box?.Part.Log(new E(1));
-                                       }
-
-                                       public void PlainCall(Sink sink)
-                                       {
-                                           sink.Log(new(1));
-                                       }
-                                   }
-                                   """;
-        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = ConditionalAccessSource, FixedCode = ConditionalAccessFixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }

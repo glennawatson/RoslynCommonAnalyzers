@@ -14,6 +14,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Tests the shared two-argument swap used by the transposed-argument code fixes.</summary>
 public sealed class SwappedArgumentCodeFixUnitTest
 {
+    /// <summary>A snippet whose single call passes the two arguments the swap exchanges.</summary>
+    private const string TwoArgumentCallSource = "class C { void M() { N(a, b); } }";
+
+    /// <summary>The diagnostic property key holding the position of the argument to swap with.</summary>
+    private const string SwapPositionPropertyKey = "SwapWith";
+
     /// <summary>An existing descriptor, reused only to build a diagnostic that carries the swap position.</summary>
     private static readonly DiagnosticDescriptor TestRule = CorrectnessRules.SwappedArguments;
 
@@ -22,7 +28,7 @@ public sealed class SwappedArgumentCodeFixUnitTest
     [Test]
     public async Task SwapExchangesTheTwoArgumentExpressionsAsync()
     {
-        var list = ParseFirstArgumentList("class C { void M() { N(a, b); } }");
+        var list = ParseFirstArgumentList(TwoArgumentCallSource);
 
         var swapped = SwappedArgumentCodeFix.Swap(list, 0, 1);
 
@@ -36,7 +42,7 @@ public sealed class SwappedArgumentCodeFixUnitTest
     {
         const int PositionPastLastArgument = 5;
 
-        var list = ParseFirstArgumentList("class C { void M() { N(a, b); } }");
+        var list = ParseFirstArgumentList(TwoArgumentCallSource);
 
         await Assert.That(SwappedArgumentCodeFix.IsSwappablePair(list, 0, 1)).IsTrue();
         await Assert.That(SwappedArgumentCodeFix.IsSwappablePair(list, 0, 0)).IsFalse();
@@ -49,12 +55,12 @@ public sealed class SwappedArgumentCodeFixUnitTest
     [Test]
     public async Task TryBuildSwapReordersUsingThePropertyPosition()
     {
-        var root = SyntaxFactory.ParseCompilationUnit("class C { void M() { N(a, b); } }");
+        var root = SyntaxFactory.ParseCompilationUnit(TwoArgumentCallSource);
         var list = FirstArgumentList(root);
-        var properties = ImmutableDictionary<string, string?>.Empty.Add("SwapWith", "1");
+        var properties = ImmutableDictionary<string, string?>.Empty.Add(SwapPositionPropertyKey, "1");
         var diagnostic = Diagnostic.Create(TestRule, list.Arguments[0].GetLocation(), properties);
 
-        var edit = SwappedArgumentCodeFix.TryBuildSwap(root, diagnostic, "SwapWith");
+        var edit = SwappedArgumentCodeFix.TryBuildSwap(root, diagnostic, SwapPositionPropertyKey);
 
         await Assert.That(edit.HasValue).IsTrue();
         await Assert.That(edit!.Value.Replacement.ToString()).IsEqualTo("(b, a)");
@@ -65,11 +71,11 @@ public sealed class SwappedArgumentCodeFixUnitTest
     [Test]
     public async Task TryBuildSwapReturnsNullWhenThePropertyIsAbsent()
     {
-        var root = SyntaxFactory.ParseCompilationUnit("class C { void M() { N(a, b); } }");
+        var root = SyntaxFactory.ParseCompilationUnit(TwoArgumentCallSource);
         var list = FirstArgumentList(root);
         var diagnostic = Diagnostic.Create(TestRule, list.Arguments[0].GetLocation());
 
-        var edit = SwappedArgumentCodeFix.TryBuildSwap(root, diagnostic, "SwapWith");
+        var edit = SwappedArgumentCodeFix.TryBuildSwap(root, diagnostic, SwapPositionPropertyKey);
 
         await Assert.That(edit.HasValue).IsFalse();
     }

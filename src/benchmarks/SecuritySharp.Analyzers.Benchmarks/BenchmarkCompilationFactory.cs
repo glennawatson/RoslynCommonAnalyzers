@@ -12,6 +12,9 @@ namespace SecuritySharp.Analyzers.Benchmarks;
 /// <summary>Creates benchmark syntax trees and compilations against the host runtime reference set.</summary>
 internal static class BenchmarkCompilationFactory
 {
+    /// <summary>The file path given to a benchmark syntax tree when the caller does not supply one.</summary>
+    private const string BenchmarkSourceFilePath = "Bench.cs";
+
     /// <summary>The metadata references loaded from the current host runtime.</summary>
     private static readonly MetadataReference[] References = LoadReferences();
 
@@ -26,14 +29,14 @@ internal static class BenchmarkCompilationFactory
     /// <param name="filePath">The file path to use for the syntax tree.</param>
     /// <returns>The parsed syntax tree.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static SyntaxTree Parse(string source, string filePath = "Bench.cs") => CSharpSyntaxTree.ParseText(source, ParseOptions, filePath);
+    internal static SyntaxTree Parse(string source, string filePath = BenchmarkSourceFilePath) => CSharpSyntaxTree.ParseText(source, ParseOptions, filePath);
 
     /// <summary>Builds a library compilation from one syntax tree.</summary>
     /// <param name="source">The source text to compile.</param>
     /// <param name="filePath">The file path to use for the syntax tree.</param>
     /// <returns>The compiled syntax tree and compilation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static (SyntaxTree Tree, CSharpCompilation Compilation) CreateCompilation(string source, string filePath = "Bench.cs") =>
+    internal static (SyntaxTree Tree, CSharpCompilation Compilation) CreateCompilation(string source, string filePath = BenchmarkSourceFilePath) =>
         CreateCompilation(source, [], filePath);
 
     /// <summary>Builds a library compilation from one syntax tree, enabling the supplied rule ids.</summary>
@@ -44,7 +47,7 @@ internal static class BenchmarkCompilationFactory
     internal static (SyntaxTree Tree, CSharpCompilation Compilation) CreateCompilation(
         string source,
         IReadOnlyList<string> enabledRuleIds,
-        string filePath = "Bench.cs")
+        string filePath = BenchmarkSourceFilePath)
     {
         var tree = Parse(source, filePath);
         var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, concurrentBuild: false);
@@ -68,13 +71,13 @@ internal static class BenchmarkCompilationFactory
     private static MetadataReference[] LoadReferences()
     {
         var trustedAssemblies = (string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!;
-        return
-        [
-            ..
-            trustedAssemblies
-                .Split(Path.PathSeparator)
-                .Where(static path => path.Length > 0)
-                .Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
-        ];
+        var paths = trustedAssemblies.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+        var references = new MetadataReference[paths.Length];
+        for (var i = 0; i < paths.Length; i++)
+        {
+            references[i] = MetadataReference.CreateFromFile(paths[i]);
+        }
+
+        return references;
     }
 }

@@ -188,7 +188,96 @@ public class AggressiveInliningAnalyzerUnitTest
         await VerifyOptInAsync(Source, Source);
     }
 
-    /// <summary>Verifies a file carrying a conditional directive is reported but left unedited.</summary>
+    /// <summary>Verifies a conditional elsewhere does not stop a file that already imports the namespace.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Only a file that still needs the import written has to be free of conditionals. Where the import is
+    /// already there, and no directive stands among the imports, the attribute binds in every compilation.
+    /// </remarks>
+    [Test]
+    public async Task ConditionalElsewhereStillAllowsAnAlreadyImportedFileAsync()
+    {
+        const string Source = """
+                              using System.Runtime.CompilerServices;
+
+                              public class C
+                              {
+                                  private readonly int _value;
+
+                                  public C(int value) => _value = value;
+
+                                  public int {|PSH1410:GetValue|}() => _value;
+
+                              #if VERBOSE
+                                  public int Extra => 1;
+                              #endif
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Runtime.CompilerServices;
+
+                                   public class C
+                                   {
+                                       private readonly int _value;
+
+                                       public C(int value) => _value = value;
+
+                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                                       public int GetValue() => _value;
+
+                                   #if VERBOSE
+                                       public int Extra => 1;
+                                   #endif
+                                   }
+                                   """;
+        await VerifyOptInAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a conditional elsewhere does not stop the import being written.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Only the imports decide whether the namespace reads as imported. A conditional around unrelated
+    /// members says nothing about them, and the position the import is written to comes from the file's
+    /// text, so every compilation of a linked file writes the same thing.
+    /// </remarks>
+    [Test]
+    public async Task ConditionalElsewhereStillGainsTheImportAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private readonly int _value;
+
+                                  public C(int value) => _value = value;
+
+                                  public int {|PSH1410:GetValue|}() => _value;
+
+                              #if VERBOSE
+                                  public int Extra => 1;
+                              #endif
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Runtime.CompilerServices;
+
+                                   public class C
+                                   {
+                                       private readonly int _value;
+
+                                       public C(int value) => _value = value;
+
+                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                                       public int GetValue() => _value;
+
+                                   #if VERBOSE
+                                       public int Extra => 1;
+                                   #endif
+                                   }
+                                   """;
+        await VerifyOptInAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a conditional among the imports leaves the file alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// A <c>using</c> inside an <c>#if</c> is a syntax node in the framework that defines the symbol and
@@ -197,7 +286,7 @@ public class AggressiveInliningAnalyzerUnitTest
     /// back from Roslyn with conflict markers, so no edit is offered at all.
     /// </remarks>
     [Test]
-    public async Task FileWithAConditionalDirectiveIsNotEditedAsync()
+    public async Task ConditionalAmongTheImportsIsNotEditedAsync()
     {
         const string Source = """
                               #if !NETSTANDARD

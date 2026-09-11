@@ -15,12 +15,12 @@ namespace PerformanceSharp.Analyzers;
 /// into the existing block.
 /// </summary>
 /// <remarks>
-/// A file carrying a conditional directive is left alone. A multi-targeted project compiles one
-/// linked file once per framework and reconciles the results into a single document; where they
-/// differ it writes conflict markers into the source. Inside <c>#if</c> the using directives one
-/// compilation sees as nodes another sees as disabled text, so whether the import is already there
-/// cannot be decided the same way in both. Everywhere else the answer comes from the file text
-/// alone, which every compilation shares.
+/// A file whose imports carry a directive is left alone. A multi-targeted project compiles one linked
+/// file once per framework and reconciles the results into a single document; where they differ it
+/// writes conflict markers into the source. A <c>using</c> inside an <c>#if</c> is a node in one
+/// compilation and disabled text in another, so whether the import is already there would not read the
+/// same in both. Everywhere else the answer comes from the file text alone, which every compilation
+/// shares.
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1410AggressiveInliningCodeFixProvider))]
 [Shared]
@@ -170,12 +170,15 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
     /// <param name="unit">The compilation unit to inspect.</param>
     /// <returns><see langword="true"/> when the attribute will resolve once the fix has run.</returns>
     /// <remarks>
-    /// The short spelling needs the import. A file the import cannot be written into gets no edit at all,
-    /// rather than an attribute that does not bind.
+    /// The short spelling needs the import, so a file the import cannot be written into gets no edit at
+    /// all rather than an attribute that does not bind. What decides that is the imports alone: a
+    /// <c>using</c> inside an <c>#if</c> is a node in one compilation and inactive text in another, so
+    /// whether the namespace is imported would not read the same in both. A conditional anywhere else in
+    /// the file says nothing about the imports, and the position the directive is written to is fixed by
+    /// the file's text, so every compilation of a linked file writes the same thing.
     /// </remarks>
     private static bool CanWriteAttribute(CompilationUnitSyntax unit)
-        => !DirectiveBoundaries.AnyConditional(unit)
-            && (ImportsCompilerServices(unit) || !ImportsCarryDirectives(unit));
+        => !ImportsCarryDirectives(unit);
 
     /// <summary>Returns whether a directive stands among the file's imports.</summary>
     /// <param name="unit">The compilation unit to inspect.</param>

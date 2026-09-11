@@ -378,7 +378,7 @@ public class HotPathBenchmarkBase
     /// <summary>Builds the spacing benchmark corpora.</summary>
     private void SetupSpacing()
     {
-        (_, _spacingCleanCompilation) = BenchmarkCompilationFactory.CreateCompilation(SpacingBenchmarkSource.Generate(Nodes, violating: false));
-        (_, _spacingViolatingCompilation) = BenchmarkCompilationFactory.CreateCompilation(SpacingBenchmarkSource.Generate(Nodes, violating: true));
+        _spacingCleanCompilation = BenchmarkCompilationFactory.CreateCompilation(SpacingBenchmarkSource.Generate(Nodes, violating: false)).Compilation;
+        _spacingViolatingCompilation = BenchmarkCompilationFactory.CreateCompilation(SpacingBenchmarkSource.Generate(Nodes, violating: true)).Compilation;
     }
 }

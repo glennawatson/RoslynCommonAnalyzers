@@ -160,6 +160,34 @@ public class AggressiveInliningAnalyzerUnitTest
         await VerifyOptInAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a region among the imports leaves the import block alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Writing into the block moves the file header onto whichever directive comes first, so the
+    /// <c>#region</c> would end up introducing a different import than it was written above.
+    /// </remarks>
+    [Test]
+    public async Task RegionAmongTheImportsLeavesThemAloneAsync()
+    {
+        const string Source = """
+                              #region Imports
+                              using System.Collections.Generic;
+                              #endregion
+
+                              public class C
+                              {
+                                  private readonly int _value;
+
+                                  public C(int value) => _value = value;
+
+                                  public int {|PSH1410:GetValue|}() => _value;
+
+                                  public List<int> Items => new();
+                              }
+                              """;
+        await VerifyOptInAsync(Source, Source);
+    }
+
     /// <summary>Verifies a file carrying a conditional directive is reported but left unedited.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

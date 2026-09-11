@@ -36,8 +36,11 @@ public sealed class Sst1219DefaultSectionLastCodeFixProvider : CodeFixProvider, 
     /// <returns>The nodes to swap, or <see langword="null"/> when the reported shape no longer matches.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
+        // A directive among the sections marks a position, not a section, so moving one past it leaves the
+        // directive covering different cases than it was written around.
         if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<SwitchSectionSyntax>() is not { } section
-            || section.Parent is not SwitchStatementSyntax switchStatement)
+            || section.Parent is not SwitchStatementSyntax switchStatement
+            || DirectiveBoundaries.Cross(switchStatement, switchStatement.Span))
         {
             return null;
         }

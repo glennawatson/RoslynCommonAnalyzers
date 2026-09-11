@@ -52,7 +52,7 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
             // conditional compilation directives (#if/#elif/#else/#endif) living in the using
             // block. Those usings cannot be reordered across branches anyway, so don't offer the
             // fix when the block spans conditional directives — matching the member-ordering fix.
-            if (UsingsSpanConditionalDirectives(Usings(container)))
+            if (UsingsSpanDirectives(Usings(container)))
             {
                 continue;
             }
@@ -109,15 +109,20 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
         return document.WithSyntaxRoot(root!.ReplaceNode(container, newContainer));
     }
 
-    /// <summary>Returns whether a using list spans conditional compilation directives.</summary>
+    /// <summary>Returns whether a directive stands among the using directives.</summary>
     /// <param name="usings">The using directives to scan.</param>
-    /// <returns><see langword="true"/> when an <c>#if</c>/<c>#elif</c>/<c>#else</c>/<c>#endif</c> lies within the block.</returns>
-    private static bool UsingsSpanConditionalDirectives(SyntaxList<UsingDirectiveSyntax> usings)
+    /// <returns><see langword="true"/> when any directive lies within the block.</returns>
+    /// <remarks>
+    /// Sorting reattaches each slot's trivia to whichever directive lands there, so a directive among them
+    /// ends up introducing a different using than the one it was written above. A <c>#region</c> reads as
+    /// covering the wrong imports, and an <c>#if</c> compiles the wrong ones.
+    /// </remarks>
+    private static bool UsingsSpanDirectives(SyntaxList<UsingDirectiveSyntax> usings)
     {
         for (var index = 0; index < usings.Count; index++)
         {
             var directive = usings[index];
-            if (HasConditionalDirective(directive.GetLeadingTrivia()) || HasConditionalDirective(directive.GetTrailingTrivia()))
+            if (HasDirective(directive.GetLeadingTrivia()) || HasDirective(directive.GetTrailingTrivia()))
             {
                 return true;
             }
@@ -126,20 +131,16 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
         return false;
     }
 
-    /// <summary>Returns whether a trivia list contains a conditional compilation directive.</summary>
+    /// <summary>Returns whether a trivia list contains a directive.</summary>
     /// <param name="trivia">The trivia list to scan.</param>
-    /// <returns><see langword="true"/> when a conditional directive is present.</returns>
-    private static bool HasConditionalDirective(SyntaxTriviaList trivia)
+    /// <returns><see langword="true"/> when a directive is present.</returns>
+    private static bool HasDirective(SyntaxTriviaList trivia)
     {
         for (var index = 0; index < trivia.Count; index++)
         {
-            switch (trivia[index].Kind())
+            if (trivia[index].IsDirective)
             {
-                case SyntaxKind.IfDirectiveTrivia:
-                case SyntaxKind.ElifDirectiveTrivia:
-                case SyntaxKind.ElseDirectiveTrivia:
-                case SyntaxKind.EndIfDirectiveTrivia:
-                    return true;
+                return true;
             }
         }
 

@@ -38,6 +38,28 @@ public class OrderingUsingUnitTest
         await VerifyUsing.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a region among the directives is reported but not sorted.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Sorting reattaches each slot's trivia to whichever directive lands there, so the <c>#region</c>
+    /// would end up introducing a different using than the one it was written above.
+    /// </remarks>
+    [Test]
+    public async Task RegionAmongTheDirectivesIsNotSortedAsync()
+    {
+        const string Source = """
+                              using Foo;
+                              #region Framework
+                              {|SST1208:using System;|}
+                              #endregion
+
+                              namespace Foo
+                              {
+                              }
+                              """;
+        await VerifyUsing.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies regular directives out of alphabetical order are reported (SST1210) and sorted.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

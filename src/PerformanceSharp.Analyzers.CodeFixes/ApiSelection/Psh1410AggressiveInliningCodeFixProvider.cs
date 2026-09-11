@@ -45,7 +45,7 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is not CompilationUnitSyntax unit || DirectiveBoundaries.AnyConditional(unit))
+        if (root is not CompilationUnitSyntax unit || !CanWriteAttribute(unit))
         {
             return;
         }
@@ -166,6 +166,38 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
         return false;
     }
 
+    /// <summary>Returns whether the short attribute can be written in this file.</summary>
+    /// <param name="unit">The compilation unit to inspect.</param>
+    /// <returns><see langword="true"/> when the attribute will resolve once the fix has run.</returns>
+    /// <remarks>
+    /// The short spelling needs the import. A file the import cannot be written into gets no edit at all,
+    /// rather than an attribute that does not bind.
+    /// </remarks>
+    private static bool CanWriteAttribute(CompilationUnitSyntax unit)
+        => !DirectiveBoundaries.AnyConditional(unit)
+            && (ImportsCompilerServices(unit) || !ImportsCarryDirectives(unit));
+
+    /// <summary>Returns whether a directive stands among the file's imports.</summary>
+    /// <param name="unit">The compilation unit to inspect.</param>
+    /// <returns><see langword="true"/> when any import carries a directive.</returns>
+    /// <remarks>
+    /// Writing into the block moves the file header onto whichever directive comes first, so a region or a
+    /// pragma among the imports would end up introducing a different one than it was written above.
+    /// </remarks>
+    private static bool ImportsCarryDirectives(CompilationUnitSyntax unit)
+    {
+        var usings = unit.Usings;
+        for (var i = 0; i < usings.Count; i++)
+        {
+            if (usings[i].ContainsDirectives)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Returns whether a using directive imports a namespace outright.</summary>
     /// <param name="directive">The directive to inspect.</param>
     /// <returns><see langword="true"/> for a directive that is neither an alias nor <c>static</c>.</returns>
@@ -249,7 +281,7 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
         protected override async Task<Document?> FixAllAsync(FixAllContext fixAllContext, Document document, ImmutableArray<Diagnostic> diagnostics)
         {
             var root = await document.GetSyntaxRootAsync(fixAllContext.CancellationToken).ConfigureAwait(false);
-            return root is not CompilationUnitSyntax unit || DirectiveBoundaries.AnyConditional(unit)
+            return root is not CompilationUnitSyntax unit || !CanWriteAttribute(unit)
                 ? document
                 : Apply(document, unit, diagnostics);
         }

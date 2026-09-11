@@ -46,6 +46,35 @@ public class DefaultSectionLastAnalyzerUnitTest
         }
         """;
 
+    /// <summary>Verifies a switch carrying a region is reported but not reordered.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A directive marks a position among the sections, not a section, so moving one past it leaves the
+    /// region covering different cases than it was written around.
+    /// </remarks>
+    [Test]
+    public async Task SwitchCarryingADirectiveIsNotReorderedAsync()
+    {
+        const string Source = """
+            public sealed class C
+            {
+                public int M(int x)
+                {
+                    switch (x)
+                    {
+                        {|SST1219:default|}:
+                            return 0;
+            #region Known
+                        case 1:
+                            return 1;
+            #endregion
+                    }
+                }
+            }
+            """;
+        await VerifyFix.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies a default section before a case is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

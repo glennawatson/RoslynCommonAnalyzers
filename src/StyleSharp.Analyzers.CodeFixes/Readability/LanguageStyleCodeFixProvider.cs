@@ -111,7 +111,37 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// <param name="oldNode">The syntax node to replace.</param>
     /// <param name="removeNode">The optional follow-up statement to remove.</param>
     /// <returns>The replacement node, or <see langword="null"/> when the source no longer matches.</returns>
+    /// <remarks>
+    /// Folding the follow-up statement into the first is refused when a directive stands between them: the
+    /// statement that goes carries whichever half of the pair its trivia holds and leaves the other behind,
+    /// and the surviving statement is one the directive no longer covers.
+    /// </remarks>
     private static SyntaxNode? CreateReplacement(
+        SyntaxNode root,
+        AnalyzerConfigOptions options,
+        Diagnostic diagnostic,
+        out SyntaxNode? oldNode,
+        out SyntaxNode? removeNode)
+    {
+        var replacement = CreateEdit(root, options, diagnostic, out oldNode, out removeNode);
+        if (oldNode is null || removeNode is null || !DirectiveBoundaries.Separate(oldNode, removeNode))
+        {
+            return replacement;
+        }
+
+        oldNode = null;
+        removeNode = null;
+        return null;
+    }
+
+    /// <summary>Builds one diagnostic's edit, before the directive check weighs it.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="options">The tree's configuration.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="oldNode">The syntax node to replace.</param>
+    /// <param name="removeNode">The optional follow-up statement to remove.</param>
+    /// <returns>The replacement node, or <see langword="null"/> when the source no longer matches.</returns>
+    private static SyntaxNode? CreateEdit(
         SyntaxNode root,
         AnalyzerConfigOptions options,
         Diagnostic diagnostic,

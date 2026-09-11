@@ -316,6 +316,35 @@ public class LanguageStyleAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies adjacent returns separated by a directive are reported but not collapsed.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The second return carries the <c>#endif</c> as its leading trivia. Folding it into the first takes
+    /// the close and leaves the <c>#if</c> open — CS1027 — and the surviving return is one the condition
+    /// no longer covers.
+    /// </remarks>
+    [Test]
+    public async Task ConditionalReturnAcrossADirectiveIsNotCollapsedAsync()
+    {
+        const string Source = """
+                              public sealed class C
+                              {
+                                  public int M(bool flag)
+                                  {
+                                      {|SST1197:if|} (flag)
+                                      {
+                                          return 1;
+                                      }
+                              #if LEGACY
+                                      return 3;
+                              #endif
+                                      return 2;
+                                  }
+                              }
+                              """;
+        await VerifyLanguageStyle.VerifyCodeFixAsync(Source, Source);
+    }
+
     /// <summary>Verifies adjacent returns are not collapsed when the result would nest conditional expressions.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -70,7 +70,7 @@ public sealed class PartialDocumentationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        CheckSummary(context, documentation, name);
+        CheckSummary(context, documentation, name, XmlDocumentationHelper.DocumentsPartialContent(member, documentation));
         CheckTypeParameters(context, context.Node, documentation);
     }
 
@@ -78,12 +78,21 @@ public sealed class PartialDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="documentation">The documentation comment.</param>
     /// <param name="name">The element name token.</param>
-    private static void CheckSummary(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation, SyntaxToken name)
+    /// <param name="documentsContent">Whether this part describes what it adds instead of repeating the summary.</param>
+    private static void CheckSummary(
+        SyntaxNodeAnalysisContext context,
+        DocumentationCommentTriviaSyntax documentation,
+        SyntaxToken name,
+        bool documentsContent)
     {
         var summary = XmlDocumentationHelper.FindElement(documentation, "summary");
         if (summary is null)
         {
-            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.PartialMustHaveSummary, name.GetLocation(), name.ValueText));
+            if (!documentsContent)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.PartialMustHaveSummary, name.GetLocation(), name.ValueText));
+            }
+
             return;
         }
 

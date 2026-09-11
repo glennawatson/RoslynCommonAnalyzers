@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using VerifyMember = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
+    StyleSharp.Analyzers.MemberDocumentationAnalyzer>;
 using VerifyPartial = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.PartialDocumentationAnalyzer>;
 
@@ -29,6 +31,47 @@ public class PartialDocumentationAnalyzerUnitTest
             """
             /// <remarks>Notes.</remarks>
             public partial class {|SST1605:C|}
+            {
+            }
+            """);
+
+    /// <summary>Verifies a partial documented with a content element is accepted (SST1605).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// One part says what the type is; the rest say what they add. Demanding the summary in every part
+    /// would state the same thing several times and leave the reader to pick the authoritative copy.
+    /// </remarks>
+    [Test]
+    public async Task PartialDocumentedWithContentIsCleanAsync()
+        => await VerifyPartial.VerifyAnalyzerAsync(
+            """
+            /// <content>The parsing members.</content>
+            public partial class C
+            {
+            }
+            """);
+
+    /// <summary>Verifies an empty content element does not stand in for the summary (SST1605).</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task PartialWithEmptyContentIsReportedAsync()
+        => await VerifyPartial.VerifyAnalyzerAsync(
+            """
+            /// <content></content>
+            public partial class {|SST1605:C|}
+            {
+            }
+            """);
+
+    /// <summary>Verifies a content element on a type that is not partial does not stand in for the summary.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>There is no other part to carry the summary, so the type would be left undescribed.</remarks>
+    [Test]
+    public async Task ContentOnANonPartialTypeIsStillReportedAsync()
+        => await VerifyMember.VerifyAnalyzerAsync(
+            """
+            /// <content>The parsing members.</content>
+            public class {|SST1604:C|}
             {
             }
             """);

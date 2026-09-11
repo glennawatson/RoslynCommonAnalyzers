@@ -259,7 +259,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         // / CheckTerminalPeriods passes over the same content.
         ScanContent(context, documentation, in shape, out var summary, out var returns);
 
-        CheckSummary(context, summary, shape.NameToken, shape.SummaryRequirement);
+        CheckSummary(context, summary, shape.NameToken, shape.SummaryRequirement, XmlDocumentationHelper.DocumentsPartialContent(member, documentation));
         CheckParameters(context, documentation, shape.Parameters);
         CheckTypeParameters(context, documentation, shape.TypeParameters, shape.SkipCoverage);
         CheckReturns(context, returns, shape.NameToken, shape.ReturnType);
@@ -335,11 +335,21 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="summary">The first <c>&lt;summary&gt;</c> element captured during the single content pass, or <see langword="null"/>.</param>
     /// <param name="nameToken">The member's identifier.</param>
     /// <param name="requirement">A required leading-text convention, or <see langword="null"/>.</param>
-    private static void CheckSummary(SyntaxNodeAnalysisContext context, XmlNodeSyntax? summary, SyntaxToken nameToken, SummaryPrefix? requirement)
+    /// <param name="documentsContent">Whether this part describes what it adds instead of repeating the summary.</param>
+    private static void CheckSummary(
+        SyntaxNodeAnalysisContext context,
+        XmlNodeSyntax? summary,
+        SyntaxToken nameToken,
+        SummaryPrefix? requirement,
+        bool documentsContent)
     {
         if (summary is null)
         {
-            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.MustHaveSummary, nameToken.GetLocation(), nameToken.ValueText));
+            if (!documentsContent)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.MustHaveSummary, nameToken.GetLocation(), nameToken.ValueText));
+            }
+
             return;
         }
 

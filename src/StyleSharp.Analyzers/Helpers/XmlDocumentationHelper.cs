@@ -59,6 +59,22 @@ internal static class XmlDocumentationHelper
     public static bool IsInheritDoc(DocumentationCommentTriviaSyntax documentation)
         => HasElement(documentation, "inheritdoc");
 
+    /// <summary>Returns whether a declaration documents a further part of a partial declaration.</summary>
+    /// <param name="member">The declaration carrying the documentation.</param>
+    /// <param name="documentation">The documentation comment.</param>
+    /// <returns><see langword="true"/> when the part describes itself with <c>&lt;content&gt;</c>.</returns>
+    /// <remarks>
+    /// A partial declaration is one type described in several files. One part carries the
+    /// <c>&lt;summary&gt;</c> that says what the type is; the rest say what they add, in a
+    /// <c>&lt;content&gt;</c> element. Repeating the summary in every part would state the same thing
+    /// several times and leave the reader to work out which copy is authoritative.
+    /// </remarks>
+    public static bool DocumentsPartialContent(SyntaxNode member, DocumentationCommentTriviaSyntax documentation)
+        => member is MemberDeclarationSyntax declaration
+            && ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PartialKeyword)
+            && FindElement(documentation, "content") is { } content
+            && HasText(content);
+
     /// <summary>Returns whether the documentation's <c>&lt;inheritdoc&gt;</c> names the member it inherits from.</summary>
     /// <param name="documentation">The documentation comment.</param>
     /// <returns><see langword="true"/> when the inheritdoc element carries a <c>cref</c> attribute.</returns>

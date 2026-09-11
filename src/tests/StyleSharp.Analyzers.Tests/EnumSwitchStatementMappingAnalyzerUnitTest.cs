@@ -15,6 +15,71 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst2242EnumSwitchStatementMappingAnalyzer"/>.</summary>
 public class EnumSwitchStatementMappingAnalyzerUnitTest
 {
+    /// <summary>Verifies values named by an <c>or</c> pattern count as covered.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// Stacked case labels are commonly rewritten as one <c>or</c> pattern. Reading only plain labels made
+    /// the rule re-report both values, the fix wrote them back as duplicates, and the merge and the pattern
+    /// rewrite turned that into a loop no run could finish.
+    /// </remarks>
+    [Test]
+    public async Task ValuesNamedByAnOrPatternAreCoveredAsync()
+        => await VerifyEnumSwitchStatementMapping.VerifyAnalyzerAsync(
+            """
+            public enum Level
+            {
+                Low,
+                Medium,
+                High
+            }
+
+            public sealed class C
+            {
+                public void M(Level level)
+                {
+                    switch (level)
+                    {
+                        case Level.Low or Level.Medium:
+                            System.Console.WriteLine("a");
+                            break;
+                        case Level.High:
+                            System.Console.WriteLine("b");
+                            break;
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a guarded label does not count as covering its value.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>The guard decides whether the section runs, so the value is not handled outright.</remarks>
+    [Test]
+    public async Task GuardedLabelDoesNotCoverItsValueAsync()
+        => await VerifyEnumSwitchStatementMapping.VerifyAnalyzerAsync(
+            """
+            public enum Level
+            {
+                Low,
+                High
+            }
+
+            public sealed class C
+            {
+                public void M(Level level, bool ready)
+                {
+                    {|SST2242:switch|} (level)
+                    {
+                        case Level.Low when ready:
+                            System.Console.WriteLine("a");
+                            break;
+                        case Level.High:
+                            System.Console.WriteLine("b");
+                            break;
+                    }
+                }
+            }
+            """);
+
     /// <summary>Verifies an enum switch statement missing a named value is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

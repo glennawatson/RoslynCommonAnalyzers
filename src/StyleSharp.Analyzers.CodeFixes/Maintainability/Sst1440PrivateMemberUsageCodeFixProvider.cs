@@ -51,7 +51,7 @@ public sealed class Sst1440PrivateMemberUsageCodeFixProvider : CodeFixProvider, 
 
         if (replacement is null)
         {
-            editor.RemoveNode(oldNode, SyntaxRemoveOptions.KeepNoTrivia);
+            editor.RemoveNode(oldNode, SyntaxRemoveOptions.KeepUnbalancedDirectives);
             return;
         }
 
@@ -71,7 +71,7 @@ public sealed class Sst1440PrivateMemberUsageCodeFixProvider : CodeFixProvider, 
         }
 
         SyntaxNode? updated = replacement is null
-            ? root.RemoveNode(oldNode, SyntaxRemoveOptions.KeepNoTrivia)
+            ? root.RemoveNode(oldNode, SyntaxRemoveOptions.KeepUnbalancedDirectives)
             : root.ReplaceNode(oldNode, replacement);
         return updated is null ? document : document.WithSyntaxRoot(updated);
     }

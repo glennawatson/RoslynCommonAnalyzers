@@ -48,7 +48,7 @@ public sealed class SelfAssignmentCodeFixProvider : CodeFixProvider, IBatchFixab
             return;
         }
 
-        editor.RemoveNode(statement, SyntaxRemoveOptions.KeepNoTrivia);
+        editor.RemoveNode(statement, SyntaxRemoveOptions.KeepUnbalancedDirectives);
     }
 
     /// <summary>Removes the self-assignment statement, dropping its line.</summary>
@@ -58,7 +58,7 @@ public sealed class SelfAssignmentCodeFixProvider : CodeFixProvider, IBatchFixab
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, ExpressionStatementSyntax statement)
     {
-        var updated = root.RemoveNode(statement, SyntaxRemoveOptions.KeepNoTrivia);
+        var updated = root.RemoveNode(statement, SyntaxRemoveOptions.KeepUnbalancedDirectives);
         return document.WithSyntaxRoot(updated!);
     }
 }

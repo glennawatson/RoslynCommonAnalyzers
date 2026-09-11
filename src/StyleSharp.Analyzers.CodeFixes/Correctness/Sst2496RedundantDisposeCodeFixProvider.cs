@@ -38,7 +38,7 @@ public sealed class Sst2496RedundantDisposeCodeFixProvider : CodeFixProvider, IB
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Remove the redundant disposal",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.RemoveNode(statement, SyntaxRemoveOptions.KeepNoTrivia)!)),
+                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.RemoveNode(statement, SyntaxRemoveOptions.KeepUnbalancedDirectives)!)),
                     nameof(Sst2496RedundantDisposeCodeFixProvider)),
                 diagnostic);
         }
@@ -52,7 +52,7 @@ public sealed class Sst2496RedundantDisposeCodeFixProvider : CodeFixProvider, IB
             return;
         }
 
-        editor.RemoveNode(statement, SyntaxRemoveOptions.KeepNoTrivia);
+        editor.RemoveNode(statement, SyntaxRemoveOptions.KeepUnbalancedDirectives);
     }
 
     /// <summary>Resolves the diagnostic to the expression statement that only makes the redundant call.</summary>

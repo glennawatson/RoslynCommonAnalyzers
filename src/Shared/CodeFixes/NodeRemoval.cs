@@ -9,9 +9,14 @@ internal readonly record struct NodeRemoval
 {
     /// <summary>Initializes a new instance of the <see cref="NodeRemoval"/> struct.</summary>
     /// <param name="node">The node to remove.</param>
-    /// <remarks>Trivia goes with the node, which is what dropping a whole statement or member wants.</remarks>
+    /// <remarks>
+    /// Trivia goes with the node, which is what dropping a whole statement or member wants — except for a
+    /// directive whose other half sits outside the node. A <c>#region</c> or <c>#if</c> above the node is
+    /// closed somewhere below it, so taking the opening and leaving the close behind does not compile.
+    /// Those stay where they are.
+    /// </remarks>
     public NodeRemoval(SyntaxNode node)
-        : this(node, SyntaxRemoveOptions.KeepNoTrivia)
+        : this(node, SyntaxRemoveOptions.KeepUnbalancedDirectives)
     {
     }
 

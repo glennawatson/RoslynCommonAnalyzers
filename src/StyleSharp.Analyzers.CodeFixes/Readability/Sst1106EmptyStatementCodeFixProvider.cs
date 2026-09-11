@@ -54,7 +54,7 @@ public sealed class Sst1106EmptyStatementCodeFixProvider : CodeFixProvider, IBat
 
         // A top-level statement is wrapped in a GlobalStatementSyntax; remove the wrapper too.
         var toRemove = statement.Parent is GlobalStatementSyntax global ? global : (SyntaxNode)statement;
-        editor.RemoveNode(toRemove, SyntaxRemoveOptions.KeepNoTrivia);
+        editor.RemoveNode(toRemove, SyntaxRemoveOptions.KeepUnbalancedDirectives);
     }
 
     /// <summary>Removes the empty statement and its surrounding trivia.</summary>
@@ -66,7 +66,7 @@ public sealed class Sst1106EmptyStatementCodeFixProvider : CodeFixProvider, IBat
     {
         // A top-level statement is wrapped in a GlobalStatementSyntax; remove the wrapper too.
         var toRemove = statement.Parent is GlobalStatementSyntax global ? global : statement;
-        var updated = root.RemoveNode(toRemove, SyntaxRemoveOptions.KeepNoTrivia);
+        var updated = root.RemoveNode(toRemove, SyntaxRemoveOptions.KeepUnbalancedDirectives);
         return Task.FromResult(updated is null ? document : document.WithSyntaxRoot(updated));
     }
 }

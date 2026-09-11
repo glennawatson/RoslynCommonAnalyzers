@@ -103,6 +103,51 @@ public class RedundantDefaultSwitchSectionAnalyzerUnitTest
         await VerifyDefaultSection.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a region around the removed section is left behind rather than half-deleted.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The <c>#region</c> is the section's leading trivia and the <c>#endregion</c> is not, so taking the
+    /// section's trivia with it would leave a close with nothing to close — CS1028.
+    /// </remarks>
+    [Test]
+    public async Task RegionAroundTheRemovedSectionSurvivesAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public void M(int value)
+                                  {
+                                      switch (value)
+                                      {
+                                          case 1:
+                                              return;
+                              #region Fallback
+                                          {|SST1179:default|}:
+                                              break;
+                              #endregion
+                                      }
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       public void M(int value)
+                                       {
+                                           switch (value)
+                                           {
+                                               case 1:
+                                                   return;
+
+                                   #region Fallback
+                                   #endregion
+                                           }
+                                       }
+                                   }
+                                   """;
+        await VerifyDefaultSection.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a breaking default section over an enum is left in place.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

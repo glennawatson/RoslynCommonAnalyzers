@@ -54,41 +54,11 @@ public sealed class Sst1527ArrowTokenNewLineAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!wantBreakBefore && JoinedLineIsTooLong(context, clause, options))
-        {
-            return;
-        }
-
         context.ReportDiagnostic(Diagnostic.Create(
             LayoutRules.ArrowTokenNewLine,
             arrow.GetLocation(),
             LayoutHelpers.PlacementProperties(wantBreakBefore),
             wantBreakBefore ? "start" : "end"));
-    }
-
-    /// <summary>Returns whether pulling the arrow up would make the signature's line too long.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="clause">The expression body.</param>
-    /// <param name="options">The tree's configuration.</param>
-    /// <returns><see langword="true"/> when the joined line would exceed the configured maximum.</returns>
-    /// <remarks>
-    /// The arrow wraps because the signature is already long. Moving it up joins the two lines, and a
-    /// line over the limit is what SST1521 reports — so the tidier arrow would buy a longer line.
-    /// </remarks>
-    private static bool JoinedLineIsTooLong(SyntaxNodeAnalysisContext context, ArrowExpressionClauseSyntax clause, AnalyzerConfigOptions options)
-    {
-        var text = clause.SyntaxTree.GetText(context.CancellationToken);
-        var arrowLine = text.Lines.GetLineFromPosition(clause.ArrowToken.SpanStart);
-        if (arrowLine.LineNumber == 0)
-        {
-            return false;
-        }
-
-        var signature = text.Lines[arrowLine.LineNumber - 1].ToString().TrimEnd();
-        var trailing = arrowLine.ToString().Trim();
-
-        // One space joins them, and the arrow already sits at the front of the trailing text.
-        return signature.Length + 1 + trailing.Length > SizeLimitOptions.ReadMaxLineLength(options);
     }
 
     /// <summary>Returns whether a conditional directive sits between the arrow and the signature.</summary>

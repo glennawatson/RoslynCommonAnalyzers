@@ -101,29 +101,41 @@ public class ExpressionBodyArrowNewLineUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
-    /// <summary>Verifies an arrow is left where it is when pulling it up would overrun the line.</summary>
+    /// <summary>Verifies a long signature does not stop the arrow moving to the side the style asks for.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    /// <remarks>The arrow wrapped because the signature is long; joining the lines only moves the problem.</remarks>
+    /// <remarks>
+    /// The fix moves the break from one side of the arrow to the other, so the line count does not change and
+    /// the maximum line length has no bearing on it.
+    /// </remarks>
     [Test]
-    public async Task ArrowThatWouldOverrunTheLineIsCleanAsync()
+    public async Task LongSignatureStillMovesTheArrowAsync()
     {
+        const string Config = """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1527.severity = warning
+            stylesharp.max_line_length = 60
+
+            """;
         var test = new VerifyArrow.Test
         {
             TestCode = """
                        internal class C
                        {
                            private static int LongEnoughToPushTheJoinedLinePastTheConfiguredMaximum(int first, int second)
-                               => first + second;
+                               {|SST1527:=>|} first + second;
                        }
                        """,
+            FixedCode = """
+                        internal class C
+                        {
+                            private static int LongEnoughToPushTheJoinedLinePastTheConfiguredMaximum(int first, int second) =>
+                                first + second;
+                        }
+                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
-            root = true
-            [*.cs]
-            dotnet_diagnostic.SST1527.severity = warning
-            stylesharp.max_line_length = 60
-
-            """));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
         await test.RunAsync(CancellationToken.None);
     }
 

@@ -123,6 +123,35 @@ internal static class CollectionExpressionAdvancedAnalysis
         return false;
     }
 
+    /// <summary>Returns whether every argument a factory takes becomes an element of the collection.</summary>
+    /// <param name="targetType">The collection type being built.</param>
+    /// <param name="method">The invoked factory method.</param>
+    /// <returns><see langword="true"/> when the call can be rewritten as elements alone.</returns>
+    /// <remarks>
+    /// A factory overload can take an argument that configures the collection rather than filling it —
+    /// <c>Create(IEqualityComparer&lt;T&gt;, params T[])</c> is the common one. Rewriting that call as a
+    /// collection expression would turn the comparer into a member of the collection, which changes what
+    /// the collection contains and how it compares its contents.
+    /// </remarks>
+    public static bool FactoryTakesOnlyElements(ITypeSymbol? targetType, IMethodSymbol method)
+    {
+        if (ElementTypeOf(targetType) is not { } element)
+        {
+            return false;
+        }
+
+        var parameters = method.Parameters;
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (!IsElementParameter(parameters[i].Type, element))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Returns whether the target can receive a collection expression without a builder variable.</summary>
     /// <param name="type">The target type.</param>
     /// <returns><see langword="true"/> for arrays and collection-builder-backed named types.</returns>
@@ -361,6 +390,59 @@ internal static class CollectionExpressionAdvancedAnalysis
 
         receiver = receiverName;
         return true;
+    }
+
+    /// <summary>Gets the type a collection's elements have.</summary>
+    /// <param name="target">The collection type.</param>
+    /// <returns>The element type, or <see langword="null"/> when the collection does not declare one.</returns>
+    private static ITypeSymbol? ElementTypeOf(ITypeSymbol? target)
+    {
+        if (target is not INamedTypeSymbol named)
+        {
+            return null;
+        }
+
+        if (named.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T)
+        {
+            return named.TypeArguments[0];
+        }
+
+        var interfaces = named.AllInterfaces;
+        for (var i = 0; i < interfaces.Length; i++)
+        {
+            if (interfaces[i].OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T)
+            {
+                return interfaces[i].TypeArguments[0];
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Returns whether a parameter carries elements rather than configuration.</summary>
+    /// <param name="type">The parameter's type.</param>
+    /// <param name="element">The collection's element type.</param>
+    /// <returns><see langword="true"/> when the parameter supplies elements.</returns>
+    /// <remarks>
+    /// The sequence shapes are listed rather than inferred from the type argument, because a configuration
+    /// parameter is generic over the element type too: <c>IEqualityComparer&lt;T&gt;</c> would otherwise
+    /// look exactly like a sequence of <c>T</c>.
+    /// </remarks>
+    private static bool IsElementParameter(ITypeSymbol type, ITypeSymbol element)
+    {
+        if (SymbolEqualityComparer.Default.Equals(type, element))
+        {
+            return true;
+        }
+
+        if (type is IArrayTypeSymbol { Rank: 1 } array)
+        {
+            return SymbolEqualityComparer.Default.Equals(array.ElementType, element);
+        }
+
+        return type is INamedTypeSymbol { TypeArguments.Length: 1 } sequence
+            && sequence.OriginalDefinition.MetadataName is "IEnumerable`1" or "ReadOnlySpan`1" or "Span`1" or "ImmutableArray`1"
+            && SymbolEqualityComparer.Default.Equals(sequence.TypeArguments[0], element);
     }
 
     /// <summary>Builds a replacement for a collection factory call.</summary>

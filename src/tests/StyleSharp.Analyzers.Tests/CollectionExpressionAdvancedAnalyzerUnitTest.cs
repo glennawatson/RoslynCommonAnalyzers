@@ -109,6 +109,35 @@ public class CollectionExpressionAdvancedAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies a factory overload that takes a comparer is left alone.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// A collection expression carries elements only, so the comparer would become a member of the
+    /// collection — changing both what it holds and how it compares what it holds.
+    /// </remarks>
+    [Test]
+    public async Task FactoryCarryingAComparerIsCleanAsync()
+    {
+        const string Source = """
+                              using System;
+                              using System.Collections.Generic;
+                              using System.Collections.Immutable;
+
+                              public sealed class C
+                              {
+                                  private static readonly ImmutableHashSet<string> Names = ImmutableHashSet.Create(
+                                      StringComparer.Ordinal,
+                                      "first",
+                                      "second");
+
+                                  public bool Has(string name) => Names.Contains(name);
+                              }
+                              """;
+        var test = CreateNet80CollectionTest(Source, Source);
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies fluent array conversions can use the target collection expression directly.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

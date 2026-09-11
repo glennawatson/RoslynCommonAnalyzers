@@ -132,6 +132,7 @@ public sealed class CollectionExpressionAdvancedAnalyzer : DiagnosticAnalyzer
         if (!CollectionExpressionHelper.TryGetConvertedTypeWithExplicitTarget(context, invocation, out var target)
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !CollectionExpressionAdvancedAnalysis.TargetUsesBuilderMethod(target, method)
+            || !CollectionExpressionAdvancedAnalysis.FactoryTakesOnlyElements(target, method)
             || !CollectionExpressionAdvancedAnalysis.TryBuildInvocationCollectionExpression(invocation, out _))
         {
             return;

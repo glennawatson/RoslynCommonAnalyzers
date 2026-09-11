@@ -36,8 +36,12 @@ public sealed class Sst1222EnumMemberOrderCodeFixProvider : CodeFixProvider
 
         foreach (var diagnostic in context.Diagnostics)
         {
+            // The sort reassigns each slot's trivia to whichever member lands there, so a directive among
+            // the members would end up marking a different one. The comment check happens to reject that
+            // too, but only as a side effect of directive trivia not being whitespace.
             if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<EnumDeclarationSyntax>() is not { } declaration
                 || Sst1222EnumMemberOrderAnalyzer.TryGetExplicitValues(declaration, model, context.CancellationToken) is not { } values
+                || DirectiveBoundaries.SeparateMembers(declaration)
                 || CarriesComments(declaration))
             {
                 continue;

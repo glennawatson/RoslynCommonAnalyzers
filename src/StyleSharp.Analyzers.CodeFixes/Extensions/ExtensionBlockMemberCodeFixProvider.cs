@@ -46,8 +46,11 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape cannot be converted.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
+        // The method leaves the class's member list and reappears inside a block elsewhere in it, so a
+        // directive among the members would lose the half that sits on the method.
         if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { } method
             || method.Parent is not ClassDeclarationSyntax containingClass
+            || DirectiveBoundaries.SeparateMembers(containingClass)
             || !IsConvertible(method)
             || method.ParameterList.Parameters[0] is not { Type: { } receiverType } receiver)
         {

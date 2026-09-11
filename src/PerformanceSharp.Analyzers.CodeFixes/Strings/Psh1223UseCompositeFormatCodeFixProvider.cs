@@ -90,7 +90,12 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
 
         var formatIndex = Psh1223UseCompositeFormatAnalyzer.GetHoistableFormatIndex(model, invocation, CancellationToken.None);
         var culture = ResolvesCultureInfo(model, invocation.SpanStart) ? SimpleCurrentCulture : QualifiedCurrentCulture;
-        if (formatIndex < 0 || !Psh1223UseCompositeFormatAnalyzer.RewriteBindsToCompositeFormat(model, invocation, formatIndex, culture))
+
+        // The field goes in at the head of the member list, taking the position — and so the directive —
+        // that the member standing there was written under.
+        if (formatIndex < 0
+            || DirectiveBoundaries.SeparateMembers(owner)
+            || !Psh1223UseCompositeFormatAnalyzer.RewriteBindsToCompositeFormat(model, invocation, formatIndex, culture))
         {
             return null;
         }

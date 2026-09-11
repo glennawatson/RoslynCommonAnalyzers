@@ -13,6 +13,27 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the SST1426 #pragma-to-[SuppressMessage] code fix.</summary>
 public class Sst1426PragmaWarningDisableCodeFixProviderUnitTest
 {
+    /// <summary>Verifies a pair that brackets more than one member is reported but not replaced.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The fix erases both halves and writes one attribute, so the members it no longer covers would
+    /// silently start warning again.
+    /// </remarks>
+    [Test]
+    public async Task PairCoveringSeveralMembersIsNotReplacedAsync()
+    {
+        const string Source = """
+                              internal class C
+                              {
+                                  {|SST1426:#pragma warning disable SST1309|}
+                                  private int first;
+                                  private int second;
+                                  #pragma warning restore SST1309
+                              }
+                              """;
+        await VerifyAsync(Source, Source);
+    }
+
     /// <summary>Verifies a member-level disable becomes a [SuppressMessage] on the member, with the restore removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

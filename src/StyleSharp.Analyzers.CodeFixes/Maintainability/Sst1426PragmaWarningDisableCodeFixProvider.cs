@@ -45,7 +45,8 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
             var trivia = root.FindTrivia(diagnostic.Location.SourceSpan.Start);
             if (trivia.GetStructure() is not PragmaWarningDirectiveTriviaSyntax disable
                 || ContainsCompilerCode(disable)
-                || trivia.Token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is null)
+                || trivia.Token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member
+                || !SuppressesOneMember(disable, member))
             {
                 continue;
             }
@@ -70,17 +71,13 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         if (root is null
             || root.FindTrivia(disableSpan.Start).GetStructure() is not PragmaWarningDirectiveTriviaSyntax disable
-            || root.FindTrivia(disableSpan.Start).Token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
+            || root.FindTrivia(disableSpan.Start).Token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member
+            || !SuppressesOneMember(disable, member))
         {
             return document;
         }
 
-        var movedCodes = new List<string>(disable.ErrorCodes.Count);
-        for (var i = 0; i < disable.ErrorCodes.Count; i++)
-        {
-            movedCodes.Add(PragmaWarningHelper.CodeText(disable.ErrorCodes[i]));
-        }
-
+        var movedCodes = CodesOf(disable);
         var restore = FindMatchingRestore(disable, movedCodes);
         var restoreStart = restore?.SpanStart;
 
@@ -105,6 +102,48 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
         }
 
         return document.WithSyntaxRoot(root.ReplaceNode(target, AddSuppressions(target, movedCodes, DetermineEndOfLine(root))));
+    }
+
+    /// <summary>Reads the warning codes a directive lists.</summary>
+    /// <param name="disable">The disable directive.</param>
+    /// <returns>The codes, in the order written.</returns>
+    private static List<string> CodesOf(PragmaWarningDirectiveTriviaSyntax disable)
+    {
+        var codes = new List<string>(disable.ErrorCodes.Count);
+        for (var i = 0; i < disable.ErrorCodes.Count; i++)
+        {
+            codes.Add(PragmaWarningHelper.CodeText(disable.ErrorCodes[i]));
+        }
+
+        return codes;
+    }
+
+    /// <summary>Returns whether the directive pair covers the one member the attribute would go on.</summary>
+    /// <param name="disable">The disable directive.</param>
+    /// <param name="member">The member the attribute would be written on.</param>
+    /// <returns><see langword="true"/> when no other member sits inside the suppressed region.</returns>
+    /// <remarks>
+    /// The fix erases both halves of the pair and writes one attribute. A pair that brackets several
+    /// members would leave the others warning again, and a disable with no restore runs to the end of the
+    /// file — neither is something one member-level attribute can stand in for.
+    /// </remarks>
+    private static bool SuppressesOneMember(PragmaWarningDirectiveTriviaSyntax disable, MemberDeclarationSyntax member)
+    {
+        if (FindMatchingRestore(disable, CodesOf(disable)) is not { } restore || member.Parent is not { } container)
+        {
+            return false;
+        }
+
+        var suppressed = TextSpan.FromBounds(disable.SpanStart, restore.Span.End);
+        foreach (var child in container.ChildNodes())
+        {
+            if (child != member && child is MemberDeclarationSyntax sibling && suppressed.OverlapsWith(sibling.Span))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Returns whether a directive lists any compiler (<c>CS</c> or numeric) code.</summary>

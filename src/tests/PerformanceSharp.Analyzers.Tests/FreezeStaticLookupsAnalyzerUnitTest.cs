@@ -190,6 +190,70 @@ public class FreezeStaticLookupsAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a target-typed initializer keeps its type when it moves into the wrapper call.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A target-typed <c>new</c> takes its type from where it sits. Moving it into an argument re-points it
+    /// at the parameter, so it has to be given the type the field declared before it travels.
+    /// </remarks>
+    [Test]
+    public async Task TargetTypedInitializerKeepsItsTypeAsync()
+    {
+        const string Source = """
+            using System.Collections.Generic;
+
+            public class C
+            {
+                private static readonly HashSet<int> {|PSH1114:N|} = new() { 1 };
+
+                public bool M(int key) => N.Contains(key);
+            }
+            """;
+        const string FixedSource = """
+            using System.Collections.Generic;
+
+            public class C
+            {
+                private static readonly global::System.Collections.Frozen.FrozenSet<int> N = global::System.Collections.Frozen.FrozenSet.ToFrozenSet(new HashSet<int>() { 1 });
+
+                public bool M(int key) => N.Contains(key);
+            }
+            """;
+        await VerifyOptInAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a target-typed initializer keeps its type on the fluent path too.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task TargetTypedInitializerKeepsItsTypeWhenImportedAsync()
+    {
+        const string Source = """
+                              using System;
+                              using System.Collections.Frozen;
+                              using System.Collections.Generic;
+
+                              public class C
+                              {
+                                  private static readonly HashSet<string> {|PSH1114:N|} = new(StringComparer.Ordinal) { "a" };
+
+                                  public bool M(string key) => N.Contains(key);
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System;
+                                   using System.Collections.Frozen;
+                                   using System.Collections.Generic;
+
+                                   public class C
+                                   {
+                                       private static readonly FrozenSet<string> N = new HashSet<string>(StringComparer.Ordinal) { "a" }.ToFrozenSet(StringComparer.Ordinal);
+
+                                       public bool M(string key) => N.Contains(key);
+                                   }
+                                   """;
+        await VerifyOptInAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies the rule ships disabled by default; freezing only pays off for read-heavy tables.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

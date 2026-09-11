@@ -78,7 +78,8 @@ public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider,
 
         var declarator = field.Declaration.Variables[0];
         var creation = (BaseObjectCreationExpressionSyntax)declarator.Initializer!.Value;
-        var wrapped = BuildWrapperCall(model, creation, wrapperName, frozenName, hasImport, cancellationToken);
+        var source = WithDeclaredType(creation, typeName);
+        var wrapped = BuildWrapperCall(model, creation, source, wrapperName, frozenName, hasImport, cancellationToken);
 
         TypeSyntax frozenType = SyntaxFactory.GenericName(SyntaxFactory.Identifier(frozenName), typeName.TypeArgumentList);
         if (!hasImport)
@@ -95,9 +96,28 @@ public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider,
                 .WithVariables(SyntaxFactory.SingletonSeparatedList(newDeclarator)));
     }
 
+    /// <summary>Gives a target-typed creation the type the field declared.</summary>
+    /// <param name="creation">The original creation expression.</param>
+    /// <param name="declaredType">The field's declared collection type.</param>
+    /// <returns>The creation as an expression that carries its own type.</returns>
+    /// <remarks>
+    /// A target-typed <c>new</c> takes its type from where it sits. Both forms of the rewrite move the
+    /// creation — into an argument, or onto a member access — so it would be re-pointed at the wrapper's
+    /// parameter, or left with no target at all. Naming the type keeps it building what it built before.
+    /// </remarks>
+    private static ExpressionSyntax WithDeclaredType(BaseObjectCreationExpressionSyntax creation, GenericNameSyntax declaredType)
+        => creation is ImplicitObjectCreationExpressionSyntax implicitCreation
+            ? SyntaxFactory.ObjectCreationExpression(
+                SyntaxFactory.Token(default, SyntaxKind.NewKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+                declaredType.WithoutTrivia(),
+                implicitCreation.ArgumentList,
+                implicitCreation.Initializer)
+            : creation.WithoutTrivia();
+
     /// <summary>Builds the <c>ToFrozen*</c> call, fluent when the namespace is imported and static otherwise.</summary>
     /// <param name="model">The semantic model for the document.</param>
-    /// <param name="creation">The original creation expression.</param>
+    /// <param name="creation">The original creation expression, bound for its comparer argument.</param>
+    /// <param name="source">The creation as it should be written into the call.</param>
     /// <param name="wrapperName">The wrapper method name.</param>
     /// <param name="frozenName">The frozen factory class name.</param>
     /// <param name="hasImport">Whether the frozen namespace is imported.</param>
@@ -106,6 +126,7 @@ public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider,
     private static InvocationExpressionSyntax BuildWrapperCall(
         SemanticModel model,
         BaseObjectCreationExpressionSyntax creation,
+        ExpressionSyntax source,
         string wrapperName,
         string frozenName,
         bool hasImport,
@@ -114,7 +135,7 @@ public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider,
         var arguments = SyntaxFactory.SeparatedList<ArgumentSyntax>();
         if (!hasImport)
         {
-            arguments = arguments.Add(SyntaxFactory.Argument(creation.WithoutTrivia()));
+            arguments = arguments.Add(SyntaxFactory.Argument(source));
         }
 
         if (TryGetComparerArgument(model, creation, cancellationToken) is { } comparer)
@@ -127,7 +148,7 @@ public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider,
             return SyntaxFactory.InvocationExpression(
                 SyntaxFactory.MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
-                    creation.WithoutTrivia(),
+                    source,
                     SyntaxFactory.IdentifierName(wrapperName)),
                 SyntaxFactory.ArgumentList(arguments));
         }
